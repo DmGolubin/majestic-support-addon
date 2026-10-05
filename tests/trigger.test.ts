@@ -12,6 +12,6 @@ describe("trigger", () => {
         expect(findTrigger(";снр ", ";")).toBeNull();
     });
     it("ignores Slate zero-width chars and supports other prefixes", () => {
-        expect(findTrigger("﻿.тех", ".")).toEqual({ query: "тех", length: 4 });
+        expect(findTrigger("\uFEFF.тех", ".")).toEqual({ query: "тех", length: 4 });
     });
 });

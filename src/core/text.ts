@@ -5,7 +5,7 @@
  */
 
 /** Lower case, ё→е, nbsp→space. Keeps string length (needed for highlighting). */
-export const soft = (s: string) => String(s ?? "").replace(/ /g, " ").toLowerCase().replace(/ё/g, "е");
+export const soft = (s: string) => String(s ?? "").replace(/\u00A0/g, " ").toLowerCase().replace(/ё/g, "е");
 
 /** For matching: placeholders {…} removed, whitespace squeezed. */
 export const hard = (s: string) => soft(s).replace(/\{[^}]*\}/g, " ").replace(/\s+/g, " ").trim();

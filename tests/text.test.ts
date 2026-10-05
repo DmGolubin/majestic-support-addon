@@ -3,8 +3,8 @@ import { hard, soft, splitGreeting, stripMarker, titleKey, tokenize } from "../s
 
 describe("text", () => {
     it("soft keeps length, folds ё and nbsp", () => {
-        expect(soft("Ёлка X")).toBe("елка x");
-        expect(soft("Ёлка X").length).toBe(6);
+        expect(soft("Ёлка\u00A0X")).toBe("елка x");
+        expect(soft("Ёлка\u00A0X").length).toBe(6);
     });
     it("hard drops {placeholders} and squeezes spaces", () => {
         expect(hard("  Привет {user name}  мир ")).toBe("привет мир");
@@ -12,7 +12,7 @@ describe("text", () => {
     });
     it("titleKey ignores punctuation and case", () => {
         expect(titleKey("Проблемы с соединением / Server not responding"))
-            .toBe(titleKey("проблемы  с соединением — server not responding!"));
+            .toBe(titleKey("проблемы\u00A0 с соединением — server not responding!"));
     });
     it("splitGreeting uses panel marker", () => {
         const r = splitGreeting("**Привет!**\n[[greeting:end]]\nТело");
