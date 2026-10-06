@@ -1,0 +1,114 @@
+<style>
+  .cards .card-image { display:block; aspect-ratio:auto; }
+  .dc { width:100%; box-sizing:border-box; background:#313338; border-radius:10px; padding:14px; font-family:"gg sans","Segoe UI",sans-serif; color:#dbdee1; position:relative; min-height:420px; overflow:hidden; }
+  .dc-chat { position:absolute; left:14px; right:14px; bottom:14px; height:40px; background:#383a40; border-radius:8px; display:flex; align-items:center; padding:0 12px; color:#6d6f78; font-size:13px; }
+  .dc-chat .ic { margin-left:auto; color:#b5bac1; font-size:15px; }
+  .pop { position:absolute; background:#111214; border:1px solid #2b2d31; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5); display:flex; flex-direction:column; overflow:hidden; font-size:12px; }
+  .srch { margin:8px; background:#1e1f22; border-radius:6px; padding:7px 9px; color:#949ba4; }
+  .tabs { display:flex; gap:5px; padding:0 8px 6px; }
+  .tab { padding:2px 9px; border-radius:10px; background:#2e3035; color:#949ba4; font-size:11px; }
+  .tab.on { background:#5865f2; color:#fff; }
+  .row { padding:6px 9px; margin:0 6px; border-radius:5px; }
+  .row.sel { background:#2e3035; }
+  .t { color:#f2f3f5; font-weight:600; }
+  .k { float:right; font-size:10px; color:#949ba4; border:1px solid #3f4147; border-radius:3px; padding:0 4px; }
+  .pv { color:#949ba4; font-size:11px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .full { color:#c4c9ce; font-size:11px; line-height:1.45; white-space:pre-line; margin-top:5px; }
+  .sec { font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:#80848e; padding:6px 15px 3px; }
+  .foot { margin-top:auto; border-top:1px solid #2b2d31; padding:5px 10px; font-size:10px; color:#80848e; }
+  .pane { background:#1a1b1e; padding:10px 12px; overflow:hidden; }
+  .pane h5 { margin:0 0 6px; color:#f2f3f5; font-size:13px; }
+  .btn { display:inline-block; background:#5865f2; color:#fff; border-radius:4px; padding:4px 10px; font-size:11px; margin-top:8px; }
+  .btn.g { background:#4e5058; }
+  .dim { position:absolute; inset:0; background:rgba(0,0,0,.45); }
+</style>
+
+<h2>Какая компоновка окна шаблонов ближе?</h2>
+<p class="subtitle">Всем трём нужно: быстро вставить, когда знаешь (A), и посмотреть текст целиком, когда сомневаешься (B). Разница в том, где живёт полный текст. Кликни вариант; можно написать «как B, но…».</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="compact" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="dc">
+        <div class="pop" style="right:14px; bottom:62px; width:330px; height:350px;">
+          <div class="srch">🔍 соедин</div>
+          <div class="tabs"><span class="tab">Все</span><span class="tab on">Majestic RP</span><span class="tab">Россия Онлайн</span></div>
+          <div class="row sel"><span class="t">Проблемы с соединением / Server not responding</span><span class="k">Alt+1</span>
+            <div class="full">**Приветствую! Благодарим Вас за обращение…**
+Убедитесь, что у Вас отсутствует антивирусное ПО…
+1. Смените IP адрес у провайдера или при помощи VPN…
+2. Удалите Razer Cortex, Razer Synapse, Xbox game bar…</div></div>
+          <div class="row"><span class="t">Ошибка внедрения патча / GTA V вылетела</span><span class="k">Alt+2</span><div class="pv">Это может означать, что программа или служба блокирует игру…</div></div>
+          <div class="row"><span class="t">Проблемы с аккаунтом</span><span class="k">Alt+3</span><div class="pv">Для восстановления доступа к аккаунту…</div></div>
+          <div class="foot">Enter вставить · Space развернуть/свернуть · Tab набор</div>
+        </div>
+        <div class="dc-chat">Написать в ticket-888fq0o-soql <span class="ic">💬 🎁 GIF 😊</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · Компактное, раскрытие в списке</h3>
+      <p>Окно над строкой ввода, как сейчас, но выделенный шаблон раскрывается прямо в списке (Space). Маленькое и быстрое; для сомневающихся — текст виден без лишних окон, но длинный шаблон сдвигает список.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="split" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="dc">
+        <div class="pop" style="right:14px; bottom:62px; width:560px; height:350px; flex-direction:row;">
+          <div style="width:52%; display:flex; flex-direction:column;">
+            <div class="srch">🔍 соедин</div>
+            <div class="tabs"><span class="tab">Все</span><span class="tab on">Majestic RP</span><span class="tab">РО</span></div>
+            <div class="row sel"><span class="t">Проблемы с соединением</span><span class="k">Alt+1</span></div>
+            <div class="row"><span class="t">Ошибка внедрения патча</span><span class="k">Alt+2</span></div>
+            <div class="row"><span class="t">Проблемы с аккаунтом</span><span class="k">Alt+3</span></div>
+            <div class="row"><span class="t">Баг репорт</span><span class="k">Alt+4</span></div>
+            <div class="row"><span class="t">Запрос логов</span><span class="k">Alt+5</span></div>
+            <div class="foot">Enter вставить · ↑↓ выбор</div>
+          </div>
+          <div class="pane" style="flex:1; border-left:1px solid #2b2d31;">
+            <h5>Проблемы с соединением / Server not responding</h5>
+            <div class="full">**Приветствую! Благодарим Вас за обращение в службу поддержки.**
+
+Убедитесь, что у Вас отсутствует антивирусное ПО (особенно Kaspersky, Avast, AVG).
+
+Для решения Вашей проблемы:
+1. Смените IP адрес у провайдера или при помощи VPN…
+2. Удалите Razer Cortex, Razer Synapse, Xbox game bar…
+3. Если у вас есть софт для «уменьшения пинга»…</div>
+            <span class="btn">Вставить</span>
+          </div>
+        </div>
+        <div class="dc-chat">Написать в ticket-888fq0o-soql <span class="ic">💬 🎁 GIF 😊</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · Широкое, список + предпросмотр справа</h3>
+      <p>Слева список, справа всегда полный текст выделенного шаблона. Сомневающимся идеально; для быстрых — окно вдвое шире и закрывает часть чата, предпросмотр им не нужен.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="palette" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="dc">
+        <div class="dim"></div>
+        <div class="pop" style="left:50%; top:40px; transform:translateX(-50%); width:440px; height:330px;">
+          <div class="srch" style="font-size:14px; padding:10px;">🔍 соедин</div>
+          <div class="tabs"><span class="tab">Все</span><span class="tab on">Majestic RP</span><span class="tab">РО</span><span class="tab">⭐ Мои</span></div>
+          <div class="sec">Закреплённые</div>
+          <div class="row sel"><span class="t">Проблемы с соединением</span><span class="k">Alt+1</span><div class="pv">Убедитесь, что у Вас отсутствует антивирусное ПО…</div></div>
+          <div class="row"><span class="t">Ошибка внедрения патча</span><span class="k">Alt+2</span><div class="pv">Это может означать, что программа…</div></div>
+          <div class="sec">Остальные</div>
+          <div class="row"><span class="t">Проблемы с аккаунтом</span><span class="k">Alt+3</span><div class="pv">Для восстановления доступа…</div></div>
+          <div class="foot">Enter вставить · → предпросмотр сбоку · Tab набор</div>
+        </div>
+        <div class="dc-chat">Написать в ticket-888fq0o-soql <span class="ic">💬 🎁 GIF 😊</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · Палитра по центру, предпросмотр по требованию</h3>
+      <p>Как Ctrl+K в Discord: по центру экрана, крупный поиск. По умолчанию узкий список (быстро), стрелка → или кнопка выдвигает панель полного текста справа и запоминает выбор. Быстрым — без лишнего, сомневающимся — включил раз и работает.</p>
+    </div>
+  </div>
+
+</div>
