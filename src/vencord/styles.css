@@ -1,0 +1,115 @@
+#vc-stx-host {
+    --stx-bg: hsl(216 16% 6%);
+    --stx-card: hsl(218 17% 9%);
+    --stx-hover: hsl(215 16% 13%);
+    --stx-bd: hsl(215 16% 15%);
+    --stx-bd2: hsl(215 16% 20%);
+    --stx-tx: hsl(216 10% 91%);
+    --stx-mu: hsl(214 10% 72%);
+    --stx-pr: hsl(342 77% 44%);
+    --stx-ring: hsl(342 80% 56%);
+    --stx-amber: #e0a83f;
+
+    font-family: "Golos Text", Inter, "Segoe UI", sans-serif;
+    color: var(--stx-tx);
+}
+
+.vc-stx-root { position: fixed; inset: 0; pointer-events: none; z-index: 1000; }
+.vc-stx-root > * { pointer-events: auto; }
+
+.vc-stx-win, .vc-stx-pop, .vc-stx-dialog, .vc-stx-menu, .vc-stx-compose {
+    position: fixed;
+    background: var(--stx-card);
+    border: 1px solid var(--stx-bd);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgb(0 0 0 / 55%);
+    color: var(--stx-tx);
+    font-size: 13px;
+}
+
+.vc-stx-win { display: flex; overflow: hidden; height: 420px; }
+.vc-stx-col { display: flex; flex-direction: column; min-width: 0; padding: 10px 6px 8px 10px; width: 400px; flex: none; }
+.vc-stx-search { background: var(--stx-bg); border: 1px solid var(--stx-bd); border-radius: 8px; padding: 8px 10px; color: var(--stx-tx); outline: none; font: inherit; }
+.vc-stx-search:focus { border-color: var(--stx-ring); }
+.vc-stx-proj { display: flex; align-items: center; gap: 8px; margin: 8px 2px 4px; padding-bottom: 6px; border-bottom: 1px solid var(--stx-bd); }
+.vc-stx-proj b { font-weight: 600; }
+.vc-stx-tab { background: none; border: 0; color: var(--stx-mu); font: inherit; padding: 0 2px 5px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.vc-stx-tab.on { color: #fff; box-shadow: inset 0 -2px 0 var(--stx-pr); }
+.vc-stx-hint { color: var(--stx-mu); font-size: 11px; padding: 2px 3px 4px; }
+.vc-stx-list { overflow-y: auto; flex: 1; padding-right: 4px; }
+.vc-stx-sec { color: var(--stx-mu); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin: 8px 3px 3px; }
+.vc-stx-item { padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.vc-stx-item.sel { background: var(--stx-hover); box-shadow: inset 3px 0 0 var(--stx-pr); }
+.vc-stx-r { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.vc-stx-nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vc-stx-line { color: var(--stx-mu); font-size: 11.5px; margin: 2px 0 0 23px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vc-stx-kb { flex: none; padding: 0 5px; border-radius: 5px; font-size: 10px; font-weight: 600; border: 1px solid var(--stx-bd2); color: var(--stx-mu); }
+.vc-stx-badge { flex: none; font-size: 10px; padding: 0 6px; border-radius: 999px; }
+.vc-stx-badge.old { color: #f2879f; background: #1d1116; border: 1px solid #3b1a24; }
+.vc-stx-badge.star { color: var(--stx-amber); }
+.vc-stx-empty { color: var(--stx-mu); padding: 14px 6px; }
+.vc-stx-foot { color: var(--stx-mu); font-size: 10.5px; padding: 6px 3px 0; border-top: 1px solid var(--stx-bd); margin-top: 4px; }
+.vc-stx mark, .vc-stx-root mark { background: #211b10; color: #f1c46f; border-radius: 3px; }
+
+.vc-stx-pi { flex: none; border-radius: 4px; box-sizing: border-box; object-fit: cover; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
+.vc-stx-pi-ro { background: #2a2b31; object-fit: contain; padding: 1px; }
+.vc-stx-pi-none { background: #2a2b31; color: var(--stx-amber); }
+
+.vc-stx-pre { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 12px; border-left: 1px solid var(--stx-bd); }
+.vc-stx-pre h4 { margin: 0 0 6px; font-size: 14px; color: #fff; border-left: 4px solid var(--stx-amber); padding-left: 9px; }
+.vc-stx-meta { color: var(--stx-mu); font-size: 11px; margin-bottom: 8px; }
+.vc-stx-body { flex: 1; overflow-y: auto; white-space: pre-wrap; line-height: 1.45; font-size: 12.5px; color: hsl(216 10% 85%); }
+.vc-stx-greet { color: var(--stx-mu); }
+.vc-stx-gmark { display: inline-block; font-size: 10.5px; color: #f1c46f; background: #211b10; border-radius: 4px; padding: 0 5px; margin: 4px 0; }
+.vc-stx-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+.vc-stx-btn { background: var(--stx-pr); color: #fff; border: 0; border-radius: 7px; padding: 6px 12px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.vc-stx-btn:hover { filter: brightness(1.1); }
+.vc-stx-btn.vc-stx-ghost { background: transparent; color: var(--stx-tx); box-shadow: inset 0 0 0 1px var(--stx-bd2); font-weight: 500; }
+.vc-stx-btn.vc-stx-danger { background: transparent; color: #f2879f; box-shadow: inset 0 0 0 1px #3b1a24; }
+
+.vc-stx-pop { padding: 6px 8px; min-width: 360px; max-width: 560px; }
+
+.vc-stx-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 45%); }
+.vc-stx-dialog { left: 50%; top: 28%; transform: translateX(-50%); width: 440px; padding: 16px; }
+.vc-stx-dialog h4 { margin: 0 0 8px; font-size: 14px; color: #fff; border-left: 4px solid var(--stx-amber); padding-left: 9px; }
+.vc-stx-callout { border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; font-size: 12.5px; }
+.vc-stx-callout.danger { background: #1d1116; border-left: 4px solid #ef456e; }
+.vc-stx-callout.warn { background: #211b10; border-left: 4px solid var(--stx-amber); }
+.vc-stx-callout span { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px; }
+.vc-stx-callout.danger span { color: #f2879f; }
+.vc-stx-callout.warn span { color: #f1c46f; }
+.vc-stx-field { margin: 8px 0; }
+.vc-stx-field label { display: block; color: var(--stx-mu); font-size: 11px; margin-bottom: 3px; }
+.vc-stx-opt { display: inline-block; margin: 0 4px 4px 0; padding: 4px 10px; border-radius: 7px; border: 1px solid var(--stx-bd2); background: none; color: var(--stx-mu); font: inherit; cursor: pointer; }
+.vc-stx-opt.on { border-color: var(--stx-pr); background: rgb(198 26 89 / 15%); color: #fff; }
+.vc-stx-check { display: flex; gap: 6px; align-items: center; color: var(--stx-mu); font-size: 12px; margin-top: 8px; }
+
+.vc-stx-menu { padding: 4px; min-width: 200px; }
+.vc-stx-menu button { display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--stx-tx); font: inherit; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.vc-stx-menu button:hover { background: var(--stx-hover); }
+
+.vc-stx-compose { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 10px; background: #1a160e; border-color: #3a2e14; }
+.vc-stx-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px 3px 8px; border-radius: 7px; background: var(--stx-card); border: 1px solid var(--stx-bd); cursor: grab; user-select: none; }
+.vc-stx-chip.drag { opacity: .5; }
+.vc-stx-chip button { background: none; border: 0; color: var(--stx-mu); cursor: pointer; font: inherit; padding: 0 2px; }
+
+.vc-stx-views { display: flex; gap: 12px; margin: 2px 2px 4px; }
+.vc-stx-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 2px 6px; }
+.vc-stx-chipf { background: none; border: 1px solid var(--stx-bd2); border-radius: 999px; padding: 1px 9px; font: inherit; font-size: 11px; color: var(--stx-mu); cursor: pointer; }
+.vc-stx-chipf.on { border-color: var(--stx-pr); background: rgb(198 26 89 / 15%); color: #fff; }
+.vc-stx-color { flex: none; width: 3px; height: 16px; border-radius: 2px; }
+.vc-stx-tip { position: fixed; width: 380px; max-height: 320px; display: flex; overflow: hidden; background: var(--stx-card); border: 1px solid var(--stx-bd); border-radius: 12px; box-shadow: 0 12px 32px rgb(0 0 0 / 55%); pointer-events: none; }
+.vc-stx-tip .vc-stx-pre { border-left: 0; }
+
+/* Settings render inside Discord's settings, outside #vc-stx-host — give them the tokens too. */
+.vc-stx-settings { --stx-pr: hsl(342 77% 44%); --stx-tx: hsl(216 10% 91%); --stx-bd2: hsl(215 16% 20%); color: var(--text-default, #dbdee1); }
+.vc-stx-settings h3 { margin: 16px 0 6px; font-weight: 600; }
+.vc-stx-settings p { margin: 4px 0 8px; }
+.vc-stx-muted { color: var(--text-muted, #949ba4); }
+.vc-stx-row { display: flex; gap: 6px; }
+
+@media (prefers-reduced-motion: no-preference) {
+    .vc-stx-win, .vc-stx-pop, .vc-stx-dialog { animation: vc-stx-in .12s ease-out; }
+}
+@keyframes vc-stx-in { from { opacity: 0; } to { opacity: 1; } }
