@@ -49,8 +49,8 @@ export function Preview({ t, compact = false }: { t: Template | undefined; compa
             </div>
             {compact && <div className="vc-stx-tiphint">Shift — весь текст</div>}
             {!compact && <div className="vc-stx-acts">
-                <button className="vc-stx-btn" onClick={() => insertTemplate(t)}>Вставить <span className="vc-stx-kb">↵</span></button>
-                {greeting && <button className="vc-stx-btn vc-stx-ghost" onClick={() => insertTemplate(t, { noGreeting: true })}>Без приветствия</button>}
+                <button className="vc-stx-btn" onClick={() => insertTemplate(t, { via: "preview" })}>Вставить <span className="vc-stx-kb">↵</span></button>
+                {greeting && <button className="vc-stx-btn vc-stx-ghost" onClick={() => insertTemplate(t, { noGreeting: true, via: "preview" })}>Без приветствия</button>}
                 <button className="vc-stx-btn vc-stx-ghost" onClick={() => addToCompose(t)}>+ в ответ</button>
                 <button className="vc-stx-btn vc-stx-ghost vc-stx-icon vc-stx-right" title="Избранное (Ctrl+D)" onClick={() => store.toggleFavorite(t.id)}>{fav ? "★" : "☆"}</button>
             </div>}

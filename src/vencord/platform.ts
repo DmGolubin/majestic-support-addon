@@ -6,7 +6,7 @@
 
 import * as DataStore from "@api/DataStore";
 import { insertTextIntoChatInputBox } from "@utils/discord";
-import { ChannelStore, FluxDispatcher, SelectedChannelStore, SelectedGuildStore, showToast } from "@webpack/common";
+import { ChannelStore, FluxDispatcher, GuildStore, SelectedChannelStore, SelectedGuildStore, showToast } from "@webpack/common";
 
 import { StorageLike } from "./core/state";
 
@@ -29,6 +29,8 @@ export function insertText(text: string): boolean {
 }
 
 export const currentGuildId = (): string | null => SelectedGuildStore.getGuildId() ?? null;
+
+export const guildName = (id: string) => GuildStore.getGuild(id)?.name ?? "";
 
 export function currentChannel() {
     const id = SelectedChannelStore.getChannelId() ?? null;

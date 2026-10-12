@@ -14,7 +14,8 @@ import { createRoot } from "@webpack/common";
 import { DM_KEY, projectForGuild } from "./core/guard";
 import { comboOf } from "./core/keys";
 import { favoritesOf } from "./core/rank";
-import { onChannelChange } from "./platform";
+import { currentChannel, onChannelChange } from "./platform";
+import { debugEnabled, dlog, keyDesc, setDebugEnabled } from "./ui/debug";
 import { insertTemplate, supersede } from "./ui/flow";
 import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
@@ -83,33 +84,39 @@ function trapDialogFocus(e: KeyboardEvent) {
 function onKey(e: KeyboardEvent) {
     if (swallowLatched(e)) return; // held key after an insert: never repeat it, never leak it to Discord
     const s = ui.get();
-    if (s.dialog) return trapDialogFocus(e); // dialogs handle their own keys
+    if (s.dialog) {
+        if (debugEnabled() && (e.key === "Tab" || e.key === "Enter")) dlog("key", { h: "dialog", key: keyDesc(e), dialog: s.dialog.kind });
+        return trapDialogFocus(e); // dialogs handle their own keys
+    }
 
     if (handleInlineKey(e)) {
         e.preventDefault();
         e.stopPropagation();
+        if (debugEnabled()) dlog("key", { h: "inline", key: keyDesc(e) }, "inline:" + e.code);
         return;
     }
 
     if (e.ctrlKey && e.altKey && !e.shiftKey && e.code === "KeyT") {
         e.preventDefault();
         e.stopPropagation();
+        if (debugEnabled()) dlog("key", { h: "hotkey", key: keyDesc(e), action: e.repeat ? "repeat — игнор" : s.windowOpen ? "закрыть окно" : "открыть окно" });
         if (!e.repeat) toggleWindow();
         return;
     }
 
     const digit = /^Digit([1-9])$/.exec(e.code);
     if (digit && e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
-        if (inForeignInput(e)) return;
+        if (inForeignInput(e)) { dlog("key", { h: "alt-n", key: keyDesc(e), skip: "фокус в чужом поле ввода" }); return; }
         e.preventDefault();
         e.stopPropagation();
-        if (e.repeat) return;
+        if (e.repeat) { dlog("key", { h: "alt-n", key: keyDesc(e), skip: "repeat" }, "altn-repeat:" + e.code); return; }
         const i = Number(digit[1]) - 1;
         const list = s.windowOpen ? visibleItems : favoritesOf(poolFor(activeProject().project), store.ctx());
         const t = list[i];
+        dlog("key", { h: "alt-n", key: keyDesc(e), from: s.windowOpen ? "окно" : "избранное", id: t?.id, title: t?.title ?? "(пусто)" });
         if (t) {
             latchKey(e.code);
-            void insertTemplate(t);
+            void insertTemplate(t, { via: "alt-" + (i + 1) });
         }
         return;
     }
@@ -117,12 +124,13 @@ function onKey(e: KeyboardEvent) {
     const combo = comboOf(e);
     const bound = combo ? store.templateForCombo(combo) : undefined;
     if (bound) {
-        if (inForeignInput(e)) return;
+        if (inForeignInput(e)) { dlog("key", { h: "bind", key: keyDesc(e), skip: "фокус в чужом поле ввода" }); return; }
         e.preventDefault();
         e.stopPropagation();
+        dlog("key", { h: "bind", key: keyDesc(e), id: bound.id, title: bound.title }, e.repeat ? "bind-repeat:" + e.code : undefined);
         if (!e.repeat) {
             latchKey(e.code);
-            void insertTemplate(bound);
+            void insertTemplate(bound, { via: "bind " + combo });
         }
     }
 }
@@ -140,12 +148,24 @@ function channelChanged(guildId: string | null) {
     const patch: Partial<UiState> = { compose: [], inline: null, menu: null, windowOpen: false };
     const key = guildId ?? DM_KEY;
     if (key !== lastGuild) patch.sessionProject = null; // a project picked in the window is per server
+    if (debugEnabled()) {
+        const ch = currentChannel();
+        dlog("channel", { guild: key, channel: ch.id, name: ch.name, serverChanged: key !== lastGuild, hadDialog: !!ui.get().dialog, hadWindow: ui.get().windowOpen });
+    }
     lastGuild = key;
     ui.set(patch);
 }
 
 const settings = definePluginSettings({
     panel: { type: OptionType.COMPONENT, component: Settings },
+    // Vencord's own settings store: a UI preference, kept out of the templates data (and its backups).
+    debug: {
+        type: OptionType.BOOLEAN,
+        displayName: "Режим отладки",
+        description: "Панель состояния и журнал событий слева внизу, кнопка «Скопировать отчёт». Без текстов шаблонов.",
+        default: false,
+        onChange: (v: boolean) => setDebugEnabled(v),
+    },
 });
 
 export default definePlugin({
@@ -167,6 +187,7 @@ export default definePlugin({
         root.render(<Host />);
         offInline = startInline();
         offChannel = onChannelChange(channelChanged);
+        setDebugEnabled(!!settings.store.debug);
     },
 
     stop() {
@@ -183,5 +204,6 @@ export default definePlugin({
         host?.remove();
         root = host = null;
         ui.set({ windowOpen: false, dialog: null, inline: null, menu: null });
+        setDebugEnabled(false);
     },
 });

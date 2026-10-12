@@ -13,6 +13,7 @@ import { search } from "../core/search";
 import { splitGreeting } from "../core/text";
 import { ProjectId, PROJECTS, Template } from "../core/types";
 import { chatAreaRect } from "../platform";
+import { debugEnabled, debugState, dlog, keyDesc, setDebugHover, setDebugWindow } from "./debug";
 import { addToCompose, ensureProject, insertTemplate } from "./flow";
 import { nqHighlight } from "./highlight";
 import { latchKey } from "./keylatch";
@@ -72,7 +73,7 @@ function RowImpl({ t, sel, alt, bind, icon, tokens, line, onHover, onMove, onLea
             onMouseEnter={e => onHover(t, e.currentTarget)}
             onMouseMove={e => onMove(t, e)}
             onMouseLeave={onLeave}
-            onClick={() => { onHide(); void insertTemplate(t); }}
+            onClick={() => { onHide(); void insertTemplate(t, { via: "window-click" }); }}
             onContextMenu={e => { e.preventDefault(); onHide(); ui.set({ menu: { x: e.clientX, y: e.clientY, id: t.id } }); }}
         >
             <div className="vc-stx-r">
@@ -98,6 +99,7 @@ export function Window() {
     const hasCompose = composeLen > 0;
     const dialogOpen = ui.useSelect(s => s.dialog !== null);
     ui.useSelect(s => s.sessionProject); // activeProject() reads it
+    const debugOn = debugState.useSelect(s => s.on);
     const { project, binding } = activeProject();
     const [query, setQuery] = useState("");
     const [view, setView] = useState<View>("all");
@@ -115,6 +117,7 @@ export function Window() {
     const hoveredId = useRef<string | null>(null);
     /** Mirrors `wide` for the stable hover callbacks: no tooltips while the preview shows. */
     const wideRef = useRef(false);
+    const peekRef = useRef(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const winRef = useRef<HTMLDivElement>(null);
@@ -164,15 +167,27 @@ export function Window() {
     }, [dialogOpen, composeLen]);
     useEffect(() => { setSel(0); }, [query, project, view, cat]);
     useEffect(() => { if (cat && !cats.includes(cat)) setCat(null); }, [cats.join("|")]);
-    useEffect(() => { listRef.current?.querySelector(".vc-stx-it.sel")?.scrollIntoView({ block: "nearest" }); }, [sel]);
+    useEffect(() => {
+        listRef.current?.querySelector(".vc-stx-it.sel")?.scrollIntoView({ block: "nearest" });
+        if (debugEnabled()) dlog("sel", { idx: selIdx, id: current?.id, title: current?.title }, "sel");
+    }, [sel]);
+    // Debug panel: the window's local state after every render (only while debug is on), cleared on close.
+    useEffect(() => {
+        if (debugOn) setDebugWindow({ peek, view, cat, query, selIdx, selId: current?.id ?? null, hoveredId: hoveredId.current });
+    });
+    useEffect(() => () => setDebugWindow(null), []);
     useEffect(() => {
         const onDown = (e: MouseEvent) => {
             const el = e.target as HTMLElement;
-            if (el.closest?.(".vc-stx-win, .vc-stx-menu, .vc-stx-dialog, [data-stx=button], .vc-stx-backdrop")) return;
+            if (el.closest?.(".vc-stx-win, .vc-stx-menu, .vc-stx-dialog, [data-stx=button], .vc-stx-backdrop, .vc-stx-debug")) return;
             ui.set({ windowOpen: false });
         };
         // Shift held = temporary full-text preview; released anywhere = hide.
-        const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") setPeek(false); };
+        const onUp = (e: KeyboardEvent) => {
+            if (e.key !== "Shift") return;
+            if (peekRef.current) dlog("peek", { on: false });
+            setPeek(false);
+        };
         document.addEventListener("mousedown", onDown, true);
         document.addEventListener("keyup", onUp, true);
         return () => {
@@ -191,6 +206,7 @@ export function Window() {
         const onScroll = () => {
             scrolling.current = true;
             hoveredId.current = null; // rows move under the cursor: the next real mouse event says which one
+            setDebugHover(null);
             if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; }
             if (hoverShown.current) { hoverShown.current = false; setHover(null); }
             if (scrollTimer.current) clearTimeout(scrollTimer.current);
@@ -209,6 +225,7 @@ export function Window() {
         hoverTimer.current = null;
         if (scrolling.current) return;
         hoveredId.current = t.id;
+        if (debugEnabled()) { setDebugHover(t.id); dlog("hover", { id: t.id, title: t.title }, "hover"); }
         if (wideRef.current) return; // the preview is shown: no tooltip
         hoverTimer.current = setTimeout(() => {
             hoverTimer.current = null;
@@ -226,10 +243,13 @@ export function Window() {
     }, []);
     const moveHover = useCallback((t: Template, e: React.MouseEvent) => {
         // Synthetic moves (scroll, layout) have no movement: only a real one marks the row as hovered.
-        if (hoveredId.current !== t.id && (e.movementX || e.movementY)) hoveredId.current = t.id;
+        if (hoveredId.current === t.id || !(e.movementX || e.movementY)) return;
+        hoveredId.current = t.id;
+        if (debugEnabled()) { setDebugHover(t.id); dlog("hover", { id: t.id, title: t.title, by: "move" }, "hover"); }
     }, []);
     const leaveHover = useCallback(() => {
         hoveredId.current = null;
+        setDebugHover(null);
         stopHover();
     }, []);
 
@@ -238,6 +258,9 @@ export function Window() {
         const atEnd = !!input && input.selectionStart === input.value.length;
         const atStart = !!input && input.selectionEnd === 0;
         const eat = () => { e.preventDefault(); e.stopPropagation(); };
+        const log = (what: string, data: Record<string, unknown> = {}) => {
+            if (debugEnabled()) dlog("key", { h: "window", key: keyDesc(e), what, ...data }, "win:" + keyDesc(e) + what);
+        };
         if (e.key === "Shift") {
             if (e.repeat) return;
             // Peek the row under the mouse when there is one (it becomes the selection), else the keyboard one.
@@ -245,30 +268,42 @@ export function Window() {
             if (hi >= 0 && hi !== selIdx) setSel(hi);
             stopHover();
             setPeek(true);
+            if (debugEnabled()) {
+                const target = items[hi >= 0 ? hi : selIdx];
+                dlog("peek", { on: true, from: hi >= 0 ? "мышь" : "выделение", id: target?.id, title: target?.title });
+            }
         } else if (e.key === "Escape") {
             eat();
+            log(query ? "очистить запрос" : "закрыть окно");
             if (query) setQuery(""); else ui.set({ windowOpen: false });
         } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             eat();
             hoveredId.current = null; // the keyboard took over: Shift peeks the keyboard selection until the mouse moves
+            setDebugHover(null);
+            log("выделение");
             if (items.length) setSel(i => (Math.min(i, items.length - 1) + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length);
         } else if (e.key === "Enter" && current) {
             eat();
+            log(e.shiftKey ? "в ответ" : "вставить", { id: current.id, title: current.title });
             if (e.repeat) return;
             latchKey(e.nativeEvent.code);
-            if (e.shiftKey) void addToCompose(current); else void insertTemplate(current);
+            if (e.shiftKey) void addToCompose(current); else void insertTemplate(current, { via: "window-enter" });
         } else if (e.key === "ArrowRight" && atEnd && !store.data.previewOpen) {
             eat();
+            log("открыть превью");
             store.setPreviewOpen(true);
         } else if (e.key === "ArrowLeft" && atStart && store.data.previewOpen) {
             eat();
+            log("скрыть превью");
             store.setPreviewOpen(false);
         } else if (e.key === "Tab") {
             eat();
+            log("вкладка");
             const i = VIEWS.indexOf(view);
             setView(VIEWS[(i + (e.shiftKey ? -1 : 1) + VIEWS.length) % VIEWS.length]);
         } else if (e.ctrlKey && e.code === "KeyD" && current) {
             eat();
+            log("избранное", { id: current.id });
             if (e.repeat) return;
             store.toggleFavorite(current.id);
         }
@@ -276,6 +311,7 @@ export function Window() {
 
     const wide = store.data.previewOpen || peek;
     wideRef.current = wide;
+    peekRef.current = peek;
     const avail = (rect?.width ?? 900) - 16;
     const width = Math.max(0, Math.min(wide ? 820 : 360, avail));
     const right = rect ? Math.max(EDGE, window.innerWidth - rect.right) : 80;

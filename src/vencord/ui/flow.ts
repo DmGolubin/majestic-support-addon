@@ -9,6 +9,7 @@ import { splitGreeting, stripMarker } from "../core/text";
 import { fieldsOf, fill } from "../core/tokens";
 import { ProjectId, PROJECTS, Template } from "../core/types";
 import { activeEditor, currentChannel, insertText, readClipboard, toast } from "../platform";
+import { debugEnabled, dlog } from "./debug";
 import { activeProject, Dialog, guildKey, store, ui } from "./uiState";
 
 type ConfirmArgs = Omit<Extract<Dialog, { kind: "confirm"; }>, "kind" | "resolve">;
@@ -19,6 +20,7 @@ export interface Snap { channelId: string | null; project: ProjectId | null; }
 /** true while the channel and its project are unchanged; otherwise toasts and the insert must be dropped. */
 export function stillCurrent(s: Snap): boolean {
     if (currentChannel().id === s.channelId && activeProject().project === s.project) return true;
+    dlog("cancel", { reason: "канал сменился", wasChannel: s.channelId, wasProject: s.project, nowChannel: currentChannel().id, nowProject: activeProject().project });
     toast("Канал сменился — вставка отменена", "failure");
     return false;
 }
@@ -30,8 +32,17 @@ export const confirmedForeign = new Set<string>();
 export function supersede() {
     const d = ui.get().dialog;
     if (!d) return;
+    dlog("dialog-supersede", { kind: d.kind });
     if (d.kind === "askProject" || d.kind === "fields") d.resolve(null);
     else if (d.kind === "confirm") d.resolve({ ok: false, checked: false });
+}
+
+/** Debug summary of a dialog answer — never field values. */
+function answerOf(kind: Dialog["kind"], v: unknown): string {
+    if (v === null) return "отмена";
+    if (kind === "confirm") { const r = v as { ok: boolean; checked: boolean; }; return r.ok ? "ok" + (r.checked ? " +галочка" : "") : "отмена"; }
+    if (kind === "fields") return "заполнено";
+    return String(v);
 }
 
 /** Opens a dialog whose resolve clears it only while it is still the current one. */
@@ -39,9 +50,11 @@ function open<T>(make: (resolve: (v: T) => void) => Dialog): Promise<T> {
     supersede();
     return new Promise<T>(resolve => {
         const dialog: Dialog = make(v => {
+            if (debugEnabled()) dlog("dialog-close", { kind: dialog.kind, result: answerOf(dialog.kind, v), current: ui.get().dialog === dialog });
             if (ui.get().dialog === dialog) ui.set({ dialog: null });
             resolve(v);
         });
+        if (debugEnabled()) dlog("dialog-open", { kind: dialog.kind, title: "title" in dialog ? dialog.title : undefined });
         ui.set({ dialog });
     });
 }
@@ -62,7 +75,7 @@ export async function fillFields(title: string, text: string): Promise<string | 
         const initial: Record<string, string> = {};
         for (const f of fields) initial[f.name] = f.def || f.options[0] || "";
         const got = await open<Record<string, string> | null>(resolve => ({ kind: "fields", title, fields, initial, resolve }));
-        if (!got) return null;
+        if (!got) { dlog("cancel", { reason: "отмена в диалоге полей", title }); return null; }
         values = got;
     }
     const ch = currentChannel();
@@ -81,15 +94,17 @@ export async function ensureProject(): Promise<ProjectId | null> {
     const { project, binding } = activeProject();
     if (project) return project;
     if (binding === "none") {
+        dlog("cancel", { reason: "проект не выбран (сервер «выбирать в окне», вкладка проекта не выбрана)" });
         toast("На этом сервере выбери проект во вкладке окна шаблонов", "failure");
         return null;
     }
     const key = guildKey(); // the server asked about, even if the user switches while the dialog is open
     const ans = await askProject();
-    if (!ans) return null;
+    if (!ans) { dlog("cancel", { reason: "проект не выбран (диалог проекта отменён)", guild: key }); return null; }
     store.setGuild(key, ans);
-    if (guildKey() !== key) return null;
+    if (guildKey() !== key) { dlog("cancel", { reason: "сервер сменился во время диалога проекта", guild: key }); return null; }
     if (ans === "none") {
+        dlog("cancel", { reason: "проект не выбран (ответ «ни того ни другого»)", guild: key });
         toast("Выбери проект во вкладке окна шаблонов", "message");
         ui.set({ windowOpen: true });
         return null;
@@ -101,6 +116,7 @@ export async function ensureProject(): Promise<ProjectId | null> {
 async function guard(t: Template, project: ProjectId): Promise<Template | null> {
     const d = decide(t, project, store.templates);
     if (d.kind === "mirror") {
+        dlog("guard", { result: "зеркало", from: t.id, to: d.t.id, project });
         toast(`Вставлен вариант для ${PROJECTS[project].short}`, "message");
         t = d.t;
     } else if (d.kind === "foreign") {
@@ -110,7 +126,7 @@ async function guard(t: Template, project: ProjectId): Promise<Template | null> 
             body: `Это шаблон ${PROJECTS[t.project!].name}, а канал — ${PROJECTS[project].name}. Пары для ${PROJECTS[project].short} нет.`,
             ok: `Да, вставить шаблон ${PROJECTS[t.project!].short}`,
         });
-        if (!r.ok) return null;
+        if (!r.ok) { dlog("cancel", { reason: "отмена в диалоге: шаблон другого проекта", id: t.id }); return null; }
         confirmedForeign.add(`${project}:${t.id}`);
     }
 
@@ -123,7 +139,7 @@ async function guard(t: Template, project: ProjectId): Promise<Template | null> 
                 body: `В тексте есть: ${found.join(", ")}. Канал — ${PROJECTS[project].name}.`,
                 ok: "Вставить", checkbox: "Это намеренно, больше не спрашивать",
             });
-            if (!r.ok) return null;
+            if (!r.ok) { dlog("cancel", { reason: "отмена в диалоге: упоминается другой проект", id: t.id, markers: found.join(", ") }); return null; }
             if (r.checked) store.markIntentional(t.id);
         }
     }
@@ -135,7 +151,7 @@ async function guard(t: Template, project: ProjectId): Promise<Template | null> 
             body: (t.statusNote ? `Комментарий: «${t.statusNote}». ` : "") + "Проверьте текст, прежде чем отправлять игроку.",
             ok: "Вставить всё равно",
         });
-        if (!r.ok) return null;
+        if (!r.ok) { dlog("cancel", { reason: "отмена в диалоге: статус " + t.status, id: t.id }); return null; }
     }
     return t;
 }
@@ -151,12 +167,17 @@ export async function prepareText(t: Template, opts: { noGreeting?: boolean; } =
     return text === null ? null : { t: g, text, snap: { channelId, project } };
 }
 
-export async function insertTemplate(t: Template, opts: { noGreeting?: boolean; } = {}) {
+/** `via` — where the insert came from, for the debug log only. */
+export async function insertTemplate(t: Template, opts: { noGreeting?: boolean; via?: string; } = {}) {
+    dlog("insert-start", { id: t.id, title: t.title, via: opts.via ?? "?", noGreeting: opts.noGreeting || undefined });
     ui.set({ windowOpen: false, menu: null });
     const r = await prepareText(t, opts);
     if (!r || !stillCurrent(r.snap)) return;
     activeEditor()?.focus();
-    if (insertText(r.text)) store.markUsed(r.t.id);
+    const ok = insertText(r.text);
+    dlog("insert", { id: r.t.id, title: r.t.title, via: opts.via ?? "?", ok });
+    if (!ok) dlog("error", { where: "insertText", id: r.t.id });
+    if (ok) store.markUsed(r.t.id);
 }
 
 export async function addToCompose(t: Template) {
@@ -165,6 +186,7 @@ export async function addToCompose(t: Template) {
     if (!project) return;
     const g = await guard(t, project);
     if (!g || !stillCurrent({ channelId, project })) return;
+    dlog("compose-add", { id: g.id, title: g.title, already: ui.get().compose.includes(g.id) || undefined });
     if (!ui.get().compose.includes(g.id)) ui.set({ compose: [...ui.get().compose, g.id] });
     toast("Добавлено в ответ: " + g.title, "message");
 }

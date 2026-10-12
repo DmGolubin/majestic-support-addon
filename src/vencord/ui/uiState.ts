@@ -11,9 +11,16 @@ import { Store } from "../core/state";
 import { FieldSpec } from "../core/tokens";
 import { ProjectId, Template } from "../core/types";
 import { chatAreaRect, currentGuildId, storage } from "../platform";
+import { dlog } from "./debug";
 import { createObservable } from "./observable";
 
-export const store = new Store(storage);
+const errText = (e: unknown) => String((e as any)?.message ?? e);
+
+// Storage failures go to the debug log too (the Store itself only logs them to the console).
+export const store = new Store({
+    get: key => storage.get(key).catch(e => { dlog("error", { where: "storage.get", key, msg: errText(e) }); throw e; }),
+    set: (key, value) => storage.set(key, value).catch(e => { dlog("error", { where: "storage.set", key, msg: errText(e) }); throw e; }),
+});
 
 export type Dialog =
     | { kind: "askProject"; resolve(v: ServerBinding | null): void; }

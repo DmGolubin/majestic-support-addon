@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "@webpack/common";
 import { bindProblem, comboLabel, comboOf } from "../core/keys";
 import { PROJECTS } from "../core/types";
 import { toast } from "../platform";
+import { dlog } from "./debug";
 import { latchKey } from "./keylatch";
 import { ProjectIcon } from "./ProjectIcon";
 import { Dialog, store, ui } from "./uiState";
@@ -92,7 +93,7 @@ function Fields({ d }: { d: Extract<Dialog, { kind: "fields"; }>; }) {
 
 function Bind({ d }: { d: Extract<Dialog, { kind: "bind"; }>; }) {
     const t = store.byId(d.templateId);
-    const close = () => ui.set({ dialog: null });
+    const close = () => { dlog("dialog-close", { kind: "bind", id: d.templateId }); ui.set({ dialog: null }); };
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
             e.preventDefault();

@@ -9,6 +9,7 @@ import { search } from "../core/search";
 import { findTrigger } from "../core/trigger";
 import { Template } from "../core/types";
 import { activeEditor, insertText, toast } from "../platform";
+import { debugEnabled, dlog } from "./debug";
 import { prepareText, stillCurrent } from "./flow";
 import { latchKey } from "./keylatch";
 import { activeProject, InlineState, poolFor, store, ui } from "./uiState";
@@ -30,7 +31,10 @@ const sameInline = (a: InlineState | null, b: InlineState | null) =>
 
 /** Publishes the popup state only when it actually changed (typing must not re-render the UI for nothing). */
 function publish(next: InlineState | null) {
-    if (!sameInline(ui.get().inline, next)) ui.set({ inline: next });
+    if (sameInline(ui.get().inline, next)) return;
+    // Coalesced: typing a query is one log entry, not one per key.
+    if (debugEnabled()) dlog("inline", next ? { q: next.query, items: next.items.length, sel: next.sel, note: next.note || undefined } : { closed: true }, "inline");
+    ui.set({ inline: next });
 }
 
 function check() {
@@ -51,7 +55,7 @@ function check() {
 }
 
 function close() {
-    if (ui.get().inline) ui.set({ inline: null });
+    if (ui.get().inline) publish(null);
 }
 
 let raf = 0;
@@ -89,10 +93,14 @@ export function resetInline() {
     accepting = false;
 }
 
+/** For the debug panel. */
+export const isAccepting = () => accepting;
+
 export async function acceptInline(i: number, noGreeting: boolean) {
     const st = ui.get().inline;
     const t = st?.items[i];
-    if (!st || !t || accepting) return;
+    if (!st || !t || accepting) { dlog("inline-accept", { i, skip: accepting ? "уже идёт вставка" : "нет пункта" }); return; }
+    dlog("inline-accept", { i, id: t.id, title: t.title, noGreeting: noGreeting || undefined });
     accepting = true;
     try {
         await doAccept(st, t, noGreeting);
@@ -112,7 +120,9 @@ async function doAccept(st: NonNullable<ReturnType<typeof ui.get>["inline"]>, t:
     const selected = !!trig && selectTrigger(trig.length);
     await new Promise(r => setTimeout(r, 30)); // let Slate pick up the DOM selection
     if (!stillCurrent(prepared.snap)) return;
-    if (!insertText(prepared.text)) return;
+    const ok = insertText(prepared.text);
+    dlog("insert", { id: prepared.t.id, title: prepared.t.title, via: "inline", ok, triggerSelected: selected, editor: !!ed });
+    if (!ok) { dlog("error", { where: "insertText", id: prepared.t.id }); return; }
     store.markUsed(prepared.t.id);
     if (!selected) toast(`Удалите «${store.data.prefix}${st.query}» вручную`, "message");
 }
@@ -120,10 +130,10 @@ async function doAccept(st: NonNullable<ReturnType<typeof ui.get>["inline"]>, t:
 /** Keyboard while suggestions are shown. true = handled (event consumed). */
 export function handleInlineKey(e: KeyboardEvent): boolean {
     const isEnter = e.key === "Enter", isTab = e.key === "Tab";
-    if (accepting && (isEnter || isTab)) return true; // swallow repeats/double taps during accept
+    if (accepting && (isEnter || isTab)) { dlog("key", { h: "inline-accepting-swallow", key: e.code }, "acc-swallow:" + e.code); return true; } // swallow repeats/double taps during accept
     const st = ui.get().inline;
     if (!st) return false;
-    if (e.key === "Escape") { ui.set({ inline: null }); return true; }
+    if (e.key === "Escape") { publish(null); return true; }
     const plain = !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey;
     const n = st.items.length;
     if (!n) {

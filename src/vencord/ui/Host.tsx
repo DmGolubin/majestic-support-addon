@@ -10,6 +10,8 @@ import { useState } from "@webpack/common";
 import { toast } from "../platform";
 import { ComposeBar } from "./ComposeBar";
 import { ContextMenu } from "./ContextMenu";
+import { debugState, dlog } from "./debug";
+import { DebugPanel } from "./DebugPanel";
 import { Dialogs, idOf } from "./Dialogs";
 import { supersede } from "./flow";
 import { Inline } from "./InlinePop";
@@ -24,11 +26,13 @@ const RESET: Record<string, () => Partial<UiState>> = {
     inline: () => ({ inline: null }),
     menu: () => ({ menu: null }),
     dialog: () => { supersede(); return { dialog: null }; },
+    debug: () => ({}),
 };
 
 export function Host() {
     const windowOpen = ui.useSelect(s => s.windowOpen);
     const dialog = ui.useSelect(s => s.dialog);
+    const debugOn = debugState.useSelect(s => s.on);
     const [gen, setGen] = useState<Record<string, number>>({});
     const safe = (part: string, node: React.ReactNode, key: string | number = "") => (
         <ErrorBoundary
@@ -36,6 +40,7 @@ export function Host() {
             noop
             onError={({ error }) => {
                 console.error("[SupportTemplates] UI error in " + part, error);
+                dlog("error", { where: "ErrorBoundary:" + part, msg: String((error as any)?.message ?? error) });
                 ui.set(RESET[part]());
                 toast("Ошибка интерфейса шаблонов — подробности в консоли", "failure");
                 setGen(g => ({ ...g, [part]: (g[part] ?? 0) + 1 }));
@@ -49,6 +54,7 @@ export function Host() {
             {safe("inline", <Inline />)}
             {safe("menu", <ContextMenu />)}
             {safe("dialog", <Dialogs />, dialog ? idOf(dialog) : 0)}
+            {debugOn && safe("debug", <DebugPanel />)}
         </div>
     );
 }
