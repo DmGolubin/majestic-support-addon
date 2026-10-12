@@ -88,3 +88,7 @@ Task 12: complete (commits 41a05af..fec931c, review clean) — manual Discord ch
 Task 13 (added 12.10.2026, user-approved): scroll lag, preview left of list, tooltip fade, chat-bar icon per server, icon alignment+hover animation; brief task-13-brief.md; BASE c23a93b
 Task 13: minor (deferred): scroll listener attached once in [] effect; chat-bar project resolution duplicates activeProject(); «Shift — весь текст» hint shown even when not cut; neutral «Ш» tile border; stale tooltip after Shift
 Task 13: complete (commits c23a93b..e33fa62, review clean) — manual Discord check pending with user
+Task 14 (bugfix from user check): tooltip overlap + Shift after «+ в ответ»; BASE ad0fb1e
+Task 14: root cause B — Shift+click on preview «+ в ответ» focuses the button; preview unmounts on Shift release → focus to body; fixed by mousedown preventDefault on buttons/rows + guarded refocus effect
+Task 14: minor (deferred): plain keyboard Shift+Enter path unexplained (user check is the gate); clicking preview text/empty area drops focus; tipH stale first frame
+Task 14: complete (commits ad0fb1e..ead346d, review clean) — manual Discord check pending with user
