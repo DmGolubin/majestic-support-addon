@@ -19,7 +19,12 @@ export function plural(n: number, one: string, few: string, many: string) {
     return d === 1 && h !== 11 ? one : d >= 2 && d <= 4 && (h < 12 || h > 14) ? few : many;
 }
 
-/** compact = hover tooltip: text only, no action buttons. */
+/** Tooltip body: fade the bottom only when the text is actually cut off (it cannot be scrolled). */
+const markCut = (el: HTMLDivElement | null) => {
+    if (el) el.classList.toggle("cut", el.scrollHeight > el.clientHeight + 1);
+};
+
+/** compact = hover tooltip: text only, no action buttons, no scrolling. */
 export function Preview({ t, compact = false }: { t: Template | undefined; compact?: boolean; }) {
     const parts = useMemo(() => t ? splitGreeting(t.text) : null, [t]);
     if (!t || !parts) return <div className="vc-stx-pre"><div className="vc-stx-empty">Выбери шаблон</div></div>;
@@ -35,13 +40,14 @@ export function Preview({ t, compact = false }: { t: Template | undefined; compa
                 {t.category && <span className="vc-stx-mchip">{t.category}</span>}
                 {t.source === "local" && <span className="vc-stx-mchip">локальный</span>}
             </div>
-            <div className="vc-stx-body">
+            <div className="vc-stx-body" ref={compact ? markCut : undefined}>
                 {greeting && <>
                     <span className="vc-stx-greet"><Markdown text={greeting} /></span>{"\n"}
                     <span className="vc-stx-gmark">граница приветствия</span>{"\n"}
                 </>}
                 <Markdown text={body} />
             </div>
+            {compact && <div className="vc-stx-tiphint">Shift — весь текст</div>}
             {!compact && <div className="vc-stx-acts">
                 <button className="vc-stx-btn" onClick={() => insertTemplate(t)}>Вставить <span className="vc-stx-kb">↵</span></button>
                 {greeting && <button className="vc-stx-btn vc-stx-ghost" onClick={() => insertTemplate(t, { noGreeting: true })}>Без приветствия</button>}

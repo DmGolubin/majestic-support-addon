@@ -25,6 +25,8 @@ export let visibleItems: Template[] = [];
 type View = "all" | "fav" | "recent";
 const VIEWS: View[] = ["all", "fav", "recent"];
 const HOVER_MS = 500;
+/** Hover tooltips stay off until this long after the last scroll event. */
+const SCROLL_QUIET_MS = 150;
 const NO_TOKENS: string[] = [];
 const MAX_H = 500, EDGE = 8;
 
@@ -95,6 +97,9 @@ export function Window() {
     const [hover, setHover] = useState<{ t: Template; top: number; } | null>(null);
     const [rect, setRect] = useState<DOMRect | null>(chatAreaRect);
     const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const scrolling = useRef(false);
+    const hoverShown = useRef(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
 
@@ -152,7 +157,24 @@ export function Window() {
             document.removeEventListener("mousedown", onDown, true);
             document.removeEventListener("keyup", onUp, true);
             if (hoverTimer.current) clearTimeout(hoverTimer.current);
+            if (scrollTimer.current) clearTimeout(scrollTimer.current);
         };
+    }, []);
+
+    // Scrolling moves rows under a still cursor: their mouseenter must not start tooltips (scroll lag).
+    // Refs only — no React render per scroll event; at most one setHover(null) when a tooltip is up.
+    useEffect(() => {
+        const list = listRef.current;
+        if (!list) return;
+        const onScroll = () => {
+            scrolling.current = true;
+            if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; }
+            if (hoverShown.current) { hoverShown.current = false; setHover(null); }
+            if (scrollTimer.current) clearTimeout(scrollTimer.current);
+            scrollTimer.current = setTimeout(() => { scrolling.current = false; scrollTimer.current = null; }, SCROLL_QUIET_MS);
+        };
+        list.addEventListener("scroll", onScroll, { passive: true });
+        return () => list.removeEventListener("scroll", onScroll);
     }, []);
 
     // Switching the project drops the collected reply: its pieces were checked against the old one.
@@ -161,12 +183,21 @@ export function Window() {
     // Stable callbacks: memoized rows must not re-render because of new handler identities.
     const startHover = useCallback((t: Template, el: HTMLElement) => {
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
-        hoverTimer.current = setTimeout(() => setHover({ t, top: el.getBoundingClientRect().top }), HOVER_MS);
+        hoverTimer.current = null;
+        if (scrolling.current) return;
+        hoverTimer.current = setTimeout(() => {
+            hoverTimer.current = null;
+            if (scrolling.current) return;
+            hoverShown.current = true;
+            setHover({ t, top: el.getBoundingClientRect().top });
+        }, HOVER_MS);
     }, []);
     const stopHover = useCallback(() => {
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
         hoverTimer.current = null;
-        setHover(h => h && null); // no-op (no re-render) when no tooltip is shown
+        if (!hoverShown.current) return; // no tooltip: nothing to hide, no re-render
+        hoverShown.current = false;
+        setHover(null);
     }, []);
 
     const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -241,6 +272,8 @@ export function Window() {
     return (
         <>
             <div className="vc-stx-win" style={style} onKeyDown={onKeyDown}>
+                {/* Preview LEFT of the list: the window is right-anchored, so the list never moves when it opens. */}
+                {wide && <Preview t={current} />}
                 <div className="vc-stx-col">
                     <div className="vc-stx-head">
                         <label className="vc-stx-search">
@@ -290,18 +323,17 @@ export function Window() {
                                     {sec.items.map(t => row(t, idx++))}
                                 </div>))}
                     </div>
-                    <div className="vc-stx-foot" title={"Enter — вставить · Shift+Enter — в ответ · Shift (держать) — текст · → / ← — показать / скрыть текст · Tab — вкладки · Ctrl+D — избранное · ПКМ — меню"}>
+                    <div className="vc-stx-foot" title={"Enter — вставить · Shift+Enter — в ответ · Shift (держать) — текст · → / ← — открыть / скрыть текст слева · Tab — вкладки · Ctrl+D — избранное · ПКМ — меню"}>
                         <span><span className="vc-stx-kb">↵</span>вставить</span>
                         <span><span className="vc-stx-kb">⇧↵</span>в ответ</span>
                         <span><span className="vc-stx-kb">Tab</span>вкладки</span>
                         <span><span className="vc-stx-kb">ПКМ</span>ещё</span>
                     </div>
                 </div>
-                {wide && <Preview t={current} />}
             </div>
             {hover && !wide && (
                 <div className="vc-stx-tip" style={{ right: right + width + EDGE, top: Math.max(EDGE, Math.min(hover.top, window.innerHeight - 320)) }}>
-                    <Preview t={hover.t} compact />
+                    <Preview key={hover.t.id} t={hover.t} compact />{/* key: remount so the fade check runs per template */}
                 </div>
             )}
         </>

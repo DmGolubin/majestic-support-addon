@@ -18,3 +18,9 @@ export function ProjectIcon({ project, size = 16 }: { project: ProjectId | null;
         />
     );
 }
+
+/** Chat-bar icon, 24x24 like Discord's own buttons; no project = neutral «Ш» tile (no image). */
+export function ChatBarIcon({ project }: { project: ProjectId | null; }) {
+    if (!project) return <span className="vc-stx-cbi vc-stx-cbi-none" aria-hidden="true">Ш</span>;
+    return <img className={"vc-stx-cbi vc-stx-cbi-" + project} src={project === "mj" ? MJ_ICON : RO_ICON} alt="" />;
+}

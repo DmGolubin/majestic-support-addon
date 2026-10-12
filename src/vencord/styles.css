@@ -31,9 +31,10 @@
 }
 
 /* ---- Templates window (port of the approved replica window-real.html) ---- */
-.vc-stx-win { display: flex; overflow: hidden; border-radius: 14px; box-shadow: 0 16px 48px rgb(0 0 0 / 60%); }
-.vc-stx-col { width: 340px; max-width: 100%; flex: none; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--stx-bd); }
-.vc-stx-col:only-child { width: 100%; border-right: 0; }
+/* contain: the window's repaints (scrolling, hover) stay inside it and don't invalidate Discord underneath. */
+.vc-stx-win { display: flex; overflow: hidden; border-radius: 14px; box-shadow: 0 16px 48px rgb(0 0 0 / 60%); contain: layout paint; }
+/* Fixed width = closed window (360) minus its border: the list sits at the same spot with the preview open, closed or peeked. */
+.vc-stx-col { width: 358px; max-width: 100%; flex: none; display: flex; flex-direction: column; min-width: 0; }
 .vc-stx-head { flex: none; padding: 12px 12px 0; }
 .vc-stx-search { width: 100%; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 9px; background: var(--stx-bg); border: 1px solid var(--stx-bd); color: var(--stx-tx); font: inherit; font-size: 13px; outline: none; cursor: text; }
 .vc-stx-search:focus-within { border-color: var(--stx-ring); box-shadow: 0 0 0 3px rgb(198 26 89 / 18%); }
@@ -63,7 +64,8 @@
 .vc-stx-list::-webkit-scrollbar-thumb, .vc-stx-body::-webkit-scrollbar-thumb { background: hsl(215 16% 22%); border-radius: 8px; border: 2px solid var(--stx-card); }
 .vc-stx-list::-webkit-scrollbar-track, .vc-stx-body::-webkit-scrollbar-track { background: transparent; }
 
-.vc-stx-list { flex: 1; min-height: 0; overflow: hidden auto; padding: 4px 8px 8px; }
+/* contain: content keeps sticky headers working — the list itself is their scroll container. */
+.vc-stx-list { flex: 1; min-height: 0; overflow: hidden auto; padding: 4px 8px 8px; contain: content; overscroll-behavior: contain; }
 .vc-stx-sec { color: var(--stx-mu2); font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin: 8px 3px 3px; }
 .vc-stx-list .vc-stx-sec { position: sticky; top: -4px; z-index: 1; margin: 0; padding: 10px 6px 5px; background: var(--stx-card); }
 .vc-stx-it { padding: 7px 10px; border-radius: 8px; cursor: pointer; scroll-margin-top: 32px; }
@@ -92,10 +94,11 @@
 
 /* ---- Preview pane ---- */
 .vc-stx-pre { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 16px 18px 14px; }
+.vc-stx-win > .vc-stx-pre { border-right: 1px solid var(--stx-bd); }
 .vc-stx-pre h4 { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.3; color: #fff; border-left: 4px solid var(--stx-amber); padding-left: 10px; overflow-wrap: anywhere; }
 .vc-stx-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
 .vc-stx-mchip { height: 22px; max-width: 100%; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; white-space: nowrap; overflow: hidden; color: var(--stx-mu); background: hsl(215 16% 12%); border: 1px solid var(--stx-bd); }
-.vc-stx-body { flex: 1; min-height: 0; overflow: hidden auto; padding-right: 6px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; font-size: 13px; color: hsl(216 10% 86%); }
+.vc-stx-body { flex: 1; min-height: 0; overflow: hidden auto; contain: content; overscroll-behavior: contain; padding-right: 6px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; font-size: 13px; color: hsl(216 10% 86%); }
 .vc-stx-body strong { font-weight: 700; color: #fff; }
 .vc-stx-greet { color: var(--stx-mu2); }
 .vc-stx-greet strong { color: inherit; }
@@ -148,8 +151,12 @@
 .vc-stx-chip button { background: none; border: 0; color: var(--stx-mu); cursor: pointer; font: inherit; padding: 0 2px; }
 
 /* ---- Hover tooltip (preview closed) ---- */
-.vc-stx-tip { position: fixed; width: 380px; max-height: 320px; display: flex; overflow: hidden; background: var(--stx-card); border: 1px solid var(--stx-bd); border-radius: 12px; box-shadow: 0 12px 32px rgb(0 0 0 / 55%); pointer-events: none; }
-.vc-stx-tip .vc-stx-pre { padding: 14px 16px; }
+.vc-stx-tip { position: fixed; width: 380px; max-height: 320px; display: flex; overflow: hidden; background: var(--stx-card); border: 1px solid var(--stx-bd); border-radius: 12px; box-shadow: 0 12px 32px rgb(0 0 0 / 55%); pointer-events: none; contain: layout paint; }
+.vc-stx-tip .vc-stx-pre { padding: 14px 16px 10px; }
+/* Not scrollable (pointer-events: none): no scrollbar, the beginning of the text, a fade where it is cut. */
+.vc-stx-tip .vc-stx-body { overflow: hidden; padding-right: 0; }
+.vc-stx-tip .vc-stx-body.cut { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent); }
+.vc-stx-tiphint { flex: none; margin-top: 6px; color: var(--stx-mu2); font-size: 11px; }
 
 /* Settings render inside Discord's settings, outside #vc-stx-host — give them the tokens too. */
 .vc-stx-settings { --stx-pr: hsl(342 77% 44%); --stx-tx: hsl(216 10% 91%); --stx-bd2: hsl(215 16% 20%); color: var(--text-default, #dbdee1); }
@@ -157,6 +164,27 @@
 .vc-stx-settings p { margin: 4px 0 8px; }
 .vc-stx-muted { color: var(--text-muted, #949ba4); }
 .vc-stx-row { display: flex; gap: 6px; }
+
+/* ---- Chat-bar button (outside #vc-stx-host: Discord's own bar) ---- */
+/* 24x24 like Discord's gift/GIF/sticker/emoji icons, centered, no ring; muted at rest, full colour + scale on hover. */
+[data-stx="button"] .vc-stx-cbi {
+    width: 24px; height: 24px; flex: none; display: block; box-sizing: border-box; margin: 0;
+    border: 0; border-radius: 6px; box-shadow: none; outline: none;
+    object-fit: cover;
+    opacity: .85; filter: saturate(.6) brightness(.9);
+    transition: transform .15s ease, filter .15s ease, opacity .15s ease;
+}
+[data-stx="button"] .vc-stx-cbi-ro { background: #2a2b31; object-fit: contain; padding: 2px; }
+[data-stx="button"] .vc-stx-cbi-none {
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid currentColor; color: var(--interactive-normal, #b5bac1);
+    font: 700 12px/1 "gg sans", "Segoe UI", sans-serif; filter: none;
+}
+[data-stx="button"]:hover .vc-stx-cbi, [data-stx="button"]:focus-visible .vc-stx-cbi { opacity: 1; filter: none; transform: scale(1.14); }
+[data-stx="button"]:hover .vc-stx-cbi-none { color: var(--interactive-hover, #dbdee1); }
+@media (prefers-reduced-motion: reduce) {
+    [data-stx="button"]:hover .vc-stx-cbi, [data-stx="button"]:focus-visible .vc-stx-cbi { transform: none; }
+}
 
 @media (prefers-reduced-motion: no-preference) {
     .vc-stx-win, .vc-stx-pop, .vc-stx-dialog { animation: vc-stx-in .12s ease-out; }

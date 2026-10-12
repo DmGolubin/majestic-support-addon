@@ -11,7 +11,7 @@ import { definePluginSettings } from "@api/Settings";
 import definePlugin, { IconComponent, OptionType } from "@utils/types";
 import { createRoot } from "@webpack/common";
 
-import { DM_KEY } from "./core/guard";
+import { DM_KEY, projectForGuild } from "./core/guard";
 import { comboOf } from "./core/keys";
 import { favoritesOf } from "./core/rank";
 import { onChannelChange } from "./platform";
@@ -20,8 +20,9 @@ import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
 import { handleInlineKey, resetInline, startInline } from "./ui/inline";
 import { latchKey, startLatch, swallowLatched } from "./ui/keylatch";
+import { ChatBarIcon } from "./ui/ProjectIcon";
 import { Settings } from "./ui/Settings";
-import { activeProject, guildKey, poolFor, store, ui, UiState } from "./ui/uiState";
+import { activeProject, guildKey, poolFor, store, ui, UiState, useStore } from "./ui/uiState";
 import { visibleItems } from "./ui/Window";
 
 const Icon: IconComponent = ({ height = 20, width = 20, className }) => (
@@ -32,11 +33,16 @@ export function toggleWindow(open = !ui.get().windowOpen) {
     ui.set({ windowOpen: open, menu: null, selection: open ? String(window.getSelection() ?? "") : "" });
 }
 
-const Button: ChatBarButtonFactory = ({ isMainChat }) => {
+/** Chat-bar button: the icon follows this channel's server project (re-rendered by Discord on channel switch). */
+const Button: ChatBarButtonFactory = ({ isMainChat, channel }) => {
+    useStore(); // server bindings live in the store (picked in the "which project?" dialog)
+    const session = ui.useSelect(s => s.sessionProject);
     if (!isMainChat) return null;
+    const binding = projectForGuild(channel?.guild_id ?? null, store.data.guilds);
+    const project = binding === "mj" || binding === "ro" ? binding : binding === "none" ? session : null;
     return (
         <ChatBarButton tooltip="Шаблоны (Ctrl+Alt+T)" onClick={() => toggleWindow()} buttonProps={{ "data-stx": "button" } as any}>
-            <Icon />
+            <ChatBarIcon project={project} />
         </ChatBarButton>
     );
 };
