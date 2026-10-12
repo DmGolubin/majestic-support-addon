@@ -16,21 +16,28 @@
 | `docs/mockups/` | HTML-макеты (стиль, компоновки, итоговый концепт) |
 | `docs/screens/` | PNG-макеты для показа |
 | `src/core/` | ядро (TypeScript, Vitest) — задачи 1–5 готовы |
+| `src/vencord/` | Vencord-плагин (обёртка над ядром): окно, `;команда`, диалоги, сборка ответа |
 | `reference/bd-0.5.1/` | исходный BD-плагин 0.5.1 |
 | `reference/vencord-spike/` | первый прототип под Vencord |
+| `reference/ticket-sound/` | скрипт звука нового тикета (основа подпроекта B) |
 | `reference/VKMaj.js` | VK-скрипт поиска шаблонов (источник синонимов) |
 | `assets/` | иконки проектов |
 
 ## Ветки
 
 - `main` — спек и план.
-- `stage1` — выполнение плана: задачи 1–5 (ядро) готовы и прошли ревью.
+- `stage1` — этап 1: ядро + Vencord-версия (задачи 1–10 готовы и прошли ревью; ждёт ручной проверки в Discord).
 - `wip/task-6-partial` — недоделанная задача 6 (каркас Vencord), сессия прервалась; не ревьюилась.
 
 ## Разработка
 
 ```bash
 pnpm install
-pnpm test        # ядро
+pnpm test            # ядро (Vitest)
 pnpm typecheck
+pnpm icons           # перегенерировать src/vencord/ui/icons.ts из assets/
+pnpm sync:vencord    # скопировать плагин в C:/Users/oblako/dev/Vencord/src/userplugins/supportTemplates
+cd C:/Users/oblako/dev/Vencord && pnpm build   # затем Ctrl+R в Discord
 ```
+
+`VENCORD_DIR` переопределяет путь к Vencord. Vencord должен быть установлен из исходников (`pnpm inject`).
