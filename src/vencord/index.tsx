@@ -15,7 +15,7 @@ import { DM_KEY, projectForGuild } from "./core/guard";
 import { comboOf } from "./core/keys";
 import { favoritesOf } from "./core/rank";
 import { currentChannel, onChannelChange } from "./platform";
-import { debugEnabled, dlog, keyDesc, setDebugEnabled } from "./ui/debug";
+import { debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
 import { insertTemplate, supersede } from "./ui/flow";
 import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
@@ -85,6 +85,7 @@ function onKey(e: KeyboardEvent) {
     if (swallowLatched(e)) return; // held key after an insert: never repeat it, never leak it to Discord
     const s = ui.get();
     if (s.dialog) {
+        if (e.key === "Tab" || e.key === "Enter") noteKey(e, "dialog");
         if (debugEnabled() && (e.key === "Tab" || e.key === "Enter")) dlog("key", { h: "dialog", key: keyDesc(e), dialog: s.dialog.kind });
         return trapDialogFocus(e); // dialogs handle their own keys
     }
@@ -92,6 +93,7 @@ function onKey(e: KeyboardEvent) {
     if (handleInlineKey(e)) {
         e.preventDefault();
         e.stopPropagation();
+        noteKey(e, "inline");
         if (debugEnabled()) dlog("key", { h: "inline", key: keyDesc(e) }, "inline:" + e.code);
         return;
     }
@@ -99,6 +101,7 @@ function onKey(e: KeyboardEvent) {
     if (e.ctrlKey && e.altKey && !e.shiftKey && e.code === "KeyT") {
         e.preventDefault();
         e.stopPropagation();
+        noteKey(e, "hotkey");
         if (debugEnabled()) dlog("key", { h: "hotkey", key: keyDesc(e), action: e.repeat ? "repeat — игнор" : s.windowOpen ? "закрыть окно" : "открыть окно" });
         if (!e.repeat) toggleWindow();
         return;
@@ -106,9 +109,10 @@ function onKey(e: KeyboardEvent) {
 
     const digit = /^Digit([1-9])$/.exec(e.code);
     if (digit && e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
-        if (inForeignInput(e)) { dlog("key", { h: "alt-n", key: keyDesc(e), skip: "фокус в чужом поле ввода" }); return; }
+        if (inForeignInput(e)) { noteKey(e, "alt-n: пропуск (чужое поле)"); dlog("key", { h: "alt-n", key: keyDesc(e), skip: "фокус в чужом поле ввода" }); return; }
         e.preventDefault();
         e.stopPropagation();
+        noteKey(e, "alt-n");
         if (e.repeat) { dlog("key", { h: "alt-n", key: keyDesc(e), skip: "repeat" }, "altn-repeat:" + e.code); return; }
         const i = Number(digit[1]) - 1;
         const list = s.windowOpen ? visibleItems : favoritesOf(poolFor(activeProject().project), store.ctx());
@@ -124,9 +128,10 @@ function onKey(e: KeyboardEvent) {
     const combo = comboOf(e);
     const bound = combo ? store.templateForCombo(combo) : undefined;
     if (bound) {
-        if (inForeignInput(e)) { dlog("key", { h: "bind", key: keyDesc(e), skip: "фокус в чужом поле ввода" }); return; }
+        if (inForeignInput(e)) { noteKey(e, "bind: пропуск (чужое поле)"); dlog("key", { h: "bind", key: keyDesc(e), skip: "фокус в чужом поле ввода" }); return; }
         e.preventDefault();
         e.stopPropagation();
+        noteKey(e, "bind");
         dlog("key", { h: "bind", key: keyDesc(e), id: bound.id, title: bound.title }, e.repeat ? "bind-repeat:" + e.code : undefined);
         if (!e.repeat) {
             latchKey(e.code);
@@ -166,6 +171,13 @@ const settings = definePluginSettings({
         default: false,
         onChange: (v: boolean) => setDebugEnabled(v),
     },
+    debugVerbose: {
+        type: OptionType.BOOLEAN,
+        displayName: "Отладка: подробно",
+        description: "Только вместе с режимом отладки: все клавиши, мышь, колесо, фокус, размеры окна, геометрия и производительность; журнал на 200 событий. Набираемый текст (чат, поля диалогов) маскируется.",
+        default: false,
+        onChange: (v: boolean) => setDebugVerbose(v),
+    },
 });
 
 export default definePlugin({
@@ -176,6 +188,7 @@ export default definePlugin({
     chatBarButton: { icon: Icon, render: Button },
 
     async start() {
+        const t0 = performance.now();
         await store.load();
         document.addEventListener("keydown", onKey, true);
         offLatch = startLatch();
@@ -187,7 +200,9 @@ export default definePlugin({
         root.render(<Host />);
         offInline = startInline();
         offChannel = onChannelChange(channelChanged);
+        setDebugVerbose(!!settings.store.debugVerbose);
         setDebugEnabled(!!settings.store.debug);
+        setLoadTime(performance.now() - t0);
     },
 
     stop() {

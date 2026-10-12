@@ -13,7 +13,7 @@ import { search } from "../core/search";
 import { splitGreeting } from "../core/text";
 import { ProjectId, PROJECTS, Template } from "../core/types";
 import { chatAreaRect } from "../platform";
-import { debugEnabled, debugState, dlog, keyDesc, setDebugHover, setDebugWindow } from "./debug";
+import { debugEnabled, debugState, debugVerbose, dlog, keyDesc, logGeometry, noteKey, noteRender, noteSearch, noteWheel, setDebugHover, setDebugWindow } from "./debug";
 import { addToCompose, ensureProject, insertTemplate } from "./flow";
 import { nqHighlight } from "./highlight";
 import { latchKey } from "./keylatch";
@@ -100,6 +100,7 @@ export function Window() {
     const dialogOpen = ui.useSelect(s => s.dialog !== null);
     ui.useSelect(s => s.sessionProject); // activeProject() reads it
     const debugOn = debugState.useSelect(s => s.on);
+    if (debugVerbose()) noteRender();
     const { project, binding } = activeProject();
     const [query, setQuery] = useState("");
     const [view, setView] = useState<View>("all");
@@ -124,6 +125,7 @@ export function Window() {
     const tipRef = useRef<HTMLDivElement>(null);
 
     const data = useMemo(() => {
+        const t0 = debugVerbose() ? performance.now() : 0;
         const ctx = store.ctx();
         const projectPool = poolFor(project);
         const cats = categoriesOf(projectPool);
@@ -144,6 +146,7 @@ export function Window() {
             return n >= 0 && n < 9 ? n + 1 : 0;
         };
         const lines = new Map(hits.map(h => [h.t, h.line]));
+        if (t0) noteSearch(performance.now() - t0, query, items.length);
         return { total: projectPool.length, cats, res, secs, favs, items, positional, alt, lines, tokens: res?.tokens ?? NO_TOKENS };
     }, [query, project, view, cat, version]);
     const { cats, res, secs, favs, items } = data;
@@ -158,7 +161,11 @@ export function Window() {
         if (activeProject().binding === null) void ensureProject();
         const onResize = () => setRect(chatAreaRect());
         window.addEventListener("resize", onResize);
-        return () => window.removeEventListener("resize", onResize);
+        logGeometry("окно открыто");
+        return () => {
+            window.removeEventListener("resize", onResize);
+            logGeometry("окно закрыто");
+        };
     }, []);
     // All window keys (↑↓, Enter, Shift-peek) are the window's onKeyDown: they need focus inside it.
     // A dialog that closes, or a "+ в ответ" from a button, leaves focus on <body> — take it back.
@@ -237,6 +244,7 @@ export function Window() {
             else if (e.deltaMode === 2) dy *= body.clientHeight; // pages
             body.scrollTop += dy;
             e.preventDefault();
+            noteWheel(body.scrollTop); // verbose debug only (a null check otherwise)
         };
         win.addEventListener("wheel", onWheel, { passive: false });
         return () => win.removeEventListener("wheel", onWheel);
@@ -285,10 +293,12 @@ export function Window() {
         const atStart = !!input && input.selectionEnd === 0;
         const eat = () => { e.preventDefault(); e.stopPropagation(); };
         const log = (what: string, data: Record<string, unknown> = {}) => {
+            noteKey(e, "window: " + what);
             if (debugEnabled()) dlog("key", { h: "window", key: keyDesc(e), what, ...data }, "win:" + keyDesc(e) + what);
         };
         if (e.key === "Shift") {
             if (e.repeat) return;
+            noteKey(e, "window: peek");
             // Peek the row under the mouse when there is one (it becomes the selection), else the keyboard one.
             const hi = hoveredId.current ? items.findIndex(t => t.id === hoveredId.current) : -1;
             if (hi >= 0 && hi !== selIdx) setSel(hi);

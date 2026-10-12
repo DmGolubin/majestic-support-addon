@@ -194,12 +194,20 @@
 @keyframes vc-stx-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- Debug panel (debug mode only): bottom-left, above Discord's user panel, never over the chat input ---- */
-.vc-stx-debug { position: fixed; left: 8px; bottom: 64px; z-index: 2; width: 300px; max-height: calc(100vh - 140px); display: flex; flex-direction: column; overflow: hidden; background: var(--stx-bg); border: 1px solid var(--stx-bd2); border-radius: 10px; box-shadow: 0 12px 32px rgb(0 0 0 / 55%); color: var(--stx-mu); font: 11px/1.4 Consolas, "Cascadia Mono", ui-monospace, monospace; }
+.vc-stx-debug { position: fixed; left: 8px; bottom: 64px; z-index: 2; width: 300px; max-height: min(70vh, calc(100vh - 140px)); display: flex; flex-direction: column; overflow: hidden; background: var(--stx-bg); border: 1px solid var(--stx-bd2); border-radius: 10px; box-shadow: 0 12px 32px rgb(0 0 0 / 55%); color: var(--stx-mu); font: 11px/1.4 Consolas, "Cascadia Mono", ui-monospace, monospace; }
 .vc-stx-dbg-head { flex: none; display: flex; align-items: center; gap: 4px; padding: 5px 6px; background: var(--stx-card); border-bottom: 1px solid var(--stx-bd); }
 .vc-stx-dbg-head button { height: 20px; padding: 0 6px; border-radius: 5px; background: none; border: 1px solid var(--stx-bd2); color: var(--stx-mu); font: inherit; white-space: nowrap; cursor: pointer; }
 .vc-stx-dbg-head button:hover { background: var(--stx-hover); color: var(--stx-tx); }
 .vc-stx-dbg-head .vc-stx-dbg-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; border: 0; color: var(--stx-tx); font-weight: 600; }
-.vc-stx-dbg-state, .vc-stx-dbg-log { margin: 0; padding: 6px 8px; font: inherit; white-space: pre-wrap; word-break: break-word; }
-.vc-stx-dbg-state { flex: none; max-height: 45vh; overflow: auto; color: var(--stx-tx); border-bottom: 1px solid var(--stx-bd); }
-.vc-stx-dbg-sec { flex: none; padding: 4px 8px 0; color: var(--stx-mu2); text-transform: uppercase; letter-spacing: .04em; font-size: 10px; }
-.vc-stx-dbg-log { flex: 1; min-height: 0; overflow: auto; }
+.vc-stx-debug.verbose { width: 360px; }
+/* The whole body scrolls inside the capped panel; the log has its own scroll on top of that. */
+.vc-stx-dbg-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.vc-stx-dbg-pre { margin: 0; padding: 4px 8px 6px; font: inherit; white-space: pre-wrap; word-break: break-word; color: var(--stx-tx); border-bottom: 1px solid var(--stx-bd); }
+.vc-stx-dbg-sec { display: block; width: 100%; padding: 5px 8px 3px; background: none; border: 0; text-align: left; color: var(--stx-mu2); text-transform: uppercase; letter-spacing: .04em; font-family: inherit; font-size: 10px; font-weight: 600; line-height: 1.4; cursor: pointer; }
+.vc-stx-dbg-sec:hover { color: var(--stx-tx); }
+.vc-stx-dbg-chips { display: flex; flex-wrap: wrap; gap: 3px; padding: 2px 8px 4px; }
+.vc-stx-dbg-chips button { height: 18px; padding: 0 5px; border-radius: 9px; background: none; border: 1px solid var(--stx-bd2); color: var(--stx-mu); font: inherit; font-size: 10px; cursor: pointer; }
+.vc-stx-dbg-chips button i { font-style: normal; margin-left: 3px; color: var(--stx-mu2); }
+.vc-stx-dbg-chips button.on { background: var(--stx-hover); color: var(--stx-tx); border-color: var(--stx-amber); }
+.vc-stx-dbg-chips button:disabled { opacity: .4; cursor: default; }
+.vc-stx-dbg-log { max-height: 40vh; overflow: auto; color: var(--stx-mu); border-bottom: 0; }

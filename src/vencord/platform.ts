@@ -6,7 +6,7 @@
 
 import * as DataStore from "@api/DataStore";
 import { insertTextIntoChatInputBox } from "@utils/discord";
-import { ChannelStore, FluxDispatcher, GuildStore, SelectedChannelStore, SelectedGuildStore, showToast } from "@webpack/common";
+import { AccessibilityStore, ChannelStore, FluxDispatcher, GuildStore, LocaleStore, SelectedChannelStore, SelectedGuildStore, showToast, ThemeStore } from "@webpack/common";
 
 import { StorageLike } from "./core/state";
 
@@ -63,4 +63,15 @@ export function chatAreaRect(): DOMRect | null {
 
 export async function readClipboard(): Promise<string> {
     try { return await navigator.clipboard.readText(); } catch (e) { console.error("[SupportTemplates] clipboard read failed", e); return ""; }
+}
+
+/** Discord's zoom / font size / locale / theme for the debug report; null where a store is not available. */
+export function discordEnv(): { zoom: number | null; fontSize: number | null; locale: string | null; theme: string | null; } {
+    const safe = <T>(f: () => T): T | null => { try { return f() ?? null; } catch { return null; } };
+    return {
+        zoom: safe(() => AccessibilityStore.zoom),
+        fontSize: safe(() => AccessibilityStore.fontSize),
+        locale: safe(() => LocaleStore.locale),
+        theme: safe(() => String(ThemeStore.theme)),
+    };
 }
