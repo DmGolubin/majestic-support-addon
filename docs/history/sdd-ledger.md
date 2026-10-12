@@ -78,3 +78,10 @@ Final fix wave: 11 findings — 10 addressed, #9 partial (commits 5024518..b715d
 Final: parked — #9 thread in side panel: window/insert may target main chat when search box has focus — Ruling: known limitation for stage 1, fix later with "last focused editor" — cost if wrong: text goes to main chat instead of side-panel thread (still same channel check by SelectedChannelStore)
 Final: parked — deviations #1 (confirmed foreign piece kept in compose) and #10 (clipboard=/| forms) — Ruling: accepted, match user intent and core token grammar
 Final: minor (deferred): dialog latches Space while typing in fields (no auto-repeat on held Space); CHANNEL_SELECT re-select clears compose; old lint no-multi-spaces in core/search.ts
+Task 12 (added 12.10.2026, user-approved): window redesign (port replica) + markdown preview + performance; brief task-12-brief.md; BASE 41a05af
+Task 12: review — all 15 brief items present; Important: InlinePop footer clipped by new .vc-stx-foot; Ruling: fold minors (clamped sel highlight, rect read once in InlinePop/ComposeBar) into round 1; deviations accepted (team-usage chip removed — spec uses teamUses for ranking only; pluralised counts; hints in footer tooltip; inline item identity compare)
+Task 12: minor (deferred): window rect stale when Discord sidebar/member list toggles without resize; preview squeezed in very narrow chat; markdown closer O(n²) on many unmatched *; redundant j>0 branch
+Task 12: fix round 1/5 (3 addressed, 0 open — popup footer wraps, clamped selIdx, useChatRect on open/resize; commits 48cef5c..fec931c)
+Task 12: ⚠️ resolved by controller: visibleItems=favs in All view vs clamp on rendered items is intentional (Alt+N follows favourite labels); useMemo from @webpack/common confirmed by Vencord tsc+build
+Task 12: minor (deferred): popup/compose rect stale on layout changes without window resize (reply bar, member list)
+Task 12: complete (commits 41a05af..fec931c, review clean) — manual Discord check pending with user
