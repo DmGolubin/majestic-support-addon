@@ -97,3 +97,5 @@ Task 15: review Approved; Ruling: fix minor "hoveredId not cleared on list chang
 Task 15: minor (deferred): window opened under stationary cursor sets hovered row; report includes typed queries/markers/error messages (no bodies); possible error loop if debugSnapshot throws; some dlog args computed when off (rare paths); setting toggle while plugin stopped
 Task 15: fix round 1/5 (1 addressed — clear hoveredId/debug hover/tooltip on list change; commits 97b415c..4239c8f)
 Task 15: complete (commits ac120be..4239c8f, review clean) — manual Discord check pending with user
+Task 16 (user request): Shift+wheel scrolls preview (Chromium Shift+wheel = horizontal) + verbose debug (all events, geometry, perf, settings, categories/filter, 200-event ring); BASE 16861a4
+Task 16: implemented (commits 16861a4..f8ac9d3) — task review NOT yet run (usage limit); masked typed chars in verbose key log (privacy, beyond brief)
