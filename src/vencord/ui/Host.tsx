@@ -5,6 +5,7 @@
  */
 
 import { ContextMenu } from "./ContextMenu";
+import { Dialogs } from "./Dialogs";
 import { ui } from "./uiState";
 import { Window } from "./Window";
 
@@ -14,6 +15,7 @@ export function Host() {
         <div className="vc-stx-root">
             {s.windowOpen && <Window />}
             <ContextMenu />
+            <Dialogs />
         </div>
     );
 }

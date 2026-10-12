@@ -6,18 +6,53 @@
 
 import { decide, foreignMarkers, ServerBinding } from "../core/guard";
 import { splitGreeting, stripMarker } from "../core/text";
+import { fieldsOf, fill } from "../core/tokens";
 import { ProjectId, PROJECTS, Template } from "../core/types";
-import { activeEditor, insertText, toast } from "../platform";
+import { activeEditor, currentChannel, insertText, readClipboard, toast } from "../platform";
 import { activeProject, Dialog, guildKey, store, ui } from "./uiState";
 
 type ConfirmArgs = Omit<Extract<Dialog, { kind: "confirm"; }>, "kind" | "resolve">;
 
+/** A new dialog must never orphan a pending one: cancel the open one (if it awaits an answer) first. */
+function supersede() {
+    const d = ui.get().dialog;
+    if (!d) return;
+    if (d.kind === "askProject" || d.kind === "fields") d.resolve(null);
+    else if (d.kind === "confirm") d.resolve({ ok: false, checked: false });
+}
+
 export function confirm(args: ConfirmArgs): Promise<{ ok: boolean; checked: boolean; }> {
+    supersede();
     return new Promise(resolve => ui.set({ dialog: { kind: "confirm", ...args, resolve: v => { ui.set({ dialog: null }); resolve(v); } } }));
 }
 
 function askProject(): Promise<ServerBinding | null> {
+    supersede();
     return new Promise(resolve => ui.set({ dialog: { kind: "askProject", resolve: v => { ui.set({ dialog: null }); resolve(v); } } }));
+}
+
+/** Fills panel tokens; asks the user for fields. null = cancelled. */
+export async function fillFields(title: string, text: string): Promise<string | null> {
+    const fields = fieldsOf(text);
+    let values: Record<string, string> = {};
+    if (fields.length) {
+        const initial: Record<string, string> = {};
+        for (const f of fields) initial[f.name] = f.def || f.options[0] || "";
+        supersede();
+        const got = await new Promise<Record<string, string> | null>(resolve =>
+            ui.set({ dialog: { kind: "fields", title, fields, initial, resolve: v => { ui.set({ dialog: null }); resolve(v); } } }));
+        if (!got) return null;
+        values = got;
+    }
+    const ch = currentChannel();
+    const env = {
+        now: new Date(),
+        clipboard: text.includes("clipboard") ? await readClipboard() : "",
+        selection: ui.get().selection,
+        url: ch.id ? `https://discord.com/channels/${ch.guildId ?? "@me"}/${ch.id}` : "",
+        title: ch.name,
+    };
+    return fill(text, values, env).text;
 }
 
 /** Project for this channel; asks once on an unknown server. null = nothing may be inserted. */
@@ -86,8 +121,9 @@ export async function prepareText(t: Template, opts: { noGreeting?: boolean; } =
     if (!project) return null;
     const g = await guard(t, project);
     if (!g) return null;
-    const text = opts.noGreeting ? splitGreeting(g.text).body : stripMarker(g.text);
-    return { t: g, text };
+    const raw = opts.noGreeting ? splitGreeting(g.text).body : stripMarker(g.text);
+    const text = await fillFields(g.title, raw);
+    return text === null ? null : { t: g, text };
 }
 
 export async function insertTemplate(t: Template, opts: { noGreeting?: boolean; } = {}) {
