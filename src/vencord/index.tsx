@@ -17,6 +17,7 @@ import { onChannelChange } from "./platform";
 import { insertTemplate } from "./ui/flow";
 import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
+import { handleInlineKey, startInline } from "./ui/inline";
 import { Settings } from "./ui/Settings";
 import { activeProject, poolFor, store, ui } from "./ui/uiState";
 import { visibleItems } from "./ui/Window";
@@ -41,6 +42,12 @@ const Button: ChatBarButtonFactory = ({ isMainChat }) => {
 function onKey(e: KeyboardEvent) {
     const s = ui.get();
     if (s.dialog) return; // dialogs handle their own keys
+
+    if (handleInlineKey(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
 
     if (e.ctrlKey && e.altKey && !e.shiftKey && e.code === "KeyT") {
         e.preventDefault();
@@ -75,6 +82,7 @@ function onKey(e: KeyboardEvent) {
 let host: HTMLDivElement | null = null;
 let root: ReturnType<typeof createRoot> | null = null;
 let offChannel: (() => void) | null = null;
+let offInline: (() => void) | null = null;
 
 const settings = definePluginSettings({
     panel: { type: OptionType.COMPONENT, component: Settings },
@@ -95,6 +103,7 @@ export default definePlugin({
         document.body.append(host);
         root = createRoot(host);
         root.render(<Host />);
+        offInline = startInline();
         offChannel = onChannelChange(() => ui.set({ compose: [], inline: null, menu: null }));
     },
 
@@ -102,6 +111,8 @@ export default definePlugin({
         document.removeEventListener("keydown", onKey, true);
         offChannel?.();
         offChannel = null;
+        offInline?.();
+        offInline = null;
         root?.unmount();
         host?.remove();
         root = host = null;

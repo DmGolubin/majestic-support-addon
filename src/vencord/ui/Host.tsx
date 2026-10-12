@@ -7,6 +7,7 @@
 import { ComposeBar } from "./ComposeBar";
 import { ContextMenu } from "./ContextMenu";
 import { Dialogs } from "./Dialogs";
+import { Inline } from "./InlinePop";
 import { ui } from "./uiState";
 import { Window } from "./Window";
 
@@ -16,6 +17,7 @@ export function Host() {
         <div className="vc-stx-root">
             {s.windowOpen && <Window />}
             <ComposeBar />
+            <Inline />
             <ContextMenu />
             <Dialogs />
         </div>
