@@ -44,3 +44,37 @@ Ruling: stray debug file check-mirrors.ts committed in fix round — delete it i
 Task 4: complete (commits 8112225..9067706, review clean)
 Task 5: minor (deferred): storage.set promise discarded (no .catch); markIntentional writes even when already marked; setBind doesn't check template exists
 Task 5: complete (commits 9067706..51fa0b8, review clean)
+Ruling: plan amended 12.10.2026 (user-approved): Task 7 gains Step 0 (core: Template.color, recentOf, categoriesOf) + tabs/chips/hover/Shift preview in Window; Task 6 CSS gains view/chip/tip/colour rules — cost if wrong: rework of Task 7 UI only
+Ruling: interrupted Task 6 attempt parked on branch wip/task-6-partial (unreviewed); Task 6 re-dispatched fresh from the amended plan — cost if wrong: redo of ~10 files
+Task 6: Ruling: --stx-mu must be hsl(214 10% 80%) (spec/constraints = panel's muted-foreground) not 72% from the plan's CSS — fixed in Task 7's commit — cost if wrong: slightly brighter muted text
+Task 6: minor (deferred): make-icons has no Chrome/ro.png existence check; start() has no double-start guard
+Task 6: complete (commits 85e16b5..7cd815b, review clean) — manual Discord check pending with user
+Task 7: Ruling: plan-mandated Window onKeyDown ignores e.repeat for Enter/Ctrl+D — fix (spec global constraint wins) — cost if wrong: none
+Task 7: Ruling: fold minors into round 1 — stopPropagation on handled window keys (Escape marks channel read), visibleItems = favs in "Все" view w/o query (Alt labels match) — cost if wrong: small UX change
+Task 7: minor (deferred): hover/peek stale state; sel highlight after unfavorite; tooltip click closes window; no resize listener; context menu not clamped; markUsed when no editor; Tab trapped; orphaned dialog promise if two asks race; project not rechecked after awaits
+Task 7: fix round 1/5 (3 addressed, 0 open — e.repeat on Enter/Ctrl+D, stopPropagation, visibleItems=favs in All view; commits a7cd2fe..e496517)
+Task 7: minor (deferred): Enter/Ctrl+D with empty list not swallowed
+Task 7: complete (commits 8dd422a..e496517, review clean) — manual Discord check pending with user
+Task 8: ⚠️ resolved by controller: readClipboard() already swallows errors (try/catch → "") in platform.ts (Task 6)
+Task 8: Ruling: route ContextMenu's bind dialog through supersede() too — cost if wrong: none
+Task 8: minor (deferred): no focus trap in dialogs; stop() clears dialog without resolving; "clipboard" substring check reads clipboard on plain prose; bind repeats failure toast on held key; caret {|} position dropped after fill
+Task 8: fix round 1/5 (3 addressed, 0 open — keyed dialogs + own-dialog clear, Frame focus, bind via supersede; commits 18a5dec..ea1de24)
+Task 8: minor (deferred): focus not restored to chat editor after a dialog closes; Bind dialog has no Frame focus (keys captured anyway)
+Task 8: complete (commits e496517..ea1de24, review clean) — manual Discord check pending with user
+Task 9: minor (deferred): stale drag id can enter compose; insertAll may insert into a new channel if channel changes while fields dialog is open (project gating!) — flag for final review; ghost ids keep bar; position not reactive to resize; reorder flicker
+Task 9: complete (commits ea1de24..629d336, review clean) — manual Discord check pending with user
+Task 10: Ruling: Inline.tsx renamed InlinePop.tsx (export Inline) — inline.ts vs Inline.tsx collide case-insensitively on Windows (TS1149, wrong file bundled) — cost if wrong: none
+Task 10: Ruling: no matches → no popup (so ";)"+Enter sends); project-unknown note consumes Enter/Tab with toast (don't send ";снр" to a player) — spec says Esc dismisses, silent on Enter in empty state — cost if wrong: Enter behaviour in edge states
+Task 10: Ruling: fold minors into round 1 — accepting flag, modifier/IME guards (Shift+Enter stays newline), cancel rAF on teardown, left-button only — cost if wrong: none
+Task 10: minor (deferred): multi-line textBeforeCaret via Range.toString() may glue lines (trigger at start of line 2); stale selection if Tab before rAF; markUsed ignores insert result; check() re-sets ui on every selectionchange
+Task 10: fix round 1/5 (5 addressed, 0 open — no-match no popup, note state consumes Enter/Tab, accepting flag, modifier/IME guards, rAF cancel, left-button; commits b691fad..ef09187)
+Task 10: complete (commits 629d336..ef09187, review clean) — manual Discord check (Slate trigger replacement) pending with user
+Task 11: Ruling: README.md already exists (written 06.10 with repo map); merge the plan's dev section into it instead of overwriting — cost if wrong: none
+Task 11: Ruling: README-only diff reviewed as part of the final whole-branch review instead of a separate task review — cost if wrong: a doc typo slips one round
+Task 11: complete (commits ef09187..5024518) — manual run pending with user
+Final review: With fixes — Critical 1 (project/channel not rechecked after awaits), Important 5 (held-Enter latch, sessionProject reset, spec §11 error handling missing from plan, dialog focus trap, stop() wedge), minors chosen to fix now 7–11 — see final-fix-findings.md
+Ruling: spec §11 error handling (ErrorBoundary, clipboard fallback, [SupportTemplates] logging) is binding; the plan omitted it — added in the final fix wave — cost if wrong: a few extra lines
+Final fix wave: 11 findings — 10 addressed, #9 partial (commits 5024518..b715d25; re-review: all addressed, no new breakage)
+Final: parked — #9 thread in side panel: window/insert may target main chat when search box has focus — Ruling: known limitation for stage 1, fix later with "last focused editor" — cost if wrong: text goes to main chat instead of side-panel thread (still same channel check by SelectedChannelStore)
+Final: parked — deviations #1 (confirmed foreign piece kept in compose) and #10 (clipboard=/| forms) — Ruling: accepted, match user intent and core token grammar
+Final: minor (deferred): dialog latches Space while typing in fields (no auto-repeat on held Space); CHANNEL_SELECT re-select clears compose; old lint no-multi-spaces in core/search.ts
