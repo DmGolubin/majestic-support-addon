@@ -122,6 +122,7 @@
 .vc-stx-pop .vc-stx-foot { display: block; white-space: normal; overflow: visible; padding: 6px 4px 0; margin-top: 4px; }
 
 /* ---- Dialogs ---- */
+.vc-stx-menu, .vc-stx-backdrop, .vc-stx-dialog { z-index: 2; }
 .vc-stx-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 45%); }
 .vc-stx-dialog { left: 50%; top: 28%; transform: translateX(-50%); width: 440px; max-width: calc(100vw - 32px); padding: 16px; }
 .vc-stx-dialog h4 { margin: 0 0 8px; font-size: 14px; color: #fff; border-left: 4px solid var(--stx-amber); padding-left: 9px; }
@@ -151,7 +152,8 @@
 .vc-stx-chip button { background: none; border: 0; color: var(--stx-mu); cursor: pointer; font: inherit; padding: 0 2px; }
 
 /* ---- Hover tooltip (preview closed) ---- */
-.vc-stx-tip { position: fixed; width: 380px; max-height: 320px; display: flex; overflow: hidden; background: var(--stx-card); border: 1px solid var(--stx-bd); border-radius: 12px; box-shadow: 0 12px 32px rgb(0 0 0 / 55%); pointer-events: none; contain: layout paint; }
+/* z-index: above the compose bar (later in the DOM); menu and dialogs stay above the tooltip. */
+.vc-stx-tip { position: fixed; z-index: 1; width: 380px; max-height: 320px; display: flex; overflow: hidden; background: var(--stx-card); border: 1px solid var(--stx-bd); border-radius: 12px; box-shadow: 0 12px 32px rgb(0 0 0 / 55%); pointer-events: none; contain: layout paint; }
 .vc-stx-tip .vc-stx-pre { padding: 14px 16px 10px; }
 /* Not scrollable (pointer-events: none): no scrollbar, the beginning of the text, a fade where it is cut. */
 .vc-stx-tip .vc-stx-body { overflow: hidden; padding-right: 0; }

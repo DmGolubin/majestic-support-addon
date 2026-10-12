@@ -4,9 +4,10 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { React, useCallback, useEffect, useMemo, useRef, useState } from "@webpack/common";
+import { React, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "@webpack/common";
 
 import { comboLabel } from "../core/keys";
+import { clampTop } from "../core/layout";
 import { categoriesOf, favoritesOf, orderHits, recentOf, sections } from "../core/rank";
 import { search } from "../core/search";
 import { splitGreeting } from "../core/text";
@@ -28,7 +29,7 @@ const HOVER_MS = 500;
 /** Hover tooltips stay off until this long after the last scroll event. */
 const SCROLL_QUIET_MS = 150;
 const NO_TOKENS: string[] = [];
-const MAX_H = 500, EDGE = 8;
+const MAX_H = 500, EDGE = 8, TIP_MAX_H = 320;
 
 /** First meaningful body line after the greeting, markdown chars stripped — the row's muted snippet. */
 const snippets = new WeakMap<Template, string>();
@@ -86,7 +87,9 @@ const getRow = () => MemoRow ??= React.memo(RowImpl);
 
 export function Window() {
     const version = useStore();
-    const hasCompose = ui.useSelect(s => s.compose.length > 0);
+    const composeLen = ui.useSelect(s => s.compose.length);
+    const hasCompose = composeLen > 0;
+    const dialogOpen = ui.useSelect(s => s.dialog !== null);
     ui.useSelect(s => s.sessionProject); // activeProject() reads it
     const { project, binding } = activeProject();
     const [query, setQuery] = useState("");
@@ -96,12 +99,15 @@ export function Window() {
     const [peek, setPeek] = useState(false);
     const [hover, setHover] = useState<{ t: Template; top: number; } | null>(null);
     const [rect, setRect] = useState<DOMRect | null>(chatAreaRect);
+    const [tipH, setTipH] = useState(0);
     const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const scrolling = useRef(false);
     const hoverShown = useRef(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
+    const winRef = useRef<HTMLDivElement>(null);
+    const tipRef = useRef<HTMLDivElement>(null);
 
     const data = useMemo(() => {
         const ctx = store.ctx();
@@ -140,6 +146,11 @@ export function Window() {
         window.addEventListener("resize", onResize);
         return () => window.removeEventListener("resize", onResize);
     }, []);
+    // All window keys (↑↓, Enter, Shift-peek) are the window's onKeyDown: they need focus inside it.
+    // A dialog that closes, or a "+ в ответ" from a button, leaves focus on <body> — take it back.
+    useEffect(() => {
+        if (!dialogOpen && !winRef.current?.contains(document.activeElement)) inputRef.current?.focus();
+    }, [dialogOpen, composeLen]);
     useEffect(() => { setSel(0); }, [query, project, view, cat]);
     useEffect(() => { if (cat && !cats.includes(cat)) setCat(null); }, [cats.join("|")]);
     useEffect(() => { listRef.current?.querySelector(".vc-stx-it.sel")?.scrollIntoView({ block: "nearest" }); }, [sel]);
@@ -243,6 +254,14 @@ export function Window() {
     const height = Math.max(200, Math.min(MAX_H, window.innerHeight - bottom - EDGE));
     const style: React.CSSProperties = { right, bottom, width, height };
 
+    // Hover tooltip: inside the window's vertical range, never over the compose bar / chat input below it.
+    const winBottom = window.innerHeight - bottom, winTop = winBottom - height;
+    const tipMaxH = Math.min(TIP_MAX_H, height);
+    useLayoutEffect(() => {
+        const h = tipRef.current?.offsetHeight ?? 0;
+        if (h && h !== tipH) setTipH(h); // measured before paint: no visible jump
+    }, [hover, tipMaxH]);
+
     const Row = getRow();
     const onHover = wide ? null : startHover;
     const row = (t: Template, i: number) => (
@@ -271,7 +290,12 @@ export function Window() {
     let idx = 0;
     return (
         <>
-            <div className="vc-stx-win" style={style} onKeyDown={onKeyDown}>
+            <div
+                className="vc-stx-win" ref={winRef} style={style} onKeyDown={onKeyDown}
+                // Rows and buttons never take focus: it stays in the search input, so the keys keep working
+                // even when the clicked element unmounts (a Preview button once Shift is released).
+                onMouseDown={e => { if ((e.target as HTMLElement).closest("button, .vc-stx-it")) e.preventDefault(); }}
+            >
                 {/* Preview LEFT of the list: the window is right-anchored, so the list never moves when it opens. */}
                 {wide && <Preview t={current} />}
                 <div className="vc-stx-col">
@@ -332,7 +356,10 @@ export function Window() {
                 </div>
             </div>
             {hover && !wide && (
-                <div className="vc-stx-tip" style={{ right: right + width + EDGE, top: Math.max(EDGE, Math.min(hover.top, window.innerHeight - 320)) }}>
+                <div
+                    className="vc-stx-tip" ref={tipRef}
+                    style={{ right: right + width + EDGE, top: clampTop(hover.top, winTop, winBottom, tipH || tipMaxH), maxHeight: tipMaxH }}
+                >
                     <Preview key={hover.t.id} t={hover.t} compact />{/* key: remount so the fade check runs per template */}
                 </div>
             )}

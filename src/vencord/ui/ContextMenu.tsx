@@ -28,7 +28,8 @@ export function ContextMenu() {
     const bind = store.bindFor(t.id);
     const run = (fn: () => void) => () => { ui.set({ menu: null }); fn(); };
     return (
-        <div className="vc-stx-menu" style={{
+        // Menu buttons never take focus: it stays in the window's search input after the menu closes.
+        <div className="vc-stx-menu" onMouseDown={e => e.preventDefault()} style={{
             left: Math.max(EDGE, Math.min(menu.x, window.innerWidth - MENU_W - EDGE)),
             top: Math.max(EDGE, Math.min(menu.y, window.innerHeight - MENU_H - EDGE)),
         }}>
