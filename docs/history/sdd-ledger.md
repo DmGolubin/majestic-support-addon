@@ -92,3 +92,8 @@ Task 14 (bugfix from user check): tooltip overlap + Shift after «+ в отве�
 Task 14: root cause B — Shift+click on preview «+ в ответ» focuses the button; preview unmounts on Shift release → focus to body; fixed by mousedown preventDefault on buttons/rows + guarded refocus effect
 Task 14: minor (deferred): plain keyboard Shift+Enter path unexplained (user check is the gate); clicking preview text/empty area drops focus; tipH stale first frame
 Task 14: complete (commits ad0fb1e..ead346d, review clean) — manual Discord check pending with user
+Task 15 (user request): Shift peeks hovered row (bug since Task 12 perf) + debug mode (panel, event log, report); BASE ac120be
+Task 15: review Approved; Ruling: fix minor "hoveredId not cleared on list change" now (same bug class the user reported) — cost if wrong: none
+Task 15: minor (deferred): window opened under stationary cursor sets hovered row; report includes typed queries/markers/error messages (no bodies); possible error loop if debugSnapshot throws; some dlog args computed when off (rare paths); setting toggle while plugin stopped
+Task 15: fix round 1/5 (1 addressed — clear hoveredId/debug hover/tooltip on list change; commits 97b415c..4239c8f)
+Task 15: complete (commits ac120be..4239c8f, review clean) — manual Discord check pending with user
