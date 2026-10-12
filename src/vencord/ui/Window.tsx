@@ -4,17 +4,18 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useEffect, useRef, useState } from "@webpack/common";
+import { React, useCallback, useEffect, useMemo, useRef, useState } from "@webpack/common";
 
 import { comboLabel } from "../core/keys";
 import { categoriesOf, favoritesOf, orderHits, recentOf, sections } from "../core/rank";
 import { search } from "../core/search";
+import { splitGreeting } from "../core/text";
 import { ProjectId, PROJECTS, Template } from "../core/types";
 import { chatAreaRect } from "../platform";
 import { addToCompose, ensureProject, insertTemplate } from "./flow";
 import { nqHighlight } from "./highlight";
 import { latchKey } from "./keylatch";
-import { Preview } from "./Preview";
+import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
 import { activeProject, poolFor, store, ui, useStore } from "./uiState";
 
@@ -22,16 +23,69 @@ import { activeProject, poolFor, store, ui, useStore } from "./uiState";
 export let visibleItems: Template[] = [];
 
 type View = "all" | "fav" | "recent";
-const VIEWS: { key: View; label: string; }[] = [
-    { key: "all", label: "Все" },
-    { key: "fav", label: "★ Избранное" },
-    { key: "recent", label: "Недавние" },
-];
+const VIEWS: View[] = ["all", "fav", "recent"];
 const HOVER_MS = 500;
+const NO_TOKENS: string[] = [];
+const MAX_H = 500, EDGE = 8;
+
+/** First meaningful body line after the greeting, markdown chars stripped — the row's muted snippet. */
+const snippets = new WeakMap<Template, string>();
+function snippetOf(t: Template) {
+    let s = snippets.get(t);
+    if (s === undefined) {
+        s = "";
+        for (const line of splitGreeting(t.text).body.split("\n")) {
+            const clean = line.replace(/[*_`>#~]/g, "").replace(/\s+/g, " ").trim();
+            if (/[\p{L}\p{N}]/u.test(clean)) { s = clean; break; }
+        }
+        snippets.set(t, s);
+    }
+    return s;
+}
+
+interface RowProps {
+    t: Template;
+    sel: boolean;
+    /** Alt+N label, 0 = none. */
+    alt: number;
+    bind: string | undefined;
+    icon: boolean;
+    tokens: string[];
+    line: string | null;
+    onHover: ((t: Template, el: HTMLElement) => void) | null;
+    onLeave: () => void;
+}
+
+function RowImpl({ t, sel, alt, bind, icon, tokens, line, onHover, onLeave }: RowProps) {
+    return (
+        <div
+            className={"vc-stx-it" + (sel ? " sel" : "")}
+            onMouseEnter={onHover ? e => onHover(t, e.currentTarget) : undefined}
+            onMouseLeave={onLeave}
+            onClick={() => { onLeave(); void insertTemplate(t); }}
+            onContextMenu={e => { e.preventDefault(); onLeave(); ui.set({ menu: { x: e.clientX, y: e.clientY, id: t.id } }); }}
+        >
+            <div className="vc-stx-r">
+                {t.color && <span className="vc-stx-color" style={{ background: t.color }} />}
+                {icon && <ProjectIcon project={t.project} />}
+                <span className="vc-stx-nm">{nqHighlight(t.title, tokens)}</span>
+                {t.status !== "actual" && <span className="vc-stx-badge old">{t.status === "outdated" ? "устарел" : "на проверке"}</span>}
+                {bind && <span className="vc-stx-kb">{comboLabel(bind)}</span>}
+                {alt > 0 && <span className="vc-stx-kb">Alt {alt}</span>}
+            </div>
+            <div className="vc-stx-sn">{line ? nqHighlight(line, tokens) : snippetOf(t)}</div>
+        </div>
+    );
+}
+
+// React from @webpack/common is only ready after Discord loaded: build the memo on first render.
+let MemoRow: React.ComponentType<RowProps> | null = null;
+const getRow = () => MemoRow ??= React.memo(RowImpl);
 
 export function Window() {
-    useStore();
-    const s = ui.use();
+    const version = useStore();
+    const hasCompose = ui.useSelect(s => s.compose.length > 0);
+    ui.useSelect(s => s.sessionProject); // activeProject() reads it
     const { project, binding } = activeProject();
     const [query, setQuery] = useState("");
     const [view, setView] = useState<View>("all");
@@ -39,37 +93,50 @@ export function Window() {
     const [sel, setSel] = useState(0);
     const [peek, setPeek] = useState(false);
     const [hover, setHover] = useState<{ t: Template; top: number; } | null>(null);
+    const [rect, setRect] = useState<DOMRect | null>(chatAreaRect);
     const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
 
-    const ctx = store.ctx();
-    const projectPool = poolFor(project);
-    const cats = categoriesOf(projectPool);
-    const pool = cat ? projectPool.filter(t => t.category === cat) : projectPool;
+    const data = useMemo(() => {
+        const ctx = store.ctx();
+        const projectPool = poolFor(project);
+        const cats = categoriesOf(projectPool);
+        const pool = cat ? projectPool.filter(t => t.category === cat) : projectPool;
+        const res = query.trim() ? search(pool, query) : null;
+        const hits = res ? orderHits(res.hits, ctx) : [];
+        const secs = !res && view === "all" ? sections(pool, ctx) : [];
+        const favs = favoritesOf(pool, ctx);
+        const items: Template[] = res
+            ? hits.map(h => h.t)
+            : view === "fav" ? favs
+                : view === "recent" ? recentOf(pool, ctx, 10)
+                    : secs.flatMap(x => x.items);
+        // Alt+N labels: positional in search/fav/recent, favorites-only in the plain "all" view.
+        const positional = !!res || view !== "all";
+        const alt = (t: Template, i: number) => {
+            const n = positional ? i : favs.indexOf(t);
+            return n >= 0 && n < 9 ? n + 1 : 0;
+        };
+        const lines = new Map(hits.map(h => [h.t, h.line]));
+        return { total: projectPool.length, cats, res, secs, favs, items, positional, alt, lines, tokens: res?.tokens ?? NO_TOKENS };
+    }, [query, project, view, cat, version]);
+    const { cats, res, secs, favs, items } = data;
 
-    const res = query.trim() ? search(pool, query) : null;
-    const hits = res ? orderHits(res.hits, ctx) : [];
-    const secs = !res && view === "all" ? sections(pool, ctx) : [];
-    const favs = favoritesOf(pool, ctx);
-    const items: Template[] = res
-        ? hits.map(h => h.t)
-        : view === "fav" ? favs
-            : view === "recent" ? recentOf(pool, ctx, 10)
-                : secs.flatMap(x => x.items);
-    const favIds = favs.map(t => t.id);
-    // Alt+N labels: positional in search/fav/recent, favorites-only in the plain "all" view.
-    visibleItems = !res && view === "all" ? favs : items;
+    visibleItems = data.positional ? items : favs;
     const current = items[Math.min(sel, items.length - 1)];
 
     useEffect(() => {
         inputRef.current?.focus();
         // Unknown server: ask right away, otherwise the list would be empty.
         if (activeProject().binding === null) void ensureProject();
+        const onResize = () => setRect(chatAreaRect());
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
     }, []);
     useEffect(() => { setSel(0); }, [query, project, view, cat]);
     useEffect(() => { if (cat && !cats.includes(cat)) setCat(null); }, [cats.join("|")]);
-    useEffect(() => { listRef.current?.querySelector(".vc-stx-item.sel")?.scrollIntoView({ block: "nearest" }); }, [sel]);
+    useEffect(() => { listRef.current?.querySelector(".vc-stx-it.sel")?.scrollIntoView({ block: "nearest" }); }, [sel]);
     useEffect(() => {
         const onDown = (e: MouseEvent) => {
             const el = e.target as HTMLElement;
@@ -90,14 +157,16 @@ export function Window() {
     // Switching the project drops the collected reply: its pieces were checked against the old one.
     const pickProject = (p: ProjectId) => { if (p !== project) ui.set({ sessionProject: p, compose: [] }); };
 
-    const startHover = (t: Template, el: HTMLElement) => {
+    // Stable callbacks: memoized rows must not re-render because of new handler identities.
+    const startHover = useCallback((t: Template, el: HTMLElement) => {
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
         hoverTimer.current = setTimeout(() => setHover({ t, top: el.getBoundingClientRect().top }), HOVER_MS);
-    };
-    const stopHover = () => {
+    }, []);
+    const stopHover = useCallback(() => {
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
-        setHover(null);
-    };
+        hoverTimer.current = null;
+        setHover(h => h && null); // no-op (no re-render) when no tooltip is shown
+    }, []);
 
     const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         const input = inputRef.current;
@@ -111,7 +180,7 @@ export function Window() {
             if (query) setQuery(""); else ui.set({ windowOpen: false });
         } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             eat();
-            if (items.length) setSel(i => (i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length);
+            if (items.length) setSel(i => (Math.min(i, items.length - 1) + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length);
         } else if (e.key === "Enter" && current) {
             eat();
             if (e.repeat) return;
@@ -125,8 +194,8 @@ export function Window() {
             store.setPreviewOpen(false);
         } else if (e.key === "Tab") {
             eat();
-            const i = VIEWS.findIndex(v => v.key === view);
-            setView(VIEWS[(i + (e.shiftKey ? -1 : 1) + VIEWS.length) % VIEWS.length].key);
+            const i = VIEWS.indexOf(view);
+            setView(VIEWS[(i + (e.shiftKey ? -1 : 1) + VIEWS.length) % VIEWS.length]);
         } else if (e.ctrlKey && e.code === "KeyD" && current) {
             eat();
             if (e.repeat) return;
@@ -134,40 +203,30 @@ export function Window() {
         }
     };
 
-    const rect = chatAreaRect();
     const wide = store.data.previewOpen || peek;
-    const width = Math.min(wide ? 820 : 400, (rect?.width ?? 900) - 8);
-    const right = rect ? Math.max(8, window.innerWidth - rect.right) : 80;
-    const style: React.CSSProperties = rect
-        ? { right, bottom: window.innerHeight - rect.top + 8 + (s.compose.length ? 48 : 0), width }
-        : { right, bottom: 80, width };
+    const avail = (rect?.width ?? 900) - 16;
+    const width = Math.max(0, Math.min(wide ? 820 : 360, avail));
+    const right = rect ? Math.max(EDGE, window.innerWidth - rect.right) : 80;
+    const bottom = rect ? window.innerHeight - rect.top + EDGE + (hasCompose ? 48 : 0) : 80;
+    const height = Math.max(200, Math.min(MAX_H, window.innerHeight - bottom - EDGE));
+    const style: React.CSSProperties = { right, bottom, width, height };
 
-    const row = (t: Template, i: number) => {
-        const favIdx = favIds.indexOf(t.id);
-        const bind = store.bindFor(t.id);
-        const hit = res ? hits[i] : null;
-        const altLabel = res || view !== "all" ? (i < 9 ? i + 1 : -1) : (favIdx >= 0 && favIdx < 9 ? favIdx + 1 : -1);
-        return (
-            <div
-                key={t.id}
-                className={"vc-stx-item" + (i === sel ? " sel" : "")}
-                onMouseEnter={e => { setSel(i); if (!wide) startHover(t, e.currentTarget); }}
-                onMouseLeave={stopHover}
-                onClick={() => { stopHover(); void insertTemplate(t); }}
-                onContextMenu={e => { e.preventDefault(); stopHover(); ui.set({ menu: { x: e.clientX, y: e.clientY, id: t.id } }); }}
-            >
-                <div className="vc-stx-r">
-                    {t.color && <span className="vc-stx-color" style={{ background: t.color }} />}
-                    <ProjectIcon project={t.project} />
-                    <span className="vc-stx-nm">{nqHighlight(t.title, res?.tokens ?? [])}</span>
-                    {t.status !== "actual" && <span className="vc-stx-badge old">{t.status === "outdated" ? "устарел" : "на проверке"}</span>}
-                    {bind && <span className="vc-stx-kb">{comboLabel(bind)}</span>}
-                    {altLabel > 0 && <span className="vc-stx-kb">Alt {altLabel}</span>}
-                </div>
-                {hit?.line && <div className="vc-stx-line">{nqHighlight(hit.line, res!.tokens)}</div>}
-            </div>
-        );
-    };
+    const Row = getRow();
+    const onHover = wide ? null : startHover;
+    const row = (t: Template, i: number) => (
+        <Row
+            key={t.id}
+            t={t}
+            sel={i === sel}
+            alt={data.alt(t, i)}
+            bind={store.bindFor(t.id)}
+            icon={binding === "none" || !t.project}
+            tokens={data.tokens}
+            line={data.lines.get(t) ?? null}
+            onHover={onHover}
+            onLeave={stopHover}
+        />
+    );
 
     const empty = !store.templates.length
         ? "Шаблонов нет. Импортируй конфиг в настройках плагина."
@@ -175,43 +234,51 @@ export function Window() {
             : view === "fav" ? "В избранном пусто — Ctrl+D или ПКМ → «★ В избранное»"
                 : view === "recent" ? "Ещё ничего не вставлялось"
                     : "Шаблонов нет";
+    const count = project ? <span className="vc-stx-n">{data.total} {plural(data.total, "шаблон", "шаблона", "шаблонов")}</span> : null;
 
     let idx = 0;
     return (
         <>
             <div className="vc-stx-win" style={style} onKeyDown={onKeyDown}>
                 <div className="vc-stx-col">
-                    <input
-                        ref={inputRef}
-                        className="vc-stx-search"
-                        placeholder="Поиск: название, текст или синоним — «фпс», «снр»…"
-                        value={query}
-                        onChange={e => setQuery(e.currentTarget.value)}
-                    />
-                    <div className="vc-stx-proj">
-                        {binding === "none"
-                            ? (["mj", "ro"] as ProjectId[]).map(p => (
-                                <button key={p} className={"vc-stx-tab" + (project === p ? " on" : "")} onClick={() => pickProject(p)}>
-                                    <ProjectIcon project={p} size={14} />{PROJECTS[p].short}
-                                </button>))
-                            : project
-                                ? <><ProjectIcon project={project} size={16} /><b>{PROJECTS[project].name}</b><span className="vc-stx-hint">по серверу</span></>
-                                : <span className="vc-stx-hint">Проект сервера не определён</span>}
-                    </div>
-                    <div className="vc-stx-views">
-                        {VIEWS.map(v => (
-                            <button key={v.key} className={"vc-stx-tab" + (view === v.key ? " on" : "")} onClick={() => setView(v.key)}>{v.label}</button>
-                        ))}
-                    </div>
-                    {cats.length >= 2 && (
-                        <div className="vc-stx-chips">
-                            {cats.map(c => (
-                                <button key={c} className={"vc-stx-chipf" + (cat === c ? " on" : "")} onClick={() => setCat(cat === c ? null : c)}>{c}</button>
+                    <div className="vc-stx-head">
+                        <label className="vc-stx-search">
+                            <span className="vc-stx-sicon">⌕</span>
+                            <input
+                                ref={inputRef}
+                                className="vc-stx-sinput"
+                                placeholder="Поиск: название, текст или «снр», «фпс»…"
+                                value={query}
+                                onChange={e => setQuery(e.currentTarget.value)}
+                            />
+                        </label>
+                        <div className="vc-stx-proj">
+                            {binding === "none"
+                                ? <>{(["mj", "ro"] as ProjectId[]).map(p => (
+                                    <button key={p} className={"vc-stx-pbtn" + (project === p ? " on" : "")} onClick={() => pickProject(p)}>
+                                        <ProjectIcon project={p} size={14} />{PROJECTS[p].short}
+                                    </button>))}{count}</>
+                                : project
+                                    ? <><ProjectIcon project={project} size={18} /><b>{PROJECTS[project].name}</b>{count}</>
+                                    : <span className="vc-stx-hint">Проект сервера не определён</span>}
+                        </div>
+                        <div className="vc-stx-tabs">
+                            {VIEWS.map(v => (
+                                <button key={v} className={"vc-stx-tab" + (view === v ? " on" : "")} onClick={() => setView(v)}>
+                                    {v === "all" ? "Все" : v === "fav" ? <>★ Избранное<i>{favs.length}</i></> : "Недавние"}
+                                </button>
                             ))}
                         </div>
-                    )}
-                    {res?.layout && <div className="vc-stx-hint">Раскладка: показаны результаты для «{res.layout}»</div>}
-                    {res?.fuzzy && <div className="vc-stx-hint">Точных совпадений нет — похожие</div>}
+                        {cats.length >= 2 && (
+                            <div className="vc-stx-chips">
+                                {cats.map(c => (
+                                    <button key={c} className={"vc-stx-chipf" + (cat === c ? " on" : "")} onClick={() => setCat(cat === c ? null : c)}>{c}</button>
+                                ))}
+                            </div>
+                        )}
+                        {res?.layout && <div className="vc-stx-hint">Раскладка: показаны результаты для «{res.layout}»</div>}
+                        {res?.fuzzy && <div className="vc-stx-hint">Точных совпадений нет — похожие</div>}
+                    </div>
                     <div className="vc-stx-list" ref={listRef}>
                         {!items.length && <div className="vc-stx-empty">{empty}</div>}
                         {res || view !== "all"
@@ -222,14 +289,17 @@ export function Window() {
                                     {sec.items.map(t => row(t, idx++))}
                                 </div>))}
                     </div>
-                    <div className="vc-stx-foot">
-                        Enter вставить · Shift — текст · Shift+Enter в ответ · {store.data.previewOpen ? "← скрыть" : "→ закрепить"} текст · Tab вкладки · Ctrl+D ★ · ПКМ меню
+                    <div className="vc-stx-foot" title={"Enter — вставить · Shift+Enter — в ответ · Shift (держать) — текст · → / ← — показать / скрыть текст · Tab — вкладки · Ctrl+D — избранное · ПКМ — меню"}>
+                        <span><span className="vc-stx-kb">↵</span>вставить</span>
+                        <span><span className="vc-stx-kb">⇧↵</span>в ответ</span>
+                        <span><span className="vc-stx-kb">Tab</span>вкладки</span>
+                        <span><span className="vc-stx-kb">ПКМ</span>ещё</span>
                     </div>
                 </div>
                 {wide && <Preview t={current} />}
             </div>
             {hover && !wide && (
-                <div className="vc-stx-tip" style={{ right: right + width + 8, top: Math.max(8, Math.min(hover.top, window.innerHeight - 320)) }}>
+                <div className="vc-stx-tip" style={{ right: right + width + EDGE, top: Math.max(EDGE, Math.min(hover.top, window.innerHeight - 320)) }}>
                     <Preview t={hover.t} compact />
                 </div>
             )}
