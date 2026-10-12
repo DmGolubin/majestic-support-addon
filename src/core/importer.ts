@@ -21,7 +21,7 @@ function mk(group: string, title: string, text: string): Template {
     return {
         id: localId(group, title), project: projectOfGroup(group), title, text,
         category: null, status: "actual", statusNote: null, teamUses: 0,
-        command: null, updatedAt: null, source: "local",
+        command: null, color: null, updatedAt: null, source: "local",
     };
 }
 

@@ -61,3 +61,16 @@ export function orderHits(hits: Hit[], ctx: RankCtx): Hit[] {
         || Number(fav.has(b.t.id)) - Number(fav.has(a.t.id))
         || popularity(b.t, ctx) - popularity(a.t, ctx));
 }
+
+/** Last used templates, newest first (the "Недавние" tab). */
+export function recentOf(pool: Template[], ctx: RankCtx, n: number): Template[] {
+    const byId = new Map(pool.map(t => [t.id, t]));
+    return ctx.recent.map(id => byId.get(id)).filter((t): t is Template => !!t).slice(0, n);
+}
+
+/** Distinct categories in first-seen order (category filter chips). */
+export function categoriesOf(pool: Template[]): string[] {
+    const out: string[] = [];
+    for (const t of pool) if (t.category && !out.includes(t.category)) out.push(t.category);
+    return out;
+}

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { favoritesOf, orderHits, sections } from "../src/core/rank";
+import { categoriesOf, favoritesOf, orderHits, recentOf, sections } from "../src/core/rank";
 import { Template } from "../src/core/types";
 
 const T = (id: string, extra: Partial<Template> = {}): Template => ({
     id, project: "mj", title: id, text: id, category: null, status: "actual", statusNote: null,
-    teamUses: 0, command: null, updatedAt: null, source: "local", ...extra,
+    teamUses: 0, command: null, color: null, updatedAt: null, source: "local", ...extra,
 });
 const pool = ["a", "b", "c", "d", "e", "f", "g", "h"].map(id => T(id));
 
@@ -32,5 +32,13 @@ describe("rank", () => {
         ];
         const r = orderHits(hits, { favorites: ["c"], recent: [], usage: { b: { n: 50, last: 0 } } });
         expect(r.map(h => h.t.id)).toEqual(["c", "b", "a"]);
+    });
+    it("recentOf keeps recent order, skips missing, limits to n", () => {
+        const r = recentOf(pool, { favorites: ["a"], recent: ["c", "zz", "a", "b"], usage: {} }, 2);
+        expect(r.map(t => t.id)).toEqual(["c", "a"]);
+    });
+    it("categoriesOf lists distinct categories in first-seen order, skipping null", () => {
+        const p = [T("x", { category: "Навигация" }), T("y"), T("z", { category: "Частые проблемы" }), T("w", { category: "Навигация" })];
+        expect(categoriesOf(p)).toEqual(["Навигация", "Частые проблемы"]);
     });
 });

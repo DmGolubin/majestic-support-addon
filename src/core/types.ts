@@ -17,6 +17,7 @@ export interface Template {
     statusNote: string | null;
     teamUses: number;
     command: string | null;
+    color: string | null;
     updatedAt: string | null;
     source: "local" | "faq" | "personal";
 }
