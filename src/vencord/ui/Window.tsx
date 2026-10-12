@@ -57,7 +57,8 @@ export function Window() {
             : view === "recent" ? recentOf(pool, ctx, 10)
                 : secs.flatMap(x => x.items);
     const favIds = favs.map(t => t.id);
-    visibleItems = items;
+    // Alt+N labels: positional in search/fav/recent, favorites-only in the plain "all" view.
+    visibleItems = !res && view === "all" ? favs : items;
     const current = items[Math.min(sel, items.length - 1)];
 
     useEffect(() => {
@@ -100,29 +101,32 @@ export function Window() {
         const input = inputRef.current;
         const atEnd = !!input && input.selectionStart === input.value.length;
         const atStart = !!input && input.selectionEnd === 0;
-        if (e.key === "Shift" && !e.repeat) {
-            setPeek(true);
+        const eat = () => { e.preventDefault(); e.stopPropagation(); };
+        if (e.key === "Shift") {
+            if (!e.repeat) setPeek(true);
         } else if (e.key === "Escape") {
-            e.preventDefault();
+            eat();
             if (query) setQuery(""); else ui.set({ windowOpen: false });
         } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-            e.preventDefault();
+            eat();
             if (items.length) setSel(i => (i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length);
         } else if (e.key === "Enter" && current) {
-            e.preventDefault();
+            eat();
+            if (e.repeat) return;
             if (e.shiftKey) void addToCompose(current); else void insertTemplate(current);
         } else if (e.key === "ArrowRight" && atEnd && !store.data.previewOpen) {
-            e.preventDefault();
+            eat();
             store.setPreviewOpen(true);
         } else if (e.key === "ArrowLeft" && atStart && store.data.previewOpen) {
-            e.preventDefault();
+            eat();
             store.setPreviewOpen(false);
         } else if (e.key === "Tab") {
-            e.preventDefault();
+            eat();
             const i = VIEWS.findIndex(v => v.key === view);
             setView(VIEWS[(i + (e.shiftKey ? -1 : 1) + VIEWS.length) % VIEWS.length].key);
         } else if (e.ctrlKey && e.code === "KeyD" && current) {
-            e.preventDefault();
+            eat();
+            if (e.repeat) return;
             store.toggleFavorite(current.id);
         }
     };
