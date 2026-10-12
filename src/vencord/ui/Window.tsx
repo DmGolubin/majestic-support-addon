@@ -165,7 +165,13 @@ export function Window() {
     useEffect(() => {
         if (!dialogOpen && !winRef.current?.contains(document.activeElement)) inputRef.current?.focus();
     }, [dialogOpen, composeLen]);
-    useEffect(() => { setSel(0); }, [query, project, view, cat]);
+    useEffect(() => {
+        setSel(0);
+        // The list changed under a still cursor: the remembered row may no longer be under it.
+        hoveredId.current = null;
+        setDebugHover(null);
+        stopHover();
+    }, [query, project, view, cat]);
     useEffect(() => { if (cat && !cats.includes(cat)) setCat(null); }, [cats.join("|")]);
     useEffect(() => {
         listRef.current?.querySelector(".vc-stx-it.sel")?.scrollIntoView({ block: "nearest" });
