@@ -222,6 +222,26 @@ export function Window() {
         return () => list.removeEventListener("scroll", onScroll);
     }, []);
 
+    // Shift + wheel anywhere over the window scrolls the full text vertically. Chromium turns Shift+wheel
+    // into a horizontal scroll (deltaX), which the preview body does not have, and the cursor is usually
+    // over the list. Without Shift (or with no preview shown) the wheel stays native. No render per event.
+    useEffect(() => {
+        const win = winRef.current;
+        if (!win) return;
+        const onWheel = (e: WheelEvent) => {
+            if (!e.shiftKey || !wideRef.current) return;
+            const body = win.querySelector<HTMLElement>(":scope > .vc-stx-pre .vc-stx-body");
+            if (!body) return;
+            let dy = e.deltaY || e.deltaX;
+            if (e.deltaMode === 1) dy *= 16; // lines
+            else if (e.deltaMode === 2) dy *= body.clientHeight; // pages
+            body.scrollTop += dy;
+            e.preventDefault();
+        };
+        win.addEventListener("wheel", onWheel, { passive: false });
+        return () => win.removeEventListener("wheel", onWheel);
+    }, []);
+
     // Switching the project drops the collected reply: its pieces were checked against the old one.
     const pickProject = (p: ProjectId) => { if (p !== project) ui.set({ sessionProject: p, compose: [] }); };
 
