@@ -85,3 +85,6 @@ Task 12: fix round 1/5 (3 addressed, 0 open — popup footer wraps, clamped selI
 Task 12: ⚠️ resolved by controller: visibleItems=favs in All view vs clamp on rendered items is intentional (Alt+N follows favourite labels); useMemo from @webpack/common confirmed by Vencord tsc+build
 Task 12: minor (deferred): popup/compose rect stale on layout changes without window resize (reply bar, member list)
 Task 12: complete (commits 41a05af..fec931c, review clean) — manual Discord check pending with user
+Task 13 (added 12.10.2026, user-approved): scroll lag, preview left of list, tooltip fade, chat-bar icon per server, icon alignment+hover animation; brief task-13-brief.md; BASE c23a93b
+Task 13: minor (deferred): scroll listener attached once in [] effect; chat-bar project resolution duplicates activeProject(); «Shift — весь текст» hint shown even when not cut; neutral «Ш» tile border; stale tooltip after Shift
+Task 13: complete (commits c23a93b..e33fa62, review clean) — manual Discord check pending with user
