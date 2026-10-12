@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useEffect, useState } from "@webpack/common";
+import { useEffect, useMemo, useState } from "@webpack/common";
 
 import { DM_KEY, projectForGuild, ServerBinding } from "../core/guard";
 import { Store } from "../core/state";
 import { FieldSpec } from "../core/tokens";
 import { ProjectId, Template } from "../core/types";
-import { currentGuildId, storage } from "../platform";
+import { chatAreaRect, currentGuildId, storage } from "../platform";
 import { createObservable } from "./observable";
 
 export const store = new Store(storage);
@@ -57,4 +57,16 @@ export function useStore() {
     const [v, setV] = useState(0);
     useEffect(() => store.subscribe(() => setV(x => x + 1)), []);
     return v;
+}
+
+/** Chat box rect, read when `active` turns on and on window resize — not on every render. */
+export function useChatRect(active: boolean): DOMRect | null {
+    const [tick, setTick] = useState(0);
+    useEffect(() => {
+        if (!active) return;
+        const onResize = () => setTick(x => x + 1);
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+    }, [active]);
+    return useMemo(() => active ? chatAreaRect() : null, [active, tick]);
 }

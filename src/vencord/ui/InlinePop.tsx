@@ -5,17 +5,16 @@
  */
 
 import { PROJECTS } from "../core/types";
-import { chatAreaRect } from "../platform";
 import { nqHighlight } from "./highlight";
 import { acceptInline } from "./inline";
 import { ProjectIcon } from "./ProjectIcon";
-import { activeProject, ui } from "./uiState";
+import { activeProject, ui, useChatRect } from "./uiState";
 
 export function Inline() {
     const inline = ui.useSelect(s => s.inline);
     const hasCompose = ui.useSelect(s => s.compose.length > 0);
+    const rect = useChatRect(!!inline);
     if (!inline) return null;
-    const rect = chatAreaRect();
     if (!rect) return null;
     const { project } = activeProject();
     return (

@@ -124,7 +124,8 @@ export function Window() {
     const { cats, res, secs, favs, items } = data;
 
     visibleItems = data.positional ? items : favs;
-    const current = items[Math.min(sel, items.length - 1)];
+    const selIdx = Math.min(sel, Math.max(0, items.length - 1));
+    const current = items[selIdx];
 
     useEffect(() => {
         inputRef.current?.focus();
@@ -217,7 +218,7 @@ export function Window() {
         <Row
             key={t.id}
             t={t}
-            sel={i === sel}
+            sel={i === selIdx}
             alt={data.alt(t, i)}
             bind={store.bindFor(t.id)}
             icon={binding === "none" || !t.project}

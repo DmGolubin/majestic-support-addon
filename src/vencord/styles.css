@@ -116,7 +116,7 @@
 
 /* ---- Inline ;command popup ---- */
 .vc-stx-pop { padding: 6px 8px; min-width: 360px; max-width: 560px; }
-.vc-stx-pop .vc-stx-foot { padding: 6px 4px 0; margin-top: 4px; }
+.vc-stx-pop .vc-stx-foot { display: block; white-space: normal; overflow: visible; padding: 6px 4px 0; margin-top: 4px; }
 
 /* ---- Dialogs ---- */
 .vc-stx-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 45%); }

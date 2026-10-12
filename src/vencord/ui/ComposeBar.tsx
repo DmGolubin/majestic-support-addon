@@ -7,16 +7,16 @@
 import { useState } from "@webpack/common";
 
 import { joinPieces } from "../core/compose";
-import { activeEditor, chatAreaRect, currentChannel, insertText, toast } from "../platform";
+import { activeEditor, currentChannel, insertText, toast } from "../platform";
 import { confirmedForeign, fillFields, Snap, stillCurrent } from "./flow";
 import { ProjectIcon } from "./ProjectIcon";
-import { activeProject, store, ui } from "./uiState";
+import { activeProject, store, ui, useChatRect } from "./uiState";
 
 export function ComposeBar() {
     const compose = ui.useSelect(s => s.compose);
     const [drag, setDrag] = useState<string | null>(null);
+    const rect = useChatRect(compose.length > 0);
     if (!compose.length) return null;
-    const rect = chatAreaRect();
     if (!rect) return null;
     const items = compose.map(id => store.byId(id)).filter(t => !!t);
 
