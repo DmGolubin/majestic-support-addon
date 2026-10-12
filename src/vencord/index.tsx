@@ -11,10 +11,14 @@ import { definePluginSettings } from "@api/Settings";
 import definePlugin, { IconComponent, OptionType } from "@utils/types";
 import { createRoot } from "@webpack/common";
 
+import { comboOf } from "./core/keys";
+import { favoritesOf } from "./core/rank";
+import { insertTemplate } from "./ui/flow";
 import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
 import { Settings } from "./ui/Settings";
-import { store, ui } from "./ui/uiState";
+import { activeProject, poolFor, store, ui } from "./ui/uiState";
+import { visibleItems } from "./ui/Window";
 
 const Icon: IconComponent = ({ height = 20, width = 20, className }) => (
     <img src={MJ_ICON} height={height} width={width} className={className} style={{ borderRadius: 5 }} alt="" />
@@ -34,10 +38,36 @@ const Button: ChatBarButtonFactory = ({ isMainChat }) => {
 };
 
 function onKey(e: KeyboardEvent) {
+    const s = ui.get();
+    if (s.dialog) return; // dialogs handle their own keys
+
     if (e.ctrlKey && e.altKey && !e.shiftKey && e.code === "KeyT") {
         e.preventDefault();
         e.stopPropagation();
         if (!e.repeat) toggleWindow();
+        return;
+    }
+
+    const digit = /^Digit([1-9])$/.exec(e.code);
+    if (digit && e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.repeat) return;
+        const i = Number(digit[1]) - 1;
+        const list = s.windowOpen ? visibleItems : favoritesOf(poolFor(activeProject().project), store.ctx());
+        const t = list[i];
+        if (t) void insertTemplate(t);
+        return;
+    }
+
+    const combo = comboOf(e);
+    const bound = combo ? store.templateForCombo(combo) : undefined;
+    if (bound) {
+        const target = e.target as HTMLElement;
+        if (target?.closest?.("input, textarea, select") && !target.closest(".vc-stx-root")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (!e.repeat) void insertTemplate(bound);
     }
 }
 

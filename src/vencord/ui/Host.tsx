@@ -4,13 +4,16 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { ContextMenu } from "./ContextMenu";
 import { ui } from "./uiState";
+import { Window } from "./Window";
 
 export function Host() {
     const s = ui.use();
     return (
         <div className="vc-stx-root">
-            {s.windowOpen && <div className="vc-stx-win" style={{ right: 80, bottom: 80, width: 300, height: 120 }}>окно</div>}
+            {s.windowOpen && <Window />}
+            <ContextMenu />
         </div>
     );
 }
