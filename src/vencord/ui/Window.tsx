@@ -55,18 +55,25 @@ interface RowProps {
     icon: boolean;
     tokens: string[];
     line: string | null;
-    onHover: ((t: Template, el: HTMLElement) => void) | null;
+    /** Mouse entered the row: remembers it as hovered, may start the tooltip timer. */
+    onHover: (t: Template, el: HTMLElement) => void;
+    /** Real mouse movement over the row: remembers it as hovered (after keyboard navigation cleared it). */
+    onMove: (t: Template, e: React.MouseEvent) => void;
+    /** Mouse left the row: forgets it, hides the tooltip. */
     onLeave: () => void;
+    /** Hides the tooltip only (click, context menu). */
+    onHide: () => void;
 }
 
-function RowImpl({ t, sel, alt, bind, icon, tokens, line, onHover, onLeave }: RowProps) {
+function RowImpl({ t, sel, alt, bind, icon, tokens, line, onHover, onMove, onLeave, onHide }: RowProps) {
     return (
         <div
             className={"vc-stx-it" + (sel ? " sel" : "")}
-            onMouseEnter={onHover ? e => onHover(t, e.currentTarget) : undefined}
+            onMouseEnter={e => onHover(t, e.currentTarget)}
+            onMouseMove={e => onMove(t, e)}
             onMouseLeave={onLeave}
-            onClick={() => { onLeave(); void insertTemplate(t); }}
-            onContextMenu={e => { e.preventDefault(); onLeave(); ui.set({ menu: { x: e.clientX, y: e.clientY, id: t.id } }); }}
+            onClick={() => { onHide(); void insertTemplate(t); }}
+            onContextMenu={e => { e.preventDefault(); onHide(); ui.set({ menu: { x: e.clientX, y: e.clientY, id: t.id } }); }}
         >
             <div className="vc-stx-r">
                 {t.color && <span className="vc-stx-color" style={{ background: t.color }} />}
@@ -104,6 +111,10 @@ export function Window() {
     const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const scrolling = useRef(false);
     const hoverShown = useRef(false);
+    /** Id of the row under the mouse — a ref: hovering never re-renders (Shift peeks this row). */
+    const hoveredId = useRef<string | null>(null);
+    /** Mirrors `wide` for the stable hover callbacks: no tooltips while the preview shows. */
+    const wideRef = useRef(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const winRef = useRef<HTMLDivElement>(null);
@@ -179,6 +190,7 @@ export function Window() {
         if (!list) return;
         const onScroll = () => {
             scrolling.current = true;
+            hoveredId.current = null; // rows move under the cursor: the next real mouse event says which one
             if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; }
             if (hoverShown.current) { hoverShown.current = false; setHover(null); }
             if (scrollTimer.current) clearTimeout(scrollTimer.current);
@@ -196,9 +208,11 @@ export function Window() {
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
         hoverTimer.current = null;
         if (scrolling.current) return;
+        hoveredId.current = t.id;
+        if (wideRef.current) return; // the preview is shown: no tooltip
         hoverTimer.current = setTimeout(() => {
             hoverTimer.current = null;
-            if (scrolling.current) return;
+            if (scrolling.current || wideRef.current) return;
             hoverShown.current = true;
             setHover({ t, top: el.getBoundingClientRect().top });
         }, HOVER_MS);
@@ -210,6 +224,14 @@ export function Window() {
         hoverShown.current = false;
         setHover(null);
     }, []);
+    const moveHover = useCallback((t: Template, e: React.MouseEvent) => {
+        // Synthetic moves (scroll, layout) have no movement: only a real one marks the row as hovered.
+        if (hoveredId.current !== t.id && (e.movementX || e.movementY)) hoveredId.current = t.id;
+    }, []);
+    const leaveHover = useCallback(() => {
+        hoveredId.current = null;
+        stopHover();
+    }, []);
 
     const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         const input = inputRef.current;
@@ -217,12 +239,18 @@ export function Window() {
         const atStart = !!input && input.selectionEnd === 0;
         const eat = () => { e.preventDefault(); e.stopPropagation(); };
         if (e.key === "Shift") {
-            if (!e.repeat) setPeek(true);
+            if (e.repeat) return;
+            // Peek the row under the mouse when there is one (it becomes the selection), else the keyboard one.
+            const hi = hoveredId.current ? items.findIndex(t => t.id === hoveredId.current) : -1;
+            if (hi >= 0 && hi !== selIdx) setSel(hi);
+            stopHover();
+            setPeek(true);
         } else if (e.key === "Escape") {
             eat();
             if (query) setQuery(""); else ui.set({ windowOpen: false });
         } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             eat();
+            hoveredId.current = null; // the keyboard took over: Shift peeks the keyboard selection until the mouse moves
             if (items.length) setSel(i => (Math.min(i, items.length - 1) + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length);
         } else if (e.key === "Enter" && current) {
             eat();
@@ -247,6 +275,7 @@ export function Window() {
     };
 
     const wide = store.data.previewOpen || peek;
+    wideRef.current = wide;
     const avail = (rect?.width ?? 900) - 16;
     const width = Math.max(0, Math.min(wide ? 820 : 360, avail));
     const right = rect ? Math.max(EDGE, window.innerWidth - rect.right) : 80;
@@ -263,7 +292,6 @@ export function Window() {
     }, [hover, tipMaxH]);
 
     const Row = getRow();
-    const onHover = wide ? null : startHover;
     const row = (t: Template, i: number) => (
         <Row
             key={t.id}
@@ -274,8 +302,10 @@ export function Window() {
             icon={binding === "none" || !t.project}
             tokens={data.tokens}
             line={data.lines.get(t) ?? null}
-            onHover={onHover}
-            onLeave={stopHover}
+            onHover={startHover}
+            onMove={moveHover}
+            onLeave={leaveHover}
+            onHide={stopHover}
         />
     );
 
