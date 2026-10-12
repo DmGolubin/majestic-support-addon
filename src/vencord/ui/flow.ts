@@ -14,21 +14,31 @@ import { activeProject, Dialog, guildKey, store, ui } from "./uiState";
 type ConfirmArgs = Omit<Extract<Dialog, { kind: "confirm"; }>, "kind" | "resolve">;
 
 /** A new dialog must never orphan a pending one: cancel the open one (if it awaits an answer) first. */
-function supersede() {
+export function supersede() {
     const d = ui.get().dialog;
     if (!d) return;
     if (d.kind === "askProject" || d.kind === "fields") d.resolve(null);
     else if (d.kind === "confirm") d.resolve({ ok: false, checked: false });
 }
 
-export function confirm(args: ConfirmArgs): Promise<{ ok: boolean; checked: boolean; }> {
+/** Opens a dialog whose resolve clears it only while it is still the current one. */
+function open<T>(make: (resolve: (v: T) => void) => Dialog): Promise<T> {
     supersede();
-    return new Promise(resolve => ui.set({ dialog: { kind: "confirm", ...args, resolve: v => { ui.set({ dialog: null }); resolve(v); } } }));
+    return new Promise<T>(resolve => {
+        const dialog: Dialog = make(v => {
+            if (ui.get().dialog === dialog) ui.set({ dialog: null });
+            resolve(v);
+        });
+        ui.set({ dialog });
+    });
+}
+
+export function confirm(args: ConfirmArgs): Promise<{ ok: boolean; checked: boolean; }> {
+    return open(resolve => ({ kind: "confirm", ...args, resolve }));
 }
 
 function askProject(): Promise<ServerBinding | null> {
-    supersede();
-    return new Promise(resolve => ui.set({ dialog: { kind: "askProject", resolve: v => { ui.set({ dialog: null }); resolve(v); } } }));
+    return open(resolve => ({ kind: "askProject", resolve }));
 }
 
 /** Fills panel tokens; asks the user for fields. null = cancelled. */
@@ -38,9 +48,7 @@ export async function fillFields(title: string, text: string): Promise<string | 
     if (fields.length) {
         const initial: Record<string, string> = {};
         for (const f of fields) initial[f.name] = f.def || f.options[0] || "";
-        supersede();
-        const got = await new Promise<Record<string, string> | null>(resolve =>
-            ui.set({ dialog: { kind: "fields", title, fields, initial, resolve: v => { ui.set({ dialog: null }); resolve(v); } } }));
+        const got = await open<Record<string, string> | null>(resolve => ({ kind: "fields", title, fields, initial, resolve }));
         if (!got) return null;
         values = got;
     }

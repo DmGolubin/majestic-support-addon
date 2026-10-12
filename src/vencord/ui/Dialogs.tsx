@@ -18,7 +18,12 @@ function Frame({ children, onEscape }: { children: React.ReactNode; onEscape(): 
         document.addEventListener("keydown", h, true);
         return () => document.removeEventListener("keydown", h, true);
     }, []);
-    return <><div className="vc-stx-backdrop" onMouseDown={onEscape} /><div className="vc-stx-dialog">{children}</div></>;
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        // Take focus away from Discord's chat editor unless a child already took it.
+        if (ref.current && !ref.current.contains(document.activeElement)) ref.current.focus();
+    }, []);
+    return <><div className="vc-stx-backdrop" onMouseDown={onEscape} /><div className="vc-stx-dialog" ref={ref} tabIndex={-1}>{children}</div></>;
 }
 
 function AskProject({ d }: { d: Extract<Dialog, { kind: "askProject"; }>; }) {
@@ -56,17 +61,18 @@ function Fields({ d }: { d: Extract<Dialog, { kind: "fields"; }>; }) {
     const [vals, setVals] = useState<Record<string, string>>(d.initial);
     const set = (k: string, v: string) => setVals(x => ({ ...x, [k]: v }));
     const submit = () => d.resolve(vals);
+    const firstText = d.fields.find(f => !f.options.length);
     return (
         <Frame onEscape={() => d.resolve(null)}>
             <h4>{d.title} — заполните перед вставкой</h4>
-            {d.fields.map((f, i) => (
+            {d.fields.map(f => (
                 <div key={f.name} className="vc-stx-field">
                     <label>{f.name}</label>
                     {f.options.length
                         ? f.options.map(o => <button key={o} className={"vc-stx-opt" + (vals[f.name] === o ? " on" : "")} onClick={() => set(f.name, o)}>{o}</button>)
                         : <input
                             className="vc-stx-search" style={{ width: "100%", boxSizing: "border-box" }}
-                            autoFocus={i === 0} value={vals[f.name] ?? ""}
+                            autoFocus={f === firstText} value={vals[f.name] ?? ""}
                             onChange={e => set(f.name, e.currentTarget.value)}
                             onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); submit(); } }} />}
                 </div>
@@ -115,13 +121,18 @@ function Bind({ d }: { d: Extract<Dialog, { kind: "bind"; }>; }) {
     );
 }
 
+// Each opened dialog mounts fresh (own state, own Escape handler).
+const ids = new WeakMap<Dialog, number>();
+let nextId = 0;
+const idOf = (d: Dialog) => { let n = ids.get(d); if (n === undefined) ids.set(d, n = ++nextId); return n; };
+
 export function Dialogs() {
     const { dialog } = ui.use();
     if (!dialog) return null;
     switch (dialog.kind) {
-        case "askProject": return <AskProject d={dialog} />;
-        case "confirm": return <Confirm d={dialog} />;
-        case "fields": return <Fields d={dialog} />;
-        case "bind": return <Bind d={dialog} />;
+        case "askProject": return <AskProject key={idOf(dialog)} d={dialog} />;
+        case "confirm": return <Confirm key={idOf(dialog)} d={dialog} />;
+        case "fields": return <Fields key={idOf(dialog)} d={dialog} />;
+        case "bind": return <Bind key={idOf(dialog)} d={dialog} />;
     }
 }

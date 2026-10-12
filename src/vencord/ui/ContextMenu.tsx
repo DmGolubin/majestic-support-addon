@@ -8,7 +8,7 @@ import { useEffect } from "@webpack/common";
 
 import { comboLabel } from "../core/keys";
 import { splitGreeting } from "../core/text";
-import { addToCompose, insertTemplate } from "./flow";
+import { addToCompose, insertTemplate, supersede } from "./flow";
 import { store, ui } from "./uiState";
 
 export function ContextMenu() {
@@ -30,7 +30,7 @@ export function ContextMenu() {
             {splitGreeting(t.text).greeting && <button onClick={run(() => insertTemplate(t, { noGreeting: true }))}>Вставить без приветствия</button>}
             <button onClick={run(() => addToCompose(t))}>+ в ответ</button>
             <button onClick={run(() => store.toggleFavorite(t.id))}>{store.isFavorite(t.id) ? "Убрать из избранного" : "★ В избранное"}</button>
-            <button onClick={run(() => ui.set({ dialog: { kind: "bind", templateId: t.id } }))}>{bind ? `Изменить клавишу (${comboLabel(bind)})` : "Назначить клавишу…"}</button>
+            <button onClick={run(() => { supersede(); ui.set({ dialog: { kind: "bind", templateId: t.id } }); })}>{bind ? `Изменить клавишу (${comboLabel(bind)})` : "Назначить клавишу…"}</button>
             {bind && <button onClick={run(() => store.clearBind(t.id))}>Снять клавишу</button>}
         </div>
     );
