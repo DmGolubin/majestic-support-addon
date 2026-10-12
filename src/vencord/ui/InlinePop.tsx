@@ -25,7 +25,7 @@ export function Inline() {
                 <div
                     key={t.id}
                     className={"vc-stx-item" + (i === inline.sel ? " sel" : "")}
-                    onMouseDown={e => { e.preventDefault(); void acceptInline(i, false); }}
+                    onMouseDown={e => { if (e.button !== 0) return; e.preventDefault(); void acceptInline(i, false); }}
                 >
                     <div className="vc-stx-r">
                         <ProjectIcon project={t.project} />

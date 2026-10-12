@@ -35,7 +35,8 @@ function check() {
     }
     const hits = orderHits(search(poolFor(project), trig.query).hits, store.ctx()).slice(0, 6);
     const prev = ui.get().inline;
-    ui.set({ inline: { query: trig.query, length: trig.length, items: hits.map(h => h.t), sel: prev?.query === trig.query ? prev.sel : 0, note: hits.length ? "" : "Ничего не найдено" } });
+    if (!hits.length) return close();
+    ui.set({ inline: { query: trig.query, length: trig.length, items: hits.map(h => h.t), sel: prev?.query === trig.query ? prev.sel : 0, note: "" } });
 }
 
 function close() {
@@ -49,6 +50,7 @@ export function startInline() {
     document.addEventListener("input", schedule, true);
     document.addEventListener("selectionchange", schedule);
     return () => {
+        cancelAnimationFrame(raf);
         document.removeEventListener("input", schedule, true);
         document.removeEventListener("selectionchange", schedule);
         close();
@@ -69,10 +71,21 @@ function selectTrigger(length: number): boolean {
     return true;
 }
 
+let accepting = false;
+
 export async function acceptInline(i: number, noGreeting: boolean) {
     const st = ui.get().inline;
     const t = st?.items[i];
-    if (!st || !t) return;
+    if (!st || !t || accepting) return;
+    accepting = true;
+    try {
+        await doAccept(st, t, noGreeting);
+    } finally {
+        accepting = false;
+    }
+}
+
+async function doAccept(st: NonNullable<ReturnType<typeof ui.get>["inline"]>, t: NonNullable<typeof st.items[number]>, noGreeting: boolean) {
     ui.set({ inline: null });
     const ed = activeEditor();
     const prepared = await prepareText(t, { noGreeting }); // may open dialogs and steal focus
@@ -89,17 +102,27 @@ export async function acceptInline(i: number, noGreeting: boolean) {
 
 /** Keyboard while suggestions are shown. true = handled (event consumed). */
 export function handleInlineKey(e: KeyboardEvent): boolean {
+    const isEnter = e.key === "Enter", isTab = e.key === "Tab";
+    if (accepting && (isEnter || isTab)) return true; // swallow repeats/double taps during accept
     const st = ui.get().inline;
     if (!st) return false;
-    const n = st.items.length;
     if (e.key === "Escape") { ui.set({ inline: null }); return true; }
-    if (!n) return false;
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    const plain = !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey;
+    const n = st.items.length;
+    if (!n) {
+        // project-unknown note: never let the trigger text be sent
+        if ((isEnter && plain && !e.isComposing) || (isTab && !e.ctrlKey && !e.altKey && !e.metaKey)) {
+            if (!e.repeat) toast(st.note, "message");
+            return true;
+        }
+        return false;
+    }
+    if ((e.key === "ArrowDown" || e.key === "ArrowUp") && plain) {
         ui.set({ inline: { ...st, sel: (st.sel + (e.key === "ArrowDown" ? 1 : -1) + n) % n } });
         return true;
     }
-    if (e.key === "Tab" || e.key === "Enter") {
-        if (!e.repeat) void acceptInline(st.sel, e.key === "Tab" && e.shiftKey);
+    if ((isEnter && plain && !e.isComposing) || (isTab && !e.ctrlKey && !e.altKey && !e.metaKey)) {
+        if (!e.repeat) void acceptInline(st.sel, isTab && e.shiftKey);
         return true;
     }
     return false;
