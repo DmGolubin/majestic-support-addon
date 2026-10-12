@@ -14,15 +14,19 @@ export interface SearchResult { hits: Hit[]; tokens: string[]; fuzzy: boolean; l
 const MIN_BODY = 3;  // shorter words are not searched in the body — they match everything
 const MIN_FUZZY = 4;
 
-const aliasCache = new WeakMap<Template, string>();
-function aliasOf(t: Template) {
-    let a = aliasCache.get(t);
-    if (a === undefined) {
+interface Fields { title: string; text: string; alias: string; }
+
+/** Normalized search fields, computed once per template (templates are immutable after import). */
+const fieldCache = new WeakMap<Template, Fields>();
+function fieldsOf(t: Template): Fields {
+    let f = fieldCache.get(t);
+    if (f === undefined) {
         const title = hard(t.title);
-        a = ALIASES.filter(([k]) => title.includes(k)).map(([, v]) => v).join(" ");
-        aliasCache.set(t, a);
+        const alias = ALIASES.filter(([k]) => title.includes(k)).map(([, v]) => v).join(" ");
+        f = { title, text: hard(t.text), alias };
+        fieldCache.set(t, f);
     }
-    return a;
+    return f;
 }
 
 /** Body line with the most token hits — shown instead of the template start. */
@@ -39,11 +43,10 @@ export function bestLine(text: string, toks: string[]): string | null {
 function strict(t: Template, toks: string[]): Hit | null {
     const all = (h: string) => toks.every(x => h.includes(x));
     if (t.command && toks.length === 1 && soft(t.command) === toks[0]) return { t, level: 5, line: null };
-    const title = hard(t.title);
+    const { title, text, alias } = fieldsOf(t);
     if (all(title)) return { t, level: 4, line: null };
-    const alias = aliasOf(t);
     if (alias && all(title + " " + alias)) return { t, level: 3, line: null };
-    if (toks.every(x => x.length >= MIN_BODY) && all(hard(t.text))) return { t, level: 2, line: bestLine(t.text, toks) };
+    if (toks.every(x => x.length >= MIN_BODY) && all(text)) return { t, level: 2, line: bestLine(t.text, toks) };
     return null;
 }
 
@@ -61,7 +64,7 @@ export function subseqSpan(needle: string, hay: string) {
 
 function fuzzy(t: Template, toks: string[]): Hit | null {
     if (toks.length !== 1 || toks[0].length < MIN_FUZZY) return null;
-    const span = subseqSpan(toks[0], hard(t.title));
+    const span = subseqSpan(toks[0], fieldsOf(t).title);
     return span >= 0 && span <= toks[0].length * 3 ? { t, level: 1, line: null } : null;
 }
 

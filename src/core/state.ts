@@ -34,7 +34,7 @@ export const STORE_KEY = "SupportTemplates_v2";
 export const LEGACY_KEY = "SupportTemplates_data";
 
 const empty = (): Persisted => ({
-    v: 2, raw: "", favorites: [], recent: [], usage: {}, binds: {}, guilds: {}, intentional: [], prefix: ";", previewOpen: false,
+    v: 2, raw: "", favorites: [], recent: [], usage: {}, binds: {}, guilds: {}, intentional: [], prefix: ";", previewOpen: true,
 });
 
 export class Store {

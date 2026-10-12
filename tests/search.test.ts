@@ -45,3 +45,17 @@ describe("search", () => {
         expect(search([t], "nv").hits[0].level).toBe(5);
     });
 });
+
+describe("search field cache", () => {
+    it("repeated searches give identical results", () => {
+        const q = ["соедин", "антивирус", "снр", "cjtl"];
+        const first = q.map(x => search(mj, x).hits.map(h => [h.t.id, h.level, h.line]));
+        const second = q.map(x => search(mj, x).hits.map(h => [h.t.id, h.level, h.line]));
+        expect(second).toEqual(first);
+    });
+    it("a re-imported template (new object) is searched by its own text", () => {
+        const t = { ...mj[0], title: "Уникальныйзаголовок", text: "текст" };
+        expect(search([mj[0]], "уникальныйзаголовок").hits).toHaveLength(0);
+        expect(search([t], "уникальныйзаголовок").hits).toHaveLength(1);
+    });
+});

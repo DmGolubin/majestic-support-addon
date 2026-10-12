@@ -93,3 +93,29 @@ describe("Store", () => {
         log.mockRestore();
     });
 });
+
+describe("Store previewOpen default", () => {
+    it("is open for a new install", async () => {
+        const s = new Store(mem());
+        await s.load();
+        expect(s.data.previewOpen).toBe(true);
+    });
+    it("respects a saved value", async () => {
+        const s = new Store(mem());
+        await s.load();
+        s.setPreviewOpen(false);
+        await Promise.resolve();
+        const st = mem({ [STORE_KEY]: { ...s.data } });
+        const s2 = new Store(st);
+        await s2.load();
+        expect(s2.data.previewOpen).toBe(false);
+    });
+    it("old saves without the field get the new default", async () => {
+        const s = new Store(mem());
+        await s.load();
+        const { previewOpen: _, ...old } = s.data;
+        const s2 = new Store(mem({ [STORE_KEY]: old }));
+        await s2.load();
+        expect(s2.data.previewOpen).toBe(true);
+    });
+});
