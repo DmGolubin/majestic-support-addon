@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { ComposeBar } from "./ComposeBar";
 import { ContextMenu } from "./ContextMenu";
 import { Dialogs } from "./Dialogs";
 import { ui } from "./uiState";
@@ -14,6 +15,7 @@ export function Host() {
     return (
         <div className="vc-stx-root">
             {s.windowOpen && <Window />}
+            <ComposeBar />
             <ContextMenu />
             <Dialogs />
         </div>

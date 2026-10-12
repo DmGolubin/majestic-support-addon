@@ -13,6 +13,7 @@ import { createRoot } from "@webpack/common";
 
 import { comboOf } from "./core/keys";
 import { favoritesOf } from "./core/rank";
+import { onChannelChange } from "./platform";
 import { insertTemplate } from "./ui/flow";
 import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
@@ -73,6 +74,7 @@ function onKey(e: KeyboardEvent) {
 
 let host: HTMLDivElement | null = null;
 let root: ReturnType<typeof createRoot> | null = null;
+let offChannel: (() => void) | null = null;
 
 const settings = definePluginSettings({
     panel: { type: OptionType.COMPONENT, component: Settings },
@@ -93,10 +95,13 @@ export default definePlugin({
         document.body.append(host);
         root = createRoot(host);
         root.render(<Host />);
+        offChannel = onChannelChange(() => ui.set({ compose: [], inline: null, menu: null }));
     },
 
     stop() {
         document.removeEventListener("keydown", onKey, true);
+        offChannel?.();
+        offChannel = null;
         root?.unmount();
         host?.remove();
         root = host = null;
