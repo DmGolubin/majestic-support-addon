@@ -1983,6 +1983,14 @@ export default definePlugin({
 .vc-stx-chip.drag { opacity: .5; }
 .vc-stx-chip button { background: none; border: 0; color: var(--stx-mu); cursor: pointer; font: inherit; padding: 0 2px; }
 
+.vc-stx-views { display: flex; gap: 12px; margin: 2px 2px 4px; }
+.vc-stx-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 2px 6px; }
+.vc-stx-chipf { background: none; border: 1px solid var(--stx-bd2); border-radius: 999px; padding: 1px 9px; font: inherit; font-size: 11px; color: var(--stx-mu); cursor: pointer; }
+.vc-stx-chipf.on { border-color: var(--stx-pr); background: rgb(198 26 89 / 15%); color: #fff; }
+.vc-stx-color { flex: none; width: 3px; height: 16px; border-radius: 2px; }
+.vc-stx-tip { position: fixed; width: 380px; max-height: 320px; display: flex; overflow: hidden; background: var(--stx-card); border: 1px solid var(--stx-bd); border-radius: 12px; box-shadow: 0 12px 32px rgb(0 0 0 / 55%); pointer-events: none; }
+.vc-stx-tip .vc-stx-pre { border-left: 0; }
+
 /* Settings render inside Discord's settings, outside #vc-stx-host — give them the tokens too. */
 .vc-stx-settings { --stx-pr: hsl(342 77% 44%); --stx-tx: hsl(216 10% 91%); --stx-bd2: hsl(215 16% 20%); color: var(--text-default, #dbdee1); }
 .vc-stx-settings h3 { margin: 16px 0 6px; font-weight: 600; }
@@ -2023,12 +2031,58 @@ git commit -m "feat(vencord): plugin skeleton, sync script, icons, settings impo
 ### Task 7: Окно шаблонов (состояние Б)
 
 **Files:**
-- Create: `src/vencord/ui/Window.tsx`, `src/vencord/ui/Preview.tsx`, `src/vencord/ui/ContextMenu.tsx`, `src/vencord/ui/flow.ts` (базовая версия: защита проекта + вставка)
+- Modify (core, шаг 0): `src/core/types.ts`, `src/core/importer.ts`, `src/core/rank.ts`, `tests/rank.test.ts`
+- Create: `src/vencord/ui/Window.tsx`, `src/vencord/ui/Preview.tsx`, `src/vencord/ui/ContextMenu.tsx`, `src/vencord/ui/highlight.tsx`, `src/vencord/ui/flow.ts` (базовая версия: защита проекта + вставка)
 - Modify: `src/vencord/ui/Host.tsx`, `src/vencord/index.tsx`
 
 **Interfaces:**
 - Consumes: `store`, `ui`, `activeProject`, `poolFor`, `useStore`, `guildKey`, platform, core `search`, `orderHits`, `sections`, `favoritesOf`, `decide`, `foreignMarkers`, `splitGreeting`, `stripMarker`
+- Produces (core, шаг 0): `Template.color: string | null`; rank.ts `recentOf(pool, ctx, n): Template[]`, `categoriesOf(pool): string[]`
 - Produces: flow.ts `insertTemplate(t: Template, opts?: {noGreeting?: boolean}): Promise<void>`, `prepareText(t, opts): Promise<{t: Template; text: string} | null>`, `ensureProject(): Promise<ProjectId | null>`, `addToCompose(t): Promise<void>`, `confirm(d): Promise<{ok; checked}>`; Window.tsx `Window()`, `visibleItems: Template[]` (module-level, для Alt+N); ContextMenu `ContextMenu()`
+
+- [ ] **Step 0: Ядро — цвет шаблона, «последние N», список категорий (TDD)**
+
+Добавки по решению 12.10.2026: вкладка «Недавние» на 10, фильтр по категориям, цвет личных шаблонов.
+
+В `tests/rank.test.ts`: в хелпер `T` добавить `color: null,` (после `command: null,`), импорт расширить до
+`import { categoriesOf, favoritesOf, orderHits, recentOf, sections } from "../src/core/rank";` и дописать в `describe("rank")`:
+```ts
+    it("recentOf keeps recent order, skips missing, limits to n", () => {
+        const r = recentOf(pool, { favorites: ["a"], recent: ["c", "zz", "a", "b"], usage: {} }, 2);
+        expect(r.map(t => t.id)).toEqual(["c", "a"]);
+    });
+    it("categoriesOf lists distinct categories in first-seen order, skipping null", () => {
+        const p = [T("x", { category: "Навигация" }), T("y"), T("z", { category: "Частые проблемы" }), T("w", { category: "Навигация" })];
+        expect(categoriesOf(p)).toEqual(["Навигация", "Частые проблемы"]);
+    });
+```
+
+Run: `pnpm test tests/rank.test.ts` → FAIL (`recentOf`/`categoriesOf` not exported).
+
+Реализация:
+- `src/core/types.ts`: в `Template` после `command: string | null;` добавить `color: string | null;` (цветная метка личного шаблона из панели; у локальных `null`).
+- `src/core/importer.ts`: в `mk()` после `command: null,` добавить `color: null,`.
+- `src/core/rank.ts`, в конец:
+```ts
+/** Last used templates, newest first (the "Недавние" tab). */
+export function recentOf(pool: Template[], ctx: RankCtx, n: number): Template[] {
+    const byId = new Map(pool.map(t => [t.id, t]));
+    return ctx.recent.map(id => byId.get(id)).filter((t): t is Template => !!t).slice(0, n);
+}
+
+/** Distinct categories in first-seen order (category filter chips). */
+export function categoriesOf(pool: Template[]): string[] {
+    const out: string[] = [];
+    for (const t of pool) if (t.category && !out.includes(t.category)) out.push(t.category);
+    return out;
+}
+```
+
+Run: `pnpm test && pnpm typecheck` → PASS. Commit:
+```bash
+git add src/core tests
+git commit -m "feat(core): template color, recentOf, categoriesOf"
+```
 
 - [ ] **Step 1: Конвейер вставки (без полей — поля в задаче 8)**
 
@@ -2160,7 +2214,8 @@ import { PROJECTS, Template } from "../core/types";
 import { addToCompose, insertTemplate } from "./flow";
 import { store } from "./uiState";
 
-export function Preview({ t }: { t: Template | undefined; }) {
+/** compact = hover tooltip: text only, no action buttons. */
+export function Preview({ t, compact = false }: { t: Template | undefined; compact?: boolean; }) {
     if (!t) return <div className="vc-stx-pre"><div className="vc-stx-empty">Выбери шаблон</div></div>;
     const { greeting, body } = splitGreeting(t.text);
     const uses = store.data.usage[t.id]?.n ?? 0;
@@ -2180,12 +2235,12 @@ export function Preview({ t }: { t: Template | undefined; }) {
                 {greeting && <><span className="vc-stx-greet">{greeting}</span>{"\n"}<span className="vc-stx-gmark">— граница приветствия —</span>{"\n"}</>}
                 {body}
             </div>
-            <div className="vc-stx-acts">
+            {!compact && <div className="vc-stx-acts">
                 <button className="vc-stx-btn" onClick={() => insertTemplate(t)}>Вставить</button>
                 {greeting && <button className="vc-stx-btn vc-stx-ghost" onClick={() => insertTemplate(t, { noGreeting: true })}>Без приветствия</button>}
                 <button className="vc-stx-btn vc-stx-ghost" onClick={() => addToCompose(t)}>+ в ответ</button>
                 <button className="vc-stx-btn vc-stx-ghost" title="Избранное (Ctrl+D)" onClick={() => store.toggleFavorite(t.id)}>{fav ? "★" : "☆"}</button>
-            </div>
+            </div>}
         </div>
     );
 }
@@ -2240,15 +2295,15 @@ export function ContextMenu() {
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useEffect, useMemo, useRef, useState } from "@webpack/common";
+import { useEffect, useRef, useState } from "@webpack/common";
 
 import { comboLabel } from "../core/keys";
-import { favoritesOf, orderHits, sections } from "../core/rank";
+import { categoriesOf, favoritesOf, orderHits, recentOf, sections } from "../core/rank";
 import { search } from "../core/search";
-import { nqHighlight } from "./highlight";
 import { ProjectId, PROJECTS, Template } from "../core/types";
 import { chatAreaRect } from "../platform";
 import { addToCompose, ensureProject, insertTemplate } from "./flow";
+import { nqHighlight } from "./highlight";
 import { Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
 import { activeProject, poolFor, store, ui, useStore } from "./uiState";
@@ -2256,22 +2311,43 @@ import { activeProject, poolFor, store, ui, useStore } from "./uiState";
 /** Rows currently visible in the window — Alt+1…9 uses them while the window is open. */
 export let visibleItems: Template[] = [];
 
+type View = "all" | "fav" | "recent";
+const VIEWS: { key: View; label: string; }[] = [
+    { key: "all", label: "Все" },
+    { key: "fav", label: "★ Избранное" },
+    { key: "recent", label: "Недавние" },
+];
+const HOVER_MS = 500;
+
 export function Window() {
     useStore();
     const s = ui.use();
     const { project, binding } = activeProject();
     const [query, setQuery] = useState("");
+    const [view, setView] = useState<View>("all");
+    const [cat, setCat] = useState<string | null>(null);
     const [sel, setSel] = useState(0);
+    const [peek, setPeek] = useState(false);
+    const [hover, setHover] = useState<{ t: Template; top: number; } | null>(null);
+    const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
 
-    const pool = poolFor(project);
     const ctx = store.ctx();
-    const res = useMemo(() => (query.trim() ? search(pool, query) : null), [query, pool, store.data]);
+    const projectPool = poolFor(project);
+    const cats = categoriesOf(projectPool);
+    const pool = cat ? projectPool.filter(t => t.category === cat) : projectPool;
+
+    const res = query.trim() ? search(pool, query) : null;
     const hits = res ? orderHits(res.hits, ctx) : [];
-    const secs = res ? [] : sections(pool, ctx);
-    const items: Template[] = res ? hits.map(h => h.t) : secs.flatMap(x => x.items);
-    const favIds = favoritesOf(pool, ctx).map(t => t.id);
+    const secs = !res && view === "all" ? sections(pool, ctx) : [];
+    const favs = favoritesOf(pool, ctx);
+    const items: Template[] = res
+        ? hits.map(h => h.t)
+        : view === "fav" ? favs
+            : view === "recent" ? recentOf(pool, ctx, 10)
+                : secs.flatMap(x => x.items);
+    const favIds = favs.map(t => t.id);
     visibleItems = items;
     const current = items[Math.min(sel, items.length - 1)];
 
@@ -2280,7 +2356,8 @@ export function Window() {
         // Unknown server: ask right away, otherwise the list would be empty.
         if (activeProject().binding === null) void ensureProject();
     }, []);
-    useEffect(() => { setSel(0); }, [query, project]);
+    useEffect(() => { setSel(0); }, [query, project, view, cat]);
+    useEffect(() => { if (cat && !cats.includes(cat)) setCat(null); }, [cats.join("|")]);
     useEffect(() => { listRef.current?.querySelector(".vc-stx-item.sel")?.scrollIntoView({ block: "nearest" }); }, [sel]);
     useEffect(() => {
         const onDown = (e: MouseEvent) => {
@@ -2288,17 +2365,35 @@ export function Window() {
             if (el.closest?.(".vc-stx-win, .vc-stx-menu, .vc-stx-dialog, .vc-stx-button, .vc-stx-backdrop")) return;
             ui.set({ windowOpen: false });
         };
+        // Shift held = temporary full-text preview; released anywhere = hide.
+        const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") setPeek(false); };
         document.addEventListener("mousedown", onDown, true);
-        return () => document.removeEventListener("mousedown", onDown, true);
+        document.addEventListener("keyup", onUp, true);
+        return () => {
+            document.removeEventListener("mousedown", onDown, true);
+            document.removeEventListener("keyup", onUp, true);
+            if (hoverTimer.current) clearTimeout(hoverTimer.current);
+        };
     }, []);
 
     const pickProject = (p: ProjectId) => ui.set({ sessionProject: p });
+
+    const startHover = (t: Template, el: HTMLElement) => {
+        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+        hoverTimer.current = setTimeout(() => setHover({ t, top: el.getBoundingClientRect().top }), HOVER_MS);
+    };
+    const stopHover = () => {
+        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+        setHover(null);
+    };
 
     const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         const input = inputRef.current;
         const atEnd = !!input && input.selectionStart === input.value.length;
         const atStart = !!input && input.selectionEnd === 0;
-        if (e.key === "Escape") {
+        if (e.key === "Shift" && !e.repeat) {
+            setPeek(true);
+        } else if (e.key === "Escape") {
             e.preventDefault();
             if (query) setQuery(""); else ui.set({ windowOpen: false });
         } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -2313,9 +2408,10 @@ export function Window() {
         } else if (e.key === "ArrowLeft" && atStart && store.data.previewOpen) {
             e.preventDefault();
             store.setPreviewOpen(false);
-        } else if (e.key === "Tab" && binding === "none") {
+        } else if (e.key === "Tab") {
             e.preventDefault();
-            pickProject(project === "mj" ? "ro" : "mj");
+            const i = VIEWS.findIndex(v => v.key === view);
+            setView(VIEWS[(i + (e.shiftKey ? -1 : 1) + VIEWS.length) % VIEWS.length].key);
         } else if (e.ctrlKey && e.code === "KeyD" && current) {
             e.preventDefault();
             store.toggleFavorite(current.id);
@@ -2323,77 +2419,105 @@ export function Window() {
     };
 
     const rect = chatAreaRect();
-    const wide = store.data.previewOpen;
+    const wide = store.data.previewOpen || peek;
     const width = Math.min(wide ? 820 : 400, (rect?.width ?? 900) - 8);
+    const right = rect ? Math.max(8, window.innerWidth - rect.right) : 80;
     const style: React.CSSProperties = rect
-        ? { right: Math.max(8, window.innerWidth - rect.right), bottom: window.innerHeight - rect.top + 8 + (s.compose.length ? 48 : 0), width }
-        : { right: 80, bottom: 80, width };
+        ? { right, bottom: window.innerHeight - rect.top + 8 + (s.compose.length ? 48 : 0), width }
+        : { right, bottom: 80, width };
 
     const row = (t: Template, i: number) => {
         const favIdx = favIds.indexOf(t.id);
         const bind = store.bindFor(t.id);
         const hit = res ? hits[i] : null;
+        const altLabel = res || view !== "all" ? (i < 9 ? i + 1 : -1) : (favIdx >= 0 && favIdx < 9 ? favIdx + 1 : -1);
         return (
             <div
                 key={t.id}
                 className={"vc-stx-item" + (i === sel ? " sel" : "")}
-                onMouseEnter={() => setSel(i)}
-                onClick={() => insertTemplate(t)}
-                onContextMenu={e => { e.preventDefault(); ui.set({ menu: { x: e.clientX, y: e.clientY, id: t.id } }); }}
+                onMouseEnter={e => { setSel(i); if (!wide) startHover(t, e.currentTarget); }}
+                onMouseLeave={stopHover}
+                onClick={() => { stopHover(); void insertTemplate(t); }}
+                onContextMenu={e => { e.preventDefault(); stopHover(); ui.set({ menu: { x: e.clientX, y: e.clientY, id: t.id } }); }}
             >
                 <div className="vc-stx-r">
+                    {t.color && <span className="vc-stx-color" style={{ background: t.color }} />}
                     <ProjectIcon project={t.project} />
                     <span className="vc-stx-nm">{nqHighlight(t.title, res?.tokens ?? [])}</span>
                     {t.status !== "actual" && <span className="vc-stx-badge old">{t.status === "outdated" ? "устарел" : "на проверке"}</span>}
                     {bind && <span className="vc-stx-kb">{comboLabel(bind)}</span>}
-                    {!res && favIdx >= 0 && favIdx < 9 && <span className="vc-stx-kb">Alt {favIdx + 1}</span>}
-                    {res && i < 9 && <span className="vc-stx-kb">Alt {i + 1}</span>}
+                    {altLabel > 0 && <span className="vc-stx-kb">Alt {altLabel}</span>}
                 </div>
                 {hit?.line && <div className="vc-stx-line">{nqHighlight(hit.line, res!.tokens)}</div>}
             </div>
         );
     };
 
+    const empty = !store.templates.length
+        ? "Шаблонов нет. Импортируй конфиг в настройках плагина."
+        : res ? "Ничего не найдено"
+            : view === "fav" ? "В избранном пусто — Ctrl+D или ПКМ → «★ В избранное»"
+                : view === "recent" ? "Ещё ничего не вставлялось"
+                    : "Шаблонов нет";
+
     let idx = 0;
     return (
-        <div className="vc-stx-win" style={style} onKeyDown={onKeyDown}>
-            <div className="vc-stx-col">
-                <input
-                    ref={inputRef}
-                    className="vc-stx-search"
-                    placeholder="Поиск: название, текст или синоним — «фпс», «снр»…"
-                    value={query}
-                    onChange={e => setQuery(e.currentTarget.value)}
-                />
-                <div className="vc-stx-proj">
-                    {binding === "none"
-                        ? (["mj", "ro"] as ProjectId[]).map(p => (
-                            <button key={p} className={"vc-stx-tab" + (project === p ? " on" : "")} onClick={() => pickProject(p)}>
-                                <ProjectIcon project={p} size={14} />{PROJECTS[p].short}
-                            </button>))
-                        : project
-                            ? <><ProjectIcon project={project} size={16} /><b>{PROJECTS[project].name}</b><span className="vc-stx-hint">по серверу</span></>
-                            : <span className="vc-stx-hint">Проект сервера не определён — спрошу при вставке</span>}
+        <>
+            <div className="vc-stx-win" style={style} onKeyDown={onKeyDown}>
+                <div className="vc-stx-col">
+                    <input
+                        ref={inputRef}
+                        className="vc-stx-search"
+                        placeholder="Поиск: название, текст или синоним — «фпс», «снр»…"
+                        value={query}
+                        onChange={e => setQuery(e.currentTarget.value)}
+                    />
+                    <div className="vc-stx-proj">
+                        {binding === "none"
+                            ? (["mj", "ro"] as ProjectId[]).map(p => (
+                                <button key={p} className={"vc-stx-tab" + (project === p ? " on" : "")} onClick={() => pickProject(p)}>
+                                    <ProjectIcon project={p} size={14} />{PROJECTS[p].short}
+                                </button>))
+                            : project
+                                ? <><ProjectIcon project={project} size={16} /><b>{PROJECTS[project].name}</b><span className="vc-stx-hint">по серверу</span></>
+                                : <span className="vc-stx-hint">Проект сервера не определён</span>}
+                    </div>
+                    <div className="vc-stx-views">
+                        {VIEWS.map(v => (
+                            <button key={v.key} className={"vc-stx-tab" + (view === v.key ? " on" : "")} onClick={() => setView(v.key)}>{v.label}</button>
+                        ))}
+                    </div>
+                    {cats.length >= 2 && (
+                        <div className="vc-stx-chips">
+                            {cats.map(c => (
+                                <button key={c} className={"vc-stx-chipf" + (cat === c ? " on" : "")} onClick={() => setCat(cat === c ? null : c)}>{c}</button>
+                            ))}
+                        </div>
+                    )}
+                    {res?.layout && <div className="vc-stx-hint">Раскладка: показаны результаты для «{res.layout}»</div>}
+                    {res?.fuzzy && <div className="vc-stx-hint">Точных совпадений нет — похожие</div>}
+                    <div className="vc-stx-list" ref={listRef}>
+                        {!items.length && <div className="vc-stx-empty">{empty}</div>}
+                        {res || view !== "all"
+                            ? items.map((t, i) => row(t, i))
+                            : secs.map(sec => (
+                                <div key={sec.key}>
+                                    <div className="vc-stx-sec">{sec.title}</div>
+                                    {sec.items.map(t => row(t, idx++))}
+                                </div>))}
+                    </div>
+                    <div className="vc-stx-foot">
+                        Enter вставить · Shift — текст · Shift+Enter в ответ · {store.data.previewOpen ? "← скрыть" : "→ закрепить"} текст · Tab вкладки · Ctrl+D ★ · ПКМ меню
+                    </div>
                 </div>
-                {res?.layout && <div className="vc-stx-hint">Раскладка: показаны результаты для «{res.layout}»</div>}
-                {res?.fuzzy && <div className="vc-stx-hint">Точных совпадений нет — похожие</div>}
-                <div className="vc-stx-list" ref={listRef}>
-                    {!store.templates.length && <div className="vc-stx-empty">Шаблонов нет. Импортируй конфиг в настройках плагина.</div>}
-                    {store.templates.length > 0 && !items.length && <div className="vc-stx-empty">Ничего не найдено</div>}
-                    {res
-                        ? items.map((t, i) => row(t, i))
-                        : secs.map(sec => (
-                            <div key={sec.key}>
-                                <div className="vc-stx-sec">{sec.title}</div>
-                                {sec.items.map(t => row(t, idx++))}
-                            </div>))}
-                </div>
-                <div className="vc-stx-foot">
-                    Enter вставить · Shift+Enter в ответ · {wide ? "← скрыть текст" : "→ текст"} · Ctrl+D ★ · ПКМ меню{binding === "none" ? " · Tab проект" : ""}
-                </div>
+                {wide && <Preview t={current} />}
             </div>
-            {wide && <Preview t={current} />}
-        </div>
+            {hover && !wide && (
+                <div className="vc-stx-tip" style={{ right: right + width + 8, top: Math.max(8, Math.min(hover.top, window.innerHeight - 320)) }}>
+                    <Preview t={hover.t} compact />
+                </div>
+            )}
+        </>
     );
 }
 ```
@@ -2514,6 +2638,10 @@ Expected: нет ошибок из плагина, сборка `Done`. (Диа�
 - Enter / клик вставляет; длинный шаблон («Разбаны Амнистии Жалобы») стирается Backspace'ом целиком.
 - Alt+1 при закрытом окне — первый из избранного Маджи; зажатый Alt+1 вставляет один раз.
 - ПКМ по шаблону — меню; «★ В избранное» работает.
+- Вкладки «Все · ★ Избранное · Недавние» (Tab / Shift+Tab); «Недавние» — до 10 последних, свежие сверху; в «Избранном» Alt-номера по порядку.
+- Наведение на строку 0,5 с (панель текста скрыта) — всплывашка с полным текстом слева от окна; уход мыши — исчезает.
+- Удержание Shift — панель текста открыта для выбранной строки, отпустил — закрылась; → закрепляет её.
+- Чипов категорий нет (у локальных шаблонов категорий нет) — это ожидаемо.
 На сервере Россия Онлайн: только шаблоны РО, Alt+1 — избранное РО.
 
 - [ ] **Step 6: Commit**
@@ -2720,7 +2848,7 @@ Expected: без ошибок, `Done`.
 
 - [ ] **Step 5: Ручная проверка (Ctrl+R)**
 
-- В ЛС или на постороннем сервере: вставка шаблона → «Это сервер какого проекта?»; ответ запоминается (в настройках виден), «Ни того ни другого» → в окне вкладки Majestic / Россия Онлайн, Tab переключает.
+- В ЛС или на постороннем сервере: вставка шаблона → «Это сервер какого проекта?»; ответ запоминается (в настройках виден), «Ни того ни другого» → в окне кнопки проектов Majestic / Россия Онлайн, переключение кликом.
 - На Мадже: поиском найти шаблон РО нельзя (скрыт) — проверить автоподбор через импорт тестового текста `## Россия Онлайн\n### Уникальный РО\nтекст` … вставка на Мадже через бинд → «Шаблон другого проекта», по умолчанию фокус на «Отмена».
 - Импорт текста `### Тест полей\nПривет {{ник}}, сервер {{сервер|NY|Detroit}}, дата {{date+3d}}{|}` → вставка спрашивает ник и сервер, дата подставлена.
 - ПКМ → «Назначить клавишу…» → Ctrl+Alt+F → вставляет; Backspace в окне назначения снимает; Ctrl+C отказывает.
