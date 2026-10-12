@@ -27,7 +27,8 @@ const RESET: Record<string, () => Partial<UiState>> = {
 };
 
 export function Host() {
-    const s = ui.use();
+    const windowOpen = ui.useSelect(s => s.windowOpen);
+    const dialog = ui.useSelect(s => s.dialog);
     const [gen, setGen] = useState<Record<string, number>>({});
     const safe = (part: string, node: React.ReactNode, key: string | number = "") => (
         <ErrorBoundary
@@ -43,11 +44,11 @@ export function Host() {
     );
     return (
         <div className="vc-stx-root">
-            {s.windowOpen && safe("window", <Window />)}
+            {windowOpen && safe("window", <Window />)}
             {safe("compose", <ComposeBar />)}
             {safe("inline", <Inline />)}
             {safe("menu", <ContextMenu />)}
-            {safe("dialog", <Dialogs />, s.dialog ? idOf(s.dialog) : 0)}
+            {safe("dialog", <Dialogs />, dialog ? idOf(dialog) : 0)}
         </div>
     );
 }

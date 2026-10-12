@@ -13,7 +13,7 @@ import { ProjectIcon } from "./ProjectIcon";
 import { activeProject, store, ui } from "./uiState";
 
 export function ComposeBar() {
-    const { compose } = ui.use();
+    const compose = ui.useSelect(s => s.compose);
     const [drag, setDrag] = useState<string | null>(null);
     if (!compose.length) return null;
     const rect = chatAreaRect();

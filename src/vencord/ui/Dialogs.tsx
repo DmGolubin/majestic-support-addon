@@ -132,7 +132,7 @@ let nextId = 0;
 export const idOf = (d: Dialog) => { let n = ids.get(d); if (n === undefined) ids.set(d, n = ++nextId); return n; };
 
 export function Dialogs() {
-    const { dialog } = ui.use();
+    const dialog = ui.useSelect(s => s.dialog);
     if (!dialog) return null;
     switch (dialog.kind) {
         case "askProject": return <AskProject key={idOf(dialog)} d={dialog} />;

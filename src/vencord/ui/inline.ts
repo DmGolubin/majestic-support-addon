@@ -7,10 +7,11 @@
 import { orderHits } from "../core/rank";
 import { search } from "../core/search";
 import { findTrigger } from "../core/trigger";
+import { Template } from "../core/types";
 import { activeEditor, insertText, toast } from "../platform";
 import { prepareText, stillCurrent } from "./flow";
 import { latchKey } from "./keylatch";
-import { activeProject, poolFor, store, ui } from "./uiState";
+import { activeProject, InlineState, poolFor, store, ui } from "./uiState";
 
 function textBeforeCaret(ed: HTMLElement): string | null {
     const sel = window.getSelection();
@@ -23,6 +24,15 @@ function textBeforeCaret(ed: HTMLElement): string | null {
     return pre.toString();
 }
 
+const sameItems = (a: Template[], b: Template[]) => a.length === b.length && a.every((t, i) => t === b[i]); // same objects ⇒ same ids; a re-import (new objects) still refreshes
+const sameInline = (a: InlineState | null, b: InlineState | null) =>
+    a === b || (!!a && !!b && a.query === b.query && a.length === b.length && a.sel === b.sel && a.note === b.note && sameItems(a.items, b.items));
+
+/** Publishes the popup state only when it actually changed (typing must not re-render the UI for nothing). */
+function publish(next: InlineState | null) {
+    if (!sameInline(ui.get().inline, next)) ui.set({ inline: next });
+}
+
 function check() {
     const ed = activeEditor();
     if (!ed || !ed.contains(document.activeElement)) return close();
@@ -31,13 +41,13 @@ function check() {
     if (!trig) return close();
     const { project } = activeProject();
     if (!project) {
-        ui.set({ inline: { query: trig.query, length: trig.length, items: [], sel: 0, note: "Проект канала не выбран — открой окно (Ctrl+Alt+T)" } });
+        publish({ query: trig.query, length: trig.length, items: [], sel: 0, note: "Проект канала не выбран — открой окно (Ctrl+Alt+T)" });
         return;
     }
     const hits = orderHits(search(poolFor(project), trig.query).hits, store.ctx()).slice(0, 6);
     const prev = ui.get().inline;
     if (!hits.length) return close();
-    ui.set({ inline: { query: trig.query, length: trig.length, items: hits.map(h => h.t), sel: prev?.query === trig.query ? prev.sel : 0, note: "" } });
+    publish({ query: trig.query, length: trig.length, items: hits.map(h => h.t), sel: prev?.query === trig.query ? prev.sel : 0, note: "" });
 }
 
 function close() {

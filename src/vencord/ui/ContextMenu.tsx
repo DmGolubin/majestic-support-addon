@@ -15,7 +15,7 @@ import { store, ui } from "./uiState";
 const MENU_W = 220, MENU_H = 200, EDGE = 8;
 
 export function ContextMenu() {
-    const { menu } = ui.use();
+    const menu = ui.useSelect(s => s.menu);
     useEffect(() => {
         if (!menu) return;
         const close = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest?.(".vc-stx-menu")) ui.set({ menu: null }); };
