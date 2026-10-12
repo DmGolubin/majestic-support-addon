@@ -4,22 +4,50 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import ErrorBoundary from "@components/ErrorBoundary";
+import { useState } from "@webpack/common";
+
+import { toast } from "../platform";
 import { ComposeBar } from "./ComposeBar";
 import { ContextMenu } from "./ContextMenu";
-import { Dialogs } from "./Dialogs";
+import { Dialogs, idOf } from "./Dialogs";
+import { supersede } from "./flow";
 import { Inline } from "./InlinePop";
-import { ui } from "./uiState";
+import { ui, UiState } from "./uiState";
 import { Window } from "./Window";
+
+// Each part has its own ErrorBoundary: a UI error never breaks Discord's chat input. On error the
+// part's state is reset and the boundary remounts (new key), so the next open works again.
+const RESET: Record<string, () => Partial<UiState>> = {
+    window: () => ({ windowOpen: false }),
+    compose: () => ({ compose: [] }),
+    inline: () => ({ inline: null }),
+    menu: () => ({ menu: null }),
+    dialog: () => { supersede(); return { dialog: null }; },
+};
 
 export function Host() {
     const s = ui.use();
+    const [gen, setGen] = useState<Record<string, number>>({});
+    const safe = (part: string, node: React.ReactNode, key: string | number = "") => (
+        <ErrorBoundary
+            key={`${part}-${gen[part] ?? 0}-${key}`}
+            noop
+            onError={({ error }) => {
+                console.error("[SupportTemplates] UI error in " + part, error);
+                ui.set(RESET[part]());
+                toast("Ошибка интерфейса шаблонов — подробности в консоли", "failure");
+                setGen(g => ({ ...g, [part]: (g[part] ?? 0) + 1 }));
+            }}
+        >{node}</ErrorBoundary>
+    );
     return (
         <div className="vc-stx-root">
-            {s.windowOpen && <Window />}
-            <ComposeBar />
-            <Inline />
-            <ContextMenu />
-            <Dialogs />
+            {s.windowOpen && safe("window", <Window />)}
+            {safe("compose", <ComposeBar />)}
+            {safe("inline", <Inline />)}
+            {safe("menu", <ContextMenu />)}
+            {safe("dialog", <Dialogs />, s.dialog ? idOf(s.dialog) : 0)}
         </div>
     );
 }

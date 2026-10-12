@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "@webpack/common";
 import { bindProblem, comboLabel, comboOf } from "../core/keys";
 import { PROJECTS } from "../core/types";
 import { toast } from "../platform";
+import { latchKey } from "./keylatch";
 import { ProjectIcon } from "./ProjectIcon";
 import { Dialog, store, ui } from "./uiState";
 
@@ -23,7 +24,11 @@ function Frame({ children, onEscape }: { children: React.ReactNode; onEscape(): 
         // Take focus away from Discord's chat editor unless a child already took it.
         if (ref.current && !ref.current.contains(document.activeElement)) ref.current.focus();
     }, []);
-    return <><div className="vc-stx-backdrop" onMouseDown={onEscape} /><div className="vc-stx-dialog" ref={ref} tabIndex={-1}>{children}</div></>;
+    return <><div className="vc-stx-backdrop" onMouseDown={onEscape} /><div
+        className="vc-stx-dialog" ref={ref} tabIndex={-1}
+        // Enter/Space here may confirm and insert: latch it so a held key never repeats into Discord.
+        onKeyDownCapture={e => { if (e.key === "Enter" || e.key === " ") latchKey(e.nativeEvent.code); }}
+    >{children}</div></>;
 }
 
 function AskProject({ d }: { d: Extract<Dialog, { kind: "askProject"; }>; }) {
@@ -124,7 +129,7 @@ function Bind({ d }: { d: Extract<Dialog, { kind: "bind"; }>; }) {
 // Each opened dialog mounts fresh (own state, own Escape handler).
 const ids = new WeakMap<Dialog, number>();
 let nextId = 0;
-const idOf = (d: Dialog) => { let n = ids.get(d); if (n === undefined) ids.set(d, n = ++nextId); return n; };
+export const idOf = (d: Dialog) => { let n = ids.get(d); if (n === undefined) ids.set(d, n = ++nextId); return n; };
 
 export function Dialogs() {
     const { dialog } = ui.use();

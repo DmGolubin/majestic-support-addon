@@ -8,7 +8,8 @@ import { orderHits } from "../core/rank";
 import { search } from "../core/search";
 import { findTrigger } from "../core/trigger";
 import { activeEditor, insertText, toast } from "../platform";
-import { prepareText } from "./flow";
+import { prepareText, stillCurrent } from "./flow";
+import { latchKey } from "./keylatch";
 import { activeProject, poolFor, store, ui } from "./uiState";
 
 function textBeforeCaret(ed: HTMLElement): string | null {
@@ -73,6 +74,11 @@ function selectTrigger(length: number): boolean {
 
 let accepting = false;
 
+/** Plugin stop: never leave a stale accept swallowing Enter/Tab after re-enable. */
+export function resetInline() {
+    accepting = false;
+}
+
 export async function acceptInline(i: number, noGreeting: boolean) {
     const st = ui.get().inline;
     const t = st?.items[i];
@@ -89,13 +95,14 @@ async function doAccept(st: NonNullable<ReturnType<typeof ui.get>["inline"]>, t:
     ui.set({ inline: null });
     const ed = activeEditor();
     const prepared = await prepareText(t, { noGreeting }); // may open dialogs and steal focus
-    if (!prepared) return;
+    if (!prepared || !stillCurrent(prepared.snap)) return;
     ed?.focus();
     await new Promise(r => setTimeout(r, 0));
     const trig = ed ? findTrigger((textBeforeCaret(ed) ?? "").split("\n").pop() ?? "", store.data.prefix) : null;
     const selected = !!trig && selectTrigger(trig.length);
     await new Promise(r => setTimeout(r, 30)); // let Slate pick up the DOM selection
-    insertText(prepared.text);
+    if (!stillCurrent(prepared.snap)) return;
+    if (!insertText(prepared.text)) return;
     store.markUsed(prepared.t.id);
     if (!selected) toast(`Удалите «${store.data.prefix}${st.query}» вручную`, "message");
 }
@@ -122,7 +129,10 @@ export function handleInlineKey(e: KeyboardEvent): boolean {
         return true;
     }
     if ((isEnter && plain && !e.isComposing) || (isTab && !e.ctrlKey && !e.altKey && !e.metaKey)) {
-        if (!e.repeat) void acceptInline(st.sel, isTab && e.shiftKey);
+        if (!e.repeat) {
+            latchKey(e.code);
+            void acceptInline(st.sel, isTab && e.shiftKey);
+        }
         return true;
     }
     return false;

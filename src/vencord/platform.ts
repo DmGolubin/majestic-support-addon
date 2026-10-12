@@ -15,9 +15,17 @@ export const storage: StorageLike = {
     set: (key, value) => DataStore.set(key, value),
 };
 
-/** One INSERT_TEXT into the focused chat box. Never sends. */
-export function insertText(text: string) {
-    insertTextIntoChatInputBox(text);
+/** One INSERT_TEXT into the focused chat box. Never sends. false = failed, text copied to the clipboard. */
+export function insertText(text: string): boolean {
+    try {
+        insertTextIntoChatInputBox(text);
+        return true;
+    } catch (e) {
+        console.error("[SupportTemplates] insert failed", e);
+        navigator.clipboard?.writeText(text).catch(err => console.error("[SupportTemplates] clipboard write failed", err));
+        toast("Не удалось вставить — текст скопирован, вставьте Ctrl+V", "failure");
+        return false;
+    }
 }
 
 export const currentGuildId = (): string | null => SelectedGuildStore.getGuildId() ?? null;
@@ -28,8 +36,9 @@ export function currentChannel() {
     return { id, name: ch?.name ?? "", guildId: ch?.guild_id ?? null };
 }
 
-export function onChannelChange(fn: () => void) {
-    const h = () => fn();
+/** fn gets the new channel's guild id (null in DMs) from the CHANNEL_SELECT payload. */
+export function onChannelChange(fn: (guildId: string | null) => void) {
+    const h = (e: { guildId?: string | null; }) => fn(e?.guildId ?? null);
     FluxDispatcher.subscribe("CHANNEL_SELECT", h);
     return () => FluxDispatcher.unsubscribe("CHANNEL_SELECT", h);
 }
@@ -45,10 +54,11 @@ export function activeEditor(): HTMLElement | null {
 }
 
 export function chatAreaRect(): DOMRect | null {
-    const el = document.querySelector('[class*="channelTextArea"]');
+    // The box of the active editor (a thread in the side panel has its own), else the first one.
+    const el = activeEditor()?.closest('[class*="channelTextArea"]') ?? document.querySelector('[class*="channelTextArea"]');
     return el ? el.getBoundingClientRect() : null;
 }
 
 export async function readClipboard(): Promise<string> {
-    try { return await navigator.clipboard.readText(); } catch { return ""; }
+    try { return await navigator.clipboard.readText(); } catch (e) { console.error("[SupportTemplates] clipboard read failed", e); return ""; }
 }

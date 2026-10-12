@@ -7,10 +7,10 @@
 import { useState } from "@webpack/common";
 
 import { joinPieces } from "../core/compose";
-import { activeEditor, chatAreaRect, insertText } from "../platform";
-import { fillFields } from "./flow";
+import { activeEditor, chatAreaRect, currentChannel, insertText, toast } from "../platform";
+import { confirmedForeign, fillFields, Snap, stillCurrent } from "./flow";
 import { ProjectIcon } from "./ProjectIcon";
-import { store, ui } from "./uiState";
+import { activeProject, store, ui } from "./uiState";
 
 export function ComposeBar() {
     const { compose } = ui.use();
@@ -28,10 +28,19 @@ export function ComposeBar() {
     };
 
     const insertAll = async () => {
+        const snap: Snap = { channelId: currentChannel().id, project: activeProject().project };
+        // Every piece must be common, of the channel's project, or a foreign one the user confirmed for it.
+        const fits = () => {
+            const p = snap.project;
+            if (items.every(t => !t!.project || (p && (t!.project === p || confirmedForeign.has(`${p}:${t!.id}`))))) return true;
+            toast("В ответе есть шаблон другого проекта — вставка отменена", "failure");
+            return false;
+        };
+        if (!fits()) return;
         const text = await fillFields("\u041E\u0442\u0432\u0435\u0442", joinPieces(items.map(t => t!.text)));
-        if (text === null) return;
+        if (text === null || !stillCurrent(snap) || !fits()) return;
         activeEditor()?.focus();
-        insertText(text);
+        if (!insertText(text)) return;
         items.forEach(t => store.markUsed(t!.id));
         ui.set({ compose: [] });
     };

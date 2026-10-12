@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { LEGACY_KEY, Store, STORE_KEY } from "../src/core/state";
 
 const fixture = readFileSync(new URL("./fixtures/config-0.5.1.json", import.meta.url), "utf8");
@@ -78,5 +78,18 @@ describe("Store", () => {
         s.setPreviewOpen(false);
         expect(n).toBe(1);
         expect(STORE_KEY).toBe("SupportTemplates_v2");
+    });
+    it("a failing storage write is logged, not thrown, and subscribers still run", async () => {
+        const err = new Error("disk full");
+        const s = new Store({ get: async () => undefined, set: () => Promise.reject(err) });
+        await s.load();
+        const log = vi.spyOn(console, "error").mockImplementation(() => { });
+        let n = 0;
+        s.subscribe(() => n++);
+        s.toggleFavorite("x");
+        expect(n).toBe(1);
+        await new Promise(r => setTimeout(r, 0));
+        expect(log).toHaveBeenCalledWith("[SupportTemplates]", err);
+        log.mockRestore();
     });
 });

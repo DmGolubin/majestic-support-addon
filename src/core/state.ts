@@ -50,7 +50,7 @@ export class Store {
     }
 
     private changed() {
-        void this.storage.set(STORE_KEY, this.data);
+        this.storage.set(STORE_KEY, this.data).catch(e => console.error("[SupportTemplates]", e));
         this.subs.forEach(fn => fn());
     }
 
@@ -62,7 +62,7 @@ export class Store {
         } else {
             const legacy = await this.storage.get(LEGACY_KEY) as { raw?: string; } | undefined;
             if (legacy && typeof legacy.raw === "string" && legacy.raw.trim()) {
-                try { this.importText(JSON.stringify(legacy)); return; } catch { /* broken legacy data — start empty */ }
+                try { this.importText(JSON.stringify(legacy)); return; } catch (e) { console.error("[SupportTemplates] legacy data not imported", e); /* start empty */ }
             }
         }
         this.subs.forEach(fn => fn());

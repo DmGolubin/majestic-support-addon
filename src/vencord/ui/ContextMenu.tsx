@@ -11,6 +11,9 @@ import { splitGreeting } from "../core/text";
 import { addToCompose, insertTemplate, supersede } from "./flow";
 import { store, ui } from "./uiState";
 
+/** Approximate menu size: keeps it on screen near the right/bottom edge. */
+const MENU_W = 220, MENU_H = 200, EDGE = 8;
+
 export function ContextMenu() {
     const { menu } = ui.use();
     useEffect(() => {
@@ -25,7 +28,10 @@ export function ContextMenu() {
     const bind = store.bindFor(t.id);
     const run = (fn: () => void) => () => { ui.set({ menu: null }); fn(); };
     return (
-        <div className="vc-stx-menu" style={{ left: menu.x, top: menu.y }}>
+        <div className="vc-stx-menu" style={{
+            left: Math.max(EDGE, Math.min(menu.x, window.innerWidth - MENU_W - EDGE)),
+            top: Math.max(EDGE, Math.min(menu.y, window.innerHeight - MENU_H - EDGE)),
+        }}>
             <button onClick={run(() => insertTemplate(t))}>Вставить</button>
             {splitGreeting(t.text).greeting && <button onClick={run(() => insertTemplate(t, { noGreeting: true }))}>Вставить без приветствия</button>}
             <button onClick={run(() => addToCompose(t))}>+ в ответ</button>

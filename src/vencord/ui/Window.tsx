@@ -13,6 +13,7 @@ import { ProjectId, PROJECTS, Template } from "../core/types";
 import { chatAreaRect } from "../platform";
 import { addToCompose, ensureProject, insertTemplate } from "./flow";
 import { nqHighlight } from "./highlight";
+import { latchKey } from "./keylatch";
 import { Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
 import { activeProject, poolFor, store, ui, useStore } from "./uiState";
@@ -72,7 +73,7 @@ export function Window() {
     useEffect(() => {
         const onDown = (e: MouseEvent) => {
             const el = e.target as HTMLElement;
-            if (el.closest?.(".vc-stx-win, .vc-stx-menu, .vc-stx-dialog, .vc-stx-button, .vc-stx-backdrop")) return;
+            if (el.closest?.(".vc-stx-win, .vc-stx-menu, .vc-stx-dialog, [data-stx=button], .vc-stx-backdrop")) return;
             ui.set({ windowOpen: false });
         };
         // Shift held = temporary full-text preview; released anywhere = hide.
@@ -86,7 +87,8 @@ export function Window() {
         };
     }, []);
 
-    const pickProject = (p: ProjectId) => ui.set({ sessionProject: p });
+    // Switching the project drops the collected reply: its pieces were checked against the old one.
+    const pickProject = (p: ProjectId) => { if (p !== project) ui.set({ sessionProject: p, compose: [] }); };
 
     const startHover = (t: Template, el: HTMLElement) => {
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -113,6 +115,7 @@ export function Window() {
         } else if (e.key === "Enter" && current) {
             eat();
             if (e.repeat) return;
+            latchKey(e.nativeEvent.code);
             if (e.shiftKey) void addToCompose(current); else void insertTemplate(current);
         } else if (e.key === "ArrowRight" && atEnd && !store.data.previewOpen) {
             eat();

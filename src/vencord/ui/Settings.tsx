@@ -28,6 +28,7 @@ export function Settings() {
                 setStatus(store.importText(await file.text()));
                 toast("Импорт выполнен", "success");
             } catch (e: any) {
+                console.error("[SupportTemplates] import failed", e);
                 setStatus("Ошибка: " + e.message);
                 toast("Импорт не удался", "failure");
             }
