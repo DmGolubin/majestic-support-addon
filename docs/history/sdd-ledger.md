@@ -104,3 +104,10 @@ Task 16: minor (deferred): search-input keystrokes logged per key; string alloc 
 Task 16: fix round 1/5 (4 addressed — deferred search dlog, Ctrl/Meta guard, no preventDefault at scroll edge, IME mask; commits f8ac9d3..9ca475e)
 Task 16: complete (commits 16861a4..9ca475e, review clean)
 User report 13.10: long tasks 50–240ms (max 1351) on every logged event while verbose panel open; window renders low (14), search 2ms → suspect verbose DebugPanel re-render + 10 rect reads per event; plugin load 2633ms suspicious (likely includes Discord boot)
+Task 17 (user report): cheap debug panel (throttle 250ms, geometry ≤1/s, 50 lines), plugin cost accounting + longtask overlap, plugin-only load time, cheap idle inline trigger; BASE 96aaaf6
+Task 18 (user report): small-screen layout — viewport clamp, compact mode <720, preview min 320, wrapping actions, short footer; Task 17 review re-dispatched after session crash
+Task 17: complete (commits 96aaaf6..ee2e7b7, review clean)
+Task 17: minor (deferred, fix after Task 18): longtask "plugin=yes" counts tiny overlaps (need min overlap ≥5ms/10%); span ring 256 may wrap before observer → raise to 1024; % divides by 60s even early; render cost = component bodies only (label it); collapsed panel still re-renders header; no test for inline idle cache
+Task 18: Ruling: accept footer keycaps-only at compact||width<360 (not <380) and fixed 400px compact window (list doesn't jump) — cost if wrong: one-line change
+Task 18: minor (deferred): footKeys `width<360` term dead (only reachable in compact); preview-min test tautological, no combined tooltip-left≥EDGE sweep; resize with no chat area doesn't re-render (stale vw); 358→398 list width change at mode switch; covered search input still takes typing in compact pinned preview
+Task 18: complete (commits ee2e7b7..e8768b4, review clean) — manual Discord check pending with user (~1100 px and ~800 px)
