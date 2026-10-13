@@ -39,6 +39,9 @@ export class Ring {
 
     get cap() { return this.size; }
 
+    /** Number of stored entries. */
+    get length() { return this.items.length; }
+
     /** Changes the size; shrinking drops the oldest entries. */
     setCap(n: number) {
         this.size = n;
