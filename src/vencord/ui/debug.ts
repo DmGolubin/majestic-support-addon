@@ -274,7 +274,8 @@ export function noteSearch(ms: number, query: string, items: number) {
     perf.searches.push(ms);
     if (perf.searches.length > 20) perf.searches.shift();
     perf.lastSearch = { ms, q: query, items };
-    dlog("search", { q: cut40(query), ms: +ms.toFixed(2), items }, "search");
+    // Measured inside the window's render (useMemo): the log/state update must happen outside it.
+    queueMicrotask(() => dlog("search", { q: cut40(query), ms: +ms.toFixed(2), items }, "search"));
 }
 
 /** One Window render (called from its body only while verbose is on). */
@@ -350,7 +351,8 @@ function keyFields(e: KeyboardEvent) {
     // Plain characters are the user's text (chat box, dialog fields): masked everywhere except the
     // window's search input — the query is shown anyway (cut to 40 chars).
     const search = !!target?.closest?.(".vc-stx-sinput");
-    const masked = !search && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey;
+    // IME composition (e.key "Process") is typed text too.
+    const masked = !search && (e.isComposing || e.key === "Process" || (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey));
     const mods = [e.ctrlKey && "Ctrl", e.altKey && "Alt", e.shiftKey && "Shift", e.metaKey && "Meta"].filter(Boolean).join("+");
     return {
         masked,

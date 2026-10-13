@@ -236,12 +236,15 @@ export function Window() {
         const win = winRef.current;
         if (!win) return;
         const onWheel = (e: WheelEvent) => {
-            if (!e.shiftKey || !wideRef.current) return;
+            if (!e.shiftKey || e.ctrlKey || e.metaKey || !wideRef.current) return; // Ctrl+Shift+wheel = zoom
             const body = win.querySelector<HTMLElement>(":scope > .vc-stx-pre .vc-stx-body");
             if (!body) return;
             let dy = e.deltaY || e.deltaX;
             if (e.deltaMode === 1) dy *= 16; // lines
             else if (e.deltaMode === 2) dy *= body.clientHeight; // pages
+            // Nothing to scroll that way (no overflow, already at the edge): leave the event native.
+            const max = body.scrollHeight - body.clientHeight;
+            if (max <= 0 || (dy < 0 && body.scrollTop <= 0) || (dy > 0 && body.scrollTop >= max - 1) || !dy) return;
             body.scrollTop += dy;
             e.preventDefault();
             noteWheel(body.scrollTop); // verbose debug only (a null check otherwise)
