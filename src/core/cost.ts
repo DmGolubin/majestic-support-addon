@@ -34,8 +34,10 @@ export class CostMeter {
     private spanEnd: Float64Array;
     private spanCat: (CostCat | null)[];
     private next = 0;
+    /** performance.now() of the last clear (debug switched on): the window is shorter until 60 s have passed. */
+    private since = 0;
 
-    constructor(private spans = 256) {
+    constructor(private spans = 1024) {
         this.spanStart = new Float64Array(spans);
         this.spanEnd = new Float64Array(spans);
         this.spanCat = new Array(spans).fill(null);
@@ -76,6 +78,11 @@ export class CostMeter {
         return COST_CATS.filter(c => !NESTED_CATS.includes(c)).reduce((a, c) => a + s[c].ms, 0);
     }
 
+    /** Length of the measured window at `now`: 60 s, or less right after clear(). */
+    windowMs(now: number): number {
+        return Math.max(0, Math.min(WINDOW_S * 1000, now - this.since));
+    }
+
     /** Which recent spans intersect [start, end] (a long task's window). */
     overlap(start: number, end: number): Overlap {
         const hit = new Set<CostCat>();
@@ -101,15 +108,23 @@ export class CostMeter {
         return { cats: COST_CATS.filter(c => hit.has(c)), ms };
     }
 
-    clear() {
+    clear(now = 0) {
+        this.since = now;
         for (const bs of this.buckets.values()) for (const b of bs) { b.sec = -1; b.ms = 0; b.n = 0; }
         this.spanCat.fill(null);
         this.next = 0;
     }
 }
 
-/** `longtask` log value: "yes(inline,render)" / "no". */
-export const overlapLabel = (o: Overlap) => o.cats.length ? `yes(${o.cats.join(",")})` : "no";
+/** Plugin work counts as a cause of a long task only from 5 ms or 10 % of it; less is noise around Discord's own work. */
+export const MIN_OVERLAP_MS = 5;
+export const MIN_OVERLAP_SHARE = 0.1;
+export const significant = (o: Overlap, duration: number) =>
+    o.cats.length > 0 && (o.ms >= MIN_OVERLAP_MS || o.ms >= duration * MIN_OVERLAP_SHARE);
+
+/** `longtask` log value: "yes(inline,render)" (significant), "minor(render)" (touched, under the threshold) or "no". */
+export const overlapLabel = (o: Overlap, duration: number) =>
+    !o.cats.length ? "no" : `${significant(o, duration) ? "yes" : "minor"}(${o.cats.join(",")})`;
 
 /**
  * At most one call of `fn` per `ms`, always from a timer (never synchronously inside the caller,

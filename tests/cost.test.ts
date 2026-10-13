@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CostMeter, overlapLabel, throttle } from "../src/core/cost";
+import { CostMeter, overlapLabel, significant, throttle } from "../src/core/cost";
 
 describe("cost meter", () => {
     it("sums per category over the last 60 seconds", () => {
@@ -36,8 +36,32 @@ describe("cost meter", () => {
         const o = m.overlap(105, 155);
         expect(o.cats).toEqual(["inline", "render", "search"]);
         expect(o.ms).toBe(5 + 5);
-        expect(overlapLabel(o)).toBe("yes(inline,render,search)");
-        expect(overlapLabel(m.overlap(400, 450))).toBe("no");
+        expect(overlapLabel(o, 50)).toBe("yes(inline,render,search)");
+        expect(overlapLabel(m.overlap(400, 450), 50)).toBe("no");
+    });
+    it("tiny overlaps are minor: under 5 ms and under 10 % of the long task", () => {
+        const m = new CostMeter();
+        m.record("render", 100, 100.4); // 0.4 ms inside a 200 ms task
+        const o = m.overlap(0, 200);
+        expect(significant(o, 200)).toBe(false);
+        expect(overlapLabel(o, 200)).toBe("minor(render)");
+        expect(significant(o, 3)).toBe(true); // 0.4 ms of a 3 ms window is over 10 %
+        m.record("keys", 120, 126); // 6 ms
+        expect(overlapLabel(m.overlap(0, 200), 200)).toBe("yes(keys,render)");
+    });
+    it("window length: shorter right after clear, capped at 60 s", () => {
+        const m = new CostMeter();
+        m.clear(10_000);
+        expect(m.windowMs(25_000)).toBe(15_000);
+        expect(m.windowMs(200_000)).toBe(60_000);
+        expect(m.windowMs(5_000)).toBe(0);
+    });
+    it("span ring holds 1024 spans by default", () => {
+        const m = new CostMeter();
+        for (let i = 0; i < 1024; i++) m.record(i === 0 ? "keys" : "render", i, i + 0.5);
+        expect(m.overlap(0, 0.4).cats).toEqual(["keys"]);
+        m.record("render", 2000, 2001);
+        expect(m.overlap(0, 0.4).cats).toEqual([]);
     });
     it("span ring keeps only the latest spans; clear empties", () => {
         const m = new CostMeter(2);

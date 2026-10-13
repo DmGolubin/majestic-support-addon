@@ -111,3 +111,4 @@ Task 17: minor (deferred, fix after Task 18): longtask "plugin=yes" counts tiny 
 Task 18: Ruling: accept footer keycaps-only at compact||width<360 (not <380) and fixed 400px compact window (list doesn't jump) — cost if wrong: one-line change
 Task 18: minor (deferred): footKeys `width<360` term dead (only reachable in compact); preview-min test tautological, no combined tooltip-left≥EDGE sweep; resize with no chat area doesn't re-render (stale vw); 358→398 list width change at mode switch; covered search input still takes typing in compact pinned preview
 Task 18: complete (commits ee2e7b7..e8768b4, review clean) — manual Discord check pending with user (~1100 px and ~800 px)
+Task 17 minors fixed by controller after Task 18: longtask significance (≥5 ms or ≥10 %, else minor), span ring 1024, % over elapsed window since debug on, render cost labelled; +3 tests (88)

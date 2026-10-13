@@ -16,7 +16,7 @@
 import { gitHash } from "@shared/vencordUserAgent";
 import { useEffect, useState } from "@webpack/common";
 
-import { COST_CATS, CostCat, CostMeter, NESTED_CATS, overlapLabel, throttle } from "../core/cost";
+import { COST_CATS, CostCat, CostMeter, NESTED_CATS, overlapLabel, significant, throttle } from "../core/cost";
 import { projectForGuild } from "../core/guard";
 import { comboLabel } from "../core/keys";
 import { DebugEvent, formatEvent, Ring } from "../core/ring";
@@ -81,7 +81,7 @@ export function setDebugEnabled(on: boolean) {
     if (on === enabled) return;
     enabled = on;
     if (!on) ring.clear();
-    meter.clear();
+    meter.clear(performance.now());
     resetLong();
     if (on) startLongTasks(); else stopLongTasks();
     debugState.set({ on, win: null, log: debugState.get().log + 1 });
@@ -356,15 +356,17 @@ function onLongTasks(list: PerformanceObserverEntryList) {
     for (const en of list.getEntries()) {
         const ms = rnd(en.duration);
         const o = meter.overlap(en.startTime, en.startTime + en.duration);
-        const plugin = overlapLabel(o);
+        const plugin = overlapLabel(o, en.duration);
+        const sig = significant(o, en.duration);
         long.count++;
         long.max = Math.max(long.max, ms);
         long.ms += en.duration;
-        if (o.cats.length) { long.withPlugin++; long.pluginMs += o.ms; }
-        long.last.push(o.cats.length ? `${ms} (${o.cats.join(",")} ${o.ms.toFixed(1)} мс)` : `${ms} (—)`);
+        long.pluginMs += o.ms; // the share stays honest: tiny overlaps are still plugin time
+        if (sig) long.withPlugin++;
+        long.last.push(o.cats.length ? `${ms} (${o.cats.join(",")} ${o.ms.toFixed(1)} мс${sig ? "" : ", мелочь"})` : `${ms} (—)`);
         if (long.last.length > 5) long.last.shift();
-        // Normal level: only the long tasks the plugin took part in; verbose: all of them.
-        if (o.cats.length || verbose) dlog("longtask", { ms, plugin, pluginMs: o.cats.length ? +o.ms.toFixed(1) : undefined }, "longtask:" + plugin);
+        // Normal level: only the long tasks the plugin noticeably took part in; verbose: all of them.
+        if (sig || verbose) dlog("longtask", { ms, plugin, pluginMs: o.cats.length ? +o.ms.toFixed(1) : undefined }, "longtask:" + plugin);
     }
 }
 
@@ -393,11 +395,17 @@ export function debugPerf(): string[] {
     const sums = meter.sums(now);
     const total = meter.total(now);
     const calls = COST_CATS.filter(c => !NESTED_CATS.includes(c)).reduce((a, c) => a + sums[c].n, 0);
+    const win = meter.windowMs(now);
+    const span = win >= 59_500 ? "60 с" : `${Math.round(win / 1000)} с (с включения отладки)`;
+    const note: Partial<Record<CostCat, string>> = {
+        render: " (только код компонентов плагина; отрисовка DOM — работа Discord)",
+        search: " (входит в render)",
+    };
     const out = [
-        `плагин за последние 60 с: ${total.toFixed(1)} мс (${pct(total, 60_000)} времени) · вызовов ${calls}`,
-        ...COST_CATS.map(c => `  ${c}: ${sums[c].ms.toFixed(1)} мс за 60 с · вызовов ${sums[c].n}${NESTED_CATS.includes(c) ? " (входит в render)" : ""}`),
+        `плагин за последние ${span}: ${total.toFixed(1)} мс (${pct(total, win)} времени) · вызовов ${calls}`,
+        ...COST_CATS.map(c => `  ${c}: ${sums[c].ms.toFixed(1)} мс · вызовов ${sums[c].n}${note[c] ?? ""}`),
         !longSupported ? "long tasks: PerformanceObserver(longtask) недоступен"
-            : `long tasks: ${long.count} · с работой плагина ${long.withPlugin} · доля плагина в их времени ${pct(long.pluginMs, long.ms)} · макс ${long.max} мс`,
+            : `long tasks: ${long.count} · заметно с плагином (≥5 мс или ≥10 %) ${long.withPlugin} · доля плагина в их времени ${pct(long.pluginMs, long.ms)} · макс ${long.max} мс`,
         `  последние: ${long.last.join(", ") || "—"}`,
     ];
     if (!verbose) return [...out, "поиск и рендеры окна подробно: включите «Отладка: подробно»"];
