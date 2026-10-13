@@ -7,11 +7,9 @@
 import { useEffect, useRef, useState } from "@webpack/common";
 
 import { bindProblem, comboLabel, comboOf } from "../core/keys";
-import { PROJECTS } from "../core/types";
 import { toast } from "../platform";
 import { dlog } from "./debug";
 import { latchKey } from "./keylatch";
-import { ProjectIcon } from "./ProjectIcon";
 import { Dialog, store, ui } from "./uiState";
 
 function Frame({ children, onEscape }: { children: React.ReactNode; onEscape(): void; }) {
@@ -30,20 +28,6 @@ function Frame({ children, onEscape }: { children: React.ReactNode; onEscape(): 
         // Enter/Space here may confirm and insert: latch it so a held key never repeats into Discord.
         onKeyDownCapture={e => { if (e.key === "Enter" || e.key === " ") latchKey(e.nativeEvent.code); }}
     >{children}</div></>;
-}
-
-function AskProject({ d }: { d: Extract<Dialog, { kind: "askProject"; }>; }) {
-    return (
-        <Frame onEscape={() => d.resolve(null)}>
-            <h4>Это сервер какого проекта?</h4>
-            <p className="vc-stx-hint">Отвечу один раз и запомню для этого сервера. Изменить — в настройках плагина.</p>
-            <div className="vc-stx-acts">
-                <button className="vc-stx-btn vc-stx-ghost" onClick={() => d.resolve("mj")}><ProjectIcon project="mj" size={14} /> {PROJECTS.mj.name}</button>
-                <button className="vc-stx-btn vc-stx-ghost" onClick={() => d.resolve("ro")}><ProjectIcon project="ro" size={14} /> {PROJECTS.ro.name}</button>
-                <button className="vc-stx-btn vc-stx-ghost" onClick={() => d.resolve("none")}>Ни того ни другого — выбирать в окне</button>
-            </div>
-        </Frame>
-    );
 }
 
 function Confirm({ d }: { d: Extract<Dialog, { kind: "confirm"; }>; }) {
@@ -136,7 +120,6 @@ export function Dialogs() {
     const dialog = ui.useSelect(s => s.dialog);
     if (!dialog) return null;
     switch (dialog.kind) {
-        case "askProject": return <AskProject key={idOf(dialog)} d={dialog} />;
         case "confirm": return <Confirm key={idOf(dialog)} d={dialog} />;
         case "fields": return <Fields key={idOf(dialog)} d={dialog} />;
         case "bind": return <Bind key={idOf(dialog)} d={dialog} />;

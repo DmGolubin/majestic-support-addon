@@ -11,7 +11,7 @@ import { activeEditor, currentChannel, insertText, toast } from "../platform";
 import { costEnd, costStart, dlog } from "./debug";
 import { confirmedForeign, fillFields, Snap, stillCurrent } from "./flow";
 import { ProjectIcon } from "./ProjectIcon";
-import { activeProject, store, ui, useChatRect } from "./uiState";
+import { activeScope, store, ui, useChatRect } from "./uiState";
 
 /** Its render is a `render` cost span while debug is on. */
 export function ComposeBar() {
@@ -35,17 +35,17 @@ function ComposeBarView() {
     };
 
     const insertAll = async () => {
-        const snap: Snap = { channelId: currentChannel().id, project: activeProject().project };
-        // Every piece must be common, of the channel's project, or a foreign one the user confirmed for it.
+        const snap: Snap = { channelId: currentChannel().id, scope: activeScope() };
+        // Every piece must be common, of the channel's project, or a foreign one the user confirmed for it; on Tech ("all") any piece fits.
         const fits = () => {
-            const p = snap.project;
-            if (items.every(t => !t!.project || (p && (t!.project === p || confirmedForeign.has(`${p}:${t!.id}`))))) return true;
-            dlog("cancel", { reason: "в ответе шаблон другого проекта", project: p });
+            const p = snap.scope;
+            if (p === "all" || items.every(t => !t!.project || (p && (t!.project === p || confirmedForeign.has(`${p}:${t!.id}`))))) return true;
+            dlog("cancel", { reason: "в ответе шаблон другого проекта", scope: p });
             toast("В ответе есть шаблон другого проекта — вставка отменена", "failure");
             return false;
         };
         if (!fits()) return;
-        const text = await fillFields("\u041E\u0442\u0432\u0435\u0442", joinPieces(items.map(t => t!.text)));
+        const text = await fillFields("Ответ", joinPieces(items.map(t => t!.text)));
         if (text === null || !stillCurrent(snap) || !fits()) return;
         activeEditor()?.focus();
         const ok = insertText(text);

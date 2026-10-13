@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from "@webpack/common";
 
-import { DM_KEY, projectForGuild, ServerBinding } from "../core/guard";
+import { ServerMode, serverMode } from "../core/guard";
 import { Store } from "../core/state";
 import { FieldSpec } from "../core/tokens";
 import { ProjectId, Template } from "../core/types";
@@ -23,7 +23,6 @@ export const store = new Store({
 });
 
 export type Dialog =
-    | { kind: "askProject"; resolve(v: ServerBinding | null): void; }
     | { kind: "confirm"; tone: "danger" | "warn"; label: string; title: string; body: string; ok: string; checkbox?: string; resolve(v: { ok: boolean; checked: boolean; }): void; }
     | { kind: "fields"; title: string; fields: FieldSpec[]; initial: Record<string, string>; resolve(v: Record<string, string> | null): void; }
     | { kind: "bind"; templateId: string; };
@@ -35,29 +34,33 @@ export interface UiState {
     dialog: Dialog | null;
     compose: string[];
     inline: InlineState | null;
-    /** Project picked in the window on a server bound to "none". */
-    sessionProject: ProjectId | null;
     menu: { x: number; y: number; id: string; } | null;
     /** Selected message text captured when the window/trigger opened. */
     selection: string;
 }
 
 export const ui = createObservable<UiState>({
-    windowOpen: false, dialog: null, compose: [], inline: null, sessionProject: null, menu: null, selection: "",
+    windowOpen: false, dialog: null, compose: [], inline: null, menu: null, selection: "",
 });
 
-export const guildKey = () => currentGuildId() ?? DM_KEY;
+/** Which templates a server gets: one project (+ common) or all of them (Tech). */
+export type Scope = ProjectId | "all";
 
-export function activeProject(): { project: ProjectId | null; binding: ServerBinding | null; } {
-    const binding = projectForGuild(currentGuildId(), store.data.guilds);
-    if (binding === "mj" || binding === "ro") return { project: binding, binding };
-    if (binding === "none") return { project: ui.get().sessionProject, binding };
-    return { project: null, binding: null };
+/** Mode of the current server (fixed table in core/guard). */
+export const currentMode = (): ServerMode => serverMode(currentGuildId());
+
+/** false on any server but Majestic / Россия Онлайн / Tech and in DMs: the plugin stays out of the way. */
+export const pluginOn = () => currentMode() !== "off";
+
+/** Templates scope of the current server; null = plugin off here. */
+export function activeScope(): Scope | null {
+    const m = currentMode();
+    return m === "off" ? null : m;
 }
 
-/** Templates visible for a project: its own + common (no project). */
-export const poolFor = (project: ProjectId | null) =>
-    store.templates.filter(t => !t.project || t.project === project);
+/** Templates visible in a scope: a project's own + common (no project); all of them on Tech; none when off. */
+export const poolFor = (scope: Scope | null): Template[] =>
+    scope === null ? [] : scope === "all" ? store.templates : store.templates.filter(t => !t.project || t.project === scope);
 
 /** Re-render on any Store change; returns a version number. */
 export function useStore() {

@@ -12,7 +12,7 @@ import { activeEditor, insertText, toast } from "../platform";
 import { costEnd, costStart, debugEnabled, dlog } from "./debug";
 import { prepareText, stillCurrent } from "./flow";
 import { latchKey } from "./keylatch";
-import { activeProject, InlineState, poolFor, store, ui } from "./uiState";
+import { activeScope, InlineState, poolFor, store, ui } from "./uiState";
 
 function textBeforeCaret(ed: HTMLElement): string | null {
     const sel = window.getSelection();
@@ -70,12 +70,10 @@ function runCheck() {
     const trig = before !== null ? findTrigger(before.split("\n").pop() ?? "", prefix) : null;
     idle = trig ? null : { ed, text, node, off, anchor, aoff, prefix };
     if (!trig) return close();
-    const { project } = activeProject();
-    if (!project) {
-        publish({ query: trig.query, length: trig.length, items: [], sel: 0, note: "Проект канала не выбран — открой окно (Ctrl+Alt+T)" });
-        return;
-    }
-    const hits = orderHits(search(poolFor(project), trig.query).hits, store.ctx()).slice(0, 6);
+    // Other servers and DMs: no suggestions, so Enter/Tab stay Discord's (checked only once a trigger is found — the idle path stays cheap).
+    const scope = activeScope();
+    if (!scope) return close();
+    const hits = orderHits(search(poolFor(scope), trig.query).hits, store.ctx()).slice(0, 6);
     const prev = ui.get().inline;
     if (!hits.length) return close();
     publish({ query: trig.query, length: trig.length, items: hits.map(h => h.t), sel: prev?.query === trig.query ? prev.sel : 0, note: "" });

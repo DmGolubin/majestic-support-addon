@@ -11,10 +11,10 @@ import { definePluginSettings } from "@api/Settings";
 import definePlugin, { IconComponent, OptionType } from "@utils/types";
 import { createRoot } from "@webpack/common";
 
-import { DM_KEY, projectForGuild } from "./core/guard";
+import { serverMode } from "./core/guard";
 import { comboOf } from "./core/keys";
 import { favoritesOf } from "./core/rank";
-import { currentChannel, onChannelChange } from "./platform";
+import { currentChannel, currentGuildId, onChannelChange } from "./platform";
 import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
 import { insertTemplate, supersede } from "./ui/flow";
 import { Host } from "./ui/Host";
@@ -23,7 +23,7 @@ import { handleInlineKey, resetInline, startInline } from "./ui/inline";
 import { latchKey, startLatch, swallowLatched } from "./ui/keylatch";
 import { ChatBarIcon } from "./ui/ProjectIcon";
 import { Settings } from "./ui/Settings";
-import { activeProject, guildKey, poolFor, store, ui, UiState, useStore } from "./ui/uiState";
+import { activeScope, pluginOn, poolFor, store, ui, UiState } from "./ui/uiState";
 import { visibleItems } from "./ui/Window";
 
 const Icon: IconComponent = ({ height = 20, width = 20, className }) => (
@@ -34,18 +34,17 @@ export function toggleWindow(open = !ui.get().windowOpen) {
     ui.set({ windowOpen: open, menu: null, selection: open ? String(window.getSelection() ?? "") : "" });
 }
 
-/** Chat-bar button: the icon follows this channel's server project (re-rendered by Discord on channel switch). Its render is a `render` cost span. */
+/** Chat-bar button: only on Majestic / Россия Онлайн / Tech; the icon follows the server's project, neutral on Tech (re-rendered by Discord on channel switch). Its render is a `render` cost span. */
 const Button: ChatBarButtonFactory = props => {
     const t0 = costStart();
     try { return ButtonView(props); } finally { costEnd("render", t0); }
 };
 
 const ButtonView: ChatBarButtonFactory = ({ isMainChat, channel }) => {
-    useStore(); // server bindings live in the store (picked in the "which project?" dialog)
-    const session = ui.useSelect(s => s.sessionProject);
     if (!isMainChat) return null;
-    const binding = projectForGuild(channel?.guild_id ?? null, store.data.guilds);
-    const project = binding === "mj" || binding === "ro" ? binding : binding === "none" ? session : null;
+    const mode = serverMode(channel?.guild_id ?? null);
+    if (mode === "off") return null; // other servers and DMs: the plugin is invisible
+    const project = mode === "all" ? null : mode;
     return (
         <ChatBarButton tooltip="Шаблоны (Ctrl+Alt+T)" onClick={() => toggleWindow()} buttonProps={{ "data-stx": "button" } as any}>
             <ChatBarIcon project={project} />
@@ -101,6 +100,12 @@ function handleKey(e: KeyboardEvent) {
         return trapDialogFocus(e); // dialogs handle their own keys
     }
 
+    // Other servers and DMs: nothing is handled or prevented — every key reaches Discord as if the plugin were absent.
+    if (!pluginOn()) {
+        if (debugEnabled() && e.ctrlKey && e.altKey && e.code === "KeyT") dlog("key", { h: "hotkey", key: keyDesc(e), skip: "плагин выключен на этом сервере" });
+        return;
+    }
+
     if (handleInlineKey(e)) {
         e.preventDefault();
         e.stopPropagation();
@@ -126,7 +131,7 @@ function handleKey(e: KeyboardEvent) {
         noteKey(e, "alt-n");
         if (e.repeat) { dlog("key", { h: "alt-n", key: keyDesc(e), skip: "repeat" }, "altn-repeat:" + e.code); return; }
         const i = Number(digit[1]) - 1;
-        const list = s.windowOpen ? visibleItems : favoritesOf(poolFor(activeProject().project), store.ctx());
+        const list = s.windowOpen ? visibleItems : favoritesOf(poolFor(activeScope()), store.ctx());
         const t = list[i];
         dlog("key", { h: "alt-n", key: keyDesc(e), from: s.windowOpen ? "окно" : "избранное", id: t?.id, title: t?.title ?? "(пусто)" });
         if (t) {
@@ -156,19 +161,20 @@ let root: ReturnType<typeof createRoot> | null = null;
 let offChannel: (() => void) | null = null;
 let offInline: (() => void) | null = null;
 let offLatch: (() => void) | null = null;
-let lastGuild = DM_KEY;
+let lastGuild: string | null = null;
 
 /** Channel switch: cancel pending dialogs and drop everything tied to the old channel. */
 function channelChanged(guildId: string | null) {
     supersede();
+    const mode = serverMode(guildId);
     const patch: Partial<UiState> = { compose: [], inline: null, menu: null, windowOpen: false };
-    const key = guildId ?? DM_KEY;
-    if (key !== lastGuild) patch.sessionProject = null; // a project picked in the window is per server
+    // Into an OFF channel nothing of ours may stay on screen — the bind dialog too (supersede only answers awaiting dialogs).
+    if (mode === "off") patch.dialog = null;
     if (debugEnabled()) {
         const ch = currentChannel();
-        dlog("channel", { guild: key, channel: ch.id, name: ch.name, serverChanged: key !== lastGuild, hadDialog: !!ui.get().dialog, hadWindow: ui.get().windowOpen });
+        dlog("channel", { guild: guildId ?? "ЛС", mode, channel: ch.id, name: ch.name, serverChanged: guildId !== lastGuild, hadDialog: !!ui.get().dialog, hadWindow: ui.get().windowOpen });
     }
-    lastGuild = key;
+    lastGuild = guildId;
     ui.set(patch);
 }
 
@@ -206,7 +212,7 @@ export default definePlugin({
         const t1 = performance.now();
         document.addEventListener("keydown", onKey, true);
         offLatch = startLatch();
-        lastGuild = guildKey();
+        lastGuild = currentGuildId();
         host = document.createElement("div");
         host.id = "vc-stx-host";
         document.body.append(host);

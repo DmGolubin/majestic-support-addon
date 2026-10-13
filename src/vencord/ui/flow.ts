@@ -4,23 +4,23 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { decide, foreignMarkers, ServerBinding } from "../core/guard";
+import { decide, foreignMarkers } from "../core/guard";
 import { splitGreeting, stripMarker } from "../core/text";
 import { fieldsOf, fill } from "../core/tokens";
 import { ProjectId, PROJECTS, Template } from "../core/types";
 import { activeEditor, currentChannel, insertText, readClipboard, toast } from "../platform";
 import { debugEnabled, dlog } from "./debug";
-import { activeProject, Dialog, guildKey, store, ui } from "./uiState";
+import { activeScope, currentMode, Dialog, Scope, store, ui } from "./uiState";
 
 type ConfirmArgs = Omit<Extract<Dialog, { kind: "confirm"; }>, "kind" | "resolve">;
 
-/** What an insert was prepared for: the channel and its project at the start of the flow. */
-export interface Snap { channelId: string | null; project: ProjectId | null; }
+/** What an insert was prepared for: the channel and its server's scope (mj / ro / all) at the start of the flow. */
+export interface Snap { channelId: string | null; scope: Scope | null; }
 
-/** true while the channel and its project are unchanged; otherwise toasts and the insert must be dropped. */
+/** true while the channel and its scope are unchanged; otherwise toasts and the insert must be dropped. */
 export function stillCurrent(s: Snap): boolean {
-    if (currentChannel().id === s.channelId && activeProject().project === s.project) return true;
-    dlog("cancel", { reason: "канал сменился", wasChannel: s.channelId, wasProject: s.project, nowChannel: currentChannel().id, nowProject: activeProject().project });
+    if (s.scope !== null && currentChannel().id === s.channelId && activeScope() === s.scope) return true;
+    dlog("cancel", { reason: "канал сменился", wasChannel: s.channelId, wasScope: s.scope, nowChannel: currentChannel().id, nowScope: activeScope() });
     toast("Канал сменился — вставка отменена", "failure");
     return false;
 }
@@ -33,7 +33,7 @@ export function supersede() {
     const d = ui.get().dialog;
     if (!d) return;
     dlog("dialog-supersede", { kind: d.kind });
-    if (d.kind === "askProject" || d.kind === "fields") d.resolve(null);
+    if (d.kind === "fields") d.resolve(null);
     else if (d.kind === "confirm") d.resolve({ ok: false, checked: false });
 }
 
@@ -63,10 +63,6 @@ export function confirm(args: ConfirmArgs): Promise<{ ok: boolean; checked: bool
     return open(resolve => ({ kind: "confirm", ...args, resolve }));
 }
 
-function askProject(): Promise<ServerBinding | null> {
-    return open(resolve => ({ kind: "askProject", resolve }));
-}
-
 /** Fills panel tokens; asks the user for fields. null = cancelled. */
 export async function fillFields(title: string, text: string): Promise<string | null> {
     const fields = fieldsOf(text);
@@ -89,31 +85,28 @@ export async function fillFields(title: string, text: string): Promise<string | 
     return fill(text, values, env).text;
 }
 
-/** Project for this channel; asks once on an unknown server. null = nothing may be inserted. */
-export async function ensureProject(): Promise<ProjectId | null> {
-    const { project, binding } = activeProject();
-    if (project) return project;
-    if (binding === "none") {
-        dlog("cancel", { reason: "проект не выбран (сервер «выбирать в окне», вкладка проекта не выбрана)" });
-        toast("На этом сервере выбери проект во вкладке окна шаблонов", "failure");
-        return null;
-    }
-    const key = guildKey(); // the server asked about, even if the user switches while the dialog is open
-    const ans = await askProject();
-    if (!ans) { dlog("cancel", { reason: "проект не выбран (диалог проекта отменён)", guild: key }); return null; }
-    store.setGuild(key, ans);
-    if (guildKey() !== key) { dlog("cancel", { reason: "сервер сменился во время диалога проекта", guild: key }); return null; }
-    if (ans === "none") {
-        dlog("cancel", { reason: "проект не выбран (ответ «ни того ни другого»)", guild: key });
-        toast("Выбери проект во вкладке окна шаблонов", "message");
-        ui.set({ windowOpen: true });
-        return null;
-    }
-    return ans;
+/** Scope of this channel's server; null (logged) where the plugin is off — nothing may be inserted. */
+function scopeHere(): Scope | null {
+    const scope = activeScope();
+    if (!scope) dlog("cancel", { reason: "плагин выключен на этом сервере", mode: currentMode() });
+    return scope;
 }
 
-/** Guard + warnings. Returns the template to use (maybe a mirror) or null when cancelled. */
-async function guard(t: Template, project: ProjectId): Promise<Template | null> {
+/**
+ * Guard + warnings. Returns the template to use (maybe a mirror) or null when cancelled.
+ * On Tech ("all") templates of both projects are equally fine: no mirror, no foreign/marker warnings — only the status check.
+ */
+async function guard(t: Template, scope: Scope): Promise<Template | null> {
+    if (scope !== "all") {
+        const g = await projectGuard(t, scope);
+        if (!g) return null;
+        t = g;
+    }
+    return statusGuard(t);
+}
+
+/** Mirror / foreign / other-project markers for a project's server. */
+async function projectGuard(t: Template, project: ProjectId): Promise<Template | null> {
     const d = decide(t, project, store.templates);
     if (d.kind === "mirror") {
         dlog("guard", { result: "зеркало", from: t.id, to: d.t.id, project });
@@ -143,7 +136,10 @@ async function guard(t: Template, project: ProjectId): Promise<Template | null> 
             if (r.checked) store.markIntentional(t.id);
         }
     }
+    return t;
+}
 
+async function statusGuard(t: Template): Promise<Template | null> {
     if (t.status !== "actual") {
         const r = await confirm({
             tone: "danger", label: t.status === "outdated" ? "Шаблон помечен «Устарело»" : "Шаблон на проверке",
@@ -158,13 +154,13 @@ async function guard(t: Template, project: ProjectId): Promise<Template | null> 
 
 export async function prepareText(t: Template, opts: { noGreeting?: boolean; } = {}): Promise<{ t: Template; text: string; snap: Snap; } | null> {
     const channelId = currentChannel().id;
-    const project = await ensureProject();
-    if (!project) return null;
-    const g = await guard(t, project);
+    const scope = scopeHere();
+    if (!scope) return null;
+    const g = await guard(t, scope);
     if (!g) return null;
     const raw = opts.noGreeting ? splitGreeting(g.text).body : stripMarker(g.text);
     const text = await fillFields(g.title, raw);
-    return text === null ? null : { t: g, text, snap: { channelId, project } };
+    return text === null ? null : { t: g, text, snap: { channelId, scope } };
 }
 
 /** `via` — where the insert came from, for the debug log only. */
@@ -182,10 +178,10 @@ export async function insertTemplate(t: Template, opts: { noGreeting?: boolean; 
 
 export async function addToCompose(t: Template) {
     const channelId = currentChannel().id;
-    const project = await ensureProject();
-    if (!project) return;
-    const g = await guard(t, project);
-    if (!g || !stillCurrent({ channelId, project })) return;
+    const scope = scopeHere();
+    if (!scope) return;
+    const g = await guard(t, scope);
+    if (!g || !stillCurrent({ channelId, scope })) return;
     dlog("compose-add", { id: g.id, title: g.title, already: ui.get().compose.includes(g.id) || undefined });
     if (!ui.get().compose.includes(g.id)) ui.set({ compose: [...ui.get().compose, g.id] });
     toast("Добавлено в ответ: " + g.title, "message");

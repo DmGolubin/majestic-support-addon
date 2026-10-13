@@ -11,15 +11,15 @@ import { clampTop, EDGE, tipWidth, windowLayout } from "../core/layout";
 import { categoriesOf, favoritesOf, orderHits, recentOf, sections } from "../core/rank";
 import { search } from "../core/search";
 import { splitGreeting } from "../core/text";
-import { ProjectId, PROJECTS, Template } from "../core/types";
+import { PROJECTS, Template } from "../core/types";
 import { chatAreaRect } from "../platform";
 import { costEnd, costStart, debugEnabled, debugState, debugVerbose, dlog, keyDesc, logGeometry, noteKey, noteRender, noteSearch, noteWheel, setDebugHover, setDebugWindow } from "./debug";
-import { addToCompose, ensureProject, insertTemplate } from "./flow";
+import { addToCompose, insertTemplate } from "./flow";
 import { nqHighlight } from "./highlight";
 import { latchKey } from "./keylatch";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
-import { activeProject, poolFor, store, ui, useStore } from "./uiState";
+import { activeScope, poolFor, store, ui, useStore } from "./uiState";
 
 /** Rows currently visible in the window — Alt+1…9 uses them while the window is open. */
 export let visibleItems: Template[] = [];
@@ -104,10 +104,9 @@ function WindowView() {
     const composeLen = ui.useSelect(s => s.compose.length);
     const hasCompose = composeLen > 0;
     const dialogOpen = ui.useSelect(s => s.dialog !== null);
-    ui.useSelect(s => s.sessionProject); // activeProject() reads it
     const debugOn = debugState.useSelect(s => s.on);
     if (debugVerbose()) noteRender();
-    const { project, binding } = activeProject();
+    const scope = activeScope();
     const [query, setQuery] = useState("");
     const [view, setView] = useState<View>("all");
     const [cat, setCat] = useState<string | null>(null);
@@ -136,7 +135,7 @@ function WindowView() {
     const data = useMemo(() => {
         const t0 = debugEnabled() ? performance.now() : 0;
         const ctx = store.ctx();
-        const projectPool = poolFor(project);
+        const projectPool = poolFor(scope);
         const cats = categoriesOf(projectPool);
         const pool = cat ? projectPool.filter(t => t.category === cat) : projectPool;
         const res = query.trim() ? search(pool, query) : null;
@@ -157,7 +156,7 @@ function WindowView() {
         const lines = new Map(hits.map(h => [h.t, h.line]));
         if (t0) noteSearch(t0, performance.now(), query, items.length);
         return { total: projectPool.length, cats, res, secs, favs, items, positional, alt, lines, tokens: res?.tokens ?? NO_TOKENS };
-    }, [query, project, view, cat, version]);
+    }, [query, scope, view, cat, version]);
     const { cats, res, secs, favs, items } = data;
 
     visibleItems = data.positional ? items : favs;
@@ -166,8 +165,6 @@ function WindowView() {
 
     useEffect(() => {
         inputRef.current?.focus();
-        // Unknown server: ask right away, otherwise the list would be empty.
-        if (activeProject().binding === null) void ensureProject();
         const onResize = () => setRect(chatAreaRect());
         window.addEventListener("resize", onResize);
         logGeometry("окно открыто");
@@ -187,7 +184,7 @@ function WindowView() {
         hoveredId.current = null;
         setDebugHover(null);
         stopHover();
-    }, [query, project, view, cat]);
+    }, [query, scope, view, cat]);
     useEffect(() => { if (cat && !cats.includes(cat)) setCat(null); }, [cats.join("|")]);
     useEffect(() => {
         listRef.current?.querySelector(".vc-stx-it.sel")?.scrollIntoView({ block: "nearest" });
@@ -261,9 +258,6 @@ function WindowView() {
         win.addEventListener("wheel", onWheel, { passive: false });
         return () => win.removeEventListener("wheel", onWheel);
     }, []);
-
-    // Switching the project drops the collected reply: its pieces were checked against the old one.
-    const pickProject = (p: ProjectId) => { if (p !== project) ui.set({ sessionProject: p, compose: [] }); };
 
     // Stable callbacks: memoized rows must not re-render because of new handler identities.
     const startHover = useCallback((t: Template, el: HTMLElement) => {
@@ -398,7 +392,7 @@ function WindowView() {
             sel={i === selIdx}
             alt={data.alt(t, i)}
             bind={store.bindFor(t.id)}
-            icon={binding === "none" || !t.project}
+            icon={scope === "all" || !t.project}
             tokens={data.tokens}
             line={data.lines.get(t) ?? null}
             onHover={startHover}
@@ -414,7 +408,7 @@ function WindowView() {
             : view === "fav" ? "В избранном пусто — Ctrl+D или ПКМ → «★ В избранное»"
                 : view === "recent" ? "Ещё ничего не вставлялось"
                     : "Шаблонов нет";
-    const count = project ? <span className="vc-stx-n">{data.total} {plural(data.total, "шаблон", "шаблона", "шаблонов")}</span> : null;
+    const count = scope ? <span className="vc-stx-n">{data.total} {plural(data.total, "шаблон", "шаблона", "шаблонов")}</span> : null;
 
     let idx = 0;
     return (
@@ -441,14 +435,11 @@ function WindowView() {
                             />
                         </label>
                         <div className="vc-stx-proj">
-                            {binding === "none"
-                                ? <>{(["mj", "ro"] as ProjectId[]).map(p => (
-                                    <button key={p} className={"vc-stx-pbtn" + (project === p ? " on" : "")} onClick={() => pickProject(p)}>
-                                        <ProjectIcon project={p} size={14} />{PROJECTS[p].short}
-                                    </button>))}{count}</>
-                                : project
-                                    ? <><ProjectIcon project={project} size={18} /><b>{PROJECTS[project].name}</b>{count}</>
-                                    : <span className="vc-stx-hint">Проект сервера не определён</span>}
+                            {scope === "all"
+                                ? <><ProjectIcon project={null} size={18} /><b>Все проекты</b>{count}</>
+                                : scope
+                                    ? <><ProjectIcon project={scope} size={18} /><b>{PROJECTS[scope].name}</b>{count}</>
+                                    : <span className="vc-stx-hint">На этом сервере шаблоны выключены</span>}
                         </div>
                         <div className="vc-stx-tabs">
                             {VIEWS.map(v => (
