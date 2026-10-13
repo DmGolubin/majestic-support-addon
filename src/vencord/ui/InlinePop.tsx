@@ -9,7 +9,7 @@ import { costEnd, costStart } from "./debug";
 import { nqHighlight } from "./highlight";
 import { acceptInline } from "./inline";
 import { ProjectIcon } from "./ProjectIcon";
-import { activeScope, ui, useChatRect } from "./uiState";
+import { activeScope, listedProject, ui, useChatRect } from "./uiState";
 
 /** Its render is a `render` cost span while debug is on. */
 export function Inline() {
@@ -24,9 +24,10 @@ function InlineView() {
     if (!inline) return null;
     if (!rect) return null;
     const scope = activeScope();
+    const listed = listedProject(scope);
     return (
         <div className="vc-stx-pop" style={{ left: rect.left + 8, bottom: window.innerHeight - rect.top + 6 + (hasCompose ? 48 : 0) }}>
-            <div className="vc-stx-sec">Шаблоны{scope === "all" ? " · все проекты" : scope ? " · " + PROJECTS[scope].name : ""}</div>
+            <div className="vc-stx-sec">Шаблоны{listed ? " · " + PROJECTS[listed].name : ""}{scope === "all" ? " (Tech)" : ""}</div>
             {inline.note && <div className="vc-stx-empty">{inline.note}</div>}
             {inline.items.map((t, i) => (
                 <div

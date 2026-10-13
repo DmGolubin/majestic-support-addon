@@ -94,7 +94,7 @@ function scopeHere(): Scope | null {
 
 /**
  * Guard + warnings. Returns the template to use (maybe a mirror) or null when cancelled.
- * On Tech ("all") templates of both projects are equally fine: no mirror, no foreign/marker warnings — only the status check.
+ * On Tech ("all") any template is fine (the switch only filters the list): no mirror, no foreign/marker warnings — only the status check.
  */
 async function guard(t: Template, scope: Scope): Promise<Template | null> {
     if (scope !== "all") {

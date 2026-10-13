@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from "@webpack/common";
 
-import { ServerMode, serverMode } from "../core/guard";
+import { listProject, poolOf, Scope, ServerMode, serverMode } from "../core/guard";
 import { Store } from "../core/state";
 import { FieldSpec } from "../core/tokens";
 import { ProjectId, Template } from "../core/types";
@@ -43,8 +43,7 @@ export const ui = createObservable<UiState>({
     windowOpen: false, dialog: null, compose: [], inline: null, menu: null, selection: "",
 });
 
-/** Which templates a server gets: one project (+ common) or all of them (Tech). */
-export type Scope = ProjectId | "all";
+export type { Scope };
 
 /** Mode of the current server (fixed table in core/guard). */
 export const currentMode = (): ServerMode => serverMode(currentGuildId());
@@ -58,9 +57,29 @@ export function activeScope(): Scope | null {
     return m === "off" ? null : m;
 }
 
-/** Templates visible in a scope: a project's own + common (no project); all of them on Tech; none when off. */
-export const poolFor = (scope: Scope | null): Template[] =>
-    scope === null ? [] : scope === "all" ? store.templates : store.templates.filter(t => !t.project || t.project === scope);
+/** Templates visible in a scope: the listed project's own + common; Tech lists its switch's project; none when off. */
+export const poolFor = (scope: Scope | null): Template[] => poolOf(store.templates, scope, store.data.techProject);
+
+/** The project a scope lists (Tech: the switch), null when off. */
+export const listedProject = (scope: Scope | null): ProjectId | null => scope === null ? null : listProject(scope, store.data.techProject);
+
+/**
+ * Tech switch. The collected reply is always dropped (simplest rule: its pieces were picked from the
+ * other list) and the inline suggestions close (the next keystroke re-checks against the new list).
+ */
+export function pickTechProject(p: ProjectId) {
+    if (store.data.techProject === p) return;
+    dlog("tech-project", { project: p, droppedCompose: ui.get().compose.length || undefined });
+    store.setTechProject(p);
+    ui.set({ compose: [], inline: null });
+}
+
+/** The Tech choice, re-rendering only when it changes (the chat-bar button uses it). */
+export function useTechProject(): ProjectId {
+    const [p, setP] = useState(store.data.techProject);
+    useEffect(() => store.subscribe(() => setP(store.data.techProject)), []);
+    return p;
+}
 
 /** Re-render on any Store change; returns a version number. */
 export function useStore() {

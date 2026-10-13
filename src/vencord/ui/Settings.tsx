@@ -57,7 +57,7 @@ export function Settings() {
             <ul>
                 <li>{PROJECTS.mj.name} (<code>{PROJECTS.mj.guildId}</code>) — шаблоны {PROJECTS.mj.short} и общие</li>
                 <li>{PROJECTS.ro.name} (<code>{PROJECTS.ro.guildId}</code>) — шаблоны {PROJECTS.ro.short} и общие</li>
-                <li>Tech™ (<code>{TECH_GUILD}</code>) — все шаблоны обоих проектов, без выбора проекта</li>
+                <li>Tech™ (<code>{TECH_GUILD}</code>) — переключатель «Majestic / Россия Онлайн» в окне, без проверки проекта</li>
             </ul>
             <p>На остальных серверах и в ЛС плагин выключен.</p>
         </div>

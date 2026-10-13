@@ -20,7 +20,7 @@ import { latchKey } from "./keylatch";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
 import { IconEnter, IconSearch, IconShift, IconStar } from "./svg";
-import { activeScope, poolFor, store, ui, useStore } from "./uiState";
+import { activeScope, listedProject, pickTechProject, poolFor, store, ui, useStore } from "./uiState";
 
 /** Rows currently visible in the window — Alt+1…9 uses them while the window is open. */
 export let visibleItems: Template[] = [];
@@ -108,6 +108,8 @@ function WindowView() {
     const debugOn = debugState.useSelect(s => s.on);
     if (debugVerbose()) noteRender();
     const scope = activeScope();
+    /** The project the list shows: the server's, on Tech the switch's. */
+    const listed = listedProject(scope);
     const [query, setQuery] = useState("");
     const [view, setView] = useState<View>("all");
     const [cat, setCat] = useState<string | null>(null);
@@ -162,7 +164,7 @@ function WindowView() {
         const lines = new Map(hits.map(h => [h.t, h.line]));
         if (t0) noteSearch(t0, performance.now(), query, items.length);
         return { total: projectPool.length, cats, res, secs, favs, items, positional, alt, lines, tokens: res?.tokens ?? NO_TOKENS };
-    }, [query, scope, view, cat, version]);
+    }, [query, scope, listed, view, cat, version]);
     const { cats, res, secs, favs, items } = data;
 
     visibleItems = data.positional ? items : favs;
@@ -192,7 +194,7 @@ function WindowView() {
         hoveredId.current = null;
         setDebugHover(null);
         stopHover();
-    }, [query, scope, view, cat]);
+    }, [query, scope, listed, view, cat]);
     useEffect(() => { if (cat && !cats.includes(cat)) setCat(null); }, [cats.join("|")]);
     useEffect(() => {
         listRef.current?.querySelector(".vc-stx-it.sel")?.scrollIntoView({ block: "nearest" });
@@ -411,7 +413,7 @@ function WindowView() {
             sel={i === selIdx}
             alt={data.alt(t, i)}
             bind={store.bindFor(t.id)}
-            icon={scope === "all" || !t.project}
+            icon={!t.project}
             tokens={data.tokens}
             line={data.lines.get(t) ?? null}
             onHover={startHover}
@@ -458,7 +460,17 @@ function WindowView() {
                         </label>
                         <div className="vc-stx-proj">
                             {scope === "all"
-                                ? <><ProjectIcon project={null} size={18} /><b>Все проекты</b>{count}</>
+                                // Tech: which project's templates to list (remembered). No project guard here.
+                                ? <><div className="vc-stx-seg" role="radiogroup" aria-label="Проект на Tech">
+                                    {(["mj", "ro"] as const).map(p => (
+                                        <button
+                                            key={p} role="radio" aria-checked={listed === p}
+                                            className={"vc-stx-segb" + (listed === p ? " on" : "")}
+                                            title={"Шаблоны " + PROJECTS[p].name + " и общие"}
+                                            onClick={() => pickTechProject(p)}
+                                        ><ProjectIcon project={p} size={16} />{p === "mj" ? "Majestic" : PROJECTS[p].name}</button>
+                                    ))}
+                                </div>{count}</>
                                 : scope
                                     ? <><ProjectIcon project={scope} size={18} /><b>{PROJECTS[scope].name}</b>{count}</>
                                     : <span className="vc-stx-hint">На этом сервере шаблоны выключены</span>}

@@ -23,7 +23,7 @@ import { handleInlineKey, resetInline, startInline } from "./ui/inline";
 import { latchKey, startLatch, swallowLatched } from "./ui/keylatch";
 import { ChatBarIcon } from "./ui/ProjectIcon";
 import { Settings } from "./ui/Settings";
-import { activeScope, pluginOn, poolFor, store, ui, UiState } from "./ui/uiState";
+import { activeScope, pluginOn, poolFor, store, ui, UiState, useTechProject } from "./ui/uiState";
 import { visibleItems } from "./ui/Window";
 
 const Icon: IconComponent = ({ height = 20, width = 20, className }) => (
@@ -34,17 +34,18 @@ export function toggleWindow(open = !ui.get().windowOpen) {
     ui.set({ windowOpen: open, menu: null, selection: open ? String(window.getSelection() ?? "") : "" });
 }
 
-/** Chat-bar button: only on Majestic / Россия Онлайн / Tech; the icon follows the server's project, neutral on Tech (re-rendered by Discord on channel switch). Its render is a `render` cost span. */
+/** Chat-bar button: only on Majestic / Россия Онлайн / Tech; the icon follows the server's project, on Tech the switch's project (re-rendered by Discord on channel switch). Its render is a `render` cost span. */
 const Button: ChatBarButtonFactory = props => {
     const t0 = costStart();
     try { return ButtonView(props); } finally { costEnd("render", t0); }
 };
 
 const ButtonView: ChatBarButtonFactory = ({ isMainChat, channel }) => {
+    const tech = useTechProject(); // before any return: a hook
     if (!isMainChat) return null;
     const mode = serverMode(channel?.guild_id ?? null);
     if (mode === "off") return null; // other servers and DMs: the plugin is invisible
-    const project = mode === "all" ? null : mode;
+    const project = mode === "all" ? tech : mode;
     return (
         <ChatBarButton tooltip="Шаблоны (Ctrl+Alt+T)" onClick={() => toggleWindow()} buttonProps={{ "data-stx": "button" } as any}>
             <ChatBarIcon project={project} />
@@ -143,6 +144,11 @@ function handleKey(e: KeyboardEvent) {
 
     const combo = comboOf(e);
     const bound = combo ? store.templateForCombo(combo) : undefined;
+    // Tech: binds follow the switch like the list — a template of the other project is not active here.
+    if (bound && bound.project && activeScope() === "all" && bound.project !== store.data.techProject) {
+        if (debugEnabled()) dlog("key", { h: "bind", key: keyDesc(e), id: bound.id, skip: "Tech: шаблон другого проекта (переключатель " + store.data.techProject + ")" });
+        return;
+    }
     if (bound) {
         if (inForeignInput(e)) { noteKey(e, "bind: пропуск (чужое поле)"); dlog("key", { h: "bind", key: keyDesc(e), skip: "фокус в чужом поле ввода" }); return; }
         e.preventDefault();

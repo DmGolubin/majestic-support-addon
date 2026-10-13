@@ -191,7 +191,7 @@ export function debugSnapshot(): string[] {
     const mj = ts.filter(t => t.project === "mj").length, ro = ts.filter(t => t.project === "ro").length;
     return [
         `сервер: ${gid ?? "ЛС"}${gid ? ` «${guildName(gid)}»` : ""}`,
-        `режим сервера: ${mode}${mode === "off" ? " (плагин выключен: кнопки нет, клавиши не перехватываются)" : mode === "all" ? " (Tech: шаблоны обоих проектов)" : ""}`,
+        `режим сервера: ${mode}${mode === "off" ? " (плагин выключен: кнопки нет, клавиши не перехватываются)" : mode === "all" ? ` (Tech: переключатель -> ${store.data.techProject}, без проверки проекта)` : ""}`,
         `канал: ${ch.id ?? "—"}${ch.name ? ` #${ch.name}` : ""}`,
         `окно: ${s.windowOpen ? "открыто" : "закрыто"} · previewOpen: ${store.data.previewOpen} · peek: ${w?.peek ?? false}`,
         ...(s.windowOpen && w ? [
