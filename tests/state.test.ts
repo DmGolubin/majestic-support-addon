@@ -55,13 +55,18 @@ describe("Store", () => {
         s.clearBind(b.id);
         expect(s.templateForCombo("Ctrl+Alt+KeyF")).toBeUndefined();
     });
-    it("server bindings, intentional marks, prefix", async () => {
+    it("old saves with server answers still load (kept, unused)", async () => {
         const s = new Store(mem());
         await s.load();
-        s.setGuild("42", "none");
-        expect(s.data.guilds["42"]).toBe("none");
-        s.clearGuilds();
-        expect(s.data.guilds).toEqual({});
+        const old = { ...s.data, guilds: { "42": "none", "@dm": "mj" } };
+        const s2 = new Store(mem({ [STORE_KEY]: old }));
+        await s2.load();
+        expect(s2.data.guilds).toEqual({ "42": "none", "@dm": "mj" });
+        expect(s2.data.prefix).toBe(";");
+    });
+    it("intentional marks, prefix", async () => {
+        const s = new Store(mem());
+        await s.load();
         s.markIntentional("x");
         expect(s.isIntentional("x")).toBe(true);
         s.setPrefix(".");

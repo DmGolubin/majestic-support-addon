@@ -23,6 +23,7 @@ export interface Persisted {
     recent: string[];
     usage: Record<string, Usage>;
     binds: Record<string, string>;
+    /** Legacy answers of the removed "which project?" dialog: kept in the shape for old saves, never read. */
     guilds: Record<string, ServerBinding>;
     intentional: string[];
     prefix: string;
@@ -130,16 +131,6 @@ export class Store {
         const binds = { ...this.data.binds };
         delete binds[id];
         this.data.binds = binds;
-        this.changed();
-    }
-
-    setGuild(key: string, b: ServerBinding) {
-        this.data.guilds = { ...this.data.guilds, [key]: b };
-        this.changed();
-    }
-
-    clearGuilds() {
-        this.data.guilds = {};
         this.changed();
     }
 

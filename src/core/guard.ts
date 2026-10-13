@@ -7,20 +7,22 @@
 import { soft, titleKey } from "./text";
 import { otherProject, ProjectId, PROJECTS, Template } from "./types";
 
+/** Legacy: per-server answers of the old "which project is this server?" dialog. Kept only so old saved data still type-checks; never read for decisions. */
 export type ServerBinding = ProjectId | "none";
 
-export const DEFAULT_GUILDS: Record<string, ProjectId> = {
-    [PROJECTS.mj.guildId]: "mj",
-    [PROJECTS.ro.guildId]: "ro",
-};
+/** «Tech™» — the support staff server: templates of both projects are available there. */
+export const TECH_GUILD = "1395915167040016545";
 
-/** Key under which the answer for DMs / group DMs is remembered. */
-export const DM_KEY = "@dm";
+/** How the plugin works on a server: one project, all templates (Tech), or not at all. */
+export type ServerMode = ProjectId | "all" | "off";
 
-/** Project of a server: built-in table first, then the user's answer. null = never asked. */
-export function projectForGuild(guildId: string | null, saved: Record<string, ServerBinding>): ServerBinding | null {
-    if (!guildId) return saved[DM_KEY] ?? null;
-    return DEFAULT_GUILDS[guildId] ?? saved[guildId] ?? null;
+/** Fixed table: Majestic → mj, Россия Онлайн → ro, Tech → all; any other server, DMs and group DMs → off. */
+export function serverMode(guildId: string | null): ServerMode {
+    if (!guildId) return "off";
+    if (guildId === PROJECTS.mj.guildId) return "mj";
+    if (guildId === PROJECTS.ro.guildId) return "ro";
+    if (guildId === TECH_GUILD) return "all";
+    return "off";
 }
 
 export function findMirror(t: Template, pool: Template[], project: ProjectId): Template | null {

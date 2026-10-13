@@ -1,18 +1,20 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { decide, findMirror, foreignMarkers, projectForGuild } from "../src/core/guard";
+import { decide, findMirror, foreignMarkers, serverMode, TECH_GUILD } from "../src/core/guard";
 import { importBackup } from "../src/core/importer";
 
 const all = importBackup(readFileSync(new URL("./fixtures/config-0.5.1.json", import.meta.url), "utf8")).templates;
 const roConn = all.find(t => t.project === "ro" && /Проблемы с соединением/.test(t.title))!;
 
 describe("guard", () => {
-    it("knows both project servers; saved bindings for others; null when unknown", () => {
-        expect(projectForGuild("530693013622489088", {})).toBe("mj");
-        expect(projectForGuild("1089530150540034181", {})).toBe("ro");
-        expect(projectForGuild("42", { "42": "none" })).toBe("none");
-        expect(projectForGuild("43", {})).toBeNull();
-        expect(projectForGuild(null, { "@dm": "mj" })).toBe("mj");
+    it("server mode: fixed table — mj, ro, Tech = all; everything else and DMs off", () => {
+        expect(serverMode("530693013622489088")).toBe("mj");
+        expect(serverMode("1089530150540034181")).toBe("ro");
+        expect(serverMode("1395915167040016545")).toBe("all");
+        expect(TECH_GUILD).toBe("1395915167040016545");
+        expect(serverMode("42")).toBe("off");
+        expect(serverMode("")).toBe("off");
+        expect(serverMode(null)).toBe("off");
     });
     it("finds the mirror template of the other project", () => {
         const m = findMirror(roConn, all, "mj")!;
