@@ -62,6 +62,9 @@ function runCheck() {
     const text = ed.textContent ?? "";
     // No prefix character anywhere in the editor: no trigger is possible — no Selection/Range work at all.
     if (!text.includes(prefix)) { idle = null; return close(); }
+    // Other servers and DMs: no suggestions (Enter/Tab stay Discord's) and no Selection/Range work either.
+    const scope = activeScope();
+    if (!scope) { idle = null; return close(); }
     const sel = window.getSelection();
     // Anchor too: a range collapsing onto the same focus point can create a trigger.
     const node = sel?.focusNode ?? null, off = sel?.focusOffset ?? 0, anchor = sel?.anchorNode ?? null, aoff = sel?.anchorOffset ?? 0;
@@ -70,9 +73,6 @@ function runCheck() {
     const trig = before !== null ? findTrigger(before.split("\n").pop() ?? "", prefix) : null;
     idle = trig ? null : { ed, text, node, off, anchor, aoff, prefix };
     if (!trig) return close();
-    // Other servers and DMs: no suggestions, so Enter/Tab stay Discord's (checked only once a trigger is found — the idle path stays cheap).
-    const scope = activeScope();
-    if (!scope) return close();
     const hits = orderHits(search(poolFor(scope), trig.query).hits, store.ctx()).slice(0, 6);
     const prev = ui.get().inline;
     if (!hits.length) return close();

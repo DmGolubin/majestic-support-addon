@@ -112,3 +112,8 @@ Task 18: Ruling: accept footer keycaps-only at compact||width<360 (not <380) and
 Task 18: minor (deferred): footKeys `width<360` term dead (only reachable in compact); preview-min test tautological, no combined tooltip-left≥EDGE sweep; resize with no chat area doesn't re-render (stale vw); 358→398 list width change at mode switch; covered search input still takes typing in compact pinned preview
 Task 18: complete (commits ee2e7b7..e8768b4, review clean) — manual Discord check pending with user (~1100 px and ~800 px)
 Task 17 minors fixed by controller after Task 18: longtask significance (≥5 ms or ≥10 %, else minor), span ring 1024, % over elapsed window since debug on, render cost labelled; +3 tests (88)
+Task 19 (user request 13.10): plugin only on mj/ro/Tech(1395915167040016545 = mixed, choice in window, remembered); other servers + DMs off (no button, keys pass to Discord); BASE 1a900f0
+Task 19: scope change (user): Tech = all templates of both projects, no project choice/dialog/mirror/foreign warning; ServerMode mj|ro|all|off
+Task 19: review Approved; controller fixed minors now: dead .vc-stx-pbtn CSS removed, inline runCheck exits on OFF before Selection/Range work
+Task 19: minor (deferred): poolFor/activeScope untested (webpack-bound; move to core); channelChanged uses event guildId vs currentGuildId (harmless, re-checks); OFF skip log only for Ctrl+Alt+T; 830f777 doesn't compile alone
+Task 19: complete (commits 1a900f0..HEAD, review clean) — manual Discord check pending with user

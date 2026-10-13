@@ -51,8 +51,6 @@
 .vc-stx-proj .vc-stx-pi { border-radius: 5px; }
 .vc-stx-proj b { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vc-stx-n { flex: none; margin-left: auto; color: var(--stx-mu2); font-size: 11.5px; }
-.vc-stx-pbtn { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 7px; background: none; border: 1px solid var(--stx-bd2); color: var(--stx-mu); font: inherit; font-size: 12px; cursor: pointer; }
-.vc-stx-pbtn.on { border-color: var(--stx-pr); background: rgb(198 26 89 / 15%); color: #fff; }
 .vc-stx-tabs { display: flex; gap: 16px; margin: 10px 2px 0; border-bottom: 1px solid var(--stx-bd); }
 .vc-stx-tab { position: relative; padding: 0 0 8px; background: none; border: 0; color: var(--stx-mu2); font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; }
 .vc-stx-tab:hover { color: var(--stx-tx); }
