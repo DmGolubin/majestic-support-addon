@@ -10,7 +10,7 @@ import { joinPieces } from "../core/compose";
 import { insertText, toast } from "../platform";
 import { costEnd, costStart, dlog } from "./debug";
 import { confirmedForeign, fillFields, focusTarget, snapNow, stillCurrent } from "./flow";
-import { composeTargetNow } from "./op";
+import { composeEditor, composeTargetNow, resetComposeTarget } from "./op";
 import { ProjectIcon } from "./ProjectIcon";
 import { IconClose } from "./svg";
 import { store, ui, useChatRect } from "./uiState";
@@ -24,7 +24,7 @@ export function ComposeBar() {
 function ComposeBarView() {
     const compose = ui.useSelect(s => s.compose);
     const [drag, setDrag] = useState<string | null>(null);
-    const rect = useChatRect(compose.length > 0);
+    const rect = useChatRect(compose.length > 0, composeEditor);
     if (!compose.length) return null;
     if (!rect) return null;
     const items = compose.map(id => store.byId(id)).filter(t => !!t);
@@ -49,7 +49,11 @@ function ComposeBarView() {
         };
         if (!fits()) return;
         const text = await fillFields("Ответ", joinPieces(items.map(t => t!.text)), snap);
-        if (text === null || !stillCurrent(snap) || !fits()) return;
+        if (text === null || !fits()) return;
+        if (!stillCurrent(snap)) {
+            if (snap.editor && !snap.editor.isConnected) resetComposeTarget(); // the next click goes to the current editor
+            return;
+        }
         focusTarget(snap);
         const ok = insertText(text);
         dlog("insert", { ids: items.map(t => t!.id).join(","), via: "compose", ok });

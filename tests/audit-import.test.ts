@@ -94,3 +94,11 @@ describe("field names that exist on Object.prototype (audit 18)", () => {
         expect(fill("{{__proto__}}", values, env).text).toBe("X");
     });
 });
+
+describe("generated duplicate ids never collide with real titles", () => {
+    it("skips a number already used by a real title", () => {
+        const ts = parseRaw("## Majestic RP\n### Same#2\nreal\n### Same\na\n### Same\nb");
+        expect(new Set(ts.map(t => t.id)).size).toBe(3);
+        expect(ts[2].id).toBe("local:Majestic RP||Same#3");
+    });
+});

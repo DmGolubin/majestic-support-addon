@@ -32,12 +32,17 @@ function mk(group: string, title: string, text: string): Template {
  * Later duplicates get "#2", "#3"… — stable across loads, and the first one keeps the id old pins/binds point to.
  */
 function uniqueIds(ts: Template[]): number {
-    const seen = new Map<string, number>();
+    const taken = new Set(ts.map(t => t.id));
+    const seen = new Set<string>();
     let dupes = 0;
     for (const t of ts) {
-        const n = (seen.get(t.id) ?? 0) + 1;
-        seen.set(t.id, n);
-        if (n > 1) { t.id = `${t.id}#${n}`; dupes++; }
+        if (!seen.has(t.id)) { seen.add(t.id); continue; }
+        let n = 2;
+        while (taken.has(`${t.id}#${n}`)) n++;
+        t.id = `${t.id}#${n}`;
+        taken.add(t.id);
+        seen.add(t.id);
+        dupes++;
     }
     return dupes;
 }

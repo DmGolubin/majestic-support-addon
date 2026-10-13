@@ -18,6 +18,7 @@ import { costEnd, costStart, debugEnabled, debugState, debugVerbose, dlog, keyDe
 import { addToCompose, insertTemplate } from "./flow";
 import { nqHighlight } from "./highlight";
 import { latchKey } from "./keylatch";
+import { windowEditor } from "./op";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
 import { IconEnter, IconSearch, IconShift, IconStar } from "./svg";
@@ -120,7 +121,8 @@ function WindowView() {
     const [sel, setSel] = useState(0);
     const [peek, setPeek] = useState(false);
     const [hover, setHover] = useState<{ t: Template; top: number; } | null>(null);
-    const [rect, setRect] = useState<DOMRect | null>(chatAreaRect);
+    // Anchored at the editor the window was opened from (focus moves to the search box; a side thread stays the anchor).
+    const [rect, setRect] = useState<DOMRect | null>(() => chatAreaRect(windowEditor()));
     const [tipH, setTipH] = useState(0);
     const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -179,7 +181,7 @@ function WindowView() {
 
     useEffect(() => {
         inputRef.current?.focus();
-        const off = watchChatArea(() => setRect(chatAreaRect()));
+        const off = watchChatArea(() => setRect(chatAreaRect(windowEditor())), windowEditor);
         logGeometry("окно открыто");
         return () => {
             off();

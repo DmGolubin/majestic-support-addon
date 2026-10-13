@@ -92,14 +92,14 @@ export function useStore() {
  * size — a growing multi-line editor, a reply / attachment bar, the member list or a side thread toggling
  * change it without any window resize. Only while a surface that needs it is shown; never per hover/render.
  */
-export function watchChatArea(onChange: () => void): () => void {
+export function watchChatArea(onChange: () => void, editor: () => HTMLElement | null = () => null): () => void {
     let raf = 0;
     const fire = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; rewatch(); onChange(); }); };
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fire) : null;
     let watched: Element | null = null;
     // Discord may remount the box (channel switch): follow the current one.
     const rewatch = () => {
-        const el = chatAreaEl();
+        const el = chatAreaEl(editor() ?? undefined);
         if (el === watched) return;
         if (watched) ro?.unobserve(watched);
         watched = el;
@@ -110,9 +110,9 @@ export function watchChatArea(onChange: () => void): () => void {
     return () => { cancelAnimationFrame(raf); ro?.disconnect(); window.removeEventListener("resize", fire); };
 }
 
-/** Chat box rect, read when `active` turns on and when the box moves/resizes — not on every render. */
-export function useChatRect(active: boolean): DOMRect | null {
+/** Chat box rect of `editor()` (default: the focused one), read when `active` turns on and when the box moves/resizes. */
+export function useChatRect(active: boolean, editor: () => HTMLElement | null = () => null): DOMRect | null {
     const [tick, setTick] = useState(0);
-    useEffect(() => active ? watchChatArea(() => setTick(x => x + 1)) : undefined, [active]);
-    return useMemo(() => active ? chatAreaRect() : null, [active, tick]);
+    useEffect(() => active ? watchChatArea(() => setTick(x => x + 1), editor) : undefined, [active]);
+    return useMemo(() => active ? chatAreaRect(editor()) : null, [active, tick]);
 }

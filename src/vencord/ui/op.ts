@@ -33,5 +33,12 @@ export function targetNow(): Target {
     return { editor: activeEditor(), selection: selectionNow() };
 }
 
-export function rememberComposeTarget() { if (!ui.get().compose.length || !composeTarget) composeTarget = targetNow(); }
+/** The latest piece added sets where the answer goes (the editor the user is working in now). */
+export function rememberComposeTarget() { composeTarget = targetNow(); }
 export function composeTargetNow(): Target { return composeTarget ?? { editor: activeEditor(), selection: "" }; }
+/** After a cancel because the editor was replaced: the next «Вставить всё» uses the editor in focus then. */
+export function resetComposeTarget() { composeTarget = null; }
+
+/** Editors the floating surfaces are placed at. */
+export const windowEditor = () => windowTarget?.editor ?? null;
+export const composeEditor = () => composeTarget?.editor ?? null;

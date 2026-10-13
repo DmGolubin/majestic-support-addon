@@ -147,6 +147,7 @@ async function projectGuard(t: Template, project: ProjectId): Promise<Template |
         });
         if (!r.ok) { dlog("cancel", { reason: "отмена в диалоге: шаблон другого проекта", id: t.id }); return null; }
         confirmedForeign.add(`${project}:${t.id}`);
+        return t; // confirmed as the other project's: naming that project is expected, no second warning
     }
 
     // Local and personal texts are checked whatever group/project they came with (a RO-group template may still
