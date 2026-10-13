@@ -36,11 +36,10 @@ export interface UiState {
     inline: InlineState | null;
     menu: { x: number; y: number; id: string; } | null;
     /** Selected message text captured when the window/trigger opened. */
-    selection: string;
 }
 
 export const ui = createObservable<UiState>({
-    windowOpen: false, dialog: null, compose: [], inline: null, menu: null, selection: "",
+    windowOpen: false, dialog: null, compose: [], inline: null, menu: null,
 });
 
 export type { Scope };

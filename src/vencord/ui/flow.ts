@@ -10,19 +10,38 @@ import { fieldsOf, fill } from "../core/tokens";
 import { ProjectId, PROJECTS, Template } from "../core/types";
 import { activeEditor, currentChannel, insertText, readClipboard, toast } from "../platform";
 import { debugEnabled, dlog } from "./debug";
+import { generationNow, rememberComposeTarget, Target, targetNow } from "./op";
 import { activeScope, currentMode, Dialog, Scope, store, ui } from "./uiState";
 
 type ConfirmArgs = Omit<Extract<Dialog, { kind: "confirm"; }>, "kind" | "resolve">;
 
-/** What an insert was prepared for: the channel and its server's scope (mj / ro / all) at the start of the flow. */
-export interface Snap { channelId: string | null; scope: Scope | null; }
+/**
+ * What an insert was prepared for, captured at the start of the flow (before dialogs take focus):
+ * the channel and its server's scope (mj / ro / all), the target editor, the selection, the plugin generation.
+ */
+export interface Snap { channelId: string | null; scope: Scope | null; gen: number; editor: HTMLElement | null; selection: string; }
 
-/** true while the channel and its scope are unchanged; otherwise toasts and the insert must be dropped. */
+export function snapNow(target: Target): Snap {
+    return { channelId: currentChannel().id, scope: activeScope(), gen: generationNow(), editor: target.editor, selection: target.selection };
+}
+
+/** true while the plugin, the channel, its scope and the target editor are unchanged; otherwise the insert must be dropped. */
 export function stillCurrent(s: Snap): boolean {
+    if (s.gen !== generationNow()) { dlog("cancel", { reason: "плагин перезапущен или выключен" }); return false; }
+    if (s.editor && !s.editor.isConnected) {
+        dlog("cancel", { reason: "поле ввода, из которого начата вставка, закрылось" });
+        toast("Поле ввода закрылось — вставка отменена", "failure");
+        return false;
+    }
     if (s.scope !== null && currentChannel().id === s.channelId && activeScope() === s.scope) return true;
     dlog("cancel", { reason: "канал сменился", wasChannel: s.channelId, wasScope: s.scope, nowChannel: currentChannel().id, nowScope: activeScope() });
     toast("Канал сменился — вставка отменена", "failure");
     return false;
+}
+
+/** Focus goes back to the editor the insert was started from (a thread in the side panel stays the target). */
+export function focusTarget(s: Snap) {
+    (s.editor ?? activeEditor())?.focus();
 }
 
 /** "project:id" of foreign templates the user explicitly confirmed (used by the compose bar). */
@@ -64,7 +83,7 @@ export function confirm(args: ConfirmArgs): Promise<{ ok: boolean; checked: bool
 }
 
 /** Fills panel tokens; asks the user for fields. null = cancelled. */
-export async function fillFields(title: string, text: string): Promise<string | null> {
+export async function fillFields(title: string, text: string, snap: Snap): Promise<string | null> {
     const fields = fieldsOf(text);
     let values: Record<string, string> = {};
     if (fields.length) {
@@ -78,7 +97,7 @@ export async function fillFields(title: string, text: string): Promise<string | 
     const env = {
         now: new Date(),
         clipboard: /\{\{\s*clipboard\s*[}=|]/i.test(text) ? await readClipboard() : "",
-        selection: ui.get().selection,
+        selection: snap.selection,
         url: ch.id ? `https://discord.com/channels/${ch.guildId ?? "@me"}/${ch.id}` : "",
         title: ch.name,
     };
@@ -152,24 +171,25 @@ async function statusGuard(t: Template): Promise<Template | null> {
     return t;
 }
 
-export async function prepareText(t: Template, opts: { noGreeting?: boolean; } = {}): Promise<{ t: Template; text: string; snap: Snap; } | null> {
-    const channelId = currentChannel().id;
+export async function prepareText(t: Template, target: Target, opts: { noGreeting?: boolean; } = {}): Promise<{ t: Template; text: string; snap: Snap; } | null> {
+    const snap = snapNow(target);
     const scope = scopeHere();
     if (!scope) return null;
     const g = await guard(t, scope);
-    if (!g) return null;
+    if (!g || !stillCurrent(snap)) return null;
     const raw = opts.noGreeting ? splitGreeting(g.text).body : stripMarker(g.text);
-    const text = await fillFields(g.title, raw);
-    return text === null ? null : { t: g, text, snap: { channelId, scope } };
+    const text = await fillFields(g.title, raw, snap);
+    return text === null ? null : { t: g, text, snap };
 }
 
 /** `via` — where the insert came from, for the debug log only. */
 export async function insertTemplate(t: Template, opts: { noGreeting?: boolean; via?: string; } = {}) {
     dlog("insert-start", { id: t.id, title: t.title, via: opts.via ?? "?", noGreeting: opts.noGreeting || undefined });
+    const target = targetNow(); // before the window closes: its target is the editor it was opened from
     ui.set({ windowOpen: false, menu: null });
-    const r = await prepareText(t, opts);
+    const r = await prepareText(t, target, opts);
     if (!r || !stillCurrent(r.snap)) return;
-    activeEditor()?.focus();
+    focusTarget(r.snap);
     const ok = insertText(r.text);
     dlog("insert", { id: r.t.id, title: r.t.title, via: opts.via ?? "?", ok });
     if (!ok) dlog("error", { where: "insertText", id: r.t.id });
@@ -177,11 +197,12 @@ export async function insertTemplate(t: Template, opts: { noGreeting?: boolean; 
 }
 
 export async function addToCompose(t: Template) {
-    const channelId = currentChannel().id;
+    const snap = snapNow(targetNow());
     const scope = scopeHere();
     if (!scope) return;
     const g = await guard(t, scope);
-    if (!g || !stillCurrent({ channelId, scope })) return;
+    if (!g || !stillCurrent(snap)) return;
+    rememberComposeTarget();
     dlog("compose-add", { id: g.id, title: g.title, already: ui.get().compose.includes(g.id) || undefined });
     if (!ui.get().compose.includes(g.id)) ui.set({ compose: [...ui.get().compose, g.id] });
     toast("Добавлено в ответ: " + g.title, "message");

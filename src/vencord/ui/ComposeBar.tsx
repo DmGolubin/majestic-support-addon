@@ -7,12 +7,13 @@
 import { useState } from "@webpack/common";
 
 import { joinPieces } from "../core/compose";
-import { activeEditor, currentChannel, insertText, toast } from "../platform";
+import { insertText, toast } from "../platform";
 import { costEnd, costStart, dlog } from "./debug";
-import { confirmedForeign, fillFields, Snap, stillCurrent } from "./flow";
+import { confirmedForeign, fillFields, focusTarget, snapNow, stillCurrent } from "./flow";
+import { composeTargetNow } from "./op";
 import { ProjectIcon } from "./ProjectIcon";
 import { IconClose } from "./svg";
-import { activeScope, store, ui, useChatRect } from "./uiState";
+import { store, ui, useChatRect } from "./uiState";
 
 /** Its render is a `render` cost span while debug is on. */
 export function ComposeBar() {
@@ -36,7 +37,8 @@ function ComposeBarView() {
     };
 
     const insertAll = async () => {
-        const snap: Snap = { channelId: currentChannel().id, scope: activeScope() };
+        if (!items.length) { ui.set({ compose: [] }); return; } // every piece was removed (import): nothing to insert
+        const snap = snapNow(composeTargetNow()); // the editor the answer was started in
         // Every piece must be common, of the channel's project, or a foreign one the user confirmed for it; on Tech ("all") any piece fits.
         const fits = () => {
             const p = snap.scope;
@@ -46,9 +48,9 @@ function ComposeBarView() {
             return false;
         };
         if (!fits()) return;
-        const text = await fillFields("Ответ", joinPieces(items.map(t => t!.text)));
+        const text = await fillFields("Ответ", joinPieces(items.map(t => t!.text)), snap);
         if (text === null || !stillCurrent(snap) || !fits()) return;
-        activeEditor()?.focus();
+        focusTarget(snap);
         const ok = insertText(text);
         dlog("insert", { ids: items.map(t => t!.id).join(","), via: "compose", ok });
         if (!ok) { dlog("error", { where: "insertText", via: "compose" }); return; }

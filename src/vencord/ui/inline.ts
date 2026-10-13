@@ -11,6 +11,7 @@ import { Template } from "../core/types";
 import { activeEditor, insertText, toast } from "../platform";
 import { costEnd, costStart, debugEnabled, dlog } from "./debug";
 import { prepareText, stillCurrent } from "./flow";
+import { generationNow } from "./op";
 import { latchKey } from "./keylatch";
 import { activeScope, InlineState, poolFor, store, ui } from "./uiState";
 
@@ -115,9 +116,12 @@ function selectTrigger(length: number): boolean {
 }
 
 let accepting = false;
+/** Bumped by resetInline(): an accept started before it must neither insert nor clear a newer accept's flag. */
+let acceptSeq = 0;
 
-/** Plugin stop: never leave a stale accept swallowing Enter/Tab after re-enable. */
+/** Plugin stop: never leave a stale accept swallowing Enter/Tab after re-enable, and drop the running one. */
 export function resetInline() {
+    acceptSeq++;
     accepting = false;
 }
 
@@ -136,24 +140,27 @@ async function runAccept(i: number, noGreeting: boolean) {
     if (!st || !t || accepting) { dlog("inline-accept", { i, skip: accepting ? "уже идёт вставка" : "нет пункта" }); return; }
     dlog("inline-accept", { i, id: t.id, title: t.title, noGreeting: noGreeting || undefined });
     accepting = true;
+    const my = ++acceptSeq;
     try {
-        await doAccept(st, t, noGreeting);
+        await doAccept(st, t, noGreeting, () => my === acceptSeq);
     } finally {
-        accepting = false;
+        if (my === acceptSeq) accepting = false;
     }
 }
 
-async function doAccept(st: NonNullable<ReturnType<typeof ui.get>["inline"]>, t: NonNullable<typeof st.items[number]>, noGreeting: boolean) {
+async function doAccept(st: NonNullable<ReturnType<typeof ui.get>["inline"]>, t: NonNullable<typeof st.items[number]>, noGreeting: boolean, live: () => boolean) {
     ui.set({ inline: null });
     const ed = activeEditor();
-    const prepared = await prepareText(t, { noGreeting }); // may open dialogs and steal focus
-    if (!prepared || !stillCurrent(prepared.snap)) return;
+    const gen = generationNow();
+    const prepared = await prepareText(t, { editor: ed, selection: "" }, { noGreeting }); // may open dialogs and steal focus
+    if (!prepared || !live() || gen !== generationNow() || !stillCurrent(prepared.snap)) return;
     ed?.focus();
     await new Promise(r => setTimeout(r, 0));
+    if (!live() || !stillCurrent(prepared.snap)) return;
     const trig = ed ? findTrigger((textBeforeCaret(ed) ?? "").split("\n").pop() ?? "", store.data.prefix) : null;
     const selected = !!trig && selectTrigger(trig.length);
     await new Promise(r => setTimeout(r, 30)); // let Slate pick up the DOM selection
-    if (!stillCurrent(prepared.snap)) return;
+    if (!live() || !stillCurrent(prepared.snap)) return;
     const ok = insertText(prepared.text);
     dlog("insert", { id: prepared.t.id, title: prepared.t.title, via: "inline", ok, triggerSelected: selected, editor: !!ed });
     if (!ok) { dlog("error", { where: "insertText", id: prepared.t.id }); return; }

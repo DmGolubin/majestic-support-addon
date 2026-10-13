@@ -17,6 +17,7 @@ import { favoritesOf } from "./core/rank";
 import { currentChannel, currentGuildId, onChannelChange } from "./platform";
 import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
 import { insertTemplate, supersede } from "./ui/flow";
+import { captureWindowTarget, clearTargets, generationNow, nextGeneration } from "./ui/op";
 import { loadFonts, unloadFonts } from "./ui/fonts";
 import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
@@ -32,7 +33,9 @@ const Icon: IconComponent = ({ height = 20, width = 20, className }) => (
 );
 
 export function toggleWindow(open = !ui.get().windowOpen) {
-    ui.set({ windowOpen: open, menu: null, selection: open ? String(window.getSelection() ?? "") : "" });
+    // The editor and selection are captured before focus moves to the window's search box.
+    if (open && !ui.get().windowOpen) captureWindowTarget();
+    ui.set({ windowOpen: open, menu: null });
 }
 
 /** Chat-bar button: only on Majestic / Россия Онлайн / Tech; the icon follows the server's project, on Tech the switch's project (re-rendered by Discord on channel switch). Its render is a `render` cost span. */
@@ -215,7 +218,10 @@ export default definePlugin({
         // Only the plugin's own start: the await of store.load (IndexedDB; Discord keeps working meanwhile)
         // and the synchronous mount after it. Discord/Vencord boot before start() is not included.
         const t0 = performance.now();
+        const gen = nextGeneration();
         await store.load();
+        // Vencord does not await start(): a stop() during the load must not be followed by a late mount.
+        if (gen !== generationNow()) return;
         const t1 = performance.now();
         document.addEventListener("keydown", onKey, true);
         offLatch = startLatch();
@@ -235,6 +241,8 @@ export default definePlugin({
     },
 
     stop() {
+        nextGeneration(); // inserts waiting for a dialog / timer and a pending start() are dropped at their next check
+        clearTargets();
         document.removeEventListener("keydown", onKey, true);
         offChannel?.();
         offChannel = null;
@@ -248,7 +256,7 @@ export default definePlugin({
         host?.remove();
         root = host = null;
         unloadFonts();
-        ui.set({ windowOpen: false, dialog: null, inline: null, menu: null });
+        ui.set({ windowOpen: false, dialog: null, inline: null, menu: null, compose: [] });
         setDebugEnabled(false);
     },
 });
