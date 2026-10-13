@@ -99,3 +99,8 @@ Task 15: fix round 1/5 (1 addressed — clear hoveredId/debug hover/tooltip on l
 Task 15: complete (commits ac120be..4239c8f, review clean) — manual Discord check pending with user
 Task 16 (user request): Shift+wheel scrolls preview (Chromium Shift+wheel = horizontal) + verbose debug (all events, geometry, perf, settings, categories/filter, 200-event ring); BASE 16861a4
 Task 16: implemented (commits 16861a4..f8ac9d3) — task review NOT yet run (usage limit); masked typed chars in verbose key log (privacy, beyond brief)
+Task 16: review Approved; privacy deviation (masked typed chars) accepted; Ruling: fix minors now — dlog during render deferred, Ctrl/Meta+Shift+wheel not redirected, no preventDefault when preview can't scroll, mask IME — cost if wrong: none
+Task 16: minor (deferred): search-input keystrokes logged per key; string alloc in Window log helper when off; mask rule untested (in webpack module); wheel bucket handled flag coalescing
+Task 16: fix round 1/5 (4 addressed — deferred search dlog, Ctrl/Meta guard, no preventDefault at scroll edge, IME mask; commits f8ac9d3..9ca475e)
+Task 16: complete (commits 16861a4..9ca475e, review clean)
+User report 13.10: long tasks 50–240ms (max 1351) on every logged event while verbose panel open; window renders low (14), search 2ms → suspect verbose DebugPanel re-render + 10 rect reads per event; plugin load 2633ms suspicious (likely includes Discord boot)
