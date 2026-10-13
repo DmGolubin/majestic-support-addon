@@ -16,6 +16,7 @@ import { comboOf } from "./core/keys";
 import { favoritesOf } from "./core/rank";
 import { currentChannel, currentGuildId, onChannelChange } from "./platform";
 import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
+import { resetMenuGuards } from "./ui/ContextMenu";
 import { insertTemplate, supersede } from "./ui/flow";
 import { captureWindowTarget, clearTargets, generationNow, nextGeneration } from "./ui/op";
 import { loadFonts, unloadFonts } from "./ui/fonts";
@@ -104,6 +105,7 @@ function handleKey(e: KeyboardEvent) {
         if (debugEnabled() && (e.key === "Tab" || e.key === "Enter")) dlog("key", { h: "dialog", key: keyDesc(e), dialog: s.dialog.kind });
         return trapDialogFocus(e); // dialogs handle their own keys
     }
+    if (s.menu) return; // the context menu owns the keyboard while open (its own capture listener)
 
     // Other servers and DMs: nothing is handled or prevented — every key reaches Discord as if the plugin were absent.
     if (!pluginOn()) {
@@ -243,6 +245,7 @@ export default definePlugin({
     stop() {
         nextGeneration(); // inserts waiting for a dialog / timer and a pending start() are dropped at their next check
         clearTargets();
+        resetMenuGuards();
         document.removeEventListener("keydown", onKey, true);
         offChannel?.();
         offChannel = null;

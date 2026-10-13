@@ -157,9 +157,9 @@
 .vc-stx-check { display: flex; gap: 6px; align-items: center; color: var(--stx-mu); font-size: 12px; margin-top: 8px; }
 
 /* ---- Context menu ---- */
-.vc-stx-menu { padding: 4px; min-width: 200px; }
+.vc-stx-menu { padding: 4px; min-width: 200px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; }
 .vc-stx-menu button { display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--stx-mu); font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
-.vc-stx-menu button:hover { background: var(--stx-acc); color: var(--stx-tx); }
+.vc-stx-menu button.on { background: var(--stx-acc); color: var(--stx-tx); }
 
 /* ---- Compose bar ---- */
 .vc-stx-compose { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px; background: #1a160e; border-color: #3a2e14; overflow: hidden; }
