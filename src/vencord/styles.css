@@ -81,6 +81,8 @@
 .vc-stx-it { padding: 7px 10px; border-radius: var(--stx-r); cursor: pointer; scroll-margin-top: 32px; }
 .vc-stx-it:hover, .vc-stx-item:hover { background: hsl(216 16% 12% / .6); }
 .vc-stx-it.sel, .vc-stx-item.sel { background: hsl(342 77% 44% / .15); }
+/* Row with the context menu open: outlined until the menu closes. */
+.vc-stx-it.ctx { box-shadow: inset 0 0 0 1px hsl(342 80% 56% / .8); }
 .vc-stx-item { padding: 6px 8px; border-radius: var(--stx-r); cursor: pointer; }
 .vc-stx-r { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .vc-stx-nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

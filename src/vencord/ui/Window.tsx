@@ -19,6 +19,7 @@ import { nqHighlight } from "./highlight";
 import { latchKey } from "./keylatch";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
+import { openMenu } from "./ContextMenu";
 import { IconEnter, IconSearch, IconShift, IconStar } from "./svg";
 import { activeScope, listedProject, pickTechProject, poolFor, store, ui, useStore } from "./uiState";
 
@@ -51,6 +52,8 @@ function snippetOf(t: Template) {
 interface RowProps {
     t: Template;
     sel: boolean;
+    /** The context menu is open for this row: outlined so it is clear which template the menu acts on. */
+    ctx: boolean;
     /** Alt+N label, 0 = none. */
     alt: number;
     bind: string | undefined;
@@ -67,15 +70,15 @@ interface RowProps {
     onHide: () => void;
 }
 
-function RowImpl({ t, sel, alt, bind, icon, tokens, line, onHover, onMove, onLeave, onHide }: RowProps) {
+function RowImpl({ t, sel, ctx, alt, bind, icon, tokens, line, onHover, onMove, onLeave, onHide }: RowProps) {
     return (
         <div
-            className={"vc-stx-it" + (sel ? " sel" : "")}
+            className={"vc-stx-it" + (sel ? " sel" : "") + (ctx ? " ctx" : "")}
             onMouseEnter={e => onHover(t, e.currentTarget)}
             onMouseMove={e => onMove(t, e)}
             onMouseLeave={onLeave}
             onClick={() => { onHide(); void insertTemplate(t, { via: "window-click" }); }}
-            onContextMenu={e => { e.preventDefault(); onHide(); ui.set({ menu: { x: e.clientX, y: e.clientY, id: t.id } }); }}
+            onContextMenu={e => { e.preventDefault(); onHide(); openMenu(t.id, e.clientX, e.clientY); }}
         >
             <div className="vc-stx-r">
                 {t.color && <span className="vc-stx-color" style={{ background: t.color }} />}
@@ -105,6 +108,7 @@ function WindowView() {
     const composeLen = ui.useSelect(s => s.compose.length);
     const hasCompose = composeLen > 0;
     const dialogOpen = ui.useSelect(s => s.dialog !== null);
+    const menuId = ui.useSelect(s => s.menu?.id ?? null);
     const debugOn = debugState.useSelect(s => s.on);
     if (debugVerbose()) noteRender();
     const scope = activeScope();
@@ -342,7 +346,11 @@ function WindowView() {
             if (debugEnabled()) dlog("key", { h: "window", key: keyDesc(e), what, ...data }, "win:" + keyDesc(e) + what);
         };
         // Shift alone (peek) is handled at document level, see onShift.
-        if (e.key === "Escape") {
+        if (e.key === "Escape" && ui.get().menu) {
+            eat();
+            log("закрыть меню");
+            ui.set({ menu: null });
+        } else if (e.key === "Escape") {
             eat();
             log(query ? "очистить запрос" : "закрыть окно");
             if (query) setQuery(""); else ui.set({ windowOpen: false });
@@ -411,6 +419,7 @@ function WindowView() {
             key={t.id}
             t={t}
             sel={i === selIdx}
+            ctx={t.id === menuId}
             alt={data.alt(t, i)}
             bind={store.bindFor(t.id)}
             icon={!t.project}
