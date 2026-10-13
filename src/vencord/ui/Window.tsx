@@ -7,7 +7,7 @@
 import { React, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "@webpack/common";
 
 import { comboLabel } from "../core/keys";
-import { clampTop } from "../core/layout";
+import { clampTop, EDGE, tipWidth, windowLayout } from "../core/layout";
 import { categoriesOf, favoritesOf, orderHits, recentOf, sections } from "../core/rank";
 import { search } from "../core/search";
 import { splitGreeting } from "../core/text";
@@ -30,7 +30,7 @@ const HOVER_MS = 500;
 /** Hover tooltips stay off until this long after the last scroll event. */
 const SCROLL_QUIET_MS = 150;
 const NO_TOKENS: string[] = [];
-const MAX_H = 500, EDGE = 8, TIP_MAX_H = 320;
+const MAX_H = 500, TIP_MAX_H = 320;
 
 /** First meaningful body line after the greeting, markdown chars stripped — the row's muted snippet. */
 const snippets = new WeakMap<Template, string>();
@@ -124,7 +124,10 @@ function WindowView() {
     const hoveredId = useRef<string | null>(null);
     /** Mirrors `wide` for the stable hover callbacks: no tooltips while the preview shows. */
     const wideRef = useRef(false);
+    /** Mirrors "the tooltip has room left of the window" for the stable hover callbacks. */
+    const tipRoomRef = useRef(true);
     const peekRef = useRef(false);
+    const compactRef = useRef(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const winRef = useRef<HTMLDivElement>(null);
@@ -192,7 +195,7 @@ function WindowView() {
     }, [sel]);
     // Debug panel: the window's local state after every render (only while debug is on), cleared on close.
     useEffect(() => {
-        if (debugOn) setDebugWindow({ peek, view, cat, query, selIdx, selId: current?.id ?? null, hoveredId: hoveredId.current });
+        if (debugOn) setDebugWindow({ peek, view, cat, query, selIdx, selId: current?.id ?? null, hoveredId: hoveredId.current, layout: lay.mode, winW: lay.width, previewW: lay.previewW, avail: lay.avail, tipW });
     });
     useEffect(() => () => setDebugWindow(null), []);
     useEffect(() => {
@@ -269,10 +272,10 @@ function WindowView() {
         if (scrolling.current) return;
         hoveredId.current = t.id;
         if (debugEnabled()) { setDebugHover(t.id); dlog("hover", { id: t.id, title: t.title }, "hover"); }
-        if (wideRef.current) return; // the preview is shown: no tooltip
+        if (wideRef.current || !tipRoomRef.current) return; // the preview is shown / no room: no tooltip
         hoverTimer.current = setTimeout(() => {
             hoverTimer.current = null;
-            if (scrolling.current || wideRef.current) return;
+            if (scrolling.current || wideRef.current || !tipRoomRef.current) return;
             hoverShown.current = true;
             setHover({ t, top: el.getBoundingClientRect().top });
         }, HOVER_MS);
@@ -295,6 +298,13 @@ function WindowView() {
         setDebugHover(null);
         stopHover();
     }, []);
+
+    /** «← назад» in compact mode: hides the pinned preview (and a Shift peek). */
+    const back = () => {
+        dlog("key", { h: "window", what: "скрыть превью (назад)" });
+        setPeek(false);
+        store.setPreviewOpen(false);
+    };
 
     const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         const input = inputRef.current;
@@ -337,7 +347,8 @@ function WindowView() {
             eat();
             log("открыть превью");
             store.setPreviewOpen(true);
-        } else if (e.key === "ArrowLeft" && atStart && store.data.previewOpen) {
+        } else if (e.key === "ArrowLeft" && (atStart || compactRef.current) && store.data.previewOpen) {
+            // Compact: the preview covers the search input, so ← goes back wherever the caret is.
             eat();
             log("скрыть превью");
             store.setPreviewOpen(false);
@@ -357,9 +368,16 @@ function WindowView() {
     const wide = store.data.previewOpen || peek;
     wideRef.current = wide;
     peekRef.current = peek;
-    const avail = (rect?.width ?? 900) - 16;
-    const width = Math.max(0, Math.min(wide ? 820 : 360, avail));
-    const right = rect ? Math.max(EDGE, window.innerWidth - rect.right) : 80;
+    // Viewport-bound, right-anchored at the chat input's right edge (rect / innerWidth change → resize re-render).
+    const vw = window.innerWidth;
+    const lay = windowLayout(vw, rect ? vw - rect.right : 80, wide);
+    const { width, right } = lay;
+    const compact = lay.mode === "compact";
+    compactRef.current = compact;
+    const tipW = tipWidth(vw, right, width);
+    tipRoomRef.current = tipW > 0;
+    /** Footer: keycaps only when the list is narrower than usual or in compact mode (full text in `title`). */
+    const footKeys = compact || width < 360;
     const bottom = rect ? window.innerHeight - rect.top + EDGE + (hasCompose ? 48 : 0) : 80;
     const height = Math.max(200, Math.min(MAX_H, window.innerHeight - bottom - EDGE));
     const style: React.CSSProperties = { right, bottom, width, height };
@@ -370,7 +388,7 @@ function WindowView() {
     useLayoutEffect(() => {
         const h = tipRef.current?.offsetHeight ?? 0;
         if (h && h !== tipH) setTipH(h); // measured before paint: no visible jump
-    }, [hover, tipMaxH]);
+    }, [hover, tipMaxH, tipW]);
 
     const Row = getRow();
     const row = (t: Template, i: number) => (
@@ -402,13 +420,14 @@ function WindowView() {
     return (
         <>
             <div
-                className="vc-stx-win" ref={winRef} style={style} onKeyDown={onKeyDown}
+                className={"vc-stx-win" + (compact ? " compact" : "")} ref={winRef} style={style} onKeyDown={onKeyDown}
                 // Rows and buttons never take focus: it stays in the search input, so the keys keep working
                 // even when the clicked element unmounts (a Preview button once Shift is released).
                 onMouseDown={e => { if ((e.target as HTMLElement).closest("button, .vc-stx-it")) e.preventDefault(); }}
             >
-                {/* Preview LEFT of the list: the window is right-anchored, so the list never moves when it opens. */}
-                {wide && <Preview t={current} />}
+                {/* Side: preview LEFT of the list (the window is right-anchored, the list never moves when it opens).
+                    Compact: the same pane covers the list (absolute), the list stays mounted with its scroll. */}
+                {wide && <Preview t={current} onBack={compact ? back : undefined} />}
                 <div className="vc-stx-col">
                     <div className="vc-stx-head">
                         <label className="vc-stx-search">
@@ -459,17 +478,17 @@ function WindowView() {
                                 </div>))}
                     </div>
                     <div className="vc-stx-foot" title={"Enter — вставить · Shift+Enter — в ответ · Shift (держать) — текст · → / ← — открыть / скрыть текст слева · Tab — вкладки · Ctrl+D — избранное · ПКМ — меню"}>
-                        <span><span className="vc-stx-kb">↵</span>вставить</span>
-                        <span><span className="vc-stx-kb">⇧↵</span>в ответ</span>
-                        <span><span className="vc-stx-kb">Tab</span>вкладки</span>
-                        <span><span className="vc-stx-kb">ПКМ</span>ещё</span>
+                        <span><span className="vc-stx-kb">↵</span>{!footKeys && "вставить"}</span>
+                        <span><span className="vc-stx-kb">⇧↵</span>{!footKeys && "в ответ"}</span>
+                        <span><span className="vc-stx-kb">Tab</span>{!footKeys && "вкладки"}</span>
+                        <span><span className="vc-stx-kb">ПКМ</span>{!footKeys && "ещё"}</span>
                     </div>
                 </div>
             </div>
-            {hover && !wide && (
+            {hover && !wide && tipW > 0 && (
                 <div
                     className="vc-stx-tip" ref={tipRef}
-                    style={{ right: right + width + EDGE, top: clampTop(hover.top, winTop, winBottom, tipH || tipMaxH), maxHeight: tipMaxH }}
+                    style={{ right: right + width + EDGE, width: tipW, top: clampTop(hover.top, winTop, winBottom, tipH || tipMaxH), maxHeight: tipMaxH }}
                 >
                     <Preview key={hover.t.id} t={hover.t} compact />{/* key: remount so the fade check runs per template */}
                 </div>

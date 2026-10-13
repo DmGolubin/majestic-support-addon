@@ -35,6 +35,13 @@ export interface WinDebug {
     selIdx: number;
     selId: string | null;
     hoveredId: string | null;
+    /** Window layout (core/layout windowLayout): side = preview left of the list, compact = over it. */
+    layout: "side" | "compact";
+    winW: number;
+    previewW: number;
+    avail: number;
+    /** Hover tooltip width, 0 = no room left of the window. */
+    tipW: number;
 }
 
 const CAP = 30, CAP_VERBOSE = 200;
@@ -193,6 +200,7 @@ export function debugSnapshot(): string[] {
         ...(s.windowOpen && w ? [
             `  вкладка: ${w.view} · категория: ${w.cat ?? "все"} · запрос: ${q40(w.query)}`,
             `  выбрано: #${w.selIdx} ${tpl(w.selId)}`,
+            `  раскладка: ${w.layout} · окно ${w.winW} · превью ${w.previewW || "скрыто"} · доступно ${w.avail} · подсказка ${w.tipW || "нет места"}`,
             `  под мышью: ${tpl(w.hoveredId)}`,
         ] : []),
         `inline: ${inl ? `запрос ${q40(inl.query)} · пунктов ${inl.items.length} · sel ${inl.sel}${inl.note ? ` · note «${inl.note}»` : ""}` : "закрыт"} · accepting: ${isAccepting()}`,
@@ -272,6 +280,7 @@ const geomEvent = (): Record<string, unknown> => ({
     zoom: discordEnv().zoom ?? undefined,
     chat: rect(chatAreaRect()),
     win: rectOf(part(".vc-stx-win")),
+    layout: debugState.get().win?.layout,
 });
 
 /** Geometry snapshot into the log (window open/close). Verbose only; read after layout. */

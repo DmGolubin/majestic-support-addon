@@ -35,6 +35,12 @@
 .vc-stx-win { display: flex; overflow: hidden; border-radius: 14px; box-shadow: 0 16px 48px rgb(0 0 0 / 60%); contain: layout paint; }
 /* Fixed width = closed window (360) minus its border: the list sits at the same spot with the preview open, closed or peeked. */
 .vc-stx-col { width: 358px; max-width: 100%; flex: none; display: flex; flex-direction: column; min-width: 0; }
+/* Compact (not enough room for list + preview side by side): the list takes the whole window,
+   the preview covers it (absolute; the window's contain makes it the containing block). */
+.vc-stx-win.compact .vc-stx-col { width: 100%; }
+.vc-stx-win.compact > .vc-stx-pre { position: absolute; inset: 0; z-index: 2; background: var(--stx-card); border-right: 0; }
+.vc-stx-back { align-self: flex-start; flex: none; height: 24px; margin: -4px 0 10px -6px; padding: 0 8px; border-radius: 6px; background: none; border: 1px solid var(--stx-bd2); color: var(--stx-mu); font: inherit; font-size: 12px; cursor: pointer; }
+.vc-stx-back:hover { background: var(--stx-hover); color: var(--stx-tx); }
 .vc-stx-head { flex: none; padding: 12px 12px 0; }
 .vc-stx-search { width: 100%; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 9px; background: var(--stx-bg); border: 1px solid var(--stx-bd); color: var(--stx-tx); font: inherit; font-size: 13px; outline: none; cursor: text; }
 .vc-stx-search:focus-within { border-color: var(--stx-ring); box-shadow: 0 0 0 3px rgb(198 26 89 / 18%); }
@@ -94,11 +100,11 @@
 
 /* ---- Preview pane ---- */
 .vc-stx-pre { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 16px 18px 14px; }
-.vc-stx-win > .vc-stx-pre { border-right: 1px solid var(--stx-bd); }
-.vc-stx-pre h4 { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.3; color: #fff; border-left: 4px solid var(--stx-amber); padding-left: 10px; overflow-wrap: anywhere; }
+.vc-stx-win > .vc-stx-pre { border-right: 1px solid var(--stx-bd); overflow: hidden; }
+.vc-stx-pre h4 { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.3; color: #fff; border-left: 4px solid var(--stx-amber); padding-left: 10px; overflow-wrap: break-word; }
 .vc-stx-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
 .vc-stx-mchip { height: 22px; max-width: 100%; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; white-space: nowrap; overflow: hidden; color: var(--stx-mu); background: hsl(215 16% 12%); border: 1px solid var(--stx-bd); }
-.vc-stx-body { flex: 1; min-height: 0; overflow: hidden auto; contain: content; overscroll-behavior: contain; padding-right: 6px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; font-size: 13px; color: hsl(216 10% 86%); }
+.vc-stx-body { flex: 1; min-height: 0; overflow: hidden auto; contain: content; overscroll-behavior: contain; padding-right: 6px; white-space: pre-wrap; overflow-wrap: break-word; line-height: 1.55; font-size: 13px; color: hsl(216 10% 86%); }
 .vc-stx-body strong { font-weight: 700; color: #fff; }
 .vc-stx-greet { color: var(--stx-mu2); }
 .vc-stx-greet strong { color: inherit; }
@@ -106,7 +112,8 @@
 .vc-stx-md-link { color: #6cb4ff; }
 .vc-stx-md-code { padding: 0 4px; border-radius: 4px; font-family: Consolas, "Courier New", monospace; font-size: 12px; background: hsl(215 16% 13%); }
 .vc-stx-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-.vc-stx-pre .vc-stx-acts { flex: none; flex-wrap: nowrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--stx-bd); }
+/* Buttons wrap to a second line instead of overflowing the pane; ★ (margin-left: auto) stays last. */
+.vc-stx-pre .vc-stx-acts { flex: none; flex-wrap: wrap; row-gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--stx-bd); }
 
 .vc-stx-btn { height: 34px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 8px; background: var(--stx-pr); color: #fff; border: 0; font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .vc-stx-btn:hover { filter: brightness(1.1); }

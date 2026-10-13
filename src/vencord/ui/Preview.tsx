@@ -24,15 +24,20 @@ const markCut = (el: HTMLDivElement | null) => {
     if (el) el.classList.toggle("cut", el.scrollHeight > el.clientHeight + 1);
 };
 
-/** compact = hover tooltip: text only, no action buttons, no scrolling. */
-export function Preview({ t, compact = false }: { t: Template | undefined; compact?: boolean; }) {
+/**
+ * compact = hover tooltip: text only, no action buttons, no scrolling.
+ * onBack = the window is in compact mode (the preview covers the list): a «← назад» button on top.
+ */
+export function Preview({ t, compact = false, onBack }: { t: Template | undefined; compact?: boolean; onBack?: () => void; }) {
     const parts = useMemo(() => t ? splitGreeting(t.text) : null, [t]);
-    if (!t || !parts) return <div className="vc-stx-pre"><div className="vc-stx-empty">Выбери шаблон</div></div>;
+    const backBtn = onBack && <button className="vc-stx-back" title="Скрыть текст (←)" onClick={onBack}>← назад</button>;
+    if (!t || !parts) return <div className="vc-stx-pre">{backBtn}<div className="vc-stx-empty">Выбери шаблон</div></div>;
     const { greeting, body } = parts;
     const uses = store.data.usage[t.id]?.n ?? 0;
     const fav = store.isFavorite(t.id);
     return (
         <div className="vc-stx-pre">
+            {backBtn}
             <h4>{t.title}</h4>
             <div className="vc-stx-meta">
                 <span className="vc-stx-mchip"><ProjectIcon project={t.project} size={14} />{t.project ? PROJECTS[t.project].name : "общий"}</span>
