@@ -6,6 +6,7 @@
 
 import { useState } from "@webpack/common";
 
+import { TECH_GUILD } from "../core/guard";
 import { PREFIXES } from "../core/trigger";
 import { PROJECTS } from "../core/types";
 import { toast } from "../platform";
@@ -36,7 +37,6 @@ export function Settings() {
         inp.click();
     };
 
-    const guilds = Object.entries(store.data.guilds);
     return (
         <div className="vc-stx-settings">
             <h3>Шаблоны</h3>
@@ -54,11 +54,12 @@ export function Settings() {
             </div>
 
             <h3>Серверы</h3>
-            <p>{PROJECTS.mj.name} и {PROJECTS.ro.name} определяются сами. Ответы для остальных серверов:</p>
-            {guilds.length
-                ? <ul>{guilds.map(([k, b]) => <li key={k}><code>{k}</code> → {b === "none" ? "выбирать при открытии" : PROJECTS[b].name}</li>)}</ul>
-                : <p className="vc-stx-muted">пока нет</p>}
-            {guilds.length > 0 && <button className="vc-stx-btn vc-stx-ghost" onClick={() => store.clearGuilds()}>Сбросить ответы</button>}
+            <ul>
+                <li>{PROJECTS.mj.name} (<code>{PROJECTS.mj.guildId}</code>) — шаблоны {PROJECTS.mj.short} и общие</li>
+                <li>{PROJECTS.ro.name} (<code>{PROJECTS.ro.guildId}</code>) — шаблоны {PROJECTS.ro.short} и общие</li>
+                <li>Tech™ (<code>{TECH_GUILD}</code>) — все шаблоны обоих проектов, без выбора проекта</li>
+            </ul>
+            <p>На остальных серверах и в ЛС плагин выключен.</p>
         </div>
     );
 }

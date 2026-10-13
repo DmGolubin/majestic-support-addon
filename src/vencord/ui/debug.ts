@@ -17,14 +17,13 @@ import { gitHash } from "@shared/vencordUserAgent";
 import { useEffect, useState } from "@webpack/common";
 
 import { COST_CATS, CostCat, CostMeter, NESTED_CATS, overlapLabel, significant, throttle } from "../core/cost";
-import { projectForGuild } from "../core/guard";
 import { comboLabel } from "../core/keys";
 import { DebugEvent, formatEvent, Ring } from "../core/ring";
 import { activeEditor, chatAreaRect, currentChannel, currentGuildId, discordEnv, guildName } from "../platform";
 import { isAccepting } from "./inline";
 import { latchedCode } from "./keylatch";
 import { createObservable, shallowEqual } from "./observable";
-import { activeProject, Dialog, store, ui } from "./uiState";
+import { currentMode, Dialog, store, ui } from "./uiState";
 
 /** What the open window reports about itself (its state is local to the component). */
 export interface WinDebug {
@@ -174,7 +173,6 @@ const tpl = (id: string | null | undefined) => {
 function dialogDesc(d: Dialog | null): string {
     if (!d) return "нет";
     switch (d.kind) {
-        case "askProject": return "askProject";
         case "confirm": return `confirm (${d.tone}) «${d.label}» — «${d.title}»`;
         case "fields": return `fields «${d.title}» поля: ${d.fields.map(f => f.name).join(", ")}`;
         case "bind": return `bind ${tpl(d.templateId)}`;
@@ -186,15 +184,14 @@ export function debugSnapshot(): string[] {
     const s = ui.get();
     const gid = currentGuildId();
     const ch = currentChannel();
-    const binding = projectForGuild(gid, store.data.guilds);
-    const ap = activeProject();
+    const mode = currentMode();
     const w = debugState.get().win;
     const inl = s.inline;
     const ts = store.templates;
     const mj = ts.filter(t => t.project === "mj").length, ro = ts.filter(t => t.project === "ro").length;
     return [
         `сервер: ${gid ?? "ЛС"}${gid ? ` «${guildName(gid)}»` : ""}`,
-        `привязка projectForGuild: ${binding ?? "null (неизвестный)"} · activeProject: ${ap.project ?? "null"} · sessionProject: ${s.sessionProject ?? "null"}`,
+        `режим сервера: ${mode}${mode === "off" ? " (плагин выключен: кнопки нет, клавиши не перехватываются)" : mode === "all" ? " (Tech: шаблоны обоих проектов)" : ""}`,
         `канал: ${ch.id ?? "—"}${ch.name ? ` #${ch.name}` : ""}`,
         `окно: ${s.windowOpen ? "открыто" : "закрыто"} · previewOpen: ${store.data.previewOpen} · peek: ${w?.peek ?? false}`,
         ...(s.windowOpen && w ? [
@@ -217,13 +214,13 @@ export function debugSnapshot(): string[] {
 export function debugSettings(): string[] {
     const d = store.data;
     const binds = Object.entries(d.binds);
-    const guilds = Object.entries(d.guilds);
+    const legacy = Object.keys(d.guilds).length;
     const env = discordEnv();
     return [
         `уровень отладки: ${verbose ? "подробно" : "обычный"} (настройка «подробно»: ${verboseSetting ? "вкл" : "выкл"}) · журнал до ${ring.cap} событий`,
         `префикс: ${d.prefix} · previewOpen: ${d.previewOpen}`,
         `бинды (${binds.length}): ${binds.length ? binds.map(([id, c]) => `${comboLabel(c)} → ${tpl(id)}`).join(", ") : "нет"}`,
-        `привязки серверов (${guilds.length}): ${guilds.length ? guilds.map(([g, b]) => `${g}${guildName(g) ? ` «${guildName(g)}»` : ""} = ${b}`).join(", ") : "нет"}`,
+        `серверы: Majestic → mj, Россия Онлайн → ro, Tech → all, остальные и ЛС → off${legacy ? ` · старых ответов «чей сервер» в данных: ${legacy} (не используются)` : ""}`,
         `Discord: язык ${env.locale ?? (document.documentElement.lang || navigator.language)} · тема ${env.theme ?? "?"} · zoom ${env.zoom ?? "?"} · шрифт ${env.fontSize ?? "?"}`,
         ...loadLines(),
     ];
