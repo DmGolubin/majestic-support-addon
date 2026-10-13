@@ -6,7 +6,7 @@
 
 import { ServerBinding } from "./guard";
 import { importBackup, parseRaw } from "./importer";
-import { bindProblem } from "./keys";
+import { bindProblem, cleanBinds } from "./keys";
 import { RankCtx } from "./rank";
 import { PREFIXES } from "./trigger";
 import { ProjectId, Template, Usage } from "./types";
@@ -36,6 +36,44 @@ export const STORE_KEY = "SupportTemplates_v2";
 /** Key used by the Vencord spike (raw/usage/pinned/tabs). */
 export const LEGACY_KEY = "SupportTemplates_data";
 
+const strings = (v: unknown): string[] => Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+
+/**
+ * A saved object made safe field by field: wrong types fall back to defaults (a broken field never takes the
+ * others down), binds pass the same rules as new ones. fixed = something had to be repaired.
+ */
+export function sanitize(saved: Record<string, unknown>, templates: Template[]): { data: Persisted; fixed: string[]; } {
+    const d = empty();
+    const fixed: string[] = [];
+    const take = <K extends keyof Persisted>(k: K, ok: boolean, v: Persisted[K]) => {
+        if (ok) d[k] = v; else if (k in saved) fixed.push(k);
+    };
+    take("raw", typeof saved.raw === "string", saved.raw as string);
+    for (const k of ["favorites", "recent", "intentional"] as const) {
+        const v = saved[k];
+        take(k, Array.isArray(v), strings(v));
+        if (Array.isArray(v) && strings(v).length !== v.length) fixed.push(k);
+    }
+    const usage: Record<string, Usage> = {};
+    if (isRecord(saved.usage)) {
+        for (const [id, u] of Object.entries(saved.usage)) {
+            const n = isRecord(u) ? Math.floor(Number(u.n)) : NaN;
+            if (n > 0) usage[id] = { n, last: Number((u as any).last) || 0 };
+        }
+    } else if ("usage" in saved) fixed.push("usage");
+    d.usage = usage;
+    const ids = new Set(templates.map(t => t.id));
+    const b = cleanBinds(saved.binds, ids);
+    d.binds = b.binds;
+    if (b.dropped || ("binds" in saved && !isRecord(saved.binds))) fixed.push("binds");
+    take("guilds", isRecord(saved.guilds), saved.guilds as Persisted["guilds"]);
+    take("prefix", typeof saved.prefix === "string" && (PREFIXES as readonly string[]).includes(saved.prefix), saved.prefix as string);
+    take("previewOpen", typeof saved.previewOpen === "boolean", saved.previewOpen as boolean);
+    take("techProject", saved.techProject === "mj" || saved.techProject === "ro", saved.techProject as ProjectId);
+    return { data: d, fixed };
+}
+
 const empty = (): Persisted => ({
     v: 2, raw: "", favorites: [], recent: [], usage: {}, binds: {}, guilds: {}, intentional: [], prefix: ";", previewOpen: true, techProject: "mj",
 });
@@ -58,11 +96,17 @@ export class Store {
     }
 
     async load() {
-        const saved = await this.storage.get(STORE_KEY) as Persisted | undefined;
-        if (saved && saved.v === 2) {
-            this.data = { ...empty(), ...saved };
-            if (this.data.techProject !== "mj" && this.data.techProject !== "ro") this.data.techProject = "mj";
-            this.templates = parseRaw(this.data.raw);
+        const saved = await this.storage.get(STORE_KEY) as Record<string, unknown> | undefined;
+        if (isRecord(saved) && saved.v === 2) {
+            this.templates = parseRaw(typeof saved.raw === "string" ? saved.raw : "");
+            const { data, fixed } = sanitize(saved, this.templates);
+            this.data = data;
+            if (fixed.length) {
+                // Keep the damaged original next to the repaired one, then save the repaired data.
+                console.warn("[SupportTemplates] saved data repaired:", fixed.join(", "));
+                await this.storage.set(STORE_KEY + "_damaged", saved).catch(() => { });
+                this.storage.set(STORE_KEY, this.data).catch(e => console.error("[SupportTemplates]", e));
+            }
         } else {
             const legacy = await this.storage.get(LEGACY_KEY) as { raw?: string; } | undefined;
             if (legacy && typeof legacy.raw === "string" && legacy.raw.trim()) {
@@ -75,12 +119,15 @@ export class Store {
     /** Replaces templates; favorites/usage/binds come from the file. Returns a summary line. */
     importText(text: string): string {
         const r = importBackup(text);
-        this.data = { ...this.data, raw: r.raw, favorites: r.favorites, usage: r.usage, binds: r.binds, recent: [] };
+        // "Intentional mention" answers belonged to the old texts: they are not carried over to the new set.
+        this.data = { ...this.data, raw: r.raw, favorites: r.favorites, usage: r.usage, binds: r.binds, recent: [], intentional: [] };
         this.templates = r.templates;
         this.changed();
         const mj = r.templates.filter(t => t.project === "mj").length;
         const ro = r.templates.filter(t => t.project === "ro").length;
-        return `Шаблонов: ${r.templates.length} (Majestic ${mj}, Россия Онлайн ${ro}), избранных: ${r.favorites.length}`;
+        return `Шаблонов: ${r.templates.length} (Majestic ${mj}, Россия Онлайн ${ro}), избранных: ${r.favorites.length}`
+            + (r.dupes ? ` · повторяющихся названий: ${r.dupes} (получили номер)` : "")
+            + (r.droppedBinds ? ` · клавиш не принято: ${r.droppedBinds} (запрещённые или повторы)` : "");
     }
 
     byId(id: string) {

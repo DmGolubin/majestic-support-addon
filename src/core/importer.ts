@@ -5,6 +5,7 @@
  */
 
 import { soft } from "./text";
+import { cleanBinds } from "./keys";
 import { ProjectId, Template, Usage } from "./types";
 
 export function projectOfGroup(group: string): ProjectId | null {
@@ -25,7 +26,33 @@ function mk(group: string, title: string, text: string): Template {
     };
 }
 
+/**
+ * Two templates with the same group and title would share an id: the menu, compose bar, favourites and binds
+ * (which look templates up by id) would then act on the first one while the row shows the second.
+ * Later duplicates get "#2", "#3"… — stable across loads, and the first one keeps the id old pins/binds point to.
+ */
+function uniqueIds(ts: Template[]): number {
+    const seen = new Map<string, number>();
+    let dupes = 0;
+    for (const t of ts) {
+        const n = (seen.get(t.id) ?? 0) + 1;
+        seen.set(t.id, n);
+        if (n > 1) { t.id = `${t.id}#${n}`; dupes++; }
+    }
+    return dupes;
+}
+
 export function parseRaw(raw: string): Template[] {
+    return parseRawInfo(raw).templates;
+}
+
+/** dupes = templates whose group + title repeated an earlier one (they got a numbered id). */
+export function parseRawInfo(raw: string): { templates: Template[]; dupes: number; } {
+    const templates = parseRawUnchecked(raw);
+    return { templates, dupes: uniqueIds(templates) };
+}
+
+function parseRawUnchecked(raw: string): Template[] {
     const src = String(raw ?? "").replace(/\r/g, "").trim();
     if (!src) return [];
 
@@ -65,6 +92,10 @@ export interface ImportResult {
     favorites: string[];
     usage: Record<string, Usage>;
     binds: Record<string, string>;
+    /** Binds from the file that were not taken: forbidden or non-canonical combos, repeats, unknown templates. */
+    droppedBinds: number;
+    /** Templates with a repeated group + title (numbered ids). */
+    dupes: number;
 }
 
 /** Accepts the 0.5.1 config/backup JSON ({raw, usage, pinned, binds}), a JSON array or plain text. */
@@ -73,7 +104,7 @@ export function importBackup(text: string): ImportResult {
     try { obj = JSON.parse(text); } catch { /* plain text */ }
     const isObj = obj && typeof obj === "object" && !Array.isArray(obj);
     const raw: string = isObj ? (typeof obj.raw === "string" ? obj.raw : "") : String(text);
-    const templates = parseRaw(raw);
+    const { templates, dupes } = parseRawInfo(raw);
     if (!templates.length) throw new Error("Не нашёл ни одного шаблона");
 
     const ids = new Set(templates.map(t => t.id));
@@ -92,10 +123,10 @@ export function importBackup(text: string): ImportResult {
         }
     }
 
-    const binds: Record<string, string> = {};
-    if (isObj && obj.binds && typeof obj.binds === "object") {
-        for (const [k, v] of Object.entries<any>(obj.binds)) if (ids.has(toId(k)) && typeof v === "string") binds[toId(k)] = v;
-    }
+    // The same validation as assigning a bind by hand: a file must not bind Enter, a plain letter or Ctrl+V.
+    const fileBinds: Record<string, unknown> = {};
+    if (isObj && obj.binds && typeof obj.binds === "object") for (const [k, v] of Object.entries<any>(obj.binds)) fileBinds[toId(k)] = v;
+    const { binds, dropped } = cleanBinds(fileBinds, ids);
 
-    return { raw, templates, favorites, usage, binds };
+    return { raw, templates, favorites, usage, binds, droppedBinds: dropped, dupes };
 }

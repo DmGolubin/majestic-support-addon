@@ -36,6 +36,28 @@ export function bindProblem(combo: string): string {
     return "";
 }
 
+/** Exactly what comboOf() produces: modifiers in Ctrl, Alt, Shift, Meta order, each at most once, then one key code. */
+const CANONICAL = /^(Ctrl\+)?(Alt\+)?(Shift\+)?(Meta\+)?([A-Z][A-Za-z0-9]*)$/;
+
+/** A combo that may be stored as a bind: canonical and allowed (the same rules as assigning one by hand). */
+export function isValidBind(combo: unknown): combo is string {
+    return typeof combo === "string" && CANONICAL.test(combo) && !MODIFIER_CODES.includes(combo.split("+").pop()!) && !bindProblem(combo);
+}
+
+/** Binds from a file or a save: only valid combos of known templates, each combo once (first wins). */
+export function cleanBinds(binds: unknown, ids: Set<string>): { binds: Record<string, string>; dropped: number; } {
+    const out: Record<string, string> = {};
+    const used = new Set<string>();
+    let dropped = 0;
+    if (!binds || typeof binds !== "object") return { binds: out, dropped };
+    for (const [id, combo] of Object.entries(binds as Record<string, unknown>)) {
+        if (!ids.has(id) || !isValidBind(combo) || used.has(combo)) { dropped++; continue; }
+        out[id] = combo;
+        used.add(combo);
+    }
+    return { binds: out, dropped };
+}
+
 export function comboLabel(combo: string): string {
     const parts = combo.split("+");
     const code = parts.pop()!;

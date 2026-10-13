@@ -10,7 +10,8 @@ import { TECH_GUILD } from "../core/guard";
 import { PREFIXES } from "../core/trigger";
 import { PROJECTS } from "../core/types";
 import { toast } from "../platform";
-import { store, useStore } from "./uiState";
+import { confirmedForeign, supersede } from "./flow";
+import { store, ui, useStore } from "./uiState";
 
 export function Settings() {
     useStore();
@@ -26,7 +27,12 @@ export function Settings() {
             const file = inp.files?.[0];
             if (!file) return;
             try {
-                setStatus(store.importText(await file.text()));
+                const msg = store.importText(await file.text());
+                // The set was replaced: nothing in progress may keep pointing at old templates or old confirmations.
+                supersede();
+                confirmedForeign.clear();
+                ui.set({ compose: [], inline: null, menu: null, dialog: null });
+                setStatus(msg);
                 toast("Импорт выполнен", "success");
             } catch (e: any) {
                 console.error("[SupportTemplates] import failed", e);
