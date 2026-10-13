@@ -17,6 +17,7 @@ import { favoritesOf } from "./core/rank";
 import { currentChannel, currentGuildId, onChannelChange } from "./platform";
 import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
 import { insertTemplate, supersede } from "./ui/flow";
+import { loadFonts, unloadFonts } from "./ui/fonts";
 import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
 import { handleInlineKey, resetInline, startInline } from "./ui/inline";
@@ -219,6 +220,7 @@ export default definePlugin({
         document.addEventListener("keydown", onKey, true);
         offLatch = startLatch();
         lastGuild = currentGuildId();
+        loadFonts();
         host = document.createElement("div");
         host.id = "vc-stx-host";
         document.body.append(host);
@@ -245,6 +247,7 @@ export default definePlugin({
         root?.unmount();
         host?.remove();
         root = host = null;
+        unloadFonts();
         ui.set({ windowOpen: false, dialog: null, inline: null, menu: null });
         setDebugEnabled(false);
     },

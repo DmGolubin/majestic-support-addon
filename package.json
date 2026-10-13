@@ -6,6 +6,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/make-icons.mjs",
+    "fonts": "node scripts/make-fonts.mjs",
     "sync:vencord": "node scripts/sync-vencord.mjs"
   },
   "devDependencies": {

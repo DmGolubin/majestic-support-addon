@@ -54,3 +54,7 @@ cd C:/Users/oblako/dev/Vencord && pnpm build   # затем Ctrl+R в Discord
 ```
 
 `VENCORD_DIR` переопределяет путь к Vencord. Vencord должен быть установлен из исходников (`pnpm inject`).
+
+## Шрифты
+
+Окно использует шрифты панели: Golos Text и JetBrains Mono (SIL Open Font License 1.1, тексты лицензий — `assets/fonts/OFL-*.txt`). Они встроены в плагин (`pnpm fonts` → `src/vencord/ui/fontData.ts`) и подгружаются из памяти под именами «STX Golos» / «STX Mono»: без сетевых запросов, шрифты самого Discord не меняются.
