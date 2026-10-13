@@ -211,3 +211,4 @@
 .vc-stx-dbg-chips button.on { background: var(--stx-hover); color: var(--stx-tx); border-color: var(--stx-amber); }
 .vc-stx-dbg-chips button:disabled { opacity: .4; cursor: default; }
 .vc-stx-dbg-log { max-height: 40vh; overflow: auto; color: var(--stx-mu); border-bottom: 0; }
+.vc-stx-dbg-note { padding: 2px 8px; color: var(--stx-mu2); font-size: 10px; }

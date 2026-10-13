@@ -7,7 +7,7 @@
 // A key that triggered a plugin action stays "latched" until released: its auto-repeat
 // keydowns are swallowed, so a held Enter/Tab never reaches Discord after an insert.
 
-import { dlog, noteKey } from "./debug";
+import { costEnd, costStart, dlog, noteKey } from "./debug";
 
 let latched: string | null = null;
 
@@ -32,7 +32,11 @@ export function swallowLatched(e: KeyboardEvent): boolean {
 }
 
 export function startLatch() {
-    const up = (e: KeyboardEvent) => { if (e.code === latched) latched = null; };
+    const up = (e: KeyboardEvent) => {
+        const t0 = costStart();
+        if (e.code === latched) latched = null;
+        costEnd("keys", t0);
+    };
     const blur = () => { latched = null; };
     document.addEventListener("keyup", up, true);
     window.addEventListener("blur", blur);

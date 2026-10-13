@@ -5,12 +5,19 @@
  */
 
 import { PROJECTS } from "../core/types";
+import { costEnd, costStart } from "./debug";
 import { nqHighlight } from "./highlight";
 import { acceptInline } from "./inline";
 import { ProjectIcon } from "./ProjectIcon";
 import { activeProject, ui, useChatRect } from "./uiState";
 
+/** Its render is a `render` cost span while debug is on. */
 export function Inline() {
+    const t0 = costStart();
+    try { return InlineView(); } finally { costEnd("render", t0); }
+}
+
+function InlineView() {
     const inline = ui.useSelect(s => s.inline);
     const hasCompose = ui.useSelect(s => s.compose.length > 0);
     const rect = useChatRect(!!inline);

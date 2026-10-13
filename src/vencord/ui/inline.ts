@@ -9,7 +9,7 @@ import { search } from "../core/search";
 import { findTrigger } from "../core/trigger";
 import { Template } from "../core/types";
 import { activeEditor, insertText, toast } from "../platform";
-import { debugEnabled, dlog } from "./debug";
+import { costEnd, costStart, debugEnabled, dlog } from "./debug";
 import { prepareText, stillCurrent } from "./flow";
 import { latchKey } from "./keylatch";
 import { activeProject, InlineState, poolFor, store, ui } from "./uiState";
@@ -37,11 +37,38 @@ function publish(next: InlineState | null) {
     ui.set({ inline: next });
 }
 
+const SLATE = '[data-slate-editor="true"]';
+
+/** The Slate editor holding focus, or null. Same result as activeEditor() + contains(activeElement), without the querySelector fallback. */
+const focusedEditor = () => (document.activeElement?.closest?.(SLATE) as HTMLElement | null | undefined) ?? null;
+
+/**
+ * The last check that found no trigger: while the editor, its text, the caret and the prefix are the
+ * same, the answer is the same (no trigger) — skip the Range work. A trigger result is never cached
+ * (its items depend on the project and the store).
+ */
+let idle: { ed: HTMLElement; text: string; node: Node | null; off: number; anchor: Node | null; aoff: number; prefix: string; } | null = null;
+
+/** selectionchange/input → at most one check per frame; an `inline` cost span while debug is on. */
 function check() {
-    const ed = activeEditor();
-    if (!ed || !ed.contains(document.activeElement)) return close();
+    const t0 = costStart();
+    try { runCheck(); } finally { costEnd("inline", t0); }
+}
+
+function runCheck() {
+    const ed = focusedEditor();
+    if (!ed) { idle = null; return close(); }
+    const { prefix } = store.data;
+    const text = ed.textContent ?? "";
+    // No prefix character anywhere in the editor: no trigger is possible — no Selection/Range work at all.
+    if (!text.includes(prefix)) { idle = null; return close(); }
+    const sel = window.getSelection();
+    // Anchor too: a range collapsing onto the same focus point can create a trigger.
+    const node = sel?.focusNode ?? null, off = sel?.focusOffset ?? 0, anchor = sel?.anchorNode ?? null, aoff = sel?.anchorOffset ?? 0;
+    if (idle && idle.ed === ed && idle.text === text && idle.node === node && idle.off === off && idle.anchor === anchor && idle.aoff === aoff && idle.prefix === prefix) return close();
     const before = textBeforeCaret(ed);
-    const trig = before !== null ? findTrigger(before.split("\n").pop() ?? "", store.data.prefix) : null;
+    const trig = before !== null ? findTrigger(before.split("\n").pop() ?? "", prefix) : null;
+    idle = trig ? null : { ed, text, node, off, anchor, aoff, prefix };
     if (!trig) return close();
     const { project } = activeProject();
     if (!project) {
@@ -60,14 +87,17 @@ function close() {
 
 let raf = 0;
 const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(check); };
+/** selectionchange fires for every selection anywhere in Discord: nothing to do unless an editor has focus or the popup must close. */
+const onSelection = () => { if (ui.get().inline || focusedEditor()) schedule(); };
 
 export function startInline() {
     document.addEventListener("input", schedule, true);
-    document.addEventListener("selectionchange", schedule);
+    document.addEventListener("selectionchange", onSelection);
     return () => {
+        idle = null;
         cancelAnimationFrame(raf);
         document.removeEventListener("input", schedule, true);
-        document.removeEventListener("selectionchange", schedule);
+        document.removeEventListener("selectionchange", onSelection);
         close();
     };
 }
@@ -96,7 +126,13 @@ export function resetInline() {
 /** For the debug panel. */
 export const isAccepting = () => accepting;
 
-export async function acceptInline(i: number, noGreeting: boolean) {
+/** The synchronous part (up to the first await) is an `inline` cost span; the waits (dialogs, Slate) are not plugin work. */
+export function acceptInline(i: number, noGreeting: boolean): Promise<void> {
+    const t0 = costStart();
+    try { return runAccept(i, noGreeting); } finally { costEnd("inline", t0); }
+}
+
+async function runAccept(i: number, noGreeting: boolean) {
     const st = ui.get().inline;
     const t = st?.items[i];
     if (!st || !t || accepting) { dlog("inline-accept", { i, skip: accepting ? "уже идёт вставка" : "нет пункта" }); return; }

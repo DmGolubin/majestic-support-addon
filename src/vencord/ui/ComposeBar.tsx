@@ -8,12 +8,18 @@ import { useState } from "@webpack/common";
 
 import { joinPieces } from "../core/compose";
 import { activeEditor, currentChannel, insertText, toast } from "../platform";
-import { dlog } from "./debug";
+import { costEnd, costStart, dlog } from "./debug";
 import { confirmedForeign, fillFields, Snap, stillCurrent } from "./flow";
 import { ProjectIcon } from "./ProjectIcon";
 import { activeProject, store, ui, useChatRect } from "./uiState";
 
+/** Its render is a `render` cost span while debug is on. */
 export function ComposeBar() {
+    const t0 = costStart();
+    try { return ComposeBarView(); } finally { costEnd("render", t0); }
+}
+
+function ComposeBarView() {
     const compose = ui.useSelect(s => s.compose);
     const [drag, setDrag] = useState<string | null>(null);
     const rect = useChatRect(compose.length > 0);

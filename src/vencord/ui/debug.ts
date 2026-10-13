@@ -7,13 +7,16 @@
 // Debug mode: a live state snapshot + a ring of the last plugin events. Off by default; when off,
 // dlog() is one boolean check and nothing is rendered or listened to.
 // Verbose level (a second setting, meaningful only with debug on): raw key/mouse/wheel/focus/resize
-// events, geometry, perf. Its listeners exist only while it is on; off = noteKey()/noteWheel() see null.
+// events, geometry, search/render details. Its listeners exist only while it is on; off = noteKey()/noteWheel() see null.
 // Privacy: titles and ids only — never template texts, field values, the captured selection or tokens.
 // Typed characters are masked (chat box, dialog fields) except in the window's search; queries are cut to 40 chars.
+// Cost accounting (debug on, any level): costStart()/costEnd() around the plugin's own work — one boolean
+// check when debug is off, two performance.now() calls when on. Long tasks are matched against these spans.
 
 import { gitHash } from "@shared/vencordUserAgent";
 import { useEffect, useState } from "@webpack/common";
 
+import { COST_CATS, CostCat, CostMeter, NESTED_CATS, overlapLabel, throttle } from "../core/cost";
 import { projectForGuild } from "../core/guard";
 import { comboLabel } from "../core/keys";
 import { DebugEvent, formatEvent, Ring } from "../core/ring";
@@ -40,6 +43,25 @@ let enabled = false;
 let verboseSetting = false;
 let verbose = false;
 const ring = new Ring(CAP);
+const meter = new CostMeter();
+
+/** performance.now() when debug is on, else 0 (= not measured). The start of a measured span. */
+export function costStart(): number {
+    return enabled ? performance.now() : 0;
+}
+
+/** The end of a span started by costStart(); a no-op for 0. */
+export function costEnd(cat: CostCat, t0: number) {
+    if (t0) meter.record(cat, t0, performance.now());
+}
+
+/** Wraps a listener/callback as a measured `debug` span (verbose listeners, timers, the long task observer). */
+function dspan<A extends unknown[]>(fn: (...a: A) => void): (...a: A) => void {
+    return (...a: A) => {
+        const t0 = costStart();
+        try { fn(...a); } finally { costEnd("debug", t0); }
+    };
+}
 
 /** on: the setting; verbose: the effective verbose level; win: the window's report; log: bumps on every event. */
 export const debugState = createObservable<{ on: boolean; verbose: boolean; win: WinDebug | null; log: number; }>({ on: false, verbose: false, win: null, log: 0 });
@@ -52,6 +74,9 @@ export function setDebugEnabled(on: boolean) {
     if (on === enabled) return;
     enabled = on;
     if (!on) ring.clear();
+    meter.clear();
+    resetLong();
+    if (on) startLongTasks(); else stopLongTasks();
     debugState.set({ on, win: null, log: debugState.get().log + 1 });
     if (on) dlog("debug", { on: true, verbose: verboseSetting });
     applyVerbose();
@@ -97,11 +122,9 @@ export function setDebugHover(hoveredId: string | null) {
     if (win && win.hoveredId !== hoveredId) debugState.set({ win: { ...win, hoveredId } });
 }
 
-/** Re-renders on every new event; returns the events, oldest first. */
-export function useDebugLog(): DebugEvent[] {
-    debugState.useSelect(s => s.log);
-    return ring.list();
-}
+/** The events, oldest first (a copy). */
+export const debugEvents = (): DebugEvent[] => ring.list();
+export const debugCount = () => ring.length;
 
 export function clearDebugLog() {
     ring.clear();
@@ -194,11 +217,12 @@ export function debugSettings(): string[] {
         `бинды (${binds.length}): ${binds.length ? binds.map(([id, c]) => `${comboLabel(c)} → ${tpl(id)}`).join(", ") : "нет"}`,
         `привязки серверов (${guilds.length}): ${guilds.length ? guilds.map(([g, b]) => `${g}${guildName(g) ? ` «${guildName(g)}»` : ""} = ${b}`).join(", ") : "нет"}`,
         `Discord: язык ${env.locale ?? (document.documentElement.lang || navigator.language)} · тема ${env.theme ?? "?"} · zoom ${env.zoom ?? "?"} · шрифт ${env.fontSize ?? "?"}`,
-        `загрузка плагина: ${loadMs === null ? "?" : loadMs.toFixed(1) + " мс"}`,
+        ...loadLines(),
     ];
 }
 
-// ---- Geometry (read on demand: panel render while verbose, report, open/close/resize events) ----
+// ---- Geometry (read on demand: the panel's open Geometry section at most once a second and on
+// window open/close/resize, the report) — never during a render ----
 
 const rnd = Math.round;
 const rect = (b: DOMRect | null | undefined) => b ? `x${rnd(b.x)} y${rnd(b.y)} ${rnd(b.width)}×${rnd(b.height)}` : "—";
@@ -207,8 +231,21 @@ const scrollOf = (el: Element | null | undefined) =>
     el ? ` · scrollTop ${rnd(el.scrollTop)} / scrollHeight ${el.scrollHeight} / clientHeight ${el.clientHeight}` : "";
 const part = (sel: string) => document.getElementById("vc-stx-host")?.querySelector(sel) ?? null;
 
+const geomSubs = new Set<() => void>();
+/** Window open/close and resize: the panel re-measures its open Geometry section. */
+export function onGeometryEvent(fn: () => void) {
+    geomSubs.add(fn);
+    return () => void geomSubs.delete(fn);
+}
+const geomEventNow = () => geomSubs.forEach(fn => fn());
+
 /** Screen, zoom and the rects of every plugin part. Forces a layout read. */
 export function debugGeometry(): string[] {
+    const t0 = costStart();
+    try { return geometryLines(); } finally { costEnd("debug", t0); }
+}
+
+function geometryLines(): string[] {
     const env = discordEnv();
     const vv = window.visualViewport;
     const list = part(".vc-stx-list");
@@ -239,38 +276,55 @@ const geomEvent = (): Record<string, unknown> => ({
 
 /** Geometry snapshot into the log (window open/close). Verbose only; read after layout. */
 export function logGeometry(what: string) {
+    if (!enabled) return;
+    geomEventNow();
     if (!verbose) return;
     requestAnimationFrame(() => dlog("geometry", { what, ...geomEvent() }));
 }
 
-// ---- Perf (verbose only, except the one-off plugin load time) ----
+// ---- Perf: plugin cost and long tasks (debug on, any level); search details and window renders (verbose) ----
 
-let loadMs: number | null = null;
-export const setLoadTime = (ms: number) => { loadMs = ms; };
+/** Plugin start: the whole start() (awaits included), the await of store.load, the synchronous rest; readyAt = performance.now(). */
+export interface LoadTimes { total: number; storeLoad: number; mount: number; readyAt: number; }
+let load: LoadTimes | null = null;
+export const setLoadTime = (t: LoadTimes) => { load = t; };
+
+function loadLines(): string[] {
+    if (!load) return ["загрузка плагина: ?"];
+    const f = (ms: number) => ms.toFixed(1) + " мс";
+    return [
+        `загрузка плагина: start() → готово ${f(load.total)} (ожидание store.load ${f(load.storeLoad)} — включает работу Discord в это время; монтирование и подписки ${f(load.mount)})`,
+        `  от запуска страницы (performance.timeOrigin) до готовности плагина: ${f(load.readyAt)} — это загрузка Discord и Vencord, не только плагина`,
+    ];
+}
 
 const perf = {
     searches: [] as number[],
     lastSearch: null as { ms: number; q: string; items: number; } | null,
     renders: 0,
     renderTimes: [] as number[],
-    longCount: 0,
-    longMax: 0,
-    longLast: [] as number[],
 };
+
+const long = { count: 0, max: 0, ms: 0, withPlugin: 0, pluginMs: 0, last: [] as string[] };
 
 function resetPerf() {
     perf.searches = [];
     perf.lastSearch = null;
     perf.renders = 0;
     perf.renderTimes = [];
-    perf.longCount = 0;
-    perf.longMax = 0;
-    perf.longLast = [];
 }
 
-/** Search + ranking time of one list computation (the window measures it only while verbose is on). */
-export function noteSearch(ms: number, query: string, items: number) {
+function resetLong() {
+    long.count = long.max = long.ms = long.withPlugin = long.pluginMs = 0;
+    long.last = [];
+}
+
+/** Search + ranking of one list computation [t0, t1] (the window measures it while debug is on). */
+export function noteSearch(t0: number, t1: number, query: string, items: number) {
+    if (!enabled) return;
+    meter.record("search", t0, t1);
     if (!verbose) return;
+    const ms = t1 - t0;
     perf.searches.push(ms);
     if (perf.searches.length > 20) perf.searches.shift();
     perf.lastSearch = { ms, q: query, items };
@@ -286,17 +340,66 @@ export function noteRender() {
     while (perf.renderTimes[0] < now - 5000) perf.renderTimes.shift();
 }
 
+let longObserver: PerformanceObserver | null = null;
+let longSupported = true;
+
+function onLongTasks(list: PerformanceObserverEntryList) {
+    for (const en of list.getEntries()) {
+        const ms = rnd(en.duration);
+        const o = meter.overlap(en.startTime, en.startTime + en.duration);
+        const plugin = overlapLabel(o);
+        long.count++;
+        long.max = Math.max(long.max, ms);
+        long.ms += en.duration;
+        if (o.cats.length) { long.withPlugin++; long.pluginMs += o.ms; }
+        long.last.push(o.cats.length ? `${ms} (${o.cats.join(",")} ${o.ms.toFixed(1)} мс)` : `${ms} (—)`);
+        if (long.last.length > 5) long.last.shift();
+        // Normal level: only the long tasks the plugin took part in; verbose: all of them.
+        if (o.cats.length || verbose) dlog("longtask", { ms, plugin, pluginMs: o.cats.length ? +o.ms.toFixed(1) : undefined }, "longtask:" + plugin);
+    }
+}
+
+function startLongTasks() {
+    if (longObserver) return;
+    try {
+        if (!PerformanceObserver.supportedEntryTypes?.includes("longtask")) { longSupported = false; return; }
+        longObserver = new PerformanceObserver(dspan(onLongTasks));
+        longObserver.observe({ type: "longtask" });
+    } catch (e) {
+        longObserver = null;
+        longSupported = false;
+        console.debug("[SupportTemplates] longtask observer unavailable", e);
+    }
+}
+
+function stopLongTasks() {
+    longObserver?.disconnect();
+    longObserver = null;
+}
+
+const pct = (part: number, whole: number) => whole > 0 ? (part / whole * 100).toFixed(part / whole < 0.1 ? 1 : 0) + "%" : "—";
+
 export function debugPerf(): string[] {
-    if (!verbose) return ["включите «Отладка: подробно»"];
-    const s = perf.searches;
     const now = performance.now();
+    const sums = meter.sums(now);
+    const total = meter.total(now);
+    const calls = COST_CATS.filter(c => !NESTED_CATS.includes(c)).reduce((a, c) => a + sums[c].n, 0);
+    const out = [
+        `плагин за последние 60 с: ${total.toFixed(1)} мс (${pct(total, 60_000)} времени) · вызовов ${calls}`,
+        ...COST_CATS.map(c => `  ${c}: ${sums[c].ms.toFixed(1)} мс за 60 с · вызовов ${sums[c].n}${NESTED_CATS.includes(c) ? " (входит в render)" : ""}`),
+        !longSupported ? "long tasks: PerformanceObserver(longtask) недоступен"
+            : `long tasks: ${long.count} · с работой плагина ${long.withPlugin} · доля плагина в их времени ${pct(long.pluginMs, long.ms)} · макс ${long.max} мс`,
+        `  последние: ${long.last.join(", ") || "—"}`,
+    ];
+    if (!verbose) return [...out, "поиск и рендеры окна подробно: включите «Отладка: подробно»"];
+    const s = perf.searches;
     const recent = perf.renderTimes.filter(t => t >= now - 5000).length;
     const ls = perf.lastSearch;
     return [
+        ...out,
         `поиск + ранжирование: ${ls ? `последний ${ls.ms.toFixed(2)} мс (запрос ${q40(ls.q)}, в списке ${ls.items})` : "ещё не было"}`
         + (s.length ? ` · среднее ${(s.reduce((a, b) => a + b, 0) / s.length).toFixed(2)} мс · макс ${Math.max(...s).toFixed(2)} мс (последние ${s.length})` : ""),
         `рендеров окна: ${perf.renders} · за 5 с: ${recent} (${(recent / 5).toFixed(1)}/с)`,
-        `long tasks: ${longObserver ? `${perf.longCount} · макс ${perf.longMax} мс · последние ${perf.longLast.join(", ") || "—"}` : "PerformanceObserver(longtask) недоступен"}`,
     ];
 }
 
@@ -333,7 +436,6 @@ export function debugReport(): string {
 // ---- Verbose listeners: only while verbose is on; capture, passive, never preventDefault ----
 
 let offVerbose: (() => void) | null = null;
-let longObserver: PerformanceObserver | null = null;
 
 /** The keydown being dispatched (verbose only): plugin handlers note who consumed it; logged after dispatch. */
 let pendingKey: { ev: KeyboardEvent; h: string; } | null = null;
@@ -376,10 +478,12 @@ function flushKey() {
     dlog("keydown", { ...data, h: p.h }, masked ? "kd:typing:" + p.h : `kd:${p.ev.code}:${data.mods ?? ""}:${p.h}`);
 }
 
+const flushKeyTimer = dspan(flushKey);
+
 function onVKeyDown(e: KeyboardEvent) {
     flushKey();
     pendingKey = { ev: e, h: "none" };
-    setTimeout(flushKey, 0); // after the whole dispatch, including the window's React handler
+    setTimeout(flushKeyTimer, 0); // after the whole dispatch, including the window's React handler
 }
 
 function onVKeyUp(e: KeyboardEvent) {
@@ -402,11 +506,13 @@ function flushWheel() {
     }, `wheel:${w.target}:${w.shift}:${w.handled}`);
 }
 
+const flushWheelTimer = dspan(flushWheel);
+
 /** At most one wheel line per 100 ms, deltas summed. */
 function onVWheel(e: WheelEvent) {
     if (!wheel) {
         wheel = { n: 0, dx: 0, dy: 0, mode: e.deltaMode, shift: false, el: e.target, target: describeEl(e.target as Element), mixed: false, handled: false };
-        wheelTimer = setTimeout(flushWheel, 100);
+        wheelTimer = setTimeout(flushWheelTimer, 100);
     } else if (e.target !== wheel.el) wheel.mixed = true;
     wheel.n++;
     wheel.dx += e.deltaX;
@@ -434,7 +540,7 @@ function onVFocus(e: FocusEvent) {
 let resizeTimer: ReturnType<typeof setTimeout> | null = null;
 function onVResize() {
     if (resizeTimer) clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { resizeTimer = null; dlog("resize", geomEvent()); }, 250);
+    resizeTimer = setTimeout(dspan(() => { resizeTimer = null; geomEventNow(); dlog("resize", geomEvent()); }), 250);
 }
 
 function startVerbose() {
@@ -442,36 +548,18 @@ function startVerbose() {
     const ac = new AbortController();
     const o: AddEventListenerOptions = { capture: true, passive: true, signal: ac.signal };
     // keydown on window (capture) runs before the plugin's document handler; the line is written after dispatch.
-    window.addEventListener("keydown", onVKeyDown, o);
-    document.addEventListener("keyup", onVKeyUp, o);
-    document.addEventListener("wheel", onVWheel, o);
-    document.addEventListener("mousedown", onVMouse, o);
-    document.addEventListener("click", onVMouse, o);
-    document.addEventListener("focusin", onVFocus, o);
-    document.addEventListener("focusout", onVFocus, o);
-    window.addEventListener("resize", onVResize, { passive: true, signal: ac.signal });
-    try {
-        if (PerformanceObserver.supportedEntryTypes?.includes("longtask")) {
-            longObserver = new PerformanceObserver(list => {
-                for (const en of list.getEntries()) {
-                    const ms = rnd(en.duration);
-                    perf.longCount++;
-                    perf.longMax = Math.max(perf.longMax, ms);
-                    perf.longLast.push(ms);
-                    if (perf.longLast.length > 5) perf.longLast.shift();
-                    dlog("longtask", { ms }, "longtask");
-                }
-            });
-            longObserver.observe({ type: "longtask" });
-        }
-    } catch (e) {
-        longObserver = null;
-        console.debug("[SupportTemplates] longtask observer unavailable", e);
-    }
+    // Every listener is a measured `debug` span.
+    window.addEventListener("keydown", dspan(onVKeyDown), o);
+    document.addEventListener("keyup", dspan(onVKeyUp), o);
+    document.addEventListener("wheel", dspan(onVWheel), o);
+    const mouse = dspan(onVMouse), focus = dspan(onVFocus);
+    document.addEventListener("mousedown", mouse, o);
+    document.addEventListener("click", mouse, o);
+    document.addEventListener("focusin", focus, o);
+    document.addEventListener("focusout", focus, o);
+    window.addEventListener("resize", dspan(onVResize), { passive: true, signal: ac.signal });
     offVerbose = () => {
         ac.abort();
-        longObserver?.disconnect();
-        longObserver = null;
         if (resizeTimer) { clearTimeout(resizeTimer); resizeTimer = null; }
         if (wheelTimer) { clearTimeout(wheelTimer); wheelTimer = null; }
         wheel = null;
@@ -485,22 +573,26 @@ function stopVerbose() {
     resetPerf();
 }
 
-/** Bumps on focus changes and keys (only while mounted, i.e. while debug is on), at most once per frame. */
-export function useFocusTick() {
+/**
+ * The debug panel's re-render clock: at most one render per 250 ms (trailing render guaranteed).
+ * Collapsed (`open` false): only debug state/new events bump it (the header counter); open: also
+ * UI and store state, focus and keys.
+ */
+export function usePanelTick(open: boolean) {
     const [, setTick] = useState(0);
     useEffect(() => {
-        let raf = 0;
-        const bump = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => setTick(x => x + 1)); };
-        document.addEventListener("focusin", bump, true);
-        document.addEventListener("focusout", bump, true);
-        document.addEventListener("keydown", bump, true);
-        document.addEventListener("keyup", bump, true);
+        const t = throttle(250, () => setTick(x => x + 1));
+        const bump = () => t.call();
+        const offs = [debugState.subscribe(bump)];
+        const evs = ["focusin", "focusout", "keydown", "keyup"];
+        if (open) {
+            offs.push(ui.subscribe(bump), store.subscribe(bump));
+            for (const ev of evs) document.addEventListener(ev, bump, true);
+        }
         return () => {
-            cancelAnimationFrame(raf);
-            document.removeEventListener("focusin", bump, true);
-            document.removeEventListener("focusout", bump, true);
-            document.removeEventListener("keydown", bump, true);
-            document.removeEventListener("keyup", bump, true);
+            t.cancel();
+            offs.forEach(off => off());
+            if (open) for (const ev of evs) document.removeEventListener(ev, bump, true);
         };
-    }, []);
+    }, [open]);
 }

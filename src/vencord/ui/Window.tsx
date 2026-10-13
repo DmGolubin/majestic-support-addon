@@ -13,7 +13,7 @@ import { search } from "../core/search";
 import { splitGreeting } from "../core/text";
 import { ProjectId, PROJECTS, Template } from "../core/types";
 import { chatAreaRect } from "../platform";
-import { debugEnabled, debugState, debugVerbose, dlog, keyDesc, logGeometry, noteKey, noteRender, noteSearch, noteWheel, setDebugHover, setDebugWindow } from "./debug";
+import { costEnd, costStart, debugEnabled, debugState, debugVerbose, dlog, keyDesc, logGeometry, noteKey, noteRender, noteSearch, noteWheel, setDebugHover, setDebugWindow } from "./debug";
 import { addToCompose, ensureProject, insertTemplate } from "./flow";
 import { nqHighlight } from "./highlight";
 import { latchKey } from "./keylatch";
@@ -93,7 +93,13 @@ function RowImpl({ t, sel, alt, bind, icon, tokens, line, onHover, onMove, onLea
 let MemoRow: React.ComponentType<RowProps> | null = null;
 const getRow = () => MemoRow ??= React.memo(RowImpl);
 
+/** The template window; its render (the component body) is a `render` cost span while debug is on. */
 export function Window() {
+    const t0 = costStart();
+    try { return WindowView(); } finally { costEnd("render", t0); }
+}
+
+function WindowView() {
     const version = useStore();
     const composeLen = ui.useSelect(s => s.compose.length);
     const hasCompose = composeLen > 0;
@@ -125,7 +131,7 @@ export function Window() {
     const tipRef = useRef<HTMLDivElement>(null);
 
     const data = useMemo(() => {
-        const t0 = debugVerbose() ? performance.now() : 0;
+        const t0 = debugEnabled() ? performance.now() : 0;
         const ctx = store.ctx();
         const projectPool = poolFor(project);
         const cats = categoriesOf(projectPool);
@@ -146,7 +152,7 @@ export function Window() {
             return n >= 0 && n < 9 ? n + 1 : 0;
         };
         const lines = new Map(hits.map(h => [h.t, h.line]));
-        if (t0) noteSearch(performance.now() - t0, query, items.length);
+        if (t0) noteSearch(t0, performance.now(), query, items.length);
         return { total: projectPool.length, cats, res, secs, favs, items, positional, alt, lines, tokens: res?.tokens ?? NO_TOKENS };
     }, [query, project, view, cat, version]);
     const { cats, res, secs, favs, items } = data;

@@ -15,7 +15,7 @@ import { DM_KEY, projectForGuild } from "./core/guard";
 import { comboOf } from "./core/keys";
 import { favoritesOf } from "./core/rank";
 import { currentChannel, onChannelChange } from "./platform";
-import { debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
+import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
 import { insertTemplate, supersede } from "./ui/flow";
 import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
@@ -34,8 +34,13 @@ export function toggleWindow(open = !ui.get().windowOpen) {
     ui.set({ windowOpen: open, menu: null, selection: open ? String(window.getSelection() ?? "") : "" });
 }
 
-/** Chat-bar button: the icon follows this channel's server project (re-rendered by Discord on channel switch). */
-const Button: ChatBarButtonFactory = ({ isMainChat, channel }) => {
+/** Chat-bar button: the icon follows this channel's server project (re-rendered by Discord on channel switch). Its render is a `render` cost span. */
+const Button: ChatBarButtonFactory = props => {
+    const t0 = costStart();
+    try { return ButtonView(props); } finally { costEnd("render", t0); }
+};
+
+const ButtonView: ChatBarButtonFactory = ({ isMainChat, channel }) => {
     useStore(); // server bindings live in the store (picked in the "which project?" dialog)
     const session = ui.useSelect(s => s.sessionProject);
     if (!isMainChat) return null;
@@ -81,7 +86,13 @@ function trapDialogFocus(e: KeyboardEvent) {
     }
 }
 
+/** The global keydown handler: its whole body is a `keys` cost span while debug is on. */
 function onKey(e: KeyboardEvent) {
+    const t0 = costStart();
+    try { handleKey(e); } finally { costEnd("keys", t0); }
+}
+
+function handleKey(e: KeyboardEvent) {
     if (swallowLatched(e)) return; // held key after an insert: never repeat it, never leak it to Discord
     const s = ui.get();
     if (s.dialog) {
@@ -188,8 +199,11 @@ export default definePlugin({
     chatBarButton: { icon: Icon, render: Button },
 
     async start() {
+        // Only the plugin's own start: the await of store.load (IndexedDB; Discord keeps working meanwhile)
+        // and the synchronous mount after it. Discord/Vencord boot before start() is not included.
         const t0 = performance.now();
         await store.load();
+        const t1 = performance.now();
         document.addEventListener("keydown", onKey, true);
         offLatch = startLatch();
         lastGuild = guildKey();
@@ -202,7 +216,8 @@ export default definePlugin({
         offChannel = onChannelChange(channelChanged);
         setDebugVerbose(!!settings.store.debugVerbose);
         setDebugEnabled(!!settings.store.debug);
-        setLoadTime(performance.now() - t0);
+        const t2 = performance.now();
+        setLoadTime({ total: t2 - t0, storeLoad: t1 - t0, mount: t2 - t1, readyAt: t2 });
     },
 
     stop() {
