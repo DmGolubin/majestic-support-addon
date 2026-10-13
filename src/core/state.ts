@@ -9,7 +9,7 @@ import { importBackup, parseRaw } from "./importer";
 import { bindProblem } from "./keys";
 import { RankCtx } from "./rank";
 import { PREFIXES } from "./trigger";
-import { Template, Usage } from "./types";
+import { ProjectId, Template, Usage } from "./types";
 
 export interface StorageLike {
     get(key: string): Promise<unknown>;
@@ -28,6 +28,8 @@ export interface Persisted {
     intentional: string[];
     prefix: string;
     previewOpen: boolean;
+    /** Tech server: which project's templates the window, Alt+1…9, binds and suggestions use. Not part of an import. */
+    techProject: ProjectId;
 }
 
 export const STORE_KEY = "SupportTemplates_v2";
@@ -35,7 +37,7 @@ export const STORE_KEY = "SupportTemplates_v2";
 export const LEGACY_KEY = "SupportTemplates_data";
 
 const empty = (): Persisted => ({
-    v: 2, raw: "", favorites: [], recent: [], usage: {}, binds: {}, guilds: {}, intentional: [], prefix: ";", previewOpen: true,
+    v: 2, raw: "", favorites: [], recent: [], usage: {}, binds: {}, guilds: {}, intentional: [], prefix: ";", previewOpen: true, techProject: "mj",
 });
 
 export class Store {
@@ -59,6 +61,7 @@ export class Store {
         const saved = await this.storage.get(STORE_KEY) as Persisted | undefined;
         if (saved && saved.v === 2) {
             this.data = { ...empty(), ...saved };
+            if (this.data.techProject !== "mj" && this.data.techProject !== "ro") this.data.techProject = "mj";
             this.templates = parseRaw(this.data.raw);
         } else {
             const legacy = await this.storage.get(LEGACY_KEY) as { raw?: string; } | undefined;
@@ -151,6 +154,13 @@ export class Store {
 
     setPreviewOpen(b: boolean) {
         this.data.previewOpen = b;
+        this.changed();
+    }
+
+    setTechProject(p: ProjectId) {
+        if (p !== "mj" && p !== "ro") throw new Error("Проект: mj или ro");
+        if (this.data.techProject === p) return;
+        this.data.techProject = p;
         this.changed();
     }
 }

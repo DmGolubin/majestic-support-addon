@@ -124,3 +124,30 @@ describe("Store previewOpen default", () => {
         expect(s2.data.previewOpen).toBe(true);
     });
 });
+
+describe("Store techProject", () => {
+    it("defaults to Majestic and old saves without the field get it", async () => {
+        const s = new Store(mem());
+        await s.load();
+        expect(s.data.techProject).toBe("mj");
+        const { techProject: _, ...old } = s.data;
+        const s2 = new Store(mem({ [STORE_KEY]: old }));
+        await s2.load();
+        expect(s2.data.techProject).toBe("mj");
+    });
+    it("persists the choice and survives an import; junk values fall back to mj", async () => {
+        const s = new Store(mem());
+        await s.load();
+        s.setTechProject("ro");
+        expect(s.data.techProject).toBe("ro");
+        s.importText("## Majestic RP\n### A\na");
+        expect(s.data.techProject).toBe("ro");
+        const s2 = new Store(mem({ [STORE_KEY]: { ...s.data } }));
+        await s2.load();
+        expect(s2.data.techProject).toBe("ro");
+        const s3 = new Store(mem({ [STORE_KEY]: { ...s.data, techProject: "xx" } }));
+        await s3.load();
+        expect(s3.data.techProject).toBe("mj");
+        expect(() => s.setTechProject("xx" as any)).toThrow();
+    });
+});
