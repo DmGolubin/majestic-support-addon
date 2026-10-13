@@ -6,7 +6,7 @@
 
 import { React, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "@webpack/common";
 
-import { comboLabel } from "../core/keys";
+import { comboLabel, startsPeek } from "../core/keys";
 import { clampTop, EDGE, tipWidth, windowLayout } from "../core/layout";
 import { categoriesOf, favoritesOf, orderHits, recentOf, sections } from "../core/rank";
 import { search } from "../core/search";
@@ -127,6 +127,11 @@ function WindowView() {
     const tipRoomRef = useRef(true);
     const peekRef = useRef(false);
     const compactRef = useRef(false);
+    /** Pointer is over the window: Shift peeks even when focus fell to <body> (a click on a non-focusable part). */
+    const pointerIn = useRef(false);
+    /** Mirrors of the rendered list for the document-level Shift handler. */
+    const itemsRef = useRef<Template[]>([]);
+    const selIdxRef = useRef(0);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const winRef = useRef<HTMLDivElement>(null);
@@ -162,6 +167,8 @@ function WindowView() {
     visibleItems = data.positional ? items : favs;
     const selIdx = Math.min(sel, Math.max(0, items.length - 1));
     const current = items[selIdx];
+    itemsRef.current = items;
+    selIdxRef.current = selIdx;
 
     useEffect(() => {
         inputRef.current?.focus();
@@ -201,17 +208,39 @@ function WindowView() {
             if (el.closest?.(".vc-stx-win, .vc-stx-menu, .vc-stx-dialog, [data-stx=button], .vc-stx-backdrop, .vc-stx-debug")) return;
             ui.set({ windowOpen: false });
         };
-        // Shift held = temporary full-text preview; released anywhere = hide.
-        const onUp = (e: KeyboardEvent) => {
-            if (e.key !== "Shift") return;
+        // Shift held = temporary full-text preview; released anywhere (or the app losing focus) = hide.
+        // Document level, not the window's onKeyDown: a click on a non-focusable part of the window (tab
+        // strip, header, scrollbar) drops focus to <body>, and then the window never saw Shift (Task 20).
+        // Peek is visual only: Shift is never prevented, so Discord still gets it.
+        const onShift = (e: KeyboardEvent) => {
+            const focusIn = !!winRef.current?.contains(document.activeElement);
+            if (!startsPeek(e, focusIn, pointerIn.current)) return;
+            noteKey(e, "window: peek");
+            // Peek the row under the mouse when there is one (it becomes the selection), else the keyboard one.
+            const items = itemsRef.current, selIdx = selIdxRef.current;
+            const hi = hoveredId.current ? items.findIndex(t => t.id === hoveredId.current) : -1;
+            if (hi >= 0 && hi !== selIdx) setSel(hi);
+            stopHover();
+            setPeek(true);
+            if (debugEnabled()) {
+                const target = items[hi >= 0 ? hi : selIdx];
+                dlog("peek", { on: true, from: hi >= 0 ? "мышь" : "выделение", focus: focusIn ? "окно" : "вне окна", id: target?.id, title: target?.title });
+            }
+        };
+        const hide = () => {
             if (peekRef.current) dlog("peek", { on: false });
             setPeek(false);
         };
+        const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") hide(); };
         document.addEventListener("mousedown", onDown, true);
+        document.addEventListener("keydown", onShift, true);
         document.addEventListener("keyup", onUp, true);
+        window.addEventListener("blur", hide);
         return () => {
             document.removeEventListener("mousedown", onDown, true);
+            document.removeEventListener("keydown", onShift, true);
             document.removeEventListener("keyup", onUp, true);
+            window.removeEventListener("blur", hide);
             if (hoverTimer.current) clearTimeout(hoverTimer.current);
             if (scrollTimer.current) clearTimeout(scrollTimer.current);
         };
@@ -309,19 +338,8 @@ function WindowView() {
             noteKey(e, "window: " + what);
             if (debugEnabled()) dlog("key", { h: "window", key: keyDesc(e), what, ...data }, "win:" + keyDesc(e) + what);
         };
-        if (e.key === "Shift") {
-            if (e.repeat) return;
-            noteKey(e, "window: peek");
-            // Peek the row under the mouse when there is one (it becomes the selection), else the keyboard one.
-            const hi = hoveredId.current ? items.findIndex(t => t.id === hoveredId.current) : -1;
-            if (hi >= 0 && hi !== selIdx) setSel(hi);
-            stopHover();
-            setPeek(true);
-            if (debugEnabled()) {
-                const target = items[hi >= 0 ? hi : selIdx];
-                dlog("peek", { on: true, from: hi >= 0 ? "мышь" : "выделение", id: target?.id, title: target?.title });
-            }
-        } else if (e.key === "Escape") {
+        // Shift alone (peek) is handled at document level, see onShift.
+        if (e.key === "Escape") {
             eat();
             log(query ? "очистить запрос" : "закрыть окно");
             if (query) setQuery(""); else ui.set({ windowOpen: false });
@@ -415,9 +433,12 @@ function WindowView() {
         <>
             <div
                 className={"vc-stx-win" + (compact ? " compact" : "")} ref={winRef} style={style} onKeyDown={onKeyDown}
-                // Rows and buttons never take focus: it stays in the search input, so the keys keep working
-                // even when the clicked element unmounts (a Preview button once Shift is released).
-                onMouseDown={e => { if ((e.target as HTMLElement).closest("button, .vc-stx-it")) e.preventDefault(); }}
+                // Nothing in the window but text fields takes focus: it stays in the search input, so the keys
+                // keep working after a click on a row, a button (even one that unmounts on Shift release), the
+                // tab strip, the header, a section title or empty space. The preview text stays selectable.
+                onMouseDown={e => { if (!(e.target as HTMLElement).closest("input, textarea, select, .vc-stx-body")) e.preventDefault(); }}
+                onMouseEnter={() => { pointerIn.current = true; }}
+                onMouseLeave={() => { pointerIn.current = false; }}
             >
                 {/* Side: preview LEFT of the list (the window is right-anchored, the list never moves when it opens).
                     Compact: the same pane covers the list (absolute), the list stays mounted with its scroll. */}

@@ -42,3 +42,15 @@ export function comboLabel(combo: string): string {
     const label = /^Key([A-Z])$/.exec(code)?.[1] ?? /^Digit(\d)$/.exec(code)?.[1] ?? /^Numpad(\d)$/.exec(code)?.[1]?.replace(/^/, "Num") ?? code;
     return [...parts.map(m => (m === "Meta" ? "Win" : m)), label].join("+");
 }
+
+export interface PeekKey { key: string; repeat: boolean; ctrlKey: boolean; altKey: boolean; metaKey: boolean; }
+
+/**
+ * Shift peek starts on a fresh plain Shift press while the window has focus OR the pointer is over it
+ * (focus may have fallen to <body> after a click on a non-focusable part of the window). Ctrl/Alt/Meta
+ * held = a system combo (Win+Shift+S, Ctrl+Shift+…), never a peek. The peek is visual only: the key is
+ * never prevented.
+ */
+export function startsPeek(e: PeekKey, focusIn: boolean, pointerIn: boolean): boolean {
+    return e.key === "Shift" && !e.repeat && !e.ctrlKey && !e.altKey && !e.metaKey && (focusIn || pointerIn);
+}
