@@ -10,7 +10,7 @@ import { useState } from "@webpack/common";
 import { toast } from "../platform";
 import { ComposeBar } from "./ComposeBar";
 import { ContextMenu } from "./ContextMenu";
-import { debugState, dlog } from "./debug";
+import { debugState, dlog, setDebugEnabled } from "./debug";
 import { DebugPanel } from "./DebugPanel";
 import { Dialogs, idOf } from "./Dialogs";
 import { supersede } from "./flow";
@@ -26,7 +26,9 @@ const RESET: Record<string, () => Partial<UiState>> = {
     inline: () => ({ inline: null }),
     menu: () => ({ menu: null }),
     dialog: () => { supersede(); return { dialog: null }; },
-    debug: () => ({}),
+    // The debug panel is not essential: after an error it is switched off (until re-enabled in the settings),
+    // a snapshot that keeps throwing would otherwise remount and fail again in a loop.
+    debug: () => { setDebugEnabled(false); return {}; },
 };
 
 export function Host() {

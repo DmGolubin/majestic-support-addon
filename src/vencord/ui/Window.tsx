@@ -13,13 +13,13 @@ import { search } from "../core/search";
 import { splitGreeting } from "../core/text";
 import { PROJECTS, Template } from "../core/types";
 import { chatAreaRect } from "../platform";
+import { openMenu } from "./ContextMenu";
 import { costEnd, costStart, debugEnabled, debugState, debugVerbose, dlog, keyDesc, logGeometry, noteKey, noteRender, noteSearch, noteWheel, setDebugHover, setDebugWindow } from "./debug";
 import { addToCompose, insertTemplate } from "./flow";
 import { nqHighlight } from "./highlight";
 import { latchKey } from "./keylatch";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
-import { openMenu } from "./ContextMenu";
 import { IconEnter, IconSearch, IconShift, IconStar } from "./svg";
 import { activeScope, listedProject, pickTechProject, poolFor, store, ui, useStore } from "./uiState";
 
@@ -337,6 +337,7 @@ function WindowView() {
     };
 
     const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return; // IME composition: its Enter/arrows are the IME's
         const input = inputRef.current;
         const atEnd = !!input && input.selectionStart === input.value.length;
         const atStart = !!input && input.selectionEnd === 0;

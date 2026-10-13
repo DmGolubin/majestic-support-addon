@@ -85,9 +85,9 @@ export function confirm(args: ConfirmArgs): Promise<{ ok: boolean; checked: bool
 /** Fills panel tokens; asks the user for fields. null = cancelled. */
 export async function fillFields(title: string, text: string, snap: Snap): Promise<string | null> {
     const fields = fieldsOf(text);
-    let values: Record<string, string> = {};
+    let values: Record<string, string> = Object.create(null);
     if (fields.length) {
-        const initial: Record<string, string> = {};
+        const initial: Record<string, string> = Object.create(null); // a field named __proto__ is a field like any other
         for (const f of fields) initial[f.name] = f.def || f.options[0] || "";
         const got = await open<Record<string, string> | null>(resolve => ({ kind: "fields", title, fields, initial, resolve }));
         if (!got) { dlog("cancel", { reason: "отмена в диалоге полей", title }); return null; }
@@ -124,6 +124,13 @@ async function guard(t: Template, scope: Scope): Promise<Template | null> {
     return statusGuard(t);
 }
 
+/** "Intentional mention" answer key: tied to the text, so an edited / re-imported template is checked again. */
+function intentKey(t: Template): string {
+    let h = 5381;
+    for (let i = 0; i < t.text.length; i++) h = (h * 33 ^ t.text.charCodeAt(i)) >>> 0;
+    return `${t.id}@${h.toString(36)}`;
+}
+
 /** Mirror / foreign / other-project markers for a project's server. */
 async function projectGuard(t: Template, project: ProjectId): Promise<Template | null> {
     const d = decide(t, project, store.templates);
@@ -142,7 +149,9 @@ async function projectGuard(t: Template, project: ProjectId): Promise<Template |
         confirmedForeign.add(`${project}:${t.id}`);
     }
 
-    if (!t.project && !store.isIntentional(t.id)) {
+    // Local and personal texts are checked whatever group/project they came with (a RO-group template may still
+    // name Majestic); panel FAQ texts are reviewed on the panel.
+    if (t.source !== "faq" && !store.isIntentional(intentKey(t))) {
         const found = foreignMarkers(t.text, project);
         if (found.length) {
             const r = await confirm({
@@ -152,7 +161,7 @@ async function projectGuard(t: Template, project: ProjectId): Promise<Template |
                 ok: "Вставить", checkbox: "Это намеренно, больше не спрашивать",
             });
             if (!r.ok) { dlog("cancel", { reason: "отмена в диалоге: упоминается другой проект", id: t.id, markers: found.join(", ") }); return null; }
-            if (r.checked) store.markIntentional(t.id);
+            if (r.checked) store.markIntentional(intentKey(t));
         }
     }
     return t;

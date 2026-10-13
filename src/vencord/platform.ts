@@ -22,8 +22,15 @@ export function insertText(text: string): boolean {
         return true;
     } catch (e) {
         console.error("[SupportTemplates] insert failed", e);
-        navigator.clipboard?.writeText(text).catch(err => console.error("[SupportTemplates] clipboard write failed", err));
-        toast("Не удалось вставить — текст скопирован, вставьте Ctrl+V", "failure");
+        // Report the copy only once it really happened: a refused clipboard must not promise Ctrl+V.
+        const copy = navigator.clipboard?.writeText(text) ?? Promise.reject(new Error("no clipboard"));
+        copy.then(
+            () => toast("Не удалось вставить — текст скопирован, вставьте Ctrl+V", "failure"),
+            err => {
+                console.error("[SupportTemplates] clipboard write failed", err);
+                toast("Не удалось вставить и скопировать текст — откройте шаблон в окне и скопируйте вручную", "failure");
+            },
+        );
         return false;
     }
 }

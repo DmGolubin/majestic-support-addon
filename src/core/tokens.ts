@@ -43,7 +43,7 @@ export function fill(text: string, values: Record<string, string>, env: Env): { 
         }
         const key = name.toLowerCase();
         if (BUILTIN.has(key)) return env[key as "clipboard" | "selection" | "url" | "title"];
-        if (values[name] !== undefined) return values[name];
+        if (Object.prototype.hasOwnProperty.call(values, name)) return values[name]; // never inherited (__proto__, toString…)
         if (def) return def.trim();
         if (opts) return opts.slice(1).split("|").map(s => s.trim()).filter(Boolean)[0] ?? "";
         return "";

@@ -11,7 +11,7 @@ import { Template } from "./types";
 export interface Hit { t: Template; level: number; line: string | null; }
 export interface SearchResult { hits: Hit[]; tokens: string[]; fuzzy: boolean; layout: string | null; }
 
-const MIN_BODY = 3;  // shorter words are not searched in the body — they match everything
+const MIN_BODY = 3; // shorter words are not searched in the body — they match everything
 const MIN_FUZZY = 4;
 
 interface Fields { title: string; text: string; alias: string; }

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { soft } from "./text";
 import { cleanBinds } from "./keys";
+import { soft } from "./text";
 import { ProjectId, Template, Usage } from "./types";
 
 export function projectOfGroup(group: string): ProjectId | null {

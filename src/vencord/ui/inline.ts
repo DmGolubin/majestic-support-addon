@@ -11,8 +11,8 @@ import { Template } from "../core/types";
 import { activeEditor, insertText, toast } from "../platform";
 import { costEnd, costStart, debugEnabled, dlog } from "./debug";
 import { prepareText, stillCurrent } from "./flow";
-import { generationNow } from "./op";
 import { latchKey } from "./keylatch";
+import { generationNow } from "./op";
 import { activeScope, InlineState, poolFor, store, ui } from "./uiState";
 
 function textBeforeCaret(ed: HTMLElement): string | null {
@@ -20,8 +20,12 @@ function textBeforeCaret(ed: HTMLElement): string | null {
     if (!sel || !sel.rangeCount || !sel.isCollapsed) return null;
     const r = sel.getRangeAt(0);
     if (!ed.contains(r.startContainer)) return null;
+    // Range.toString() joins block elements without a newline ("previous;снр"): start at the caret's own
+    // line — the innermost Slate element block holding it — so a trigger on the second line is found.
+    const start = r.startContainer.nodeType === Node.ELEMENT_NODE ? r.startContainer as Element : r.startContainer.parentElement;
+    const block = start?.closest?.('[data-slate-node="element"]');
     const pre = document.createRange();
-    pre.selectNodeContents(ed);
+    pre.selectNodeContents(block && ed.contains(block) ? block : ed);
     pre.setEnd(r.startContainer, r.startOffset);
     return pre.toString();
 }

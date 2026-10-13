@@ -26,7 +26,7 @@ function Frame({ children, onEscape }: { children: React.ReactNode; onEscape(): 
     return <><div className="vc-stx-backdrop" onMouseDown={onEscape} /><div
         className="vc-stx-dialog" ref={ref} tabIndex={-1}
         // Enter/Space here may confirm and insert: latch it so a held key never repeats into Discord.
-        onKeyDownCapture={e => { if (e.key === "Enter" || e.key === " ") latchKey(e.nativeEvent.code); }}
+        onKeyDownCapture={e => { if ((e.key === "Enter" || e.key === " ") && !e.nativeEvent.isComposing) latchKey(e.nativeEvent.code); }}
     >{children}</div></>;
 }
 
@@ -64,7 +64,7 @@ function Fields({ d }: { d: Extract<Dialog, { kind: "fields"; }>; }) {
                             className="vc-stx-search" style={{ width: "100%", boxSizing: "border-box" }}
                             autoFocus={f === firstText} value={vals[f.name] ?? ""}
                             onChange={e => set(f.name, e.currentTarget.value)}
-                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); submit(); } }} />}
+                            onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); submit(); } }} />}
                 </div>
             ))}
             <div className="vc-stx-acts">

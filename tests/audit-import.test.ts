@@ -82,3 +82,15 @@ describe("damaged saves (audit 13)", () => {
         expect(s.isIntentional("local:Majestic RP||A")).toBe(false);
     });
 });
+
+describe("field names that exist on Object.prototype (audit 18)", () => {
+    it("are plain fields", async () => {
+        const { fill } = await import("../src/core/tokens");
+        const env = { now: new Date(0), clipboard: "", selection: "", url: "", title: "" };
+        const values: Record<string, string> = Object.create(null);
+        expect(fill("{{__proto__=DEF}}", values, env).text).toBe("DEF");
+        expect(fill("{{toString}}|{{constructor}}", values, env).text).toBe("|");
+        values.__proto__ = "X";
+        expect(fill("{{__proto__}}", values, env).text).toBe("X");
+    });
+});

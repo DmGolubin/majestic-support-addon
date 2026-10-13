@@ -141,7 +141,8 @@
 /* ---- Dialogs ---- */
 .vc-stx-menu, .vc-stx-backdrop, .vc-stx-dialog { z-index: 2; }
 .vc-stx-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 45%); }
-.vc-stx-dialog { left: 50%; top: 28%; transform: translateX(-50%); width: 440px; max-width: calc(100vw - 32px); padding: 16px; }
+.vc-stx-dialog { left: 50%; top: 50%; transform: translate(-50%, -50%); width: 440px; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain; padding: 16px; }
+.vc-stx-dialog .vc-stx-acts { position: sticky; bottom: -16px; margin: 10px -16px -16px; padding: 10px 16px 16px; background: var(--stx-card); border-top: 1px solid var(--stx-bd); }
 .vc-stx-dialog h4 { margin: 0 0 8px; font-size: 14px; color: #fff; border-left: 4px solid var(--stx-amber); padding-left: 9px; }
 .vc-stx-dialog .vc-stx-btn { height: 30px; padding: 0 12px; font-size: 12.5px; }
 .vc-stx-callout { border-radius: var(--stx-r); padding: 10px 12px; margin-bottom: 10px; font-size: 12.5px; }
@@ -178,7 +179,13 @@
 .vc-stx-tiphint { flex: none; margin-top: 6px; color: var(--stx-mu2); font-size: 11px; }
 
 /* Settings render inside Discord's settings, outside #vc-stx-host — give them the tokens too. */
-.vc-stx-settings { --stx-pr: hsl(342 77% 44%); --stx-tx: hsl(216 10% 91%); --stx-bd2: hsl(215 16% 20%); color: var(--text-default, #dbdee1); }
+.vc-stx-settings {
+    --stx-bg: hsl(216 16% 6%); --stx-card: hsl(218 17% 9%); --stx-hover: hsl(215 16% 13%); --stx-bd: hsl(215 16% 15%); --stx-bd2: hsl(215 16% 20%);
+    --stx-tx: hsl(216 10% 91%); --stx-mu: hsl(214 10% 80%); --stx-mu2: hsl(214 8% 60%); --stx-pr: hsl(342 77% 44%); --stx-ring: hsl(342 80% 56%);
+    --stx-amber: #e0a83f; --stx-input: hsl(218 19% 8%); --stx-acc: hsl(216 16% 12%); --stx-r: 6px;
+    --stx-mono: "STX Mono", "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+    color: var(--text-default, #dbdee1);
+}
 .vc-stx-settings h3 { margin: 16px 0 6px; font-weight: 600; }
 .vc-stx-settings p { margin: 4px 0 8px; }
 .vc-stx-muted { color: var(--text-muted, #949ba4); }
