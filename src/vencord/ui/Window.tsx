@@ -81,7 +81,7 @@ function RowImpl({ t, sel, alt, bind, icon, tokens, line, onHover, onMove, onLea
                 {t.color && <span className="vc-stx-color" style={{ background: t.color }} />}
                 {icon && <ProjectIcon project={t.project} />}
                 <span className="vc-stx-nm">{nqHighlight(t.title, tokens)}</span>
-                {t.status !== "actual" && <span className="vc-stx-badge old">{t.status === "outdated" ? "устарел" : "на проверке"}</span>}
+                {t.status !== "actual" && <span className={"vc-stx-badge " + t.status}>{t.status === "outdated" ? "устарел" : "на проверке"}</span>}
                 {bind && <span className="vc-stx-kb">{comboLabel(bind)}</span>}
                 {alt > 0 && <span className="vc-stx-kb">Alt {alt}</span>}
             </div>
