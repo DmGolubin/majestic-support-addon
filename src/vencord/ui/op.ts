@@ -24,7 +24,14 @@ let windowTarget: Target | null = null;
 /** Captured when the first piece goes into the compose bar. */
 let composeTarget: Target | null = null;
 
-export function captureWindowTarget() { windowTarget = { editor: activeEditor(), selection: selectionNow() }; }
+export function captureWindowTarget(editor: HTMLElement | null = null) {
+    windowTarget = { editor: editor ?? activeEditor(), selection: selectionNow() };
+}
+
+/** The Slate editor of the chat box that contains `el` (a chat-bar button): focus-independent. */
+export function editorNear(el: Element | null): HTMLElement | null {
+    return el?.closest?.('[class*="channelTextArea"]')?.querySelector<HTMLElement>('[data-slate-editor="true"]') ?? null;
+}
 export function clearTargets() { windowTarget = composeTarget = null; }
 
 /** Target of an insert starting now: the window's while it is open, else the editor in focus (bind, Alt+N). */

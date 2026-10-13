@@ -107,7 +107,19 @@ export function watchChatArea(onChange: () => void, editor: () => HTMLElement | 
     };
     rewatch();
     window.addEventListener("resize", fire);
-    return () => { cancelAnimationFrame(raf); ro?.disconnect(); window.removeEventListener("resize", fire); };
+    // ResizeObserver misses a pure move: one rect read every 250 ms while a surface is shown.
+    const box = () => {
+        const b = watched?.getBoundingClientRect();
+        return b ? `${Math.round(b.left)},${Math.round(b.top)},${Math.round(b.width)}` : "";
+    };
+    let last = box(); // baseline now, so a move right after opening is noticed too
+    const poll = setInterval(() => {
+        const prev = watched;
+        rewatch(); // Discord may have replaced the box
+        const now = box();
+        if (watched !== prev || now !== last) { last = now; fire(); }
+    }, 250);
+    return () => { cancelAnimationFrame(raf); clearInterval(poll); ro?.disconnect(); window.removeEventListener("resize", fire); };
 }
 
 /** Chat box rect of `editor()` (default: the focused one), read when `active` turns on and when the box moves/resizes. */

@@ -71,7 +71,7 @@ function itemsFor(t: Template): Item[] {
 export function ContextMenu() {
     const menu = ui.useSelect(s => s.menu);
     const [active, setActive] = useState(0);
-    const [pos, setPos] = useState<{ left: number; top: number; } | null>(null);
+    const [pos, setPos] = useState<{ for: unknown; left: number; top: number; } | null>(null);
     const ref = useRef<HTMLDivElement>(null);
     const t = menu ? store.byId(menu.id) : undefined;
     const items = t ? itemsFor(t) : [];
@@ -80,14 +80,15 @@ export function ContextMenu() {
     const activeRef = useRef(active);
     activeRef.current = active;
 
-    // A new menu (other row or position): first item active, position measured again.
-    useEffect(() => { setActive(0); setPos(null); }, [menu]);
-
     // Real size, not a guess: keep every edge on screen; the list scrolls inside when the viewport is too low.
+    // A new menu (other row or position) starts at its first item; both happen before paint.
+    const placed = !!menu && pos?.for === menu;
     useLayoutEffect(() => {
         if (!menu || !ref.current) return;
         const r = ref.current.getBoundingClientRect();
+        if (pos?.for !== menu) setActive(0);
         setPos({
+            for: menu,
             left: Math.max(EDGE, Math.min(menu.x, window.innerWidth - r.width - EDGE)),
             top: Math.max(EDGE, Math.min(menu.y, window.innerHeight - r.height - EDGE)),
         });
@@ -114,6 +115,8 @@ export function ContextMenu() {
             e.preventDefault();
             e.stopPropagation();
             if (e.isComposing) return;
+            // Never act on a menu the user cannot see (not placed yet): only Escape works then.
+            if (ref.current?.style.visibility === "hidden" && e.key !== "Escape") return;
             const n = itemsRef.current.length;
             if (e.key === "Escape" || e.key === "Tab") ui.set({ menu: null });
             else if (e.key === "ArrowDown") setActive(i => (i + 1) % n);
@@ -141,7 +144,7 @@ export function ContextMenu() {
         // Menu buttons never take focus: it stays in the window's search input after the menu closes.
         <div
             ref={ref} className="vc-stx-menu" role="menu" onMouseDown={e => e.preventDefault()}
-            style={{ left: pos?.left ?? menu.x, top: pos?.top ?? menu.y, visibility: pos ? "visible" : "hidden" }}
+            style={{ left: placed ? pos!.left : menu.x, top: placed ? pos!.top : menu.y, visibility: placed ? "visible" : "hidden" }}
         >
             {items.map((it, i) => (
                 <button

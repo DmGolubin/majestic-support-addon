@@ -11,6 +11,7 @@ import { PREFIXES } from "../core/trigger";
 import { PROJECTS } from "../core/types";
 import { toast } from "../platform";
 import { confirmedForeign, supersede } from "./flow";
+import { nextGeneration } from "./op";
 import { store, ui, useStore } from "./uiState";
 
 export function Settings() {
@@ -29,6 +30,7 @@ export function Settings() {
             try {
                 const msg = store.importText(await file.text());
                 // The set was replaced: nothing in progress may keep pointing at old templates or old confirmations.
+                nextGeneration(); // pending inserts prepared from the old set are dropped at their next check
                 supersede();
                 confirmedForeign.clear();
                 ui.set({ compose: [], inline: null, menu: null, dialog: null });

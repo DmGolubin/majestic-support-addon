@@ -81,6 +81,8 @@ const empty = (): Persisted => ({
 export class Store {
     data: Persisted = empty();
     templates: Template[] = [];
+    /** Bumped whenever the template set is replaced (import): work prepared from an older set must not insert. */
+    setVersion = 0;
     private subs = new Set<() => void>();
 
     constructor(private storage: StorageLike) { }
@@ -122,6 +124,7 @@ export class Store {
         // "Intentional mention" answers belonged to the old texts: they are not carried over to the new set.
         this.data = { ...this.data, raw: r.raw, favorites: r.favorites, usage: r.usage, binds: r.binds, recent: [], intentional: [] };
         this.templates = r.templates;
+        this.setVersion++;
         this.changed();
         const mj = r.templates.filter(t => t.project === "mj").length;
         const ro = r.templates.filter(t => t.project === "ro").length;

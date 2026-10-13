@@ -102,3 +102,13 @@ describe("generated duplicate ids never collide with real titles", () => {
         expect(ts[2].id).toBe("local:Majestic RP||Same#3");
     });
 });
+
+describe("template set version", () => {
+    it("every import bumps it", () => {
+        const s = new Store(mem());
+        const v0 = s.setVersion;
+        s.importText(RAW);
+        s.importText(RAW);
+        expect(s.setVersion).toBe(v0 + 2);
+    });
+});

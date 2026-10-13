@@ -1,0 +1,49 @@
+[
+  {
+    "id": "forbidden-import-binds-fixed",
+    "pass": true
+  },
+  {
+    "id": "duplicate-suffix-collision-fixed",
+    "ids": [
+      "local:Majestic RP||A",
+      "local:Majestic RP||A#3",
+      "local:Majestic RP||A#2"
+    ],
+    "thirdText": "THREE",
+    "byIdThird": "THREE"
+  },
+  {
+    "id": "saved-null-favorites-fixed",
+    "pass": true
+  },
+  {
+    "id": "prototype-token-fixed",
+    "pass": true
+  },
+  {
+    "id": "pending-start-stop-fixed",
+    "pass": true
+  },
+  {
+    "id": "reset-cancels-inline-fixed",
+    "pass": true
+  },
+  {
+    "id": "clipboard-failure-toast-fixed",
+    "pass": true
+  },
+  {
+    "id": "markers-and-selection-fixed",
+    "pass": true
+  },
+  {
+    "id": "generation-cancellation-fixed",
+    "pass": true
+  },
+  {
+    "id": "import-does-not-cancel-pending-insert",
+    "currentTitle": "New",
+    "inserted": "OLD CLIP"
+  }
+]

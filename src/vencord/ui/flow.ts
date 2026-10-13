@@ -19,15 +19,20 @@ type ConfirmArgs = Omit<Extract<Dialog, { kind: "confirm"; }>, "kind" | "resolve
  * What an insert was prepared for, captured at the start of the flow (before dialogs take focus):
  * the channel and its server's scope (mj / ro / all), the target editor, the selection, the plugin generation.
  */
-export interface Snap { channelId: string | null; scope: Scope | null; gen: number; editor: HTMLElement | null; selection: string; }
+export interface Snap { channelId: string | null; scope: Scope | null; gen: number; setVersion: number; editor: HTMLElement | null; selection: string; }
 
 export function snapNow(target: Target): Snap {
-    return { channelId: currentChannel().id, scope: activeScope(), gen: generationNow(), editor: target.editor, selection: target.selection };
+    return { channelId: currentChannel().id, scope: activeScope(), gen: generationNow(), setVersion: store.setVersion, editor: target.editor, selection: target.selection };
 }
 
 /** true while the plugin, the channel, its scope and the target editor are unchanged; otherwise the insert must be dropped. */
 export function stillCurrent(s: Snap): boolean {
     if (s.gen !== generationNow()) { dlog("cancel", { reason: "плагин перезапущен или выключен" }); return false; }
+    if (s.setVersion !== store.setVersion) {
+        dlog("cancel", { reason: "шаблоны заменены импортом" });
+        toast("Шаблоны заменены — вставка отменена", "failure");
+        return false;
+    }
     if (s.editor && !s.editor.isConnected) {
         dlog("cancel", { reason: "поле ввода, из которого начата вставка, закрылось" });
         toast("Поле ввода закрылось — вставка отменена", "failure");

@@ -23,7 +23,7 @@ import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
 import { handleInlineKey, resetInline, startInline } from "./ui/inline";
 import { latchKey, startLatch, swallowLatched } from "./ui/keylatch";
-import { captureWindowTarget, clearTargets, generationNow, nextGeneration } from "./ui/op";
+import { captureWindowTarget, clearTargets, editorNear, generationNow, nextGeneration } from "./ui/op";
 import { ChatBarIcon } from "./ui/ProjectIcon";
 import { Settings } from "./ui/Settings";
 import { activeScope, pluginOn, poolFor, store, ui, UiState, useTechProject } from "./ui/uiState";
@@ -33,9 +33,9 @@ const Icon: IconComponent = ({ height = 20, width = 20, className }) => (
     <img src={MJ_ICON} height={height} width={width} className={className} style={{ borderRadius: 5 }} alt="" />
 );
 
-export function toggleWindow(open = !ui.get().windowOpen) {
+export function toggleWindow(open = !ui.get().windowOpen, editor: HTMLElement | null = null) {
     // The editor and selection are captured before focus moves to the window's search box.
-    if (open && !ui.get().windowOpen) captureWindowTarget();
+    if (open && !ui.get().windowOpen) captureWindowTarget(editor);
     ui.set({ windowOpen: open, menu: null });
 }
 
@@ -52,7 +52,7 @@ const ButtonView: ChatBarButtonFactory = ({ isMainChat, channel }) => {
     if (mode === "off") return null; // other servers and DMs: the plugin is invisible
     const project = mode === "all" ? tech : mode;
     return (
-        <ChatBarButton tooltip="Шаблоны (Ctrl+Alt+T)" onClick={() => toggleWindow()} buttonProps={{ "data-stx": "button" } as any}>
+        <ChatBarButton tooltip="Шаблоны (Ctrl+Alt+T)" onClick={e => toggleWindow(undefined, editorNear(e.currentTarget as Element))} buttonProps={{ "data-stx": "button" } as any}>
             <ChatBarIcon project={project} />
         </ChatBarButton>
     );
