@@ -62,10 +62,13 @@ export function activeEditor(): HTMLElement | null {
     return focused ?? document.querySelector('main [role="textbox"][data-slate-editor="true"], [role="textbox"][data-slate-editor="true"]');
 }
 
+/** The box of the active editor (a thread in the side panel has its own), else the first one. */
+export function chatAreaEl(): Element | null {
+    return activeEditor()?.closest('[class*="channelTextArea"]') ?? document.querySelector('[class*="channelTextArea"]');
+}
+
 export function chatAreaRect(): DOMRect | null {
-    // The box of the active editor (a thread in the side panel has its own), else the first one.
-    const el = activeEditor()?.closest('[class*="channelTextArea"]') ?? document.querySelector('[class*="channelTextArea"]');
-    return el ? el.getBoundingClientRect() : null;
+    return chatAreaEl()?.getBoundingClientRect() ?? null;
 }
 
 export async function readClipboard(): Promise<string> {

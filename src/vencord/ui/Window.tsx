@@ -21,7 +21,7 @@ import { latchKey } from "./keylatch";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
 import { IconEnter, IconSearch, IconShift, IconStar } from "./svg";
-import { activeScope, listedProject, pickTechProject, poolFor, store, ui, useStore } from "./uiState";
+import { activeScope, listedProject, pickTechProject, poolFor, store, ui, useStore, watchChatArea } from "./uiState";
 
 /** Rows currently visible in the window — Alt+1…9 uses them while the window is open. */
 export let visibleItems: Template[] = [];
@@ -179,11 +179,10 @@ function WindowView() {
 
     useEffect(() => {
         inputRef.current?.focus();
-        const onResize = () => setRect(chatAreaRect());
-        window.addEventListener("resize", onResize);
+        const off = watchChatArea(() => setRect(chatAreaRect()));
         logGeometry("окно открыто");
         return () => {
-            window.removeEventListener("resize", onResize);
+            off();
             logGeometry("окно закрыто");
         };
     }, []);

@@ -395,7 +395,7 @@ export function debugPerf(): string[] {
     const win = meter.windowMs(now);
     const span = win >= 59_500 ? "60 с" : `${Math.round(win / 1000)} с (с включения отладки)`;
     const note: Partial<Record<CostCat, string>> = {
-        render: " (только код компонентов плагина; отрисовка DOM — работа Discord)",
+        render: " (тела компонентов окна; React commit, layout, paint и GPU сюда не входят)",
         search: " (входит в render)",
     };
     const out = [

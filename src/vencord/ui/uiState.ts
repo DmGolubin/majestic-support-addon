@@ -10,7 +10,7 @@ import { listProject, poolOf, Scope, ServerMode, serverMode } from "../core/guar
 import { Store } from "../core/state";
 import { FieldSpec } from "../core/tokens";
 import { ProjectId, Template } from "../core/types";
-import { chatAreaRect, currentGuildId, storage } from "../platform";
+import { chatAreaEl, chatAreaRect, currentGuildId, storage } from "../platform";
 import { dlog } from "./debug";
 import { createObservable } from "./observable";
 
@@ -87,14 +87,32 @@ export function useStore() {
     return v;
 }
 
-/** Chat box rect, read when `active` turns on and on window resize — not on every render. */
+/**
+ * Calls onChange (at most once per frame) when the chat box moves or resizes: window resize, and the box's own
+ * size — a growing multi-line editor, a reply / attachment bar, the member list or a side thread toggling
+ * change it without any window resize. Only while a surface that needs it is shown; never per hover/render.
+ */
+export function watchChatArea(onChange: () => void): () => void {
+    let raf = 0;
+    const fire = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; rewatch(); onChange(); }); };
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fire) : null;
+    let watched: Element | null = null;
+    // Discord may remount the box (channel switch): follow the current one.
+    const rewatch = () => {
+        const el = chatAreaEl();
+        if (el === watched) return;
+        if (watched) ro?.unobserve(watched);
+        watched = el;
+        if (el) ro?.observe(el);
+    };
+    rewatch();
+    window.addEventListener("resize", fire);
+    return () => { cancelAnimationFrame(raf); ro?.disconnect(); window.removeEventListener("resize", fire); };
+}
+
+/** Chat box rect, read when `active` turns on and when the box moves/resizes — not on every render. */
 export function useChatRect(active: boolean): DOMRect | null {
     const [tick, setTick] = useState(0);
-    useEffect(() => {
-        if (!active) return;
-        const onResize = () => setTick(x => x + 1);
-        window.addEventListener("resize", onResize);
-        return () => window.removeEventListener("resize", onResize);
-    }, [active]);
+    useEffect(() => active ? watchChatArea(() => setTick(x => x + 1)) : undefined, [active]);
     return useMemo(() => active ? chatAreaRect() : null, [active, tick]);
 }
