@@ -93,7 +93,7 @@ function Bind({ d }: { d: Extract<Dialog, { kind: "bind"; }>; }) {
             const problem = bindProblem(combo);
             if (problem) return toast(problem, "failure");
             const stolen = store.setBind(d.templateId, combo);
-            toast(`${comboLabel(combo)} → «${t?.title}»` + (stolen ? ` (снята с «${store.byId(stolen)?.title}»)` : ""), "success");
+            toast(`${comboLabel(combo)} — «${t?.title}»` + (stolen ? ` (снята с «${store.byId(stolen)?.title}»)` : ""), "success");
             close();
         };
         document.addEventListener("keydown", h, true);

@@ -10,6 +10,7 @@ import { useEffect, useState } from "@webpack/common";
 import { CATEGORIES, Category, filterEvents, formatEvent } from "../core/ring";
 import { toast } from "../platform";
 import { clearDebugLog, costEnd, costStart, debugCap, debugCount, debugEvents, debugGeometry, debugPerf, debugReport, debugSnapshot, debugState, onGeometryEvent, usePanelTick } from "./debug";
+import { IconChevron } from "./svg";
 
 type Section = "state" | "geom" | "perf" | "log";
 
@@ -54,7 +55,7 @@ function DebugPanelView() {
 
     const title = (
         <button className="vc-stx-dbg-title" onClick={() => setOpen(!open)}>
-            {open ? "▾" : "▸"} SupportTemplates · debug{verbose ? " · подробно" : ""}{open ? "" : ` · ${debugCount()}/${debugCap()}`}
+            <IconChevron size={12} open={open} /> SupportTemplates · debug{verbose ? " · подробно" : ""}{open ? "" : ` · ${debugCount()}/${debugCap()}`}
         </button>
     );
     const header = (
@@ -71,7 +72,7 @@ function DebugPanelView() {
     const events = debugEvents();
     const head = (s: Section, name: string, extra = "") => (
         <button className="vc-stx-dbg-sec" onClick={() => setShown({ ...shown, [s]: !shown[s] })}>
-            {shown[s] ? "▾" : "▸"} {name}{extra}
+            <IconChevron size={11} open={shown[s]} /> {name}{extra}
         </button>
     );
     const counts = new Map<Category, number>();

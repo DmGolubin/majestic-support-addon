@@ -11,6 +11,7 @@ import { activeEditor, currentChannel, insertText, toast } from "../platform";
 import { costEnd, costStart, dlog } from "./debug";
 import { confirmedForeign, fillFields, Snap, stillCurrent } from "./flow";
 import { ProjectIcon } from "./ProjectIcon";
+import { IconClose } from "./svg";
 import { activeScope, store, ui, useChatRect } from "./uiState";
 
 /** Its render is a `render` cost span while debug is on. */
@@ -72,7 +73,7 @@ function ComposeBarView() {
                     title="Перетащи, чтобы поменять порядок"
                 >
                     <ProjectIcon project={t!.project} size={14} />{t!.title}
-                    <button onMouseDown={e => e.stopPropagation()} onClick={() => ui.set({ compose: compose.filter(x => x !== t!.id) })}>✕</button>
+                    <button onMouseDown={e => e.stopPropagation()} title="Убрать из ответа" onClick={() => ui.set({ compose: compose.filter(x => x !== t!.id) })}><IconClose size={12} /></button>
                 </span>
             ))}
             <span style={{ flex: 1 }} />

@@ -110,7 +110,7 @@
 .vc-stx-md-link { color: #6cb4ff; }
 .vc-stx-md-code { padding: 0 4px; border-radius: 4px; font-family: Consolas, "Courier New", monospace; font-size: 12px; background: hsl(215 16% 13%); }
 .vc-stx-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-/* Buttons wrap to a second line instead of overflowing the pane; ★ (margin-left: auto) stays last. */
+/* Buttons wrap to a second line instead of overflowing the pane; the star (margin-left: auto) stays last. */
 .vc-stx-pre .vc-stx-acts { flex: none; flex-wrap: wrap; row-gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--stx-bd); }
 
 .vc-stx-btn { height: 34px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 8px; background: var(--stx-pr); color: #fff; border: 0; font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
@@ -184,8 +184,7 @@
 [data-stx="button"] .vc-stx-cbi-ro { background: #2a2b31; object-fit: contain; padding: 2px; }
 [data-stx="button"] .vc-stx-cbi-none {
     display: flex; align-items: center; justify-content: center;
-    border: 2px solid currentColor; color: var(--interactive-normal, #b5bac1);
-    font: 700 12px/1 "gg sans", "Segoe UI", sans-serif; filter: none;
+    color: var(--interactive-normal, #b5bac1); filter: none;
 }
 [data-stx="button"]:hover .vc-stx-cbi, [data-stx="button"]:focus-visible .vc-stx-cbi { opacity: 1; filter: none; transform: scale(1.14); }
 [data-stx="button"]:hover .vc-stx-cbi-none { color: var(--interactive-hover, #dbdee1); }
@@ -217,3 +216,17 @@
 .vc-stx-dbg-chips button:disabled { opacity: .4; cursor: default; }
 .vc-stx-dbg-log { max-height: 40vh; overflow: auto; color: var(--stx-mu); border-bottom: 0; }
 .vc-stx-dbg-note { padding: 2px 8px; color: var(--stx-mu2); font-size: 10px; }
+
+/* ---- Inline SVG icons (ui/svg.tsx): no emoji / unicode pictographs anywhere in the UI ---- */
+.vc-stx-svg { flex: none; display: inline-block; vertical-align: -2px; }
+.vc-stx-tab { display: inline-flex; align-items: center; gap: 5px; }
+.vc-stx-tab .vc-stx-svg { color: var(--stx-amber); }
+.vc-stx-sec .vc-stx-svg { margin-right: 5px; vertical-align: -1px; color: var(--stx-amber); }
+.vc-stx-menu button { display: flex; align-items: center; gap: 8px; }
+.vc-stx-menu button .vc-stx-svg { color: var(--stx-amber); }
+.vc-stx-back { display: inline-flex; align-items: center; gap: 4px; }
+.vc-stx-chip button { display: inline-flex; align-items: center; }
+.vc-stx-kb .vc-stx-svg + .vc-stx-svg { margin-left: 1px; }
+.vc-stx-dbg-head .vc-stx-svg, .vc-stx-dbg-sec .vc-stx-svg { vertical-align: -1px; }
+.vc-stx-sicon { display: inline-flex; }
+.vc-stx-tab i { margin-left: 0; }

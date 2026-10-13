@@ -48,7 +48,7 @@ export function sections(pool: Template[], ctx: RankCtx): Section[] {
     for (const t of rest) byCat.get(t.category ?? "")!.items.push(t);
 
     return [
-        { key: "fav", title: "★ Избранное", items: fav },
+        { key: "fav", title: "Избранное", items: fav },
         { key: "recent", title: "Недавние", items: recent },
         ...cats,
     ].filter(s => s.items.length);

@@ -6,9 +6,11 @@
 
 import { ProjectId, PROJECTS } from "../core/types";
 import { MJ_ICON, RO_ICON } from "./icons";
+import { IconTemplates } from "./svg";
 
 export function ProjectIcon({ project, size = 16 }: { project: ProjectId | null; size?: number; }) {
-    if (!project) return <span className="vc-stx-pi vc-stx-pi-none" style={{ width: size, height: size }}>★</span>;
+    // No project (common templates): a neutral tile with the "templates" glyph.
+    if (!project) return <span className="vc-stx-pi vc-stx-pi-none" style={{ width: size, height: size }}><IconTemplates size={Math.round(size * 0.8)} /></span>;
     return (
         <img
             className={"vc-stx-pi vc-stx-pi-" + project}
@@ -19,8 +21,8 @@ export function ProjectIcon({ project, size = 16 }: { project: ProjectId | null;
     );
 }
 
-/** Chat-bar icon, 24x24 like Discord's own buttons; no project = neutral «Ш» tile (no image). */
+/** Chat-bar icon, 24x24 like Discord's own buttons; no project = neutral tile with the "templates" glyph. */
 export function ChatBarIcon({ project }: { project: ProjectId | null; }) {
-    if (!project) return <span className="vc-stx-cbi vc-stx-cbi-none" aria-hidden="true">Ш</span>;
+    if (!project) return <span className="vc-stx-cbi vc-stx-cbi-none" aria-hidden="true"><IconTemplates size={18} /></span>;
     return <img className={"vc-stx-cbi vc-stx-cbi-" + project} src={project === "mj" ? MJ_ICON : RO_ICON} alt="" />;
 }

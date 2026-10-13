@@ -219,8 +219,8 @@ export function debugSettings(): string[] {
     return [
         `уровень отладки: ${verbose ? "подробно" : "обычный"} (настройка «подробно»: ${verboseSetting ? "вкл" : "выкл"}) · журнал до ${ring.cap} событий`,
         `префикс: ${d.prefix} · previewOpen: ${d.previewOpen}`,
-        `бинды (${binds.length}): ${binds.length ? binds.map(([id, c]) => `${comboLabel(c)} → ${tpl(id)}`).join(", ") : "нет"}`,
-        `серверы: Majestic → mj, Россия Онлайн → ro, Tech → all, остальные и ЛС → off${legacy ? ` · старых ответов «чей сервер» в данных: ${legacy} (не используются)` : ""}`,
+        `бинды (${binds.length}): ${binds.length ? binds.map(([id, c]) => `${comboLabel(c)} -> ${tpl(id)}`).join(", ") : "нет"}`,
+        `серверы: Majestic -> mj, Россия Онлайн -> ro, Tech -> all, остальные и ЛС -> off${legacy ? ` · старых ответов «чей сервер» в данных: ${legacy} (не используются)` : ""}`,
         `Discord: язык ${env.locale ?? (document.documentElement.lang || navigator.language)} · тема ${env.theme ?? "?"} · zoom ${env.zoom ?? "?"} · шрифт ${env.fontSize ?? "?"}`,
         ...loadLines(),
     ];
@@ -299,7 +299,7 @@ function loadLines(): string[] {
     if (!load) return ["загрузка плагина: ?"];
     const f = (ms: number) => ms.toFixed(1) + " мс";
     return [
-        `загрузка плагина: start() → готово ${f(load.total)} (ожидание store.load ${f(load.storeLoad)} — включает работу Discord в это время; монтирование и подписки ${f(load.mount)})`,
+        `загрузка плагина: start() -> готово ${f(load.total)} (ожидание store.load ${f(load.storeLoad)} — включает работу Discord в это время; монтирование и подписки ${f(load.mount)})`,
         `  от запуска страницы (performance.timeOrigin) до готовности плагина: ${f(load.readyAt)} — это загрузка Discord и Vencord, не только плагина`,
     ];
 }
@@ -402,7 +402,7 @@ export function debugPerf(): string[] {
         `плагин за последние ${span}: ${total.toFixed(1)} мс (${pct(total, win)} времени) · вызовов ${calls}`,
         ...COST_CATS.map(c => `  ${c}: ${sums[c].ms.toFixed(1)} мс · вызовов ${sums[c].n}${note[c] ?? ""}`),
         !longSupported ? "long tasks: PerformanceObserver(longtask) недоступен"
-            : `long tasks: ${long.count} · заметно с плагином (≥5 мс или ≥10 %) ${long.withPlugin} · доля плагина в их времени ${pct(long.pluginMs, long.ms)} · макс ${long.max} мс`,
+            : `long tasks: ${long.count} · заметно с плагином (>=5 мс или >=10 %) ${long.withPlugin} · доля плагина в их времени ${pct(long.pluginMs, long.ms)} · макс ${long.max} мс`,
         `  последние: ${long.last.join(", ") || "—"}`,
     ];
     if (!verbose) return [...out, "поиск и рендеры окна подробно: включите «Отладка: подробно»"];

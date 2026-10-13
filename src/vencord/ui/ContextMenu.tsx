@@ -10,6 +10,7 @@ import { comboLabel } from "../core/keys";
 import { splitGreeting } from "../core/text";
 import { dlog } from "./debug";
 import { addToCompose, insertTemplate, supersede } from "./flow";
+import { IconStar } from "./svg";
 import { store, ui } from "./uiState";
 
 /** Approximate menu size: keeps it on screen near the right/bottom edge. */
@@ -37,7 +38,7 @@ export function ContextMenu() {
             <button onClick={run(() => insertTemplate(t, { via: "menu" }))}>Вставить</button>
             {splitGreeting(t.text).greeting && <button onClick={run(() => insertTemplate(t, { noGreeting: true, via: "menu" }))}>Вставить без приветствия</button>}
             <button onClick={run(() => addToCompose(t))}>+ в ответ</button>
-            <button onClick={run(() => store.toggleFavorite(t.id))}>{store.isFavorite(t.id) ? "Убрать из избранного" : "★ В избранное"}</button>
+            <button onClick={run(() => store.toggleFavorite(t.id))}><IconStar size={14} filled={!store.isFavorite(t.id)} />{store.isFavorite(t.id) ? "Убрать из избранного" : "В избранное"}</button>
             <button onClick={run(() => { supersede(); dlog("dialog-open", { kind: "bind", id: t.id }); ui.set({ dialog: { kind: "bind", templateId: t.id } }); })}>{bind ? `Изменить клавишу (${comboLabel(bind)})` : "Назначить клавишу…"}</button>
             {bind && <button onClick={run(() => store.clearBind(t.id))}>Снять клавишу</button>}
         </div>

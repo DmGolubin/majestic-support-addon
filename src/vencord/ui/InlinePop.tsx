@@ -41,7 +41,7 @@ function InlineView() {
                     </div>
                 </div>
             ))}
-            <div className="vc-stx-foot">Tab / Enter — подставить · Shift+Tab — без приветствия · ↑↓ · Esc</div>
+            <div className="vc-stx-foot">Tab / Enter — подставить · Shift+Tab — без приветствия · стрелки — выбор · Esc</div>
         </div>
     );
 }

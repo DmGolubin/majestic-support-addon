@@ -19,6 +19,7 @@ import { nqHighlight } from "./highlight";
 import { latchKey } from "./keylatch";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
+import { IconEnter, IconSearch, IconShift, IconStar } from "./svg";
 import { activeScope, poolFor, store, ui, useStore } from "./uiState";
 
 /** Rows currently visible in the window — Alt+1…9 uses them while the window is open. */
@@ -180,7 +181,7 @@ function WindowView() {
             logGeometry("окно закрыто");
         };
     }, []);
-    // All window keys (↑↓, Enter, Shift-peek) are the window's onKeyDown: they need focus inside it.
+    // The window keys (arrows, Enter, Tab) are the window's onKeyDown: they need focus inside it.
     // A dialog that closes, or a "+ в ответ" from a button, leaves focus on <body> — take it back.
     useEffect(() => {
         if (!dialogOpen && !winRef.current?.contains(document.activeElement)) inputRef.current?.focus();
@@ -423,7 +424,7 @@ function WindowView() {
     const empty = !store.templates.length
         ? "Шаблонов нет. Импортируй конфиг в настройках плагина."
         : res ? "Ничего не найдено"
-            : view === "fav" ? "В избранном пусто — Ctrl+D или ПКМ → «★ В избранное»"
+            : view === "fav" ? "В избранном пусто — Ctrl+D или ПКМ, «В избранное»"
                 : view === "recent" ? "Ещё ничего не вставлялось"
                     : "Шаблонов нет";
     const count = scope ? <span className="vc-stx-n">{data.total} {plural(data.total, "шаблон", "шаблона", "шаблонов")}</span> : null;
@@ -446,7 +447,7 @@ function WindowView() {
                 <div className="vc-stx-col">
                     <div className="vc-stx-head">
                         <label className="vc-stx-search">
-                            <span className="vc-stx-sicon">⌕</span>
+                            <span className="vc-stx-sicon"><IconSearch size={15} /></span>
                             <input
                                 ref={inputRef}
                                 className="vc-stx-sinput"
@@ -465,7 +466,7 @@ function WindowView() {
                         <div className="vc-stx-tabs">
                             {VIEWS.map(v => (
                                 <button key={v} className={"vc-stx-tab" + (view === v ? " on" : "")} onClick={() => setView(v)}>
-                                    {v === "all" ? "Все" : v === "fav" ? <>★ Избранное<i>{favs.length}</i></> : "Недавние"}
+                                    {v === "all" ? "Все" : v === "fav" ? <><IconStar size={13} />Избранное<i>{favs.length}</i></> : "Недавние"}
                                 </button>
                             ))}
                         </div>
@@ -485,13 +486,13 @@ function WindowView() {
                             ? items.map((t, i) => row(t, i))
                             : secs.map(sec => (
                                 <div key={sec.key}>
-                                    <div className="vc-stx-sec">{sec.title}</div>
+                                    <div className="vc-stx-sec">{sec.key === "fav" && <IconStar size={11} filled />}{sec.title}</div>
                                     {sec.items.map(t => row(t, idx++))}
                                 </div>))}
                     </div>
-                    <div className="vc-stx-foot" title={"Enter — вставить · Shift+Enter — в ответ · Shift (держать) — текст · → / ← — открыть / скрыть текст слева · Tab — вкладки · Ctrl+D — избранное · ПКМ — меню"}>
-                        <span><span className="vc-stx-kb">↵</span>{!footKeys && "вставить"}</span>
-                        <span><span className="vc-stx-kb">⇧↵</span>{!footKeys && "в ответ"}</span>
+                    <div className="vc-stx-foot" title={"Enter — вставить · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — вкладки · Ctrl+D — избранное · ПКМ — меню"}>
+                        <span><span className="vc-stx-kb"><IconEnter size={11} /></span>{!footKeys && "вставить"}</span>
+                        <span><span className="vc-stx-kb"><IconShift size={11} /><IconEnter size={11} /></span>{!footKeys && "в ответ"}</span>
                         <span><span className="vc-stx-kb">Tab</span>{!footKeys && "вкладки"}</span>
                         <span><span className="vc-stx-kb">ПКМ</span>{!footKeys && "ещё"}</span>
                     </div>

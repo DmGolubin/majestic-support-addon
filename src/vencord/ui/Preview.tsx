@@ -11,6 +11,7 @@ import { PROJECTS, Template } from "../core/types";
 import { addToCompose, insertTemplate } from "./flow";
 import { Markdown } from "./markdown";
 import { ProjectIcon } from "./ProjectIcon";
+import { IconBack, IconEnter, IconStar } from "./svg";
 import { store } from "./uiState";
 
 /** 1 раз, 2 раза, 5 раз. */
@@ -26,11 +27,11 @@ const markCut = (el: HTMLDivElement | null) => {
 
 /**
  * compact = hover tooltip: text only, no action buttons, no scrolling.
- * onBack = the window is in compact mode (the preview covers the list): a «← назад» button on top.
+ * onBack = the window is in compact mode (the preview covers the list): a «назад» button on top.
  */
 export function Preview({ t, compact = false, onBack }: { t: Template | undefined; compact?: boolean; onBack?: () => void; }) {
     const parts = useMemo(() => t ? splitGreeting(t.text) : null, [t]);
-    const backBtn = onBack && <button className="vc-stx-back" title="Скрыть текст (←)" onClick={onBack}>← назад</button>;
+    const backBtn = onBack && <button className="vc-stx-back" title="Скрыть текст (стрелка влево)" onClick={onBack}><IconBack size={13} />назад</button>;
     if (!t || !parts) return <div className="vc-stx-pre">{backBtn}<div className="vc-stx-empty">Выбери шаблон</div></div>;
     const { greeting, body } = parts;
     const uses = store.data.usage[t.id]?.n ?? 0;
@@ -54,10 +55,10 @@ export function Preview({ t, compact = false, onBack }: { t: Template | undefine
             </div>
             {compact && <div className="vc-stx-tiphint">Shift — весь текст</div>}
             {!compact && <div className="vc-stx-acts">
-                <button className="vc-stx-btn" onClick={() => insertTemplate(t, { via: "preview" })}>Вставить <span className="vc-stx-kb">↵</span></button>
+                <button className="vc-stx-btn" onClick={() => insertTemplate(t, { via: "preview" })}>Вставить <span className="vc-stx-kb"><IconEnter size={12} /></span></button>
                 {greeting && <button className="vc-stx-btn vc-stx-ghost" onClick={() => insertTemplate(t, { noGreeting: true, via: "preview" })}>Без приветствия</button>}
                 <button className="vc-stx-btn vc-stx-ghost" onClick={() => addToCompose(t)}>+ в ответ</button>
-                <button className="vc-stx-btn vc-stx-ghost vc-stx-icon vc-stx-right" title="Избранное (Ctrl+D)" onClick={() => store.toggleFavorite(t.id)}>{fav ? "★" : "☆"}</button>
+                <button className="vc-stx-btn vc-stx-ghost vc-stx-icon vc-stx-right" title="Избранное (Ctrl+D)" onClick={() => store.toggleFavorite(t.id)}><IconStar size={16} filled={fav} /></button>
             </div>}
         </div>
     );
