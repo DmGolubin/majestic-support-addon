@@ -1,0 +1,71 @@
+{
+  "viewport": [
+    1184,
+    705
+  ],
+  "header": {
+    "x": 831,
+    "y": 170,
+    "width": 330,
+    "height": 32,
+    "right": 1161,
+    "bottom": 202
+  },
+  "count": {
+    "x": 1092.875,
+    "y": 178.125,
+    "width": 68.125,
+    "height": 15.75,
+    "right": 1161,
+    "bottom": 193.875
+  },
+  "menu": {
+    "x": 956,
+    "y": 497,
+    "width": 228,
+    "height": 218.5,
+    "right": 1184,
+    "bottom": 715.5
+  },
+  "dialog": {
+    "x": 372,
+    "y": 197.390625,
+    "width": 440,
+    "height": 836,
+    "right": 812,
+    "bottom": 1033.390625
+  },
+  "submit": {
+    "x": 389,
+    "y": 986.390625,
+    "width": 80.125,
+    "height": 30,
+    "right": 469.125,
+    "bottom": 1016.390625
+  },
+  "compose": {
+    "x": 382,
+    "y": 653,
+    "width": 617,
+    "height": 42,
+    "right": 999,
+    "bottom": 695
+  },
+  "insertAll": {
+    "x": 892.65625,
+    "y": 660,
+    "width": 97.34375,
+    "height": 28,
+    "right": 990,
+    "bottom": 688
+  },
+  "settingsVars": {
+    "radius": "",
+    "muted": "",
+    "border": ""
+  },
+  "multiline": {
+    "before": "previous;снр",
+    "trigger": null
+  }
+}

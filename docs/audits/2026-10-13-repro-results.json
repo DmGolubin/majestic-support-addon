@@ -1,0 +1,61 @@
+[
+  {
+    "id": "import-bypasses-bind-validation",
+    "enter": "A",
+    "paste": "B"
+  },
+  {
+    "id": "duplicate-ids-change-menu-compose-target",
+    "clickedText": "SECOND",
+    "byIdText": "FIRST"
+  },
+  {
+    "id": "corrupt-v2-not-validated",
+    "loadSucceeded": true,
+    "firstReadError": "Cannot read properties of null (reading 'includes')"
+  },
+  {
+    "id": "field-prototype-name",
+    "actual": "[object Object]",
+    "expected": "DEFAULT"
+  },
+  {
+    "id": "menu-enter-target-mismatch",
+    "outlined": "B",
+    "inserted": "A"
+  },
+  {
+    "id": "start-resumes-after-stop",
+    "hostsAppendedAfterStop": 1
+  },
+  {
+    "id": "reset-does-not-cancel-async-insert",
+    "insertedAfterReset": 1
+  },
+  {
+    "id": "clipboard-rejection-success-toast",
+    "toast": "Не удалось вставить — текст скопирован, вставьте Ctrl+V",
+    "copySucceeded": false
+  },
+  {
+    "id": "project-template-foreign-markers-skipped",
+    "preparedWithoutDialog": true,
+    "text": "Open https://majestic-rp.ru OLD_SELECTION"
+  },
+  {
+    "id": "import-keeps-old-compose-ids",
+    "retainedId": "local:Majestic RP||A",
+    "textNowResolved": "REPLACEMENT"
+  },
+  {
+    "id": "window-ime-enter-inserts",
+    "isComposing": true,
+    "inserted": "A"
+  },
+  {
+    "id": "long-press-expires-dismiss-guard",
+    "guardAtPress": true,
+    "guardAfterOneSecond": false,
+    "menuClosed": true
+  }
+]
