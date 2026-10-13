@@ -117,3 +117,8 @@ Task 19: scope change (user): Tech = all templates of both projects, no project 
 Task 19: review Approved; controller fixed minors now: dead .vc-stx-pbtn CSS removed, inline runCheck exits on OFF before Selection/Range work
 Task 19: minor (deferred): poolFor/activeScope untested (webpack-bound; move to core); channelChanged uses event guildId vs currentGuildId (harmless, re-checks); OFF skip log only for Ctrl+Alt+T; 830f777 doesn't compile alone
 Task 19: complete (commits 1a900f0..HEAD, review clean) — manual Discord check pending with user
+Task 20 (user report): Shift peek broken after Task 19 (root cause first), no emoji/pictographs in UI → SVG (user rule), Tech switch Majestic/Россия Онлайн persisted (no guards on Tech); BASE 1355310
+Task 20: Shift root cause — focus fell to body on mousedown on non-focusable window parts (gap since Task 14); fixed with window mousedown guard + document-level Shift peek (no preventDefault, no combos/repeats)
+Task 20: review Approved; deviations accepted: compose cleared on Tech switch; other-project bind on Tech passes to Discord; row project icon only on common templates
+Task 20: minor (deferred): no hint for skipped bind on Tech; pointerIn not set when window opens under still cursor; Shift peek flashes when typing capitals in a Discord input while pointer over window; preview-body click drops focus (Task 14 deferred); Scope re-export
+Task 20: complete (commits 1355310..b6e90ac, review clean) — manual Discord check pending with user
