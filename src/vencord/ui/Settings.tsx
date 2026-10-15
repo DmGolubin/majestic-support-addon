@@ -6,9 +6,7 @@
 
 import { useState } from "@webpack/common";
 
-import { TECH_GUILD } from "../core/guard";
 import { PREFIXES } from "../core/trigger";
-import { PROJECTS } from "../core/types";
 import { toast } from "../platform";
 import { demo } from "./demo";
 import { DemoConnection } from "./DemoConnection";
@@ -63,28 +61,32 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
             {tab === "personal" && demoState.enabled && demoState.revision === 0 && <p className="vc-stx-local-note">Сначала подключите тестовый аккаунт во вкладке «Подключение».</p>}
             {tab === "connection" && <DemoConnection />}
             {tab === "general" && <>
-            <h3>Основные шаблоны</h3>
-            <p>Основных шаблонов: {main.length} (Majestic {mj}, Россия Онлайн {ro}). Источник — локальный; вход через панель появится позже.</p>
-            <p>Временный импорт FAQ: <code>SupportTemplates.config.json</code> из BetterDiscord, резервная копия или текст «## проект / ### шаблон». Заменяет импортированный набор, его избранное и бинды. Личные шаблоны и их папки сохраняются.</p>
-            <button className="vc-stx-btn" disabled={demoState.enabled} onClick={pick}>Импорт из файла</button>
-            {status && <p className="vc-stx-muted">{status}</p>}
-
-            <h3>Быстрый ввод</h3>
-            <label className="vc-stx-check"><input type="checkbox" checked={store.data.previewOpen} onChange={e => store.setPreviewOpen(e.currentTarget.checked)} />Открывать окно с полным предпросмотром</label>
-            <p>Префикс команды в строке ввода («/» занят командами Discord):</p>
-            <div className="vc-stx-row">
-                {PREFIXES.map(p => (
-                    <button key={p} className={"vc-stx-btn " + (store.data.prefix === p ? "" : "vc-stx-ghost")} onClick={() => store.setPrefix(p)}>{p}снр</button>
-                ))}
-            </div>
-
-            <h3>Серверы</h3>
-            <ul>
-                <li>{PROJECTS.mj.name} (<code>{PROJECTS.mj.guildId}</code>) — шаблоны {PROJECTS.mj.short} и общие</li>
-                <li>{PROJECTS.ro.name} (<code>{PROJECTS.ro.guildId}</code>) — шаблоны {PROJECTS.ro.short} и общие</li>
-                <li>Tech™ (<code>{TECH_GUILD}</code>) — переключатель «Majestic / Россия Онлайн» в окне, без проверки проекта</li>
-            </ul>
-            <p>На остальных серверах и в ЛС плагин выключен.</p>
+            <section className="vc-stx-setting-section">
+                <h3>Окно и быстрый ввод</h3>
+                <label className="vc-stx-check"><input type="checkbox" checked={store.data.previewOpen} onChange={e => store.setPreviewOpen(e.currentTarget.checked)} />Открывать полный предпросмотр</label>
+                <p className="vc-stx-muted">В компактном окне удерживайте Shift для просмотра.</p>
+                <h4>Префикс команды</h4>
+                <div className="vc-stx-row" role="group" aria-label="Префикс команды">
+                    {PREFIXES.map(p => <button key={p} aria-pressed={store.data.prefix === p} className={"vc-stx-btn " + (store.data.prefix === p ? "" : "vc-stx-ghost")} onClick={() => store.setPrefix(p)}>{p}снр</button>)}
+                </div>
+            </section>
+            <section className="vc-stx-setting-section">
+                <h3>Библиотека</h3>
+                <p>{main.length} основных шаблонов <span className="vc-stx-muted">· Majestic {mj} · Россия Онлайн {ro}</span></p>
+                <details className="vc-stx-settings-details"><summary>Импорт из файла</summary>
+                    <p className="vc-stx-muted">JSON, TXT или Markdown. Заменит основные шаблоны, их избранное и бинды. Личные шаблоны и папки сохранятся.</p>
+                    {demoState.enabled && <p className="vc-stx-muted">Доступен в локальной библиотеке.</p>}
+                    <button className="vc-stx-btn vc-stx-ghost" disabled={demoState.enabled} onClick={pick}>Выбрать файл</button>
+                    {status && <p role="status">{status}</p>}
+                </details>
+            </section>
+            <section className="vc-stx-setting-section">
+                <h3>Доступные серверы</h3>
+                <div className="vc-stx-server-row"><span>Majestic</span><span>Majestic и общие</span></div>
+                <div className="vc-stx-server-row"><span>Россия Онлайн</span><span>Россия Онлайн и общие</span></div>
+                <div className="vc-stx-server-row"><span>Tech</span><span>Выбор проекта в меню</span></div>
+                <p className="vc-stx-muted">На остальных серверах и в ЛС плагин выключен.</p>
+            </section>
             </>}
         </div>
     );

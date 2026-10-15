@@ -20,7 +20,7 @@ export function Management() {
         const key = (e: KeyboardEvent) => {
             if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
             if (e.key === "Tab") {
-                const nodes = [...root.current!.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex='0']")].filter(el => el.getClientRects().length);
+                const nodes = [...root.current!.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), summary, a[href], [tabindex='0']")].filter(el => el.getClientRects().length);
                 const i = nodes.indexOf(document.activeElement as HTMLElement);
                 if (i === -1 || (e.shiftKey ? i === 0 : i === nodes.length - 1)) { e.preventDefault(); nodes[e.shiftKey ? nodes.length - 1 : 0]?.focus(); }
             }
