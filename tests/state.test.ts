@@ -9,6 +9,16 @@ const mem = (init: Record<string, unknown> = {}) => {
 };
 
 describe("Store", () => {
+    it("persists a custom prefix across reload", async () => {
+        const st = mem();
+        const s = new Store(st);
+        await s.load();
+        s.setPrefix("$");
+        await s.flush();
+        const reloaded = new Store(st);
+        await reloaded.load();
+        expect(reloaded.data.prefix).toBe("$");
+    });
     it("imports the 0.5.1 config and persists", async () => {
         const st = mem();
         const s = new Store(st);

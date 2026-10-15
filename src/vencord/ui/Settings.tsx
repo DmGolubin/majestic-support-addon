@@ -6,13 +6,14 @@
 
 import { useState } from "@webpack/common";
 
-import { PREFIXES } from "../core/trigger";
+import { PREFIXES, validPrefix } from "../core/trigger";
 import { toast } from "../platform";
 import { demo } from "./demo";
 import { DemoConnection } from "./DemoConnection";
 import { confirmedForeign, supersede } from "./flow";
 import { nextGeneration } from "./op";
 import { PersonalLibrary } from "./PersonalLibrary";
+import { IconLink, IconSettings, IconTemplates } from "./svg";
 import { store, ui, useStore } from "./uiState";
 
 export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) {
@@ -21,6 +22,8 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
     const [tab, setTab] = useState("personal");
     const [dirty, setDirty] = useState(false);
     const [pending, setPending] = useState<string | null>(null);
+    const [prefix, setPrefix] = useState(store.data.prefix);
+    const [prefixError, setPrefixError] = useState("");
     const [status, setStatus] = useState("");
     const main = store.templates.filter(t => t.source !== "personal");
     const mj = main.filter(t => t.project === "mj").length;
@@ -54,7 +57,7 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
     return (
         <div className="vc-stx-settings">
             <nav className="vc-stx-settings-nav" aria-label="Разделы настроек">
-                {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["connection", "Подключение"]].map(([id, label]) => <button key={id} className={"vc-stx-btn " + (tab === id ? "" : "vc-stx-ghost")} aria-pressed={tab === id} onClick={() => { if (id === tab) return; if (dirty) setPending(id); else setTab(id); }}>{label}</button>)}
+                {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["connection", "Подключение"]].map(([id, label]) => <button key={id} className={"vc-stx-btn " + (tab === id ? "" : "vc-stx-ghost")} aria-pressed={tab === id} onClick={() => { if (id === tab) return; if (dirty) setPending(id); else setTab(id); }}>{id === "personal" ? <IconTemplates size={16} /> : id === "general" ? <IconSettings size={16} /> : <IconLink size={16} />}{label}</button>)}
             </nav>
             {pending && <div className="vc-stx-local-note" role="alert">Отменить изменения и сменить раздел? <button className="vc-stx-btn" onClick={() => { setTab(pending); setPending(null); setDirty(false); onDirty?.(false); }}>Отменить изменения</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => setPending(null)}>Остаться</button></div>}
             {tab === "personal" && (!demoState.enabled || demoState.revision > 0) && <PersonalLibrary onDirty={v => { setDirty(v); onDirty?.(v); }} />}
@@ -67,8 +70,14 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
                 <p className="vc-stx-muted">В компактном окне удерживайте Shift для просмотра.</p>
                 <h4>Префикс команды</h4>
                 <div className="vc-stx-row" role="group" aria-label="Префикс команды">
-                    {PREFIXES.map(p => <button key={p} aria-pressed={store.data.prefix === p} className={"vc-stx-btn " + (store.data.prefix === p ? "" : "vc-stx-ghost")} onClick={() => store.setPrefix(p)}>{p}снр</button>)}
+                    {PREFIXES.map(p => <button key={p} aria-pressed={store.data.prefix === p} className={"vc-stx-btn " + (store.data.prefix === p ? "" : "vc-stx-ghost")} onClick={() => { store.setPrefix(p); setPrefix(p); setPrefixError(""); }}>{p}снр</button>)}
                 </div>
+                <form className="vc-stx-prefix-form" onSubmit={e => { e.preventDefault(); if (!validPrefix(prefix)) { setPrefixError("Один знак пунктуации, кроме /, @ и скобок."); return; } store.setPrefix(prefix); setPrefixError(""); }}>
+                    <label>Свой символ<input aria-label="Свой префикс" maxLength={1} value={prefix} onChange={e => setPrefix(e.currentTarget.value)} /></label>
+                    <button className="vc-stx-btn vc-stx-ghost" disabled={prefix === store.data.prefix}>Применить</button>
+                    <code>{store.data.prefix}команда</code>
+                </form>
+                {prefixError && <p role="alert" className="vc-stx-form-error">{prefixError}</p>}
             </section>
             <section className="vc-stx-setting-section">
                 <h3>Библиотека</h3>
@@ -82,10 +91,11 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
             </section>
             <section className="vc-stx-setting-section">
                 <h3>Доступные серверы</h3>
-                <div className="vc-stx-server-row"><span>Majestic</span><span>Majestic и общие</span></div>
-                <div className="vc-stx-server-row"><span>Россия Онлайн</span><span>Россия Онлайн и общие</span></div>
-                <div className="vc-stx-server-row"><span>Tech</span><span>Выбор проекта в меню</span></div>
-                <p className="vc-stx-muted">На остальных серверах и в ЛС плагин выключен.</p>
+                <div className="vc-stx-server-links">
+                    <a href="https://discord.com/channels/530693013622489088" target="_blank" rel="noreferrer">Majestic <IconLink /></a>
+                    <a href="https://discord.com/channels/1089530150540034181" target="_blank" rel="noreferrer">Россия Онлайн <IconLink /></a>
+                    <a href="https://discord.com/channels/1395915167040016545" target="_blank" rel="noreferrer">Tech <IconLink /></a>
+                </div>
             </section>
             </>}
         </div>

@@ -7,6 +7,7 @@
 import { useState } from "@webpack/common";
 
 import { fieldToken } from "../core/tokenEditor";
+import { Select } from "./Select";
 
 export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void; insert(token: string): boolean; hasBoundary: boolean; }) {
     const [kind, setKind] = useState<"field" | "list" | "date" | "time" | null>(null);
@@ -33,7 +34,6 @@ export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void
     };
     return <div className="vc-stx-token-tools">
         <div className="vc-stx-token-buttons" role="group" aria-label="Добавить переменную">
-            <button type="button" disabled title="Позиция каретки после вставки пока не поддерживается адаптером Discord">Каретка</button>
             <button type="button" onClick={() => open("field")}>Поле</button>
             <button type="button" onClick={() => open("list")}>Список</button>
             <button type="button" onClick={() => open("date")}>Дата</button>
@@ -46,7 +46,6 @@ export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void
             ].map(([label, token, hint]) => <button type="button" key={token} title={hint} onClick={() => { capture(); add(token); }}>{label}</button>)}
             <button type="button" disabled={hasBoundary} onClick={() => { capture(); add("\n[[greeting:end]]\n"); }}>Граница приветствия</button>
         </div>
-        <p className="vc-stx-muted">Каретка после вставки пока недоступна в Discord. Остальные переменные добавляются в позицию курсора или заменяют выделенный фрагмент.</p>
         {kind && <div className="vc-stx-token-builder" role="group" aria-label="Настройка переменной" onKeyDown={e => { if (e.key === "Enter" && e.target instanceof HTMLInputElement && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } }}>
             {kind === "field" || kind === "list" ? <>
                 <label>Имя поля<input autoFocus value={name} placeholder="Например: ник" onChange={e => setName(e.currentTarget.value)} /></label>
@@ -55,7 +54,7 @@ export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void
                 <p className="vc-stx-muted">При использовании шаблона появится форма заполнения. Одинаковое имя объединяет повторяющиеся поля.</p>
             </> : <>
                 <div className="vc-stx-form-grid"><label>Сдвиг относительно момента вставки<input autoFocus type="number" min={-10000} max={10000} step={1} value={offset} onChange={e => setOffset(e.currentTarget.value)} /></label>
-                    <label>Единица<select value={unit} onChange={e => setUnit(e.currentTarget.value)}><option value="m">Минуты</option><option value="h">Часы</option><option value="d">Дни</option><option value="w">Недели</option></select></label></div>
+                    <label>Единица<Select aria-label="Единица" value={unit} onChange={e => setUnit(e.currentTarget.value)}><option value="m">Минуты</option><option value="h">Часы</option><option value="d">Дни</option><option value="w">Недели</option></Select></label></div>
                 <p className="vc-stx-muted">{kind === "date" ? "Формат: ДД.ММ.ГГГГ." : "Формат: ЧЧ:ММ."} Ноль — текущее значение; отрицательное число — назад.</p>
             </>}
             {error && <p role="alert" className="vc-stx-form-error">{error}</p>}

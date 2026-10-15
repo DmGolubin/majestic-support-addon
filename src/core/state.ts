@@ -9,7 +9,7 @@ import { importBackup, parseRaw } from "./importer";
 import { bindProblem, cleanBinds } from "./keys";
 import { PersonalDraft, PersonalFolder, PersonalTemplate, personalTemplate, readFolders, readPersonal } from "./personal";
 import { RankCtx } from "./rank";
-import { PREFIXES } from "./trigger";
+import { validPrefix } from "./trigger";
 import { ProjectId, Template, Usage } from "./types";
 
 export interface StorageLike {
@@ -76,7 +76,7 @@ export function sanitize(saved: Record<string, unknown>, templates: Template[]):
     d.binds = b.binds;
     if (b.dropped || ("binds" in saved && !isRecord(saved.binds))) fixed.push("binds");
     take("guilds", isRecord(saved.guilds), saved.guilds as Persisted["guilds"]);
-    take("prefix", typeof saved.prefix === "string" && (PREFIXES as readonly string[]).includes(saved.prefix), saved.prefix as string);
+    take("prefix", validPrefix(saved.prefix), saved.prefix as string);
     take("previewOpen", typeof saved.previewOpen === "boolean", saved.previewOpen as boolean);
     take("techProject", saved.techProject === "mj" || saved.techProject === "ro", saved.techProject as ProjectId);
     return { data: d, fixed };
@@ -276,7 +276,7 @@ export class Store {
     }
 
     setPrefix(p: string) {
-        if (!(PREFIXES as readonly string[]).includes(p)) throw new Error("Префикс: ; . , или !");
+        if (!validPrefix(p)) throw new Error("Используйте один символ: ! # $ % & * + . , : ; = ? ^ ~ _ -");
         this.data.prefix = p;
         this.changed();
     }

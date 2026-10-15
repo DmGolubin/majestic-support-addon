@@ -10,6 +10,8 @@ import { PERSONAL_COLORS, PersonalDraft, PersonalTemplate } from "../core/person
 import { insertToken } from "../core/tokenEditor";
 import { ProjectId } from "../core/types";
 import { demo } from "./demo";
+import { Select } from "./Select";
+import { IconFolder, IconPlus } from "./svg";
 import { TokenToolbar } from "./TokenToolbar";
 import { store, useStore } from "./uiState";
 
@@ -73,7 +75,7 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
 
     return <section className="vc-stx-library">
         <div className="vc-stx-lib-title"><div><h3>Мои шаблоны</h3><span className="vc-stx-storage-note">{isDemo ? "Демо · до выхода" : "На этом устройстве"}</span></div>
-            {!editing && <button className="vc-stx-btn" disabled={!!folderEdit || busy} onClick={() => begin()}>Добавить шаблон</button>}</div>
+            {!editing && <button className="vc-stx-btn" disabled={!!folderEdit || busy} onClick={() => begin()}><IconPlus />Добавить шаблон</button>}</div>
         {error && <p role="alert" className="vc-stx-form-error">{error}</p>}
         {notice && <p role="status">{notice}</p>}
         {editing ? <form className="vc-stx-personal-form" onSubmit={e => { e.preventDefault(); void run(async () => {
@@ -95,8 +97,8 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
                     {PERSONAL_COLORS.map((c, i) => <button type="button" key={c} aria-label={COLOR_NAMES[i]} title={COLOR_NAMES[i]} aria-pressed={editing.draft.color === c} style={{ "--swatch": c } as React.CSSProperties} onClick={() => change({ color: c })}><span /></button>)}
                 </div>
                 <div className="vc-stx-form-grid">
-                    <label>Проект<select aria-label="Проект" value={editing.draft.project ?? "shared"} onChange={e => change({ project: e.currentTarget.value === "shared" ? null : e.currentTarget.value as ProjectId })}><option value="mj">Majestic</option><option value="ro">Россия Онлайн</option><option value="shared">Общий для двух проектов</option></select></label>
-                    <label>Папка<select aria-label="Папка" value={editing.draft.folderId ?? ""} onChange={e => change({ folderId: e.currentTarget.value || null })}><option value="">Без папки</option>{store.data.folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
+                    <label>Проект<Select aria-label="Проект" value={editing.draft.project ?? "shared"} onChange={e => change({ project: e.currentTarget.value === "shared" ? null : e.currentTarget.value as ProjectId })}><option value="mj">Majestic</option><option value="ro">Россия Онлайн</option><option value="shared">Общий для двух проектов</option></Select></label>
+                    <label>Папка<Select aria-label="Папка" value={editing.draft.folderId ?? ""} onChange={e => change({ folderId: e.currentTarget.value || null })}><option value="">Без папки</option>{store.data.folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</Select></label>
                 </div>
                 <label>Команда (необязательно)<input maxLength={40} placeholder="Например: drivers" value={editing.draft.command ?? ""} onChange={e => change({ command: e.currentTarget.value || null })} /></label>
                 <p className="vc-stx-muted">Вызов в чате: {store.data.prefix}{editing.draft.command || "drivers"}</p>
@@ -104,8 +106,12 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
             {discard && <div className="vc-stx-local-note" role="alert">Отменить несохранённые изменения? <button type="button" className="vc-stx-btn vc-stx-ghost" onClick={close}>Отменить изменения</button><button type="button" className="vc-stx-btn vc-stx-ghost" onClick={() => setDiscard(false)}>Продолжить редактирование</button></div>}
             <div className="vc-stx-lib-actions vc-stx-editor-actions"><button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => dirty ? setDiscard(true) : close()}>Назад</button><button type="submit" className="vc-stx-btn" disabled={busy}>{busy ? "Сохранение…" : "Сохранить"}</button></div>
         </form> : <>
-            <div className="vc-stx-form-grid"><label>Поиск<input value={query} onChange={e => setQuery(e.currentTarget.value)} placeholder="Название, текст или команда" /></label><label>Проект<select aria-label="Проект" value={project} onChange={e => setProject(e.currentTarget.value)}><option value="all">Все проекты</option><option value="mj">Majestic и общие</option><option value="ro">Россия Онлайн и общие</option></select></label></div>
-            <div className="vc-stx-folder-bar"><label>Папка<select aria-label="Папка" value={folder} onChange={e => setFolder(e.currentTarget.value)}><option value="all">Все папки</option><option value="none">Без папки</option>{store.data.folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
+            <div className="vc-stx-library-layout"><aside className="vc-stx-folder-nav" aria-label="Папки шаблонов">
+                <span className="vc-stx-folder-heading"><IconFolder /> Папки</span>
+                {[{ id: "all", name: "Все шаблоны" }, { id: "none", name: "Без папки" }, ...store.data.folders].map(f => <button type="button" key={f.id} aria-pressed={folder === f.id} disabled={!!folderEdit || busy} onClick={() => setFolder(f.id)}><span>{f.name}</span><small>{store.data.personal.filter(t => f.id === "all" || (f.id === "none" ? !t.folderId : t.folderId === f.id)).length}</small></button>)}
+            </aside><div className="vc-stx-library-content">
+            <div className="vc-stx-form-grid"><label>Поиск<input value={query} onChange={e => setQuery(e.currentTarget.value)} placeholder="Название, текст или команда" /></label><label>Проект<Select aria-label="Проект" value={project} onChange={e => setProject(e.currentTarget.value)}><option value="all">Все проекты</option><option value="mj">Majestic и общие</option><option value="ro">Россия Онлайн и общие</option></Select></label></div>
+            <div className="vc-stx-folder-bar">
                 <button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => { newFolderId.current = "folder:" + crypto.randomUUID(); setFolderEdit({ name: "" }); mark(true); }}>Создать папку</button>
                 {store.data.folders.some(f => f.id === folder) && <><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => { setFolderEdit({ id: folder, name: store.data.folders.find(f => f.id === folder)!.name }); mark(true); }}>Переименовать</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => setRemove({ kind: "folder", id: folder, name: store.data.folders.find(f => f.id === folder)!.name })}>Удалить папку</button></>}
             </div>
@@ -114,6 +120,7 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
             <p className="vc-stx-muted">Шаблоны · {list.length}</p>
             {!list.length && <div className="vc-stx-library-empty"><h4>{store.data.personal.length ? "Нет совпадений" : "Здесь будут ваши ответы"}</h4><p>{store.data.personal.length ? "Измените поиск или фильтр папок." : "Нажмите «Добавить шаблон», чтобы создать первый ответ."}</p></div>}
             {list.map(t => <article key={t.id} className="vc-stx-personal-card" style={{ borderLeftColor: t.color ?? undefined }}><h4>{t.title}</h4><p className="vc-stx-muted">{t.project === "mj" ? "Majestic" : t.project === "ro" ? "Россия Онлайн" : "Общий"} · {store.data.folders.find(f => f.id === t.folderId)?.name ?? "Без папки"}{t.command && ` · ${store.data.prefix}${t.command}`}</p><pre>{t.text}</pre><div className="vc-stx-lib-actions"><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => begin(t)}>Редактировать</button><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => begin(t, true)}>Создать копию</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => setRemove({ kind: "template", id: t.id, name: t.title })}>Удалить</button></div></article>)}
+            </div></div>
         </>}
     </section>;
 }

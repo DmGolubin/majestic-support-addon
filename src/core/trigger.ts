@@ -6,6 +6,9 @@
 
 export const PREFIXES = [";", ".", ",", "!"] as const;
 
+/** One explicit punctuation character; no slash commands, mentions or whitespace. */
+export const validPrefix = (value: unknown): value is string => typeof value === "string" && /^[!#$%&*+.,:;=?^~_-]$/.test(value);
+
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** "…text ;снр" before the caret → { query: "снр", length: 4 } (length includes the prefix). */

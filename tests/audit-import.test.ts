@@ -49,7 +49,7 @@ describe("damaged saves (audit 13)", () => {
             [STORE_KEY]: {
                 v: 2, raw: RAW, favorites: null, recent: ["local:Majestic RP||A", 7], usage: "x",
                 binds: { "local:Majestic RP||A": "Enter", "local:Majestic RP||B": "Ctrl+Alt+KeyQ" },
-                prefix: "?", previewOpen: "yes", techProject: "eu", intentional: [],
+                prefix: "/", previewOpen: "yes", techProject: "eu", intentional: [],
             },
         });
         const s = new Store(st);

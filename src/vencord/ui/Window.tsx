@@ -21,7 +21,7 @@ import { latchKey } from "./keylatch";
 import { windowEditor } from "./op";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
-import { IconEnter, IconSearch, IconShift, IconStar } from "./svg";
+import { IconEnter, IconSearch, IconSettings, IconShift, IconStar } from "./svg";
 import { activeScope, listedProject, pickTechProject, poolFor, store, ui, useStore, watchChatArea } from "./uiState";
 
 /** Rows currently visible in the window — Alt+1…9 uses them while the window is open. */
@@ -459,7 +459,7 @@ function WindowView() {
                 {wide && <Preview t={current} onBack={compact ? back : undefined} />}
                 <div className="vc-stx-col">
                     <div className="vc-stx-head">
-                        <button className="vc-stx-manage-link" onClick={() => ui.set({ management: true, windowOpen: false, menu: null, inline: null })}>Мои шаблоны и настройки</button>
+                        <button className="vc-stx-manage-link" onClick={() => ui.set({ management: true, windowOpen: false, menu: null, inline: null })}><IconSettings size={16} /> Мои шаблоны и настройки</button>
                         <label className="vc-stx-search">
                             <span className="vc-stx-sicon"><IconSearch size={15} /></span>
                             <input

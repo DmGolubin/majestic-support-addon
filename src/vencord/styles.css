@@ -356,4 +356,39 @@
 .vc-stx-personal-card pre { border-radius: 4px; background: var(--stx-input); }
 .vc-stx-editor-actions { position: sticky; bottom: -24px; padding: 14px 0; background: #0b0d10; border-top: 1px solid var(--stx-bd); z-index: 1; }
 .vc-stx-library-empty { border-style: solid; background: var(--stx-card); }
+.vc-stx-settings-nav .vc-stx-btn, .vc-stx-lib-title > button { display: inline-flex; align-items: center; gap: 7px; }
+.vc-stx-library-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; }
+.vc-stx-library-content { min-width: 0; }
+.vc-stx-folder-nav { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid var(--stx-bd); border-radius: 6px; align-self: start; }
+.vc-stx-folder-heading { display: flex; align-items: center; gap: 8px; margin: 4px 8px 12px; color: var(--stx-mu); font-size: 12px; }
+.vc-stx-folder-nav button { display: flex; justify-content: space-between; gap: 8px; padding: 10px; border: 0; border-radius: 4px; background: transparent; color: var(--stx-mu); font: inherit; text-align: left; cursor: pointer; }
+.vc-stx-folder-nav button span { overflow-wrap: anywhere; }
+.vc-stx-folder-nav button:hover { background: var(--stx-acc); }
+.vc-stx-folder-nav button[aria-pressed=true] { background: var(--stx-acc); color: var(--stx-tx); box-shadow: inset 2px 0 var(--stx-pr); }
+.vc-stx-folder-nav small { color: var(--stx-mu2); }
+.vc-stx-select { position: relative; min-width: 0; }
+.vc-stx-select > button { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--stx-bd); border-radius: 6px; background: var(--stx-input); color: var(--stx-tx); font: inherit; text-align: left; cursor: pointer; }
+.vc-stx-select > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-stx-select > button svg { flex-shrink: 0; }
+.vc-stx-select-options { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; right: 0; max-height: 200px; overflow: auto; padding: 4px; background: var(--stx-card); border: 1px solid var(--stx-bd2); border-radius: 6px; box-shadow: 0 8px 24px #0006; }
+.vc-stx-select-options [role=option] { padding: 9px 10px; border-radius: 3px; cursor: pointer; overflow-wrap: anywhere; }
+.vc-stx-select-options .active { background: var(--stx-acc); }
+.vc-stx-select-options [aria-selected=true] { color: #f37fa3; }
+.vc-stx-select-up .vc-stx-select-options { top: auto; bottom: calc(100% + 4px); }
+.vc-stx-settings, .vc-stx-settings textarea, .vc-stx-select-options { scrollbar-color: #303641 transparent; scrollbar-width: thin; color-scheme: dark; }
+.vc-stx-prefix-form { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.vc-stx-prefix-form label { max-width: 130px; }
+.vc-stx-prefix-form code { align-self: center; color: var(--stx-mu); }
+.vc-stx-settings input[type=checkbox] { appearance: none; width: 17px; height: 17px; flex-shrink: 0; vertical-align: middle; border: 1px solid var(--stx-bd2); border-radius: 4px; background: var(--stx-input); cursor: pointer; }
+.vc-stx-settings input[type=checkbox]:checked { background: var(--stx-pr); border-color: var(--stx-pr); }
+.vc-stx-settings input[type=checkbox]:checked::after { content: ''; display: block; width: 7px; height: 4px; margin: 4px 3px; border: solid white; border-width: 0 0 2px 2px; transform: rotate(-45deg); }
+.vc-stx-settings :is(button, input[type=checkbox], a):focus-visible { outline: 2px solid var(--stx-ring); outline-offset: 2px; }
+.vc-stx-server-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.vc-stx-server-links a { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid var(--stx-bd); border-radius: 6px; text-decoration: none; }
+.vc-stx-settings a.vc-stx-btn { color: white; text-decoration: none; }
+.vc-stx-connection-state { display: flex; align-items: center; gap: 8px; margin: 18px 0; }
+.vc-stx-connection-state > span { width: 7px; height: 7px; border-radius: 50%; background: var(--stx-mu2); }
+.vc-stx-connection-state.ready > span { background: #36c995; }
+.vc-stx-manage-link { display: flex; align-items: center; gap: 7px; padding: 6px 8px; border: 1px solid var(--stx-bd); border-radius: 5px; font-size: 12px; }
+@media (max-width: 650px) { .vc-stx-library-layout { grid-template-columns: 1fr; gap: 16px; } .vc-stx-folder-nav { flex-direction: row; flex-wrap: wrap; } .vc-stx-folder-heading { width: 100%; } }
 @media (max-width: 600px) { .vc-stx-editor-actions { bottom: -14px; } .vc-stx-settings-nav .vc-stx-btn { padding-inline: 8px; } }
