@@ -3,6 +3,10 @@
 Шаблоны ответов поддержки Majestic RP и Россия Онлайн в Discord — Vencord и BetterDiscord, в стиле
 панели Majestic, с защитой от шаблона чужого проекта и (позже) входом через аккаунт панели.
 
+## Актуальный план
+
+[Roadmap и правила ведения](docs/roadmap/README.md) · [STATUS](docs/STATUS.md) · [TODO](TODO.md). Сайт: `pnpm roadmap:serve`, затем http://127.0.0.1:47834/roadmap/. Задачи хранятся в одном `docs/roadmap/data.json`; STATUS/TODO генерируются из него.
+
 ## Где что
 
 ### Личные шаблоны и настройки
