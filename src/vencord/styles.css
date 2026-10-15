@@ -327,3 +327,11 @@
 .vc-stx-login-help { text-align: center; margin-top: -5px; line-height: 1.5; }
 .vc-stx-login-demo { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--stx-bd); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--stx-mu2); font-size: 11px; font-weight: 400; }
 .vc-stx-login-demo button { padding: 0; border: 0; background: none; color: var(--stx-mu); font: inherit; cursor: pointer; }
+.vc-stx-login-scene { animation: stx-scene-in 180ms ease-out; }
+.vc-stx-load-placeholder { display: grid; gap: 12px; padding: 18px; margin: 24px 0; border: 1px solid var(--stx-bd); border-radius: 6px; }
+.vc-stx-load-placeholder span { display: block; height: 12px; border-radius: 3px; background: var(--stx-bd2); animation: stx-load-pulse 1.2s ease-in-out infinite alternate; }
+.vc-stx-load-placeholder span:nth-child(2) { width: 83%; animation-delay: .15s; }
+.vc-stx-load-placeholder span:nth-child(3) { width: 61%; animation-delay: .3s; }
+@keyframes stx-scene-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes stx-load-pulse { from { opacity: .35; } to { opacity: .85; } }
+@media (prefers-reduced-motion: reduce) { .vc-stx-login-scene, .vc-stx-load-placeholder span { animation: none; } }

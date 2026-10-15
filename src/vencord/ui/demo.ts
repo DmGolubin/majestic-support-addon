@@ -67,9 +67,20 @@ export async function connectDemo(fromMenu = false) {
 async function poll(ownEpoch: number) {
     if (epoch !== ownEpoch || !credentials || demo.get().paused) return;
     try {
-        const result = await api(`/sessions/${encodeURIComponent(credentials.id)}/state`);
+        let result = await api(`/sessions/${encodeURIComponent(credentials.id)}/state`);
         if (epoch !== ownEpoch) return;
         if (!["pending", "ready", "denied", "expired", "revoked"].includes(result.phase) || !Number.isSafeInteger(result.revision) || typeof result.raw !== "string" || result.raw.length > 50000) throw new Error("Неверный снимок");
+        if (result.phase === "ready" && demo.get().revision === 0) {
+            demo.set({ phase: "loading", error: "" });
+            // A separate catalog read after consent; the demo holds this scene briefly so it is legible.
+            const [snapshot] = await Promise.all([
+                api(`/sessions/${encodeURIComponent(credentials!.id)}/state`),
+                new Promise<void>(resolve => setTimeout(resolve, 700)),
+            ]);
+            if (epoch !== ownEpoch) return;
+            if (!["ready", "revoked", "expired"].includes(snapshot.phase) || !Number.isSafeInteger(snapshot.revision) || typeof snapshot.raw !== "string" || snapshot.raw.length > 50000) throw new Error("Неверный снимок");
+            result = snapshot;
+        }
         if (result.phase === "ready") {
             if (result.revision !== demo.get().revision) {
                 const changed = demo.get().revision > 0;
@@ -86,7 +97,7 @@ async function poll(ownEpoch: number) {
     } catch {
         if (epoch !== ownEpoch) return;
         if (demoAccess.get().ready) invalidate();
-        demoAccess.set({ ready: false }); demo.set({ phase: "offline", error: "Демосервер недоступен. Вставка тестовых шаблонов приостановлена; повторяем подключение." });
+        demoAccess.set({ ready: false }); demo.set({ phase: demo.get().phase === "loading" || demo.get().phase === "load-error" ? "load-error" : "offline", error: "Демосервер недоступен. Вставка тестовых шаблонов приостановлена; повторяем подключение." });
     }
     if (epoch === ownEpoch) timer = setTimeout(() => void poll(ownEpoch), 2000);
 }

@@ -8,7 +8,7 @@ import { connectDemo, demo, disableDemo, enableDemo, pauseDemo } from "./demo";
 
 export function DemoConnection() {
     const d = demo.use();
-    const labels: Record<string, string> = { idle: "Не подключён", connecting: "Подключение…", pending: "Ожидаем подтверждение", ready: "Библиотека загружена", denied: "Вы отказали в доступе", expired: "Код истёк", revoked: "Устройство отозвано", offline: "Нет связи" };
+    const labels: Record<string, string> = { loading: "Загружаем шаблоны…", "load-error": "Повторяем загрузку библиотеки", idle: "Не подключён", connecting: "Подключение…", pending: "Ожидаем подтверждение", ready: "Библиотека загружена", denied: "Вы отказали в доступе", expired: "Код истёк", revoked: "Устройство отозвано", offline: "Нет связи" };
     return <section><h3>Подключение к панели</h3>
         <p className="vc-stx-local-note">API настоящей панели ещё не подключён. Деморежим использует отдельную тестовую библиотеку в памяти. Обычные шаблоны и настройки сохраняются; тестовые правки исчезнут после выхода или перезагрузки Discord.</p>
         {!d.enabled ? <button className="vc-stx-btn" onClick={() => enableDemo()}>Включить деморежим</button> : <>
