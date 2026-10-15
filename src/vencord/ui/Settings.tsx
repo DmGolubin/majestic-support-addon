@@ -10,6 +10,8 @@ import { TECH_GUILD } from "../core/guard";
 import { PREFIXES } from "../core/trigger";
 import { PROJECTS } from "../core/types";
 import { toast } from "../platform";
+import { demo } from "./demo";
+import { DemoConnection } from "./DemoConnection";
 import { confirmedForeign, supersede } from "./flow";
 import { nextGeneration } from "./op";
 import { PersonalLibrary } from "./PersonalLibrary";
@@ -17,6 +19,7 @@ import { store, ui, useStore } from "./uiState";
 
 export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) {
     useStore();
+    const demoState = demo.use();
     const [tab, setTab] = useState("personal");
     const [dirty, setDirty] = useState(false);
     const [pending, setPending] = useState<string | null>(null);
@@ -56,13 +59,14 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
                 {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["connection", "Подключение"]].map(([id, label]) => <button key={id} className={"vc-stx-btn " + (tab === id ? "" : "vc-stx-ghost")} aria-pressed={tab === id} onClick={() => { if (id === tab) return; if (dirty) setPending(id); else setTab(id); }}>{label}</button>)}
             </nav>
             {pending && <div className="vc-stx-local-note" role="alert">Отменить изменения и сменить раздел? <button className="vc-stx-btn" onClick={() => { setTab(pending); setPending(null); setDirty(false); onDirty?.(false); }}>Отменить изменения</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => setPending(null)}>Остаться</button></div>}
-            {tab === "personal" && <PersonalLibrary onDirty={v => { setDirty(v); onDirty?.(v); }} />}
-            {tab === "connection" && <section><h3>Подключение к панели</h3><p className="vc-stx-local-note">API ещё не подключён. Вход и синхронизация недоступны.</p><p>Основные FAQ будут обновляться с сайта. Личные шаблоны, цвета и папки будут связаны с вашим аккаунтом и доступны для редактирования в плагине и на сайте.</p><p>Сейчас личная библиотека хранится на этом устройстве. Её перенос в аккаунт будет отдельным шагом после подключения API.</p><a href="https://panel.majestic-rp.tech/faq" target="_blank" rel="noreferrer">Открыть FAQ на сайте</a></section>}
+            {tab === "personal" && (!demoState.enabled || demoState.revision > 0) && <PersonalLibrary onDirty={v => { setDirty(v); onDirty?.(v); }} />}
+            {tab === "personal" && demoState.enabled && demoState.revision === 0 && <p className="vc-stx-local-note">Сначала подключите тестовый аккаунт во вкладке «Подключение».</p>}
+            {tab === "connection" && <DemoConnection />}
             {tab === "general" && <>
             <h3>Основные шаблоны</h3>
             <p>Основных шаблонов: {main.length} (Majestic {mj}, Россия Онлайн {ro}). Источник — локальный; вход через панель появится позже.</p>
             <p>Временный импорт FAQ: <code>SupportTemplates.config.json</code> из BetterDiscord, резервная копия или текст «## проект / ### шаблон». Заменяет импортированный набор, его избранное и бинды. Личные шаблоны и их папки сохраняются.</p>
-            <button className="vc-stx-btn" onClick={pick}>Импорт из файла</button>
+            <button className="vc-stx-btn" disabled={demoState.enabled} onClick={pick}>Импорт из файла</button>
             {status && <p className="vc-stx-muted">{status}</p>}
 
             <h3>Быстрый ввод</h3>

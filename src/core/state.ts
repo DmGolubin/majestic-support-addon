@@ -156,6 +156,15 @@ export class Store {
         return this.templates.find(t => t.id === id);
     }
 
+    /** Demo transport catalog: stable IDs and local preferences survive refresh; real storage is never selected here. */
+    replaceDemoCatalog(raw: string) {
+        const templates = parseRaw(raw).map(t => ({ ...t, source: "faq" as const }));
+        this.data.raw = raw;
+        this.templates = [...templates, ...this.data.personal];
+        this.setVersion++;
+        this.changed();
+    }
+
     private personalChanged() {
         this.templates = [...this.templates.filter(t => !t.id.startsWith("personal:")), ...this.data.personal];
         this.setVersion++;

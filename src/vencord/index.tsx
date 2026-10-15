@@ -17,6 +17,7 @@ import { favoritesOf } from "./core/rank";
 import { currentChannel, currentGuildId, onChannelChange } from "./platform";
 import { resetMenuGuards } from "./ui/ContextMenu";
 import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
+import { disableDemo } from "./ui/demo";
 import { insertTemplate, supersede } from "./ui/flow";
 import { loadFonts, unloadFonts } from "./ui/fonts";
 import { Host } from "./ui/Host";
@@ -244,6 +245,7 @@ export default definePlugin({
     },
 
     stop() {
+        disableDemo();
         nextGeneration(); // inserts waiting for a dialog / timer and a pending start() are dropped at their next check
         clearTargets();
         resetMenuGuards();

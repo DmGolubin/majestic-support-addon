@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "@webpack/common";
 
 import { listProject, poolOf, Scope, ServerMode, serverMode } from "../core/guard";
 import { Store } from "../core/state";
+import { routeStore } from "../core/storeRouter";
 import { FieldSpec } from "../core/tokens";
 import { ProjectId, Template } from "../core/types";
 import { chatAreaEl, chatAreaRect, currentGuildId, storage } from "../platform";
@@ -17,10 +18,14 @@ import { createObservable } from "./observable";
 const errText = (e: unknown) => String((e as any)?.message ?? e);
 
 // Storage failures go to the debug log too (the Store itself only logs them to the console).
-export const store = new Store({
+export const realStore = new Store({
     get: key => storage.get(key).catch(e => { dlog("error", { where: "storage.get", key, msg: errText(e) }); throw e; }),
     set: (key, value) => storage.set(key, value).catch(e => { dlog("error", { where: "storage.set", key, msg: errText(e) }); throw e; }),
 });
+const routed = routeStore(realStore);
+export const { store } = routed;
+export const selectStore = routed.select;
+export const demoAccess = createObservable({ enabled: false, ready: false });
 
 export type Dialog =
     | { kind: "confirm"; tone: "danger" | "warn"; label: string; title: string; body: string; ok: string; checkbox?: string; resolve(v: { ok: boolean; checked: boolean; }): void; }
@@ -53,6 +58,7 @@ export const pluginOn = () => currentMode() !== "off";
 
 /** Templates scope of the current server; null = plugin off here. */
 export function activeScope(): Scope | null {
+    if (demoAccess.get().enabled && !demoAccess.get().ready) return null;
     const m = currentMode();
     return m === "off" ? null : m;
 }

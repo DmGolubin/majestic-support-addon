@@ -12,6 +12,7 @@ import { ComposeBar } from "./ComposeBar";
 import { ContextMenu } from "./ContextMenu";
 import { debugState, dlog, setDebugEnabled } from "./debug";
 import { DebugPanel } from "./DebugPanel";
+import { DemoBanner } from "./DemoBanner";
 import { Dialogs, idOf } from "./Dialogs";
 import { supersede } from "./flow";
 import { Inline } from "./InlinePop";
@@ -54,6 +55,7 @@ export function Host() {
     );
     return (
         <div className="vc-stx-root">
+            <DemoBanner />
             {windowOpen && safe("window", <Window />)}
             {safe("compose", <ComposeBar />)}
             {safe("inline", <Inline />)}

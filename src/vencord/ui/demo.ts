@@ -1,0 +1,97 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+import { Store } from "../core/state";
+import { toast } from "../platform";
+import { confirmedForeign, supersede } from "./flow";
+import { createObservable } from "./observable";
+import { clearTargets, nextGeneration } from "./op";
+import { demoAccess, realStore, selectStore, ui } from "./uiState";
+
+const BASE = "http://127.0.0.1:47833";
+export const demo = createObservable({ enabled: false, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
+let library: Store | null = null;
+let credentials: { id: string; device: string; } | null = null;
+let epoch = 0;
+let timer: ReturnType<typeof setTimeout> | undefined;
+let request: AbortController | null = null;
+
+function invalidate() {
+    nextGeneration(); supersede(); clearTargets(); confirmedForeign.clear();
+    ui.set({ windowOpen: false, inline: null, menu: null, dialog: null, compose: [] });
+}
+function stopRequest() { epoch++; clearTimeout(timer); request?.abort(); request = null; }
+async function api(path: string, body?: object) {
+    const controller = new AbortController(); request = controller;
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+        const r = await fetch(BASE + path, { method: body ? "POST" : "GET", credentials: "omit", signal: controller.signal,
+            headers: { "Content-Type": "application/json", ...(credentials ? { Authorization: "Bearer " + credentials.device } : {}) },
+            body: body ? JSON.stringify(body) : undefined });
+        if (!r.ok) throw new Error("Локальный сервер вернул " + r.status);
+        return await r.json();
+    } finally { clearTimeout(timeout); if (request === controller) request = null; }
+}
+
+export function enableDemo() {
+    stopRequest(); invalidate(); credentials = null;
+    library = new Store({ get: async () => undefined, set: async () => {} });
+    demoAccess.set({ enabled: true, ready: false }); selectStore(library);
+    demo.set({ enabled: true, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
+}
+export function disableDemo() {
+    stopRequest(); invalidate(); credentials = null; library = null;
+    demoAccess.set({ enabled: false, ready: false }); selectStore(realStore);
+    demo.set({ enabled: false, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
+}
+export async function connectDemo() {
+    if (!demo.get().enabled) return;
+    stopRequest(); invalidate(); credentials = null; demoAccess.set({ ready: false });
+    const ownEpoch = epoch;
+    demo.set({ phase: "connecting", error: "", url: "", code: "", revision: 0, paused: false });
+    try {
+        const result = await api("/requests", {});
+        if (epoch !== ownEpoch) return;
+        if (typeof result.id !== "string" || typeof result.device !== "string" || typeof result.code !== "string" || typeof result.url !== "string" || !result.url.startsWith(BASE + "/#")) throw new Error("Неверный ответ демосервера");
+        credentials = { id: result.id, device: result.device };
+        demo.set({ phase: "pending", url: result.url, code: result.code });
+        void poll(ownEpoch);
+    } catch {
+        if (epoch === ownEpoch) demo.set({ phase: "idle", error: "Нет связи с локальным демосервером. Запустите scripts/demo-panel.py и повторите." });
+    }
+}
+async function poll(ownEpoch: number) {
+    if (epoch !== ownEpoch || !credentials || demo.get().paused) return;
+    try {
+        const result = await api(`/sessions/${encodeURIComponent(credentials.id)}/state`);
+        if (epoch !== ownEpoch) return;
+        if (!["pending", "ready", "denied", "expired", "revoked"].includes(result.phase) || !Number.isSafeInteger(result.revision) || typeof result.raw !== "string" || result.raw.length > 50000) throw new Error("Неверный снимок");
+        if (result.phase === "ready") {
+            if (result.revision !== demo.get().revision) {
+                const changed = demo.get().revision > 0;
+                invalidate(); library!.replaceDemoCatalog(result.raw);
+                if (changed) toast("ДЕМО: FAQ обновлён. Повторите выбор шаблона.", "success");
+            }
+            demoAccess.set({ ready: true });
+            demo.set({ phase: "ready", revision: result.revision, error: "" });
+        } else {
+            if (demoAccess.get().ready) invalidate();
+            demoAccess.set({ ready: false }); demo.set({ phase: result.phase, error: "" });
+            if (result.phase !== "pending") { credentials = null; demo.set({ url: "" }); return; }
+        }
+    } catch {
+        if (epoch !== ownEpoch) return;
+        if (demoAccess.get().ready) invalidate();
+        demoAccess.set({ ready: false }); demo.set({ phase: "offline", error: "Демосервер недоступен. Вставка тестовых шаблонов приостановлена; повторяем подключение." });
+    }
+    if (epoch === ownEpoch) timer = setTimeout(() => void poll(ownEpoch), 2000);
+}
+export function pauseDemo() {
+    stopRequest(); invalidate();
+    const paused = !demo.get().paused;
+    demoAccess.set({ ready: false }); demo.set({ paused, phase: paused ? "offline" : "connecting", error: "" });
+    if (!paused && credentials) void poll(epoch);
+}
