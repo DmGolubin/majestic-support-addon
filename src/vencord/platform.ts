@@ -53,7 +53,7 @@ export function onChannelChange(fn: (guildId: string | null) => void) {
 }
 
 export function toast(msg: string, type: "message" | "success" | "failure" = "message") {
-    showToast(msg, type);
+    showToast({ text: msg, variant: type === "failure" ? "critical" : type === "success" ? "success" : "default" });
 }
 
 /** The Slate editor that has focus, else the main chat editor. */
