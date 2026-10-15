@@ -100,6 +100,7 @@ function onKey(e: KeyboardEvent) {
 function handleKey(e: KeyboardEvent) {
     if (swallowLatched(e)) return; // held key after an insert: never repeat it, never leak it to Discord
     const s = ui.get();
+    if (s.management || (e.target as HTMLElement)?.closest?.(".vc-stx-settings")) return;
     if (s.dialog) {
         if (e.key === "Tab" || e.key === "Enter") noteKey(e, "dialog");
         if (debugEnabled() && (e.key === "Tab" || e.key === "Enter")) dlog("key", { h: "dialog", key: keyDesc(e), dialog: s.dialog.kind });
@@ -191,7 +192,7 @@ function channelChanged(guildId: string | null) {
 }
 
 const settings = definePluginSettings({
-    panel: { type: OptionType.COMPONENT, component: Settings },
+    panel: { type: OptionType.COMPONENT, component: () => <Settings /> },
     // Vencord's own settings store: a UI preference, kept out of the templates data (and its backups).
     debug: {
         type: OptionType.BOOLEAN,
@@ -259,7 +260,7 @@ export default definePlugin({
         host?.remove();
         root = host = null;
         unloadFonts();
-        ui.set({ windowOpen: false, dialog: null, inline: null, menu: null, compose: [] });
+        ui.set({ management: false, windowOpen: false, dialog: null, inline: null, menu: null, compose: [] });
         setDebugEnabled(false);
     },
 });

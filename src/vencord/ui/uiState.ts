@@ -30,6 +30,7 @@ export type Dialog =
 export interface InlineState { query: string; length: number; items: Template[]; sel: number; note: string; }
 
 export interface UiState {
+    management: boolean;
     windowOpen: boolean;
     dialog: Dialog | null;
     compose: string[];
@@ -39,7 +40,7 @@ export interface UiState {
 }
 
 export const ui = createObservable<UiState>({
-    windowOpen: false, dialog: null, compose: [], inline: null, menu: null,
+    management: false, windowOpen: false, dialog: null, compose: [], inline: null, menu: null,
 });
 
 export type { Scope };

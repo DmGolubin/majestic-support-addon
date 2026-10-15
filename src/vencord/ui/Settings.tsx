@@ -12,13 +12,18 @@ import { PROJECTS } from "../core/types";
 import { toast } from "../platform";
 import { confirmedForeign, supersede } from "./flow";
 import { nextGeneration } from "./op";
+import { PersonalLibrary } from "./PersonalLibrary";
 import { store, ui, useStore } from "./uiState";
 
-export function Settings() {
+export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) {
     useStore();
+    const [tab, setTab] = useState("personal");
+    const [dirty, setDirty] = useState(false);
+    const [pending, setPending] = useState<string | null>(null);
     const [status, setStatus] = useState("");
-    const mj = store.templates.filter(t => t.project === "mj").length;
-    const ro = store.templates.filter(t => t.project === "ro").length;
+    const main = store.templates.filter(t => t.source !== "personal");
+    const mj = main.filter(t => t.project === "mj").length;
+    const ro = main.filter(t => t.project === "ro").length;
 
     const pick = () => {
         const inp = document.createElement("input");
@@ -47,13 +52,21 @@ export function Settings() {
 
     return (
         <div className="vc-stx-settings">
-            <h3>Шаблоны</h3>
-            <p>Сейчас: {store.templates.length} (Majestic {mj}, Россия Онлайн {ro}). Источник — локальный; вход через панель появится позже.</p>
-            <p>Импорт: <code>SupportTemplates.config.json</code> из BetterDiscord, резервная копия или текст «## проект / ### шаблон». Заменяет текущие шаблоны, избранное и бинды.</p>
+            <nav className="vc-stx-settings-nav" aria-label="Разделы настроек">
+                {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["connection", "Подключение"]].map(([id, label]) => <button key={id} className={"vc-stx-btn " + (tab === id ? "" : "vc-stx-ghost")} aria-pressed={tab === id} onClick={() => { if (id === tab) return; if (dirty) setPending(id); else setTab(id); }}>{label}</button>)}
+            </nav>
+            {pending && <div className="vc-stx-local-note" role="alert">Отменить изменения и сменить раздел? <button className="vc-stx-btn" onClick={() => { setTab(pending); setPending(null); setDirty(false); onDirty?.(false); }}>Отменить изменения</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => setPending(null)}>Остаться</button></div>}
+            {tab === "personal" && <PersonalLibrary onDirty={v => { setDirty(v); onDirty?.(v); }} />}
+            {tab === "connection" && <section><h3>Подключение к панели</h3><p className="vc-stx-local-note">API ещё не подключён. Вход и синхронизация недоступны.</p><p>Основные FAQ будут обновляться с сайта. Личные шаблоны, цвета и папки будут связаны с вашим аккаунтом и доступны для редактирования в плагине и на сайте.</p><p>Сейчас личная библиотека хранится на этом устройстве. Её перенос в аккаунт будет отдельным шагом после подключения API.</p><a href="https://panel.majestic-rp.tech/faq" target="_blank" rel="noreferrer">Открыть FAQ на сайте</a></section>}
+            {tab === "general" && <>
+            <h3>Основные шаблоны</h3>
+            <p>Основных шаблонов: {main.length} (Majestic {mj}, Россия Онлайн {ro}). Источник — локальный; вход через панель появится позже.</p>
+            <p>Временный импорт FAQ: <code>SupportTemplates.config.json</code> из BetterDiscord, резервная копия или текст «## проект / ### шаблон». Заменяет импортированный набор, его избранное и бинды. Личные шаблоны и их папки сохраняются.</p>
             <button className="vc-stx-btn" onClick={pick}>Импорт из файла</button>
             {status && <p className="vc-stx-muted">{status}</p>}
 
             <h3>Быстрый ввод</h3>
+            <label className="vc-stx-check"><input type="checkbox" checked={store.data.previewOpen} onChange={e => store.setPreviewOpen(e.currentTarget.checked)} />Открывать окно с полным предпросмотром</label>
             <p>Префикс команды в строке ввода («/» занят командами Discord):</p>
             <div className="vc-stx-row">
                 {PREFIXES.map(p => (
@@ -68,6 +81,7 @@ export function Settings() {
                 <li>Tech™ (<code>{TECH_GUILD}</code>) — переключатель «Majestic / Россия Онлайн» в окне, без проверки проекта</li>
             </ul>
             <p>На остальных серверах и в ЛС плагин выключен.</p>
+            </>}
         </div>
     );
 }

@@ -15,12 +15,14 @@ import { DebugPanel } from "./DebugPanel";
 import { Dialogs, idOf } from "./Dialogs";
 import { supersede } from "./flow";
 import { Inline } from "./InlinePop";
+import { Management } from "./Management";
 import { ui, UiState } from "./uiState";
 import { Window } from "./Window";
 
 // Each part has its own ErrorBoundary: a UI error never breaks Discord's chat input. On error the
 // part's state is reset and the boundary remounts (new key), so the next open works again.
 const RESET: Record<string, () => Partial<UiState>> = {
+    management: () => ({ management: false }),
     window: () => ({ windowOpen: false }),
     compose: () => ({ compose: [] }),
     inline: () => ({ inline: null }),
@@ -32,6 +34,7 @@ const RESET: Record<string, () => Partial<UiState>> = {
 };
 
 export function Host() {
+    const management = ui.useSelect(s => s.management);
     const windowOpen = ui.useSelect(s => s.windowOpen);
     const dialog = ui.useSelect(s => s.dialog);
     const debugOn = debugState.useSelect(s => s.on);
@@ -57,6 +60,7 @@ export function Host() {
             {safe("menu", <ContextMenu />)}
             {safe("dialog", <Dialogs />, dialog ? idOf(dialog) : 0)}
             {debugOn && safe("debug", <DebugPanel />)}
+            {management && safe("management", <Management />)}
         </div>
     );
 }

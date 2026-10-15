@@ -18,7 +18,7 @@ describe("Store", () => {
         expect(msg).toContain("133");
         expect(s.templates).toHaveLength(133);
         expect(s.data.favorites).toHaveLength(17);
-        await Promise.resolve();
+        await s.flush();
         const s2 = new Store(st);
         await s2.load();
         expect(s2.templates).toHaveLength(133);

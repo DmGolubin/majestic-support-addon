@@ -13,7 +13,7 @@ import { confirmedForeign, fillFields, focusTarget, snapNow, stillCurrent } from
 import { composeEditor, composeTargetNow, resetComposeTarget } from "./op";
 import { ProjectIcon } from "./ProjectIcon";
 import { IconClose } from "./svg";
-import { store, ui, useChatRect } from "./uiState";
+import { store, ui, useChatRect, useStore } from "./uiState";
 
 /** Its render is a `render` cost span while debug is on. */
 export function ComposeBar() {
@@ -22,6 +22,7 @@ export function ComposeBar() {
 }
 
 function ComposeBarView() {
+    useStore(); // Personal edits/deletions must invalidate the collected reply's render and handlers.
     const compose = ui.useSelect(s => s.compose);
     const [drag, setDrag] = useState<string | null>(null);
     const rect = useChatRect(compose.length > 0, composeEditor);

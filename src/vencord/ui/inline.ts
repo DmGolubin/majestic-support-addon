@@ -61,6 +61,7 @@ function check() {
 }
 
 function runCheck() {
+    if (ui.get().management) return close();
     const ed = focusedEditor();
     if (!ed) { idle = null; return close(); }
     const { prefix } = store.data;

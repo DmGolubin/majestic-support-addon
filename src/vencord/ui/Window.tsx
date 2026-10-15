@@ -459,6 +459,7 @@ function WindowView() {
                 {wide && <Preview t={current} onBack={compact ? back : undefined} />}
                 <div className="vc-stx-col">
                     <div className="vc-stx-head">
+                        <button className="vc-stx-manage-link" onClick={() => ui.set({ management: true, windowOpen: false, menu: null, inline: null })}>Мои шаблоны и настройки</button>
                         <label className="vc-stx-search">
                             <span className="vc-stx-sicon"><IconSearch size={15} /></span>
                             <input
