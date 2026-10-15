@@ -21,7 +21,7 @@ export function personalTemplate(id: string, draft: PersonalDraft, folders: Pers
     if (command && !/^[\p{L}\p{N}_-]{1,40}$/u.test(command)) throw new Error("Команда: до 40 букв, цифр, дефисов или подчёркиваний, без префикса");
     const folder = folders.find(f => f.id === draft.folderId);
     if (draft.folderId && !folder) throw new Error("Папка больше не существует");
-    return { id, ...draft, title, command, source: "personal", folderId: folder?.id ?? null, category: folder?.name ?? "Мои шаблоны", status: "actual", statusNote: null, teamUses: 0, updatedAt: new Date().toISOString() };
+    return { id, title, text: draft.text, project: draft.project, color: draft.color, command, source: "personal", folderId: folder?.id ?? null, category: folder?.name ?? "Мои шаблоны", status: "actual", statusNote: null, teamUses: 0, updatedAt: new Date().toISOString() };
 }
 
 /** Local prototype records stay separate from the imported FAQ. Future API IDs can be mapped here. */

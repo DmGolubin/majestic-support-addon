@@ -9,6 +9,19 @@ const memory = () => {
     return { data, get: async (k: string) => data.get(k), set: async (k: string, v: unknown) => { data.set(k, structuredClone(v)); } };
 };
 describe("personal library", () => {
+    it("copies a full existing record without replacing its original identity", async () => {
+        const storage = memory(), s = new Store(storage);
+        const originalId = await s.savePersonal(draft());
+        const original = s.data.personal[0];
+        const copiedId = await s.savePersonal({ ...original, title: "Копия", command: null }, undefined, "personal:copy");
+        expect(copiedId).toBe("personal:copy");
+        expect(s.byId(originalId)?.title).toBe("Драйвер");
+        expect(s.data.personal).toHaveLength(2);
+        await s.deletePersonal(copiedId);
+        const reloaded = new Store(storage); await reloaded.load();
+        expect(reloaded.data.personal).toHaveLength(1);
+        expect(reloaded.byId(originalId)?.command).toBe("driver");
+    });
     it("persists records separately, keeps stable IDs on edit and participates in project pools", async () => {
         const storage = memory(), s = new Store(storage);
         const id = await s.savePersonal(draft());

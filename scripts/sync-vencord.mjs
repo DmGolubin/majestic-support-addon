@@ -1,4 +1,5 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync, readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,4 +13,9 @@ rmSync(dest, { recursive: true, force: true });
 mkdirSync(dest, { recursive: true });
 cpSync(join(root, "src/vencord"), dest, { recursive: true });
 cpSync(join(root, "src/core"), join(dest, "core"), { recursive: true });
+const revision = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+const dirty = execFileSync('git', ['status', '--porcelain', '--', 'src', 'scripts/sync-vencord.mjs'], { cwd: root, encoding: 'utf8' }).trim();
+const build = `${revision}${dirty ? '+working' : ''} · ${new Date().toISOString()}`;
+const info = join(dest, 'buildInfo.ts');
+writeFileSync(info, readFileSync(info, 'utf8').replace('"source"', JSON.stringify(build)));
 console.log("synced →", dest);

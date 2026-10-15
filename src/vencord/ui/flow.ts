@@ -99,9 +99,14 @@ export async function fillFields(title: string, text: string, snap: Snap): Promi
         values = got;
     }
     const ch = currentChannel();
+    const clipboard = /\{\{\s*clipboard\s*[}=|]/i.test(text) ? await readClipboard() : "";
+    if (clipboard === null) {
+        toast("Не удалось прочитать буфер обмена — вставка отменена. Скопируйте текст и попробуйте снова.", "failure");
+        return null;
+    }
     const env = {
         now: new Date(),
-        clipboard: /\{\{\s*clipboard\s*[}=|]/i.test(text) ? await readClipboard() : "",
+        clipboard,
         selection: snap.selection,
         url: ch.id ? `https://discord.com/channels/${ch.guildId ?? "@me"}/${ch.id}` : "",
         title: ch.name,

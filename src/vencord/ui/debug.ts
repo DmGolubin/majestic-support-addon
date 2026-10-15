@@ -16,6 +16,7 @@
 import { gitHash } from "@shared/vencordUserAgent";
 import { useEffect, useState } from "@webpack/common";
 
+import { PLUGIN_BUILD, PLUGIN_VERSION } from "../buildInfo";
 import { COST_CATS, CostCat, CostMeter, NESTED_CATS, overlapLabel, significant, throttle } from "../core/cost";
 import { comboLabel } from "../core/keys";
 import { DebugEvent, formatEvent, Ring } from "../core/ring";
@@ -425,6 +426,7 @@ export function debugReport(): string {
     const events = ring.list();
     return [
         "SupportTemplates · отчёт отладки",
+        `Плагин: ${PLUGIN_VERSION} · ${PLUGIN_BUILD}`,
         `Сформирован: ${new Date().toLocaleString("ru-RU")}`,
         `Сборка Vencord (вместе с плагином): ${typeof VERSION === "string" ? VERSION : "?"} ${gitHash ?? ""} · ${built}`,
         `Discord: ${discord}`,

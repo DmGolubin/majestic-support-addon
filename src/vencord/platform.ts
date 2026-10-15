@@ -72,8 +72,18 @@ export function chatAreaRect(editor?: HTMLElement | null): DOMRect | null {
     return chatAreaEl(editor ?? undefined)?.getBoundingClientRect() ?? null;
 }
 
-export async function readClipboard(): Promise<string> {
-    try { return await navigator.clipboard.readText(); } catch (e) { console.error("[SupportTemplates] clipboard read failed", e); return ""; }
+export async function readClipboard(): Promise<string | null> {
+    try {
+        // Desktop Discord exposes its native clipboard; the web API can be denied in Electron.
+        if (typeof DiscordNative !== "undefined" && typeof DiscordNative.clipboard?.read === "function") {
+            const text = DiscordNative.clipboard.read();
+            if (typeof text === "string") return text;
+        }
+    } catch { /* Fall back to the browser adapter when the native bridge is unavailable. */ }
+    try { return await navigator.clipboard.readText(); } catch {
+        console.error("[SupportTemplates] clipboard read failed");
+        return null;
+    }
 }
 
 /** Discord's zoom / font size / locale / theme for the debug report; null where a store is not available. */

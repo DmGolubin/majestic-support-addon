@@ -14,7 +14,7 @@ import { createRoot } from "@webpack/common";
 import { serverMode } from "./core/guard";
 import { comboOf } from "./core/keys";
 import { favoritesOf } from "./core/rank";
-import { currentChannel, currentGuildId, onChannelChange } from "./platform";
+import { currentChannel, currentGuildId, onChannelChange, toast } from "./platform";
 import { resetMenuGuards } from "./ui/ContextMenu";
 import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
 import { disableDemo } from "./ui/demo";
@@ -154,6 +154,7 @@ function handleKey(e: KeyboardEvent) {
     const bound = combo ? store.templateForCombo(combo) : undefined;
     // Tech: binds follow the switch like the list — a template of the other project is not active here.
     if (bound && bound.project && activeScope() === "all" && bound.project !== store.data.techProject) {
+        if (!e.repeat && !inForeignInput(e)) toast("Для этого шаблона выберите " + (bound.project === "mj" ? "Majestic" : "Россия Онлайн") + " в меню шаблонов.", "message");
         if (debugEnabled()) dlog("key", { h: "bind", key: keyDesc(e), id: bound.id, skip: "Tech: шаблон другого проекта (переключатель " + store.data.techProject + ")" });
         return;
     }

@@ -50,10 +50,13 @@ class Handler(BaseHTTPRequestHandler):
             if not role: self.reply(403, {}); return
             if session['phase']=='pending' and time.time()>session['expires']: session['phase']='expired'
             if action == 'state' and self.command=='GET':
+                if role == 'device' and time.time() < session.get('unavailable_until', 0): self.reply(503, {}); return
                 raw = '## Majestic RP\n### Уточнение проблемы\n'+session['text']+'\n\n## Россия Онлайн\n### Уточнение проблемы\n'+session['text']
                 self.reply(200, dict(phase=session['phase'], revision=session['revision'], code=session['code'], text=session['text'] if role=='panel' else '', raw=raw if session['phase']=='ready' else '')); return
             if self.command!='POST': self.reply(405, {}); return
             if action in ('approve','deny') and role=='panel' and session['phase']=='pending': session['phase']='ready' if action=='approve' else 'denied'
+            elif action=='expire' and role=='panel' and session['phase']=='pending': session['phase']='expired'
+            elif action=='unavailable' and role=='panel': session['unavailable_until']=time.time()+20
             elif action=='publish' and role=='panel' and session['phase']=='ready':
                 text = body.get('text')
                 if not isinstance(text,str) or not text.strip() or len(text)>20000: self.reply(422, {}); return

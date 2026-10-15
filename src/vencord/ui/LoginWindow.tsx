@@ -17,6 +17,7 @@ export function LoginWindow() {
     const width = Math.min(400, innerWidth - 16);
     const bottom = Math.max(8, Math.min(innerHeight - 160, rect ? innerHeight - rect.top + 8 : 80));
     const loading = d.phase === "loading" || d.phase === "load-error";
+    const reconnecting = d.revision > 0 && (d.phase === "offline" || d.phase === "connecting");
     const waiting = d.phase === "connecting" || d.phase === "pending" || (d.phase === "offline" && !!d.url);
     useEffect(() => {
         ref.current?.focus();
@@ -41,6 +42,14 @@ export function LoginWindow() {
             <h2 id="vc-stx-load-heading">{d.phase === "load-error" ? "Не удалось загрузить шаблоны" : "Загружаем шаблоны"}</h2>
             {d.phase === "load-error" ? <p role="alert">Повторяем загрузку…</p> : <div className="vc-stx-load-placeholder" aria-hidden="true"><span /><span /><span /></div>}
             <div className="vc-stx-login-actions"><button className="vc-stx-btn vc-stx-ghost" onClick={cancelDemoLogin}>Отмена</button></div>
+        </section> : reconnecting ? <section key="reconnecting" className="vc-stx-login-scene" aria-labelledby="vc-stx-reconnect-heading">
+            <div className="vc-stx-login-progress" role="status"><span className="vc-stx-login-spinner" aria-hidden="true" />{d.paused ? "Связь приостановлена" : "Повторяем подключение"}</div>
+            <h2 id="vc-stx-reconnect-heading">{d.paused ? "Подключение на паузе" : "Восстанавливаем связь"}</h2>
+            <p className="vc-stx-login-copy">{d.paused ? "Возобновите связь, чтобы пользоваться шаблонами." : "Меню появится автоматически. Повторный вход не нужен."}</p>
+            <div className="vc-stx-login-actions">
+                {d.paused && <button className="vc-stx-btn" onClick={pauseDemo}>Восстановить связь</button>}
+                <button className="vc-stx-btn vc-stx-ghost" onClick={cancelDemoLogin}>Отмена</button>
+            </div>
         </section> : waiting ? <section key="waiting" className="vc-stx-login-scene" aria-labelledby="vc-stx-login-heading">
             <div className="vc-stx-login-progress" role="status"><span className="vc-stx-login-spinner" aria-hidden="true" />{d.phase === "offline" ? "Восстанавливаем связь" : d.code ? "Ожидаем подтверждение" : "Открываем панель"}</div>
             <h2 id="vc-stx-login-heading">Подтвердите вход</h2>
