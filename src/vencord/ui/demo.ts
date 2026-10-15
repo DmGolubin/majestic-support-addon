@@ -12,16 +12,16 @@ import { clearTargets, nextGeneration } from "./op";
 import { demoAccess, realStore, selectStore, ui } from "./uiState";
 
 const BASE = "http://127.0.0.1:47833";
-export const demo = createObservable({ enabled: false, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
+export const demo = createObservable({ enabled: false, localMode: false, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
 let library: Store | null = null;
 let credentials: { id: string; device: string; } | null = null;
 let epoch = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let request: AbortController | null = null;
 
-function invalidate() {
-    nextGeneration(); supersede(); clearTargets(); confirmedForeign.clear();
-    ui.set({ windowOpen: false, inline: null, menu: null, dialog: null, compose: [] });
+function invalidate(keepWindow = false) {
+    nextGeneration(); supersede(); if (!keepWindow) clearTargets(); confirmedForeign.clear();
+    ui.set({ windowOpen: keepWindow && ui.get().windowOpen, inline: null, menu: null, dialog: null, compose: [] });
 }
 function stopRequest() { epoch++; clearTimeout(timer); request?.abort(); request = null; }
 async function api(path: string, body?: object) {
@@ -36,20 +36,20 @@ async function api(path: string, body?: object) {
     } finally { clearTimeout(timeout); if (request === controller) request = null; }
 }
 
-export function enableDemo() {
-    stopRequest(); invalidate(); credentials = null;
+export function enableDemo(keepWindow = false) {
+    stopRequest(); invalidate(keepWindow); credentials = null;
     library = new Store({ get: async () => undefined, set: async () => {} });
     demoAccess.set({ enabled: true, ready: false }); selectStore(library);
-    demo.set({ enabled: true, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
+    demo.set({ enabled: true, localMode: false, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
 }
 export function disableDemo() {
     stopRequest(); invalidate(); credentials = null; library = null;
     demoAccess.set({ enabled: false, ready: false }); selectStore(realStore);
-    demo.set({ enabled: false, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
+    demo.set({ enabled: false, localMode: true, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
 }
-export async function connectDemo() {
+export async function connectDemo(fromMenu = false) {
     if (!demo.get().enabled) return;
-    stopRequest(); invalidate(); credentials = null; demoAccess.set({ ready: false });
+    stopRequest(); invalidate(fromMenu); credentials = null; demoAccess.set({ ready: false });
     const ownEpoch = epoch;
     demo.set({ phase: "connecting", error: "", url: "", code: "", revision: 0, paused: false });
     try {
@@ -58,6 +58,7 @@ export async function connectDemo() {
         if (typeof result.id !== "string" || typeof result.device !== "string" || typeof result.code !== "string" || typeof result.url !== "string" || !result.url.startsWith(BASE + "/#")) throw new Error("Неверный ответ демосервера");
         credentials = { id: result.id, device: result.device };
         demo.set({ phase: "pending", url: result.url, code: result.code });
+        if (fromMenu) window.open(result.url, "_blank", "noopener,noreferrer");
         void poll(ownEpoch);
     } catch {
         if (epoch === ownEpoch) demo.set({ phase: "idle", error: "Нет связи с локальным демосервером. Запустите scripts/demo-panel.py и повторите." });
@@ -72,7 +73,7 @@ async function poll(ownEpoch: number) {
         if (result.phase === "ready") {
             if (result.revision !== demo.get().revision) {
                 const changed = demo.get().revision > 0;
-                invalidate(); library!.replaceDemoCatalog(result.raw);
+                invalidate(!changed && ui.get().windowOpen); library!.replaceDemoCatalog(result.raw);
                 if (changed) toast("ДЕМО: FAQ обновлён. Повторите выбор шаблона.", "success");
             }
             demoAccess.set({ ready: true });

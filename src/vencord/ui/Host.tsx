@@ -12,10 +12,12 @@ import { ComposeBar } from "./ComposeBar";
 import { ContextMenu } from "./ContextMenu";
 import { debugState, dlog, setDebugEnabled } from "./debug";
 import { DebugPanel } from "./DebugPanel";
+import { demo } from "./demo";
 import { DemoBanner } from "./DemoBanner";
 import { Dialogs, idOf } from "./Dialogs";
 import { supersede } from "./flow";
 import { Inline } from "./InlinePop";
+import { LoginWindow } from "./LoginWindow";
 import { Management } from "./Management";
 import { ui, UiState } from "./uiState";
 import { Window } from "./Window";
@@ -35,6 +37,7 @@ const RESET: Record<string, () => Partial<UiState>> = {
 };
 
 export function Host() {
+    const login = demo.useSelect(d => d.enabled ? d.phase !== "ready" : !d.localMode);
     const management = ui.useSelect(s => s.management);
     const windowOpen = ui.useSelect(s => s.windowOpen);
     const dialog = ui.useSelect(s => s.dialog);
@@ -56,7 +59,7 @@ export function Host() {
     return (
         <div className="vc-stx-root">
             <DemoBanner />
-            {windowOpen && safe("window", <Window />)}
+            {windowOpen && safe("window", login ? <LoginWindow /> : <Window />)}
             {safe("compose", <ComposeBar />)}
             {safe("inline", <Inline />)}
             {safe("menu", <ContextMenu />)}
