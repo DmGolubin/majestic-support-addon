@@ -45,9 +45,9 @@ const Button: ChatBarButtonFactory = props => {
     try { return ButtonView(props); } finally { costEnd("render", t0); }
 };
 
-const ButtonView: ChatBarButtonFactory = ({ isMainChat, channel }) => {
+const ButtonView: ChatBarButtonFactory = ({ isAnyChat, channel }) => {
     const tech = useTechProject(); // before any return: a hook
-    if (!isMainChat) return null;
+    if (!isAnyChat) return null;
     const mode = serverMode(channel?.guild_id ?? null);
     if (mode === "off") return null; // other servers and DMs: the plugin is invisible
     const project = mode === "all" ? tech : mode;
