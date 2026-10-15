@@ -7,7 +7,9 @@
 import { useRef, useState } from "@webpack/common";
 
 import { PERSONAL_COLORS, PersonalDraft, PersonalTemplate } from "../core/personal";
+import { insertToken } from "../core/tokenEditor";
 import { ProjectId } from "../core/types";
+import { TokenToolbar } from "./TokenToolbar";
 import { store, useStore } from "./uiState";
 
 const COLOR_NAMES = ["Красный", "Оранжевый", "Жёлтый", "Зелёный", "Бирюзовый", "Синий", "Фиолетовый", "Розовый"];
@@ -47,13 +49,21 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
         try { await action(); } catch (e) { setError(String((e as Error).message) + ". Проверьте данные и повторите сохранение."); }
         finally { setBusy(false); }
     };
-    const addBoundary = () => {
+    const range = useRef({ start: 0, end: 0 });
+    const captureRange = () => {
         const el = bodyRef.current;
-        if (!el || !editing) return;
-        const start = el.selectionStart;
-        const marker = "\n[[greeting:end]]\n";
-        change({ text: editing.draft.text.slice(0, start) + marker + editing.draft.text.slice(el.selectionEnd) });
-        requestAnimationFrame(() => { el.focus(); el.setSelectionRange(start + marker.length, start + marker.length); });
+        if (el) range.current = { start: el.selectionStart, end: el.selectionEnd };
+    };
+    const addToken = (token: string) => {
+        const el = bodyRef.current;
+        if (!el || !editing) return false;
+        try {
+            const next = insertToken(editing.draft.text, range.current.start, range.current.end, token);
+            change({ text: next.text }); setError("");
+            range.current = { start: next.caret, end: next.caret };
+            requestAnimationFrame(() => { if (el.isConnected) { el.focus(); el.setSelectionRange(next.caret, next.caret); } });
+            return true;
+        } catch (e) { setError((e as Error).message); return false; }
     };
     const list = store.data.personal.filter(t => (folder === "all" || (folder === "none" ? !t.folderId : t.folderId === folder))
         && (project === "all" || t.project === null || t.project === project)
@@ -75,9 +85,10 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
             <h4>{editing.id ? "Редактирование шаблона" : "Новый персональный шаблон"}</h4>
             <fieldset disabled={busy}>
                 <label>Название<input autoFocus maxLength={160} required value={editing.draft.title} onChange={e => change({ title: e.currentTarget.value })} /></label>
-                <div className="vc-stx-lib-title"><label htmlFor="vc-stx-personal-text">Текст шаблона</label><button type="button" className="vc-stx-btn vc-stx-ghost" disabled={editing.draft.text.includes("[[greeting:end]]")} onClick={addBoundary}>Граница приветствия</button></div>
+                <label htmlFor="vc-stx-personal-text">Текст шаблона</label>
+                <TokenToolbar capture={captureRange} insert={addToken} hasBoundary={editing.draft.text.includes("[[greeting:end]]")} />
                 <textarea id="vc-stx-personal-text" ref={bodyRef} required maxLength={20000} value={editing.draft.text} onChange={e => change({ text: e.currentTarget.value })} />
-                <p className="vc-stx-muted">Граница добавляет действие «Без приветствия». Поля можно записать как {"{{имя}}"}.</p>
+                <p className="vc-stx-muted">Граница добавляет действие «Без приветствия». Переменные раскрываются при использовании шаблона. Ссылка и заголовок относятся к каналу Discord.</p>
                 <span>Цвет</span><div className="vc-stx-colors" role="group" aria-label="Цвет шаблона">
                     <button type="button" aria-pressed={!editing.draft.color} onClick={() => change({ color: null })}>Нет</button>
                     {PERSONAL_COLORS.map((c, i) => <button type="button" key={c} aria-label={COLOR_NAMES[i]} title={COLOR_NAMES[i]} aria-pressed={editing.draft.color === c} style={{ "--swatch": c } as React.CSSProperties} onClick={() => change({ color: c })}><span /></button>)}
