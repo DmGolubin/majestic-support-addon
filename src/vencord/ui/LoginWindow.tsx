@@ -39,17 +39,16 @@ export function LoginWindow() {
         {loading ? <section key="loading" className="vc-stx-login-scene vc-stx-load-scene" aria-labelledby="vc-stx-load-heading" aria-busy={d.phase === "loading"}>
             <div className="vc-stx-login-progress" role="status"><span className="vc-stx-login-spinner" aria-hidden="true" />Вход подтверждён</div>
             <h2 id="vc-stx-load-heading">{d.phase === "load-error" ? "Не удалось загрузить шаблоны" : "Загружаем шаблоны"}</h2>
-            <p className="vc-stx-login-copy">Получаем библиотеку аккаунта. Меню откроется автоматически, когда всё будет готово.</p>
-            {d.phase === "load-error" ? <p role="alert">Проверяем связь и повторяем загрузку. Можно отменить и войти позже.</p> : <div className="vc-stx-load-placeholder" aria-hidden="true"><span /><span /><span /></div>}
+            {d.phase === "load-error" ? <p role="alert">Повторяем загрузку…</p> : <div className="vc-stx-load-placeholder" aria-hidden="true"><span /><span /><span /></div>}
             <div className="vc-stx-login-actions"><button className="vc-stx-btn vc-stx-ghost" onClick={cancelDemoLogin}>Отмена</button></div>
         </section> : waiting ? <section key="waiting" className="vc-stx-login-scene" aria-labelledby="vc-stx-login-heading">
             <div className="vc-stx-login-progress" role="status"><span className="vc-stx-login-spinner" aria-hidden="true" />{d.phase === "offline" ? "Восстанавливаем связь" : d.code ? "Ожидаем подтверждение" : "Открываем панель"}</div>
             <h2 id="vc-stx-login-heading">Подтвердите вход</h2>
-            <p className="vc-stx-login-copy">Нажмите «Разрешить» на панели. После этого здесь появятся ваши шаблоны.</p>
-            {d.code && <div className="vc-stx-login-code"><span>Код подключения</span><strong>{d.code}</strong><small>Сверьте его с кодом на странице панели.</small></div>}
+            <p className="vc-stx-login-copy">Нажмите «Разрешить» на панели.</p>
+            {d.code && <div className="vc-stx-login-code"><span>Код подключения</span><strong>{d.code}</strong></div>}
             {d.error && <p role="alert">{d.error}</p>}
             <div className="vc-stx-login-actions">
-                {d.url && <><a className="vc-stx-btn" href={d.url} target="_blank" rel="noreferrer">Открыть панель повторно</a><small className="vc-stx-login-help">Если вкладка не открылась или вы случайно её закрыли.</small></>}
+                {d.url && <><a className="vc-stx-btn" href={d.url} target="_blank" rel="noreferrer">Открыть панель повторно</a></>}
                 {d.paused && <button className="vc-stx-btn vc-stx-ghost" onClick={pauseDemo}>Восстановить связь</button>}
                 <button className="vc-stx-btn vc-stx-ghost" onClick={cancelDemoLogin}>Отмена</button>
             </div>
@@ -62,6 +61,6 @@ export function LoginWindow() {
             {d.phase === "expired" && <p role="status">Код истёк. Начните вход заново.</p>}
             <div className="vc-stx-login-actions"><button className="vc-stx-btn" onClick={login}>Войти через панель</button></div>
         </section>}
-        <footer className="vc-stx-login-demo"><span>Демо · локальная панель</span>{!waiting && !loading && <button onClick={() => { const editor = windowEditor(); disableDemo(); captureWindowTarget(editor); ui.set({ windowOpen: true }); }}>К локальной библиотеке</button>}</footer>
+        <footer className="vc-stx-login-demo"><span>Демо</span>{!waiting && !loading && <button onClick={() => { const editor = windowEditor(); disableDemo(); captureWindowTarget(editor); ui.set({ windowOpen: true }); }}>К локальной библиотеке</button>}</footer>
     </div>;
 }

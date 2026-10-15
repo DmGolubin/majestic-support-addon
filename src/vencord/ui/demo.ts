@@ -61,7 +61,7 @@ export async function connectDemo(fromMenu = false) {
         if (fromMenu) window.open(result.url, "_blank", "noopener,noreferrer");
         void poll(ownEpoch);
     } catch {
-        if (epoch === ownEpoch) demo.set({ phase: "idle", error: "Нет связи с локальным демосервером. Запустите scripts/demo-panel.py и повторите." });
+        if (epoch === ownEpoch) demo.set({ phase: "idle", error: "Нет связи с панелью. Попробуйте снова." });
     }
 }
 async function poll(ownEpoch: number) {
@@ -84,8 +84,9 @@ async function poll(ownEpoch: number) {
         if (result.phase === "ready") {
             if (result.revision !== demo.get().revision) {
                 const changed = demo.get().revision > 0;
+                if (!changed) library!.setPreviewOpen(false);
                 invalidate(!changed && ui.get().windowOpen); library!.replaceDemoCatalog(result.raw);
-                if (changed) toast("ДЕМО: FAQ обновлён. Повторите выбор шаблона.", "success");
+                if (changed) toast("Шаблоны обновлены. Выберите шаблон снова.", "success");
             }
             demoAccess.set({ ready: true });
             demo.set({ phase: "ready", revision: result.revision, error: "" });
@@ -97,7 +98,7 @@ async function poll(ownEpoch: number) {
     } catch {
         if (epoch !== ownEpoch) return;
         if (demoAccess.get().ready) invalidate();
-        demoAccess.set({ ready: false }); demo.set({ phase: demo.get().phase === "loading" || demo.get().phase === "load-error" ? "load-error" : "offline", error: "Демосервер недоступен. Вставка тестовых шаблонов приостановлена; повторяем подключение." });
+        demoAccess.set({ ready: false }); demo.set({ phase: demo.get().phase === "loading" || demo.get().phase === "load-error" ? "load-error" : "offline", error: "Нет связи с панелью. Переподключаемся…" });
     }
     if (epoch === ownEpoch) timer = setTimeout(() => void poll(ownEpoch), 2000);
 }

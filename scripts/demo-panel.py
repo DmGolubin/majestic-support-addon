@@ -40,7 +40,7 @@ class Handler(BaseHTTPRequestHandler):
         with lock:
             if self.path == '/requests' and self.command == 'POST':
                 sid, device, panel = (secrets.token_urlsafe(24) for _ in range(3))
-                sessions[sid] = dict(device=device, panel=panel, phase='pending', expires=time.time()+600, revision=1, text='Тестовый FAQ. Укажите {{ник}} и проверьте подключение.', code=secrets.token_hex(3).upper())
+                sessions[sid] = dict(device=device, panel=panel, phase='pending', expires=time.time()+600, revision=1, text='Здравствуйте! Спасибо за обращение.\n\nОпишите, пожалуйста, что произошло и какие действия привели к ошибке. Приложите скриншот или короткое видео — это поможет нам разобраться.', code=secrets.token_hex(3).upper())
                 self.reply(200, dict(id=sid, device=device, url=f'http://127.0.0.1:47833/#{sid}.{panel}', code=sessions[sid]['code'])); return
             parts = self.path.strip('/').split('/')
             if len(parts) != 3 or parts[0] != 'sessions' or parts[1] not in sessions: self.reply(404, {}); return
@@ -50,7 +50,7 @@ class Handler(BaseHTTPRequestHandler):
             if not role: self.reply(403, {}); return
             if session['phase']=='pending' and time.time()>session['expires']: session['phase']='expired'
             if action == 'state' and self.command=='GET':
-                raw = '## Majestic RP\n### ДЕМО: проверка подключения\n'+session['text']+'\n\n## Россия Онлайн\n### ДЕМО: проверка подключения\n'+session['text']
+                raw = '## Majestic RP\n### Уточнение проблемы\n'+session['text']+'\n\n## Россия Онлайн\n### Уточнение проблемы\n'+session['text']
                 self.reply(200, dict(phase=session['phase'], revision=session['revision'], code=session['code'], text=session['text'] if role=='panel' else '', raw=raw if session['phase']=='ready' else '')); return
             if self.command!='POST': self.reply(405, {}); return
             if action in ('approve','deny') and role=='panel' and session['phase']=='pending': session['phase']='ready' if action=='approve' else 'denied'

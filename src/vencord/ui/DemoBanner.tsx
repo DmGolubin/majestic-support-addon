@@ -10,7 +10,5 @@ import { ui } from "./uiState";
 export function DemoBanner() {
     const d = demo.use();
     if (!d.enabled) return null;
-    return <div className="vc-stx-demo-banner" role="status">ДЕМО · {d.phase === "ready" ? `тестовые шаблоны v${d.revision}` : "подключение не готово — тестовая вставка недоступна"}
-        <button className="vc-stx-btn vc-stx-ghost" onClick={() => ui.set({ management: true })}>Настройки деморежима</button>
-    </div>;
+    return <button className="vc-stx-demo-banner" title="Настройки деморежима" onClick={() => ui.set({ management: true })}>Демо</button>;
 }
