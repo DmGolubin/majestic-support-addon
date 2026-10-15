@@ -6,7 +6,7 @@
 
 import { useEffect, useRef } from "@webpack/common";
 
-import { connectDemo, demo, disableDemo, enableDemo, pauseDemo } from "./demo";
+import { cancelDemoLogin, connectDemo, demo, disableDemo, enableDemo, pauseDemo } from "./demo";
 import { captureWindowTarget, windowEditor } from "./op";
 import { ui, useChatRect } from "./uiState";
 
@@ -16,7 +16,7 @@ export function LoginWindow() {
     const rect = useChatRect(true, windowEditor);
     const width = Math.min(400, innerWidth - 16);
     const bottom = Math.max(8, Math.min(innerHeight - 160, rect ? innerHeight - rect.top + 8 : 80));
-    const waiting = d.phase === "connecting" || d.phase === "pending";
+    const waiting = d.phase === "connecting" || d.phase === "pending" || (d.phase === "offline" && !!d.url);
     useEffect(() => {
         ref.current?.focus();
         const outside = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) ui.set({ windowOpen: false }); };
@@ -35,19 +35,26 @@ export function LoginWindow() {
             }
         }}>
         <div className="vc-stx-lib-title"><b>SupportTemplates</b><button className="vc-stx-btn vc-stx-ghost" onClick={() => ui.set({ windowOpen: false })}>Закрыть</button></div>
-        <h2>Шаблоны вашего аккаунта</h2>
-        <p>Подключите панель, чтобы получить актуальные FAQ и свою личную библиотеку.</p>
-        <p className="vc-stx-local-note">Демонстрационный вход: откроется локальная страница подтверждения. Обычные данные сохранены.</p>
-        {d.error && <p role="alert">{d.error}</p>}
-        {d.phase === "denied" && <p role="status">Вы отказали в доступе. Можно попробовать снова.</p>}
-        {d.phase === "revoked" && <p role="status">Устройство отозвано. Войдите снова.</p>}
-        {d.phase === "expired" && <p role="status">Код истёк. Начните вход заново.</p>}
-        {d.phase === "pending" && <p role="status">Код: <b>{d.code}</b>. Подтвердите доступ в браузере — шаблоны появятся здесь автоматически.</p>}
-        <div className="vc-stx-login-actions">
-            <button className="vc-stx-btn" disabled={waiting} onClick={login}>{waiting ? "Ожидаем подтверждение…" : "Войти через панель"}</button>
-            {d.url && <a href={d.url} target="_blank" rel="noreferrer">Открыть страницу подтверждения ещё раз</a>}
-            {d.paused && <button className="vc-stx-btn vc-stx-ghost" onClick={pauseDemo}>Восстановить связь</button>}
-            <button className="vc-stx-btn vc-stx-ghost" onClick={() => { const editor = windowEditor(); disableDemo(); captureWindowTarget(editor); ui.set({ windowOpen: true }); }}>Вернуться к локальной библиотеке</button>
-        </div>
+        {waiting ? <section className="vc-stx-login-scene" aria-labelledby="vc-stx-login-heading">
+            <div className="vc-stx-login-progress" role="status"><span className="vc-stx-login-spinner" aria-hidden="true" />{d.phase === "offline" ? "Восстанавливаем связь" : d.code ? "Ожидаем подтверждение" : "Открываем панель"}</div>
+            <h2 id="vc-stx-login-heading">Подтвердите вход</h2>
+            <p className="vc-stx-login-copy">Нажмите «Разрешить» на панели. После этого здесь появятся ваши шаблоны.</p>
+            {d.code && <div className="vc-stx-login-code"><span>Код подключения</span><strong>{d.code}</strong><small>Сверьте его с кодом на странице панели.</small></div>}
+            {d.error && <p role="alert">{d.error}</p>}
+            <div className="vc-stx-login-actions">
+                {d.url && <><a className="vc-stx-btn" href={d.url} target="_blank" rel="noreferrer">Открыть панель повторно</a><small className="vc-stx-login-help">Если вкладка не открылась или вы случайно её закрыли.</small></>}
+                {d.paused && <button className="vc-stx-btn vc-stx-ghost" onClick={pauseDemo}>Восстановить связь</button>}
+                <button className="vc-stx-btn vc-stx-ghost" onClick={cancelDemoLogin}>Отмена</button>
+            </div>
+        </section> : <section className="vc-stx-login-scene">
+            <h2>Ваши шаблоны — под рукой</h2>
+            <p className="vc-stx-login-copy">Подключите аккаунт панели.</p>
+            {d.error && <p role="alert">{d.error}</p>}
+            {d.phase === "denied" && <p role="status">Вы отказали в доступе. Можно попробовать снова.</p>}
+            {d.phase === "revoked" && <p role="status">Устройство отозвано. Войдите снова.</p>}
+            {d.phase === "expired" && <p role="status">Код истёк. Начните вход заново.</p>}
+            <div className="vc-stx-login-actions"><button className="vc-stx-btn" onClick={login}>Войти через панель</button></div>
+        </section>}
+        <footer className="vc-stx-login-demo"><span>Демо · локальная панель</span>{!waiting && <button onClick={() => { const editor = windowEditor(); disableDemo(); captureWindowTarget(editor); ui.set({ windowOpen: true }); }}>К локальной библиотеке</button>}</footer>
     </div>;
 }

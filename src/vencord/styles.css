@@ -314,3 +314,16 @@
 .vc-stx-login p { line-height: 1.55; }
 .vc-stx-login-actions { display: grid; gap: 12px; margin-top: 20px; }
 .vc-stx-login a { color: #ef7b9e; font-size: 12px; }
+.vc-stx-login .vc-stx-login-copy { color: var(--stx-mu); font-size: 14px; font-weight: 400; }
+.vc-stx-login-progress { display: flex; align-items: center; gap: 9px; color: var(--stx-mu); font-size: 12px; margin-top: 26px; }
+.vc-stx-login-spinner { width: 15px; height: 15px; border: 2px solid var(--stx-bd2); border-top-color: #e33068; border-radius: 50%; animation: stx-login-spin 1s linear infinite; }
+@keyframes stx-login-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .vc-stx-login-spinner { animation: none; } }
+.vc-stx-login-progress + h2 { margin-top: 12px; }
+.vc-stx-login-code { display: grid; gap: 8px; padding: 18px; margin-top: 20px; text-align: center; background: var(--stx-input); border: 1px solid var(--stx-bd); border-radius: 6px; }
+.vc-stx-login-code span, .vc-stx-login-code small, .vc-stx-login-help { color: var(--stx-mu); font-size: 12px; font-weight: 400; }
+.vc-stx-login-code strong { font: 600 28px/1.4 ui-monospace, monospace; letter-spacing: 4px; }
+.vc-stx-login-actions a.vc-stx-btn { text-align: center; color: white; text-decoration: none; }
+.vc-stx-login-help { text-align: center; margin-top: -5px; line-height: 1.5; }
+.vc-stx-login-demo { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--stx-bd); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--stx-mu2); font-size: 11px; font-weight: 400; }
+.vc-stx-login-demo button { padding: 0; border: 0; background: none; color: var(--stx-mu); font: inherit; cursor: pointer; }

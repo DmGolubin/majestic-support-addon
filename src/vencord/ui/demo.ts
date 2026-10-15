@@ -96,3 +96,19 @@ export function pauseDemo() {
     demoAccess.set({ ready: false }); demo.set({ paused, phase: paused ? "offline" : "connecting", error: "" });
     if (!paused && credentials) void poll(epoch);
 }
+
+/** Cancel this attempt, not merely hide its window. Late replies cannot complete the next login. */
+export function cancelDemoLogin() {
+    const previous = credentials;
+    stopRequest(); credentials = null; invalidate(true);
+    demoAccess.set({ ready: false });
+    demo.set({ phase: "idle", url: "", code: "", error: "", paused: false });
+    if (previous) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        void fetch(`${BASE}/sessions/${encodeURIComponent(previous.id)}/revoke`, {
+            method: "POST", credentials: "omit", signal: controller.signal,
+            headers: { Authorization: "Bearer " + previous.device, "Content-Type": "application/json" }, body: "{}",
+        }).catch(() => {}).finally(() => clearTimeout(timeout));
+    }
+}
