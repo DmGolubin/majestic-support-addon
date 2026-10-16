@@ -13,7 +13,8 @@ import { DemoConnection } from "./DemoConnection";
 import { confirmedForeign, supersede } from "./flow";
 import { nextGeneration } from "./op";
 import { PersonalLibrary } from "./PersonalLibrary";
-import { IconLink, IconSettings, IconTemplates } from "./svg";
+import { IconBell, IconLink, IconSettings, IconTemplates } from "./svg";
+import { TicketSettings } from "./TicketSettings";
 import { store, ui, useStore } from "./uiState";
 
 export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) {
@@ -57,12 +58,13 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
     return (
         <div className="vc-stx-settings">
             <nav className="vc-stx-settings-nav" aria-label="Разделы настроек">
-                {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["connection", "Подключение"]].map(([id, label]) => <button key={id} className={"vc-stx-btn " + (tab === id ? "" : "vc-stx-ghost")} aria-pressed={tab === id} onClick={() => { if (id === tab) return; if (dirty) setPending(id); else setTab(id); }}>{id === "personal" ? <IconTemplates size={16} /> : id === "general" ? <IconSettings size={16} /> : <IconLink size={16} />}{label}</button>)}
+                {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["connection", "Подключение"], ["tickets", "Тикеты"]].map(([id, label]) => <button key={id} className={"vc-stx-btn " + (tab === id ? "" : "vc-stx-ghost")} aria-pressed={tab === id} onClick={() => { if (id === tab) return; if (dirty) setPending(id); else setTab(id); }}>{id === "personal" ? <IconTemplates size={16} /> : id === "general" ? <IconSettings size={16} /> : id === "tickets" ? <IconBell size={16} /> : <IconLink size={16} />}{label}</button>)}
             </nav>
             {pending && <div className="vc-stx-local-note" role="alert">Отменить изменения и сменить раздел? <button className="vc-stx-btn" onClick={() => { setTab(pending); setPending(null); setDirty(false); onDirty?.(false); }}>Отменить изменения</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => setPending(null)}>Остаться</button></div>}
             {tab === "personal" && (!demoState.enabled || demoState.revision > 0) && <PersonalLibrary onDirty={v => { setDirty(v); onDirty?.(v); }} />}
             {tab === "personal" && demoState.enabled && demoState.revision === 0 && <p className="vc-stx-local-note">Сначала подключите тестовый аккаунт во вкладке «Подключение».</p>}
             {tab === "connection" && <DemoConnection />}
+            {tab === "tickets" && <TicketSettings />}
             {tab === "general" && <>
             <section className="vc-stx-setting-section">
                 <h3>Окно и быстрый ввод</h3>

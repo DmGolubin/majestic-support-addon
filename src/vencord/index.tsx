@@ -27,6 +27,7 @@ import { latchKey, startLatch, swallowLatched } from "./ui/keylatch";
 import { captureWindowTarget, clearTargets, editorNear, generationNow, nextGeneration } from "./ui/op";
 import { ChatBarIcon } from "./ui/ProjectIcon";
 import { Settings } from "./ui/Settings";
+import { startTicketSound } from "./ui/ticketSound";
 import { activeScope, pluginOn, poolFor, store, ui, UiState, useTechProject } from "./ui/uiState";
 import { visibleItems } from "./ui/Window";
 
@@ -176,6 +177,7 @@ let root: ReturnType<typeof createRoot> | null = null;
 let offChannel: (() => void) | null = null;
 let offInline: (() => void) | null = null;
 let offLatch: (() => void) | null = null;
+let offTicketSound: (() => void) | null = null;
 let lastGuild: string | null = null;
 
 /** Channel switch: cancel pending dialogs and drop everything tied to the old channel. */
@@ -230,6 +232,7 @@ export default definePlugin({
         const t1 = performance.now();
         document.addEventListener("keydown", onKey, true);
         offLatch = startLatch();
+        offTicketSound = startTicketSound();
         lastGuild = currentGuildId();
         loadFonts();
         host = document.createElement("div");
@@ -247,6 +250,8 @@ export default definePlugin({
 
     stop() {
         disableDemo();
+        offTicketSound?.();
+        offTicketSound = null;
         nextGeneration(); // inserts waiting for a dialog / timer and a pending start() are dropped at their next check
         clearTargets();
         resetMenuGuards();
