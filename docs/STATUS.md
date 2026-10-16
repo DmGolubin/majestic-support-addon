@@ -251,9 +251,9 @@ A · Шаблоны. Проверены в живом Discord: поля, зна�
 
 ### C01 · ТЗ API и пакет разработчику
 
-C · Панель. ТЗ 1.1 и пакет разработчику перепроверены: согласованы сроки, SSE/60 с/30 с, отзыв всех устройств и перезапуск. Добавлена нагрузочная приёмка 20/100 клиентов. OpenAPI и реализация сервера ещё ожидаются.
+C · Панель. Готов единый самостоятельный файл для Дмитрия: короткий запрос, вход и права токена, FAQ и личный CRUD, SSE/60 с/30 с, отзыв доступа, API существующей системы ожидания и отдельные настройки уведомлений. Маршруты требуют согласования; production API ещё не реализован.
 
-Основание: [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md), [PANEL-INTEGRATION-SPEC.md](PANEL-INTEGRATION-SPEC.md), [PANEL-DEVELOPER-MESSAGE.txt](PANEL-DEVELOPER-MESSAGE.txt), [2026-10-16-api-handoff-review.md](audits/2026-10-16-api-handoff-review.md).
+Основание: [DMITRY-API-HANDOFF.md](DMITRY-API-HANDOFF.md), [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md), [PANEL-INTEGRATION-SPEC.md](PANEL-INTEGRATION-SPEC.md), [PANEL-DEVELOPER-MESSAGE.txt](PANEL-DEVELOPER-MESSAGE.txt), [2026-10-16-api-handoff-review.md](audits/2026-10-16-api-handoff-review.md).
 
 ### C02 · Демовход внутри плагина
 
