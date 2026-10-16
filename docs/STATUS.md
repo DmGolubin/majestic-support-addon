@@ -251,7 +251,7 @@ A · Шаблоны. Проверены в живом Discord: поля, зна�
 
 ### C01 · ТЗ API и пакет разработчику
 
-C · Панель. Готов единый самостоятельный файл для Дмитрия: короткий запрос, вход и права токена, FAQ и личный CRUD, SSE/60 с/30 с, отзыв доступа, API существующей системы ожидания и отдельные настройки уведомлений. Маршруты требуют согласования; production API ещё не реализован.
+C · Панель. Единый файл для Дмитрия уточнён: Discord-система 20/30 отдельно; Telegram читает БД и напоминает по личному порогу. Плагину нужен API существующих данных и настроек; отсчёт от последнего сообщения игрока. Схема синхронизации и повторы требуют согласования.
 
 Основание: [DMITRY-API-HANDOFF.md](DMITRY-API-HANDOFF.md), [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md), [PANEL-INTEGRATION-SPEC.md](PANEL-INTEGRATION-SPEC.md), [PANEL-DEVELOPER-MESSAGE.txt](PANEL-DEVELOPER-MESSAGE.txt), [2026-10-16-api-handoff-review.md](audits/2026-10-16-api-handoff-review.md).
 
