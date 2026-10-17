@@ -9,7 +9,7 @@
 // Verbose level (a second setting, meaningful only with debug on): raw key/mouse/wheel/focus/resize
 // events, geometry, search/render details. Its listeners exist only while it is on; off = noteKey()/noteWheel() see null.
 // Privacy: titles and ids only — never template texts, field values, the captured selection or tokens.
-// Typed characters are masked (chat box, dialog fields) except in the window's search; queries are cut to 40 chars.
+// Typed characters are masked outside search; password, composition and AltGr keys are always masked.
 // Cost accounting (debug on, any level): costStart()/costEnd() around the plugin's own work — one boolean
 // check when debug is off, two performance.now() calls when on. Long tasks are matched against these spans.
 
@@ -144,6 +144,7 @@ const q40 = (q: string) => JSON.stringify(cut40(q));
 
 /** "Ctrl+Alt+KeyT", "Enter", "Shift+Tab" (+ " repeat"). */
 export function keyDesc(e: KeyboardEvent | React.KeyboardEvent): string {
+    if (maskKey(e)) return "симв." + (e.repeat ? " repeat" : "");
     const m = (e.ctrlKey ? "Ctrl+" : "") + (e.altKey ? "Alt+" : "") + (e.shiftKey && e.key !== "Shift" ? "Shift+" : "") + (e.metaKey ? "Meta+" : "");
     return m + (e.code || e.key) + (e.repeat ? " repeat" : "");
 }
@@ -464,13 +465,23 @@ export function noteKey(e: KeyboardEvent | React.KeyboardEvent, h: string) {
     if (p.ev === ev && p.h === "none") p.h = h;
 }
 
+function maskKey(e: KeyboardEvent | React.KeyboardEvent): boolean {
+    const target = e.target as Element | null;
+    const native = "nativeEvent" in e ? e.nativeEvent : e;
+    // These checks take precedence over search and shortcut diagnostics.
+    if (target?.closest?.('input[type="password"]') || native.isComposing || native.keyCode === 229
+        || ["Process", "Dead", "Unidentified"].includes(e.key)) return true;
+    const printable = [...e.key].length === 1; // Includes supplementary Unicode characters.
+    // Windows may report AltGr as Ctrl+Alt even without the AltGraph modifier flag.
+    const altGraph = e.getModifierState?.("AltGraph") || (e.ctrlKey && e.altKey);
+    if (printable && altGraph) return true;
+    const search = !!target?.closest?.(".vc-stx-sinput");
+    return !search && printable && !e.ctrlKey && !e.altKey && !e.metaKey;
+}
+
 function keyFields(e: KeyboardEvent) {
     const target = e.target as Element | null;
-    // Plain characters are the user's text (chat box, dialog fields): masked everywhere except the
-    // window's search input — the query is shown anyway (cut to 40 chars).
-    const search = !!target?.closest?.(".vc-stx-sinput");
-    // IME composition (e.key "Process") is typed text too.
-    const masked = !search && (e.isComposing || e.key === "Process" || (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey));
+    const masked = maskKey(e);
     const mods = [e.ctrlKey && "Ctrl", e.altKey && "Alt", e.shiftKey && "Shift", e.metaKey && "Meta"].filter(Boolean).join("+");
     return {
         masked,

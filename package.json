@@ -5,6 +5,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "typecheck:vencord": "node scripts/check-vencord.mjs",
     "icons": "node scripts/make-icons.mjs",
     "fonts": "node scripts/make-fonts.mjs",
     "sync:vencord": "node scripts/sync-vencord.mjs",

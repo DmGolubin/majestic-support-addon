@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useState } from "@webpack/common";
+import { useEffect, useRef, useState } from "@webpack/common";
 
 import { joinPieces } from "../core/compose";
 import { insertText, toast } from "../platform";
@@ -14,6 +14,22 @@ import { composeEditor, composeTargetNow, resetComposeTarget } from "./op";
 import { ProjectIcon } from "./ProjectIcon";
 import { IconClose } from "./svg";
 import { store, ui, useChatRect, useStore } from "./uiState";
+
+/** Keep the actual records accepted into the reply, not just IDs that may later resolve to new text. */
+function captureComposition(ids: string[]) {
+    return {
+        ids, version: store.setVersion,
+        entries: ids.map(id => {
+            const template = store.byId(id);
+            return { id, template, content: JSON.stringify(template) };
+        }),
+    };
+}
+
+function templatesCurrent(captured: ReturnType<typeof captureComposition>) {
+    return captured.version === store.setVersion && captured.entries.every(({ id, template, content }) =>
+        !!template && store.byId(id) === template && JSON.stringify(template) === content);
+}
 
 /** Its render is a `render` cost span while debug is on. */
 export function ComposeBar() {
@@ -25,6 +41,27 @@ function ComposeBarView() {
     useStore(); // Personal edits/deletions must invalidate the collected reply's render and handlers.
     const compose = ui.useSelect(s => s.compose);
     const [drag, setDrag] = useState<string | null>(null);
+    const busy = useRef(false); // synchronous: two clicks before React renders still start only one operation
+    const [inserting, setInserting] = useState(false);
+    const captured = useRef(captureComposition(ui.get().compose));
+    const disposed = useRef(false);
+    useEffect(() => {
+        disposed.current = false;
+        const sync = () => {
+            const ids = ui.get().compose;
+            if (ids.length && captured.current.ids.length && !templatesCurrent(captured.current)) {
+                captured.current = captureComposition([]);
+                ui.set({ compose: [] });
+                toast("Шаблоны изменились — соберите ответ снова", "message");
+                return;
+            }
+            if (ids !== captured.current.ids) captured.current = captureComposition(ids);
+        };
+        const offUi = ui.subscribe(sync);
+        const offStore = store.subscribe(sync);
+        sync(); // include changes between render and subscription
+        return () => { disposed.current = true; offUi(); offStore(); };
+    }, []);
     const rect = useChatRect(compose.length > 0, composeEditor);
     if (!compose.length) return null;
     if (!rect) return null;
@@ -38,29 +75,43 @@ function ComposeBarView() {
     };
 
     const insertAll = async () => {
-        if (!items.length) { ui.set({ compose: [] }); return; } // every piece was removed (import): nothing to insert
-        const snap = snapNow(composeTargetNow()); // the editor the answer was started in
-        // Every piece must be common, of the channel's project, or a foreign one the user confirmed for it; on Tech ("all") any piece fits.
-        const fits = () => {
-            const p = snap.scope;
-            if (p === "all" || items.every(t => !t!.project || (p && (t!.project === p || confirmedForeign.has(`${p}:${t!.id}`))))) return true;
-            dlog("cancel", { reason: "в ответе шаблон другого проекта", scope: p });
-            toast("В ответе есть шаблон другого проекта — вставка отменена", "failure");
-            return false;
-        };
-        if (!fits()) return;
-        const text = await fillFields("Ответ", joinPieces(items.map(t => t!.text)), snap);
-        if (text === null || !fits()) return;
-        if (!stillCurrent(snap)) {
-            if (snap.editor && !snap.editor.isConnected) resetComposeTarget(); // the next click goes to the current editor
-            return;
+        if (busy.current || disposed.current) return;
+        const selection = captured.current;
+        const current = () => !disposed.current && ui.get().compose === selection.ids
+            && selection.ids.length === selection.entries.length && selection.entries.every((e, i) => selection.ids[i] === e.id)
+            && templatesCurrent(selection);
+        // A stale render must not insert a newly selected reply or silently omit deleted pieces.
+        if (!selection.ids.length || compose !== selection.ids || !current()) return;
+        busy.current = true;
+        setInserting(true);
+        try {
+            const snap = snapNow(composeTargetNow()); // the editor the answer was started in
+            const items = selection.entries.map(e => e.template!);
+            // Every piece must be common, of the channel's project, or a foreign one the user confirmed for it; on Tech ("all") any piece fits.
+            const fits = () => {
+                const p = snap.scope;
+                if (p === "all" || items.every(t => !t.project || (p && (t.project === p || confirmedForeign.has(`${p}:${t.id}`))))) return true;
+                dlog("cancel", { reason: "в ответе шаблон другого проекта", scope: p });
+                toast("В ответе есть шаблон другого проекта — вставка отменена", "failure");
+                return false;
+            };
+            if (!fits()) return;
+            const text = await fillFields("Ответ", joinPieces(items.map(t => t.text)), snap);
+            if (text === null || !current() || !fits()) return;
+            if (!stillCurrent(snap)) {
+                if (snap.editor && !snap.editor.isConnected) resetComposeTarget(); // the next click goes to the current editor
+                return;
+            }
+            focusTarget(snap);
+            const ok = insertText(text);
+            dlog("insert", { ids: items.map(t => t.id).join(","), via: "compose", ok });
+            if (!ok) { dlog("error", { where: "insertText", via: "compose" }); return; }
+            items.forEach(t => store.markUsed(t.id));
+            ui.set({ compose: [] });
+        } finally {
+            busy.current = false;
+            if (!disposed.current) setInserting(false);
         }
-        focusTarget(snap);
-        const ok = insertText(text);
-        dlog("insert", { ids: items.map(t => t!.id).join(","), via: "compose", ok });
-        if (!ok) { dlog("error", { where: "insertText", via: "compose" }); return; }
-        items.forEach(t => store.markUsed(t!.id));
-        ui.set({ compose: [] });
     };
 
     return (
@@ -85,7 +136,7 @@ function ComposeBarView() {
             ))}
             <span style={{ flex: 1 }} />
             <button className="vc-stx-btn vc-stx-ghost" onClick={() => ui.set({ compose: [] })}>Очистить</button>
-            <button className="vc-stx-btn" onClick={insertAll}>Вставить всё</button>
+            <button className="vc-stx-btn" disabled={inserting} onClick={insertAll}>Вставить всё</button>
         </div>
     );
 }

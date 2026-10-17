@@ -34,11 +34,14 @@ function mk(group: string, title: string, text: string): Template {
 function uniqueIds(ts: Template[]): number {
     const taken = new Set(ts.map(t => t.id));
     const seen = new Set<string>();
+    const nextSuffix = new Map<string, number>();
     let dupes = 0;
     for (const t of ts) {
         if (!seen.has(t.id)) { seen.add(t.id); continue; }
-        let n = 2;
+        // Reserve every original ID up front, but scan each base's suffixes only once.
+        let n = nextSuffix.get(t.id) ?? 2;
         while (taken.has(`${t.id}#${n}`)) n++;
+        nextSuffix.set(t.id, n + 1);
         t.id = `${t.id}#${n}`;
         taken.add(t.id);
         seen.add(t.id);

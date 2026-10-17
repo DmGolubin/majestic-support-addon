@@ -137,10 +137,15 @@ export class Store {
         const r = importBackup(text);
         // "Intentional mention" answers belonged to the old texts: they are not carried over to the new set.
         const own = new Set(this.data.personal.map(t => t.id));
+        // Existing personal shortcuts win over imported FAQ shortcuts using the same combination.
+        const mergedBinds = cleanBinds({
+            ...Object.fromEntries(Object.entries(this.data.binds).filter(([id]) => own.has(id))),
+            ...Object.fromEntries(Object.entries(r.binds).filter(([id]) => !own.has(id)))
+        }, new Set([...r.templates, ...this.data.personal].map(t => t.id)));
         this.data = { ...this.data, raw: r.raw,
             favorites: [...r.favorites, ...this.data.favorites.filter(id => own.has(id))],
             usage: { ...r.usage, ...Object.fromEntries(Object.entries(this.data.usage).filter(([id]) => own.has(id))) },
-            binds: cleanBinds({ ...r.binds, ...Object.fromEntries(Object.entries(this.data.binds).filter(([id]) => own.has(id))) }, new Set([...r.templates, ...this.data.personal].map(t => t.id))).binds,
+            binds: mergedBinds.binds,
             recent: this.data.recent.filter(id => own.has(id)), intentional: [] };
         this.templates = [...r.templates, ...this.data.personal];
         this.setVersion++;
@@ -149,7 +154,7 @@ export class Store {
         const ro = r.templates.filter(t => t.project === "ro").length;
         return `Шаблонов: ${r.templates.length} (Majestic ${mj}, Россия Онлайн ${ro}), избранных: ${r.favorites.length}`
             + (r.dupes ? ` · повторяющихся названий: ${r.dupes} (получили номер)` : "")
-            + (r.droppedBinds ? ` · клавиш не принято: ${r.droppedBinds} (запрещённые или повторы)` : "");
+            + (r.droppedBinds + mergedBinds.dropped ? ` · клавиш не принято: ${r.droppedBinds + mergedBinds.dropped} (запрещённые или повторы)` : "");
     }
 
     byId(id: string) {

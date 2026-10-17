@@ -17,18 +17,18 @@ import { favoritesOf } from "./core/rank";
 import { currentChannel, currentGuildId, onChannelChange, toast } from "./platform";
 import { resetMenuGuards } from "./ui/ContextMenu";
 import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
-import { disableDemo } from "./ui/demo";
+import { disposeDemo } from "./ui/demo";
 import { insertTemplate, supersede } from "./ui/flow";
 import { loadFonts, unloadFonts } from "./ui/fonts";
 import { Host } from "./ui/Host";
 import { MJ_ICON } from "./ui/icons";
 import { handleInlineKey, resetInline, startInline } from "./ui/inline";
 import { latchKey, startLatch, swallowLatched } from "./ui/keylatch";
-import { captureWindowTarget, clearTargets, editorNear, generationNow, nextGeneration } from "./ui/op";
+import { captureWindowTarget, clearTargets, editorNear, nextGeneration } from "./ui/op";
 import { ChatBarIcon } from "./ui/ProjectIcon";
 import { Settings } from "./ui/Settings";
 import { startTicketSound } from "./ui/ticketSound";
-import { activeScope, pluginOn, poolFor, store, ui, UiState, useTechProject } from "./ui/uiState";
+import { activeScope, pluginOn, poolFor, realStore, store, ui, UiState, useTechProject } from "./ui/uiState";
 import { visibleItems } from "./ui/Window";
 
 const Icon: IconComponent = ({ height = 20, width = 20, className }) => (
@@ -179,6 +179,8 @@ let offInline: (() => void) | null = null;
 let offLatch: (() => void) | null = null;
 let offTicketSound: (() => void) | null = null;
 let lastGuild: string | null = null;
+// Session/catalog invalidation cancels inserts, but must not cancel plugin startup.
+let lifecycle = 0;
 
 /** Channel switch: cancel pending dialogs and drop everything tied to the old channel. */
 function channelChanged(guildId: string | null) {
@@ -222,13 +224,14 @@ export default definePlugin({
     chatBarButton: { icon: Icon, render: Button },
 
     async start() {
-        // Only the plugin's own start: the await of store.load (IndexedDB; Discord keeps working meanwhile)
+        // Only the plugin's own start: the await of realStore.load (IndexedDB; Discord keeps working meanwhile)
         // and the synchronous mount after it. Discord/Vencord boot before start() is not included.
         const t0 = performance.now();
-        const gen = nextGeneration();
-        await store.load();
+        const gen = ++lifecycle;
+        nextGeneration();
+        await realStore.load();
         // Vencord does not await start(): a stop() during the load must not be followed by a late mount.
-        if (gen !== generationNow()) return;
+        if (gen !== lifecycle) return;
         const t1 = performance.now();
         document.addEventListener("keydown", onKey, true);
         offLatch = startLatch();
@@ -249,10 +252,11 @@ export default definePlugin({
     },
 
     stop() {
-        disableDemo();
+        lifecycle++;
+        disposeDemo();
         offTicketSound?.();
         offTicketSound = null;
-        nextGeneration(); // inserts waiting for a dialog / timer and a pending start() are dropped at their next check
+        nextGeneration(); // inserts waiting for a dialog / timer are dropped at their next check
         clearTargets();
         resetMenuGuards();
         document.removeEventListener("keydown", onKey, true);

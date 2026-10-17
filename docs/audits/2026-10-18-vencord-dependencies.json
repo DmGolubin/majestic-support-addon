@@ -1,0 +1,1957 @@
+{
+  "advisories": {
+    "1100538": {
+      "findings": [
+        {
+          "version": "2.7.0",
+          "paths": [
+            ".>zip-local>jszip"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1100538,
+      "title": "JSZip contains Path Traversal via loadAsync",
+      "module_name": "jszip",
+      "vulnerable_versions": "<3.8.0",
+      "patched_versions": ">=3.8.0",
+      "severity": "moderate",
+      "cwe": "CWE-22",
+      "github_advisory_id": "GHSA-36fh-84j7-cv5h",
+      "url": "https://github.com/advisories/GHSA-36fh-84j7-cv5h"
+    },
+    "1109571": {
+      "findings": [
+        {
+          "version": "2.22.2",
+          "paths": [
+            "packages__discord-types>moment",
+            "packages__vencord-types>@vencord/discord-types>moment"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1109571,
+      "title": "Path Traversal: 'dir/../../filename' in moment.locale",
+      "module_name": "moment",
+      "vulnerable_versions": "<2.29.2",
+      "patched_versions": ">=2.29.2",
+      "severity": "high",
+      "cwe": "CWE-22, CWE-27",
+      "github_advisory_id": "GHSA-8hfj-j24r-96c4",
+      "url": "https://github.com/advisories/GHSA-8hfj-j24r-96c4"
+    },
+    "1109572": {
+      "findings": [
+        {
+          "version": "2.22.2",
+          "paths": [
+            "packages__discord-types>moment",
+            "packages__vencord-types>@vencord/discord-types>moment"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1109572,
+      "title": "Moment.js vulnerable to Inefficient Regular Expression Complexity",
+      "module_name": "moment",
+      "vulnerable_versions": ">=2.18.0 <2.29.4",
+      "patched_versions": ">=2.29.4",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-1333",
+      "github_advisory_id": "GHSA-wc69-rhjr-hc9g",
+      "url": "https://github.com/advisories/GHSA-wc69-rhjr-hc9g"
+    },
+    "1113459": {
+      "findings": [
+        {
+          "version": "3.1.2",
+          "paths": [
+            ".>eslint-plugin-react>minimatch"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1113459,
+      "title": "minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern",
+      "module_name": "minimatch",
+      "vulnerable_versions": "<3.1.3",
+      "patched_versions": ">=3.1.3",
+      "severity": "high",
+      "cwe": "CWE-1333",
+      "github_advisory_id": "GHSA-3ppc-4f35-3m26",
+      "url": "https://github.com/advisories/GHSA-3ppc-4f35-3m26"
+    },
+    "1113538": {
+      "findings": [
+        {
+          "version": "3.1.2",
+          "paths": [
+            ".>eslint-plugin-react>minimatch"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1113538,
+      "title": "minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments",
+      "module_name": "minimatch",
+      "vulnerable_versions": "<3.1.3",
+      "patched_versions": ">=3.1.3",
+      "severity": "high",
+      "cwe": "CWE-407",
+      "github_advisory_id": "GHSA-7r86-cg39-jmmj",
+      "url": "https://github.com/advisories/GHSA-7r86-cg39-jmmj"
+    },
+    "1113546": {
+      "findings": [
+        {
+          "version": "3.1.2",
+          "paths": [
+            ".>eslint-plugin-react>minimatch"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1113546,
+      "title": "minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions",
+      "module_name": "minimatch",
+      "vulnerable_versions": "<3.1.4",
+      "patched_versions": ">=3.1.4",
+      "severity": "high",
+      "cwe": "CWE-1333",
+      "github_advisory_id": "GHSA-23c5-xmqv-rm74",
+      "url": "https://github.com/advisories/GHSA-23c5-xmqv-rm74"
+    },
+    "1115540": {
+      "findings": [
+        {
+          "version": "1.1.12",
+          "paths": [
+            ".>eslint-plugin-react>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1115540,
+      "title": "brace-expansion: Zero-step sequence causes process hang and memory exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.13",
+      "patched_versions": ">=1.1.13",
+      "severity": "moderate",
+      "cwe": "CWE-400",
+      "github_advisory_id": "GHSA-f886-m6hf-6m8v",
+      "url": "https://github.com/advisories/GHSA-f886-m6hf-6m8v"
+    },
+    "1115668": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1115668,
+      "title": "DOMPurify contains a Cross-site Scripting vulnerability",
+      "module_name": "dompurify",
+      "vulnerable_versions": ">=3.1.3 <=3.3.1",
+      "patched_versions": ">=3.3.2",
+      "severity": "moderate",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-v2wj-7wpq-c8vv",
+      "url": "https://github.com/advisories/GHSA-v2wj-7wpq-c8vv"
+    },
+    "1117138": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1117138,
+      "title": "DOMPurify: FORBID_TAGS bypassed by function-based ADD_TAGS predicate (asymmetry with FORBID_ATTR fix)",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<3.4.0",
+      "patched_versions": ">=3.4.0",
+      "severity": "moderate",
+      "cwe": "CWE-79, CWE-183",
+      "github_advisory_id": "GHSA-h7mw-gpvr-xq4m",
+      "url": "https://github.com/advisories/GHSA-h7mw-gpvr-xq4m"
+    },
+    "1117139": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1117139,
+      "title": "DOMPurify has a SAFE_FOR_TEMPLATES bypass in RETURN_DOM mode",
+      "module_name": "dompurify",
+      "vulnerable_versions": ">=1.0.10 <3.4.0",
+      "patched_versions": ">=3.4.0",
+      "severity": "moderate",
+      "cwe": "CWE-79, CWE-1289",
+      "github_advisory_id": "GHSA-crv5-9vww-q3g8",
+      "url": "https://github.com/advisories/GHSA-crv5-9vww-q3g8"
+    },
+    "1117140": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1117140,
+      "title": "DOMPurify: Prototype Pollution to XSS Bypass via CUSTOM_ELEMENT_HANDLING Fallback",
+      "module_name": "dompurify",
+      "vulnerable_versions": ">=3.0.1 <3.4.0",
+      "patched_versions": ">=3.4.0",
+      "severity": "moderate",
+      "cwe": "CWE-79, CWE-1321",
+      "github_advisory_id": "GHSA-v9jr-rg53-9pgp",
+      "url": "https://github.com/advisories/GHSA-v9jr-rg53-9pgp"
+    },
+    "1120802": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1120802,
+      "title": "DOMPurify: Cross-realm IN_PLACE sanitization leaves executable markup intact via realm-bound `instanceof` checks",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.4.5",
+      "patched_versions": ">=3.4.6",
+      "severity": "moderate",
+      "cwe": "CWE-79, CWE-501, CWE-693",
+      "github_advisory_id": "GHSA-hpcv-96wg-7vj8",
+      "url": "https://github.com/advisories/GHSA-hpcv-96wg-7vj8"
+    },
+    "1120803": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1120803,
+      "title": "DOMPurify: IN_PLACE mode preserves attributes of a clobbered root element, allowing XSS via attacker-controlled root DOM",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.4.5",
+      "patched_versions": ">=3.4.6",
+      "severity": "moderate",
+      "cwe": "CWE-79, CWE-693, CWE-1321",
+      "github_advisory_id": "GHSA-r47g-fvhr-h676",
+      "url": "https://github.com/advisories/GHSA-r47g-fvhr-h676"
+    },
+    "1120813": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1120813,
+      "title": "DOMPurify IN_PLACE Sanitization Bypass via Attached Shadow Root Inside <template>.content",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.4.6",
+      "patched_versions": ">=3.4.7",
+      "severity": "moderate",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-rp9w-3fw7-7cwq",
+      "url": "https://github.com/advisories/GHSA-rp9w-3fw7-7cwq"
+    },
+    "1123896": {
+      "findings": [
+        {
+          "version": "2.1.0",
+          "paths": [
+            ".>typescript-transform-paths>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1123896,
+      "title": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.2",
+      "patched_versions": ">=2.1.2",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-3jxr-9vmj-r5cp",
+      "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp"
+    },
+    "1123897": {
+      "findings": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint-import-resolver-alias>eslint-plugin-import>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "version": "1.1.12",
+          "paths": [
+            ".>eslint-plugin-react>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1123897,
+      "title": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.16",
+      "patched_versions": ">=1.1.16",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-3jxr-9vmj-r5cp",
+      "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp"
+    },
+    "1124064": {
+      "findings": [
+        {
+          "version": "3.1.3",
+          "paths": [
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1124064,
+      "title": "fast-uri vulnerable to host confusion via literal backslash authority delimiter",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.0.0 <=3.1.3",
+      "patched_versions": ">=3.1.4",
+      "severity": "high",
+      "cwe": "CWE-436",
+      "github_advisory_id": "GHSA-v2hh-gcrm-f6hx",
+      "url": "https://github.com/advisories/GHSA-v2hh-gcrm-f6hx"
+    },
+    "1124233": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1124233,
+      "title": "DOMPurify: Permanent `ALLOWED_ATTR` pollution via `setConfig()` bypassing the hook clone-guard (incomplete fix of the 3.4.7 hook-pollution patch)",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.4.10",
+      "patched_versions": ">=3.4.11",
+      "severity": "moderate",
+      "cwe": "CWE-79, CWE-471, CWE-665",
+      "github_advisory_id": "GHSA-cmwh-pvxp-8882",
+      "url": "https://github.com/advisories/GHSA-cmwh-pvxp-8882"
+    },
+    "1124234": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1124234,
+      "title": "DOMPurify: Trusted Types policy survives `clearConfig()` and can poison later `RETURN_TRUSTED_TYPE` output",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<3.4.9",
+      "patched_versions": ">=3.4.9",
+      "severity": "low",
+      "cwe": "CWE-693",
+      "github_advisory_id": "GHSA-vxr8-fq34-vvx9",
+      "url": "https://github.com/advisories/GHSA-vxr8-fq34-vvx9"
+    },
+    "1124235": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1124235,
+      "title": "DOMPurify: SAFE_FOR_TEMPLATES bypass - template expressions survive sanitization inside <template> content when using DOM output modes",
+      "module_name": "dompurify",
+      "vulnerable_versions": ">=3.0.0 <=3.4.7",
+      "patched_versions": ">=3.4.8",
+      "severity": "low",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-gvmj-g25r-r7wr",
+      "url": "https://github.com/advisories/GHSA-gvmj-g25r-r7wr"
+    },
+    "1124236": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1124236,
+      "title": "DOMPurify: `IN_PLACE` mode trusts attacker-controlled `nodeName` on live non-form nodes, allowing script retention and XSS via attacker-supplied DOM objects",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.4.6",
+      "patched_versions": ">=3.4.7",
+      "severity": "low",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-x4vx-rjvf-j5p4",
+      "url": "https://github.com/advisories/GHSA-x4vx-rjvf-j5p4"
+    },
+    "1124237": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1124237,
+      "title": "DOMPurify: Hook mutation of `data.allowedTags` / `data.allowedAttributes` permanently pollutes `DEFAULT_ALLOWED_TAGS` / `DEFAULT_ALLOWED_ATTR`",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<3.4.7",
+      "patched_versions": ">=3.4.7",
+      "severity": "moderate",
+      "cwe": "CWE-501, CWE-693",
+      "github_advisory_id": "GHSA-76mc-f452-cxcm",
+      "url": "https://github.com/advisories/GHSA-76mc-f452-cxcm"
+    },
+    "1124238": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1124238,
+      "title": "DOMPurify's ADD_TAGS function form bypasses FORBID_TAGS due to short-circuit evaluation",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.3.3",
+      "patched_versions": ">=3.3.4",
+      "severity": "moderate",
+      "cwe": "CWE-783",
+      "github_advisory_id": "GHSA-39q2-94rc-95cp",
+      "url": "https://github.com/advisories/GHSA-39q2-94rc-95cp"
+    },
+    "1124239": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1124239,
+      "title": "DOMPurify ADD_ATTR predicate skips URI validation",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.3.1",
+      "patched_versions": ">=3.3.2",
+      "severity": "moderate",
+      "cwe": "CWE-183",
+      "github_advisory_id": "GHSA-cjmm-f4jc-qw8r",
+      "url": "https://github.com/advisories/GHSA-cjmm-f4jc-qw8r"
+    },
+    "1124240": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1124240,
+      "title": "DOMPurify USE_PROFILES prototype pollution allows event handlers",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.3.1",
+      "patched_versions": ">=3.3.2",
+      "severity": "moderate",
+      "cwe": "CWE-1321",
+      "github_advisory_id": "GHSA-cj63-jhhr-wcxv",
+      "url": "https://github.com/advisories/GHSA-cj63-jhhr-wcxv"
+    },
+    "1124241": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1124241,
+      "title": "DOMPurify is vulnerable to mutation-XSS via Re-Contextualization ",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<3.3.2",
+      "patched_versions": ">=3.3.2",
+      "severity": "moderate",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-h8r8-wccr-v5f2",
+      "url": "https://github.com/advisories/GHSA-h8r8-wccr-v5f2"
+    },
+    "1130588": {
+      "findings": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint-import-resolver-alias>eslint-plugin-import>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "version": "1.1.12",
+          "paths": [
+            ".>eslint-plugin-react>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130588,
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.17",
+      "patched_versions": ">=1.1.17",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-770",
+      "github_advisory_id": "GHSA-mh99-v99m-4gvg",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg"
+    },
+    "1130589": {
+      "findings": [
+        {
+          "version": "2.1.0",
+          "paths": [
+            ".>typescript-transform-paths>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130589,
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.3",
+      "patched_versions": ">=2.1.3",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-770",
+      "github_advisory_id": "GHSA-mh99-v99m-4gvg",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg"
+    },
+    "1130591": {
+      "findings": [
+        {
+          "version": "5.0.7",
+          "paths": [
+            ".>@stylistic/eslint-plugin>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-path-alias>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-path-alias>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-react>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-react>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-header>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-header>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-import-sort>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-import-sort>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>eslint>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130591,
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=4.0.0 <5.0.8",
+      "patched_versions": ">=5.0.8",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-770",
+      "github_advisory_id": "GHSA-mh99-v99m-4gvg",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg"
+    },
+    "1130709": {
+      "findings": [
+        {
+          "version": "8.5.16",
+          "paths": [
+            ".>stylelint>postcss",
+            ".>stylelint>postcss-safe-parser>postcss",
+            ".>stylelint-config-standard>stylelint>postcss",
+            ".>stylelint-config-standard>stylelint>postcss-safe-parser>postcss",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss-safe-parser>postcss"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130709,
+      "title": "PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset",
+      "module_name": "postcss",
+      "vulnerable_versions": "<=8.5.22",
+      "patched_versions": ">=8.5.23",
+      "severity": "moderate",
+      "cwe": "CWE-22, CWE-200",
+      "github_advisory_id": "GHSA-fxqj-rqcc-2cmp",
+      "url": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp"
+    },
+    "1130720": {
+      "findings": [
+        {
+          "version": "3.1.3",
+          "paths": [
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130720,
+      "title": "fast-uri vulnerable to host confusion via backslash authority introducer",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.0.0 <3.1.5",
+      "patched_versions": ">=3.1.5",
+      "severity": "high",
+      "cwe": "CWE-436",
+      "github_advisory_id": "GHSA-7p8r-x3mc-p8w7",
+      "url": "https://github.com/advisories/GHSA-7p8r-x3mc-p8w7"
+    },
+    "1130734": {
+      "findings": [
+        {
+          "version": "5.0.7",
+          "paths": [
+            ".>@stylistic/eslint-plugin>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-path-alias>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-path-alias>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-react>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-react>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-header>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-header>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-import-sort>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-import-sort>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>eslint>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130734,
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=4.0.0 <5.0.9",
+      "patched_versions": ">=5.0.9",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-770",
+      "github_advisory_id": "GHSA-rgw5-rvv9-x895",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895"
+    },
+    "1130736": {
+      "findings": [
+        {
+          "version": "2.1.0",
+          "paths": [
+            ".>typescript-transform-paths>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130736,
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.4",
+      "patched_versions": ">=2.1.4",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-770",
+      "github_advisory_id": "GHSA-rgw5-rvv9-x895",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895"
+    },
+    "1130737": {
+      "findings": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint-import-resolver-alias>eslint-plugin-import>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "version": "1.1.12",
+          "paths": [
+            ".>eslint-plugin-react>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130737,
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.18",
+      "patched_versions": ">=1.1.18",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-770",
+      "github_advisory_id": "GHSA-rgw5-rvv9-x895",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895"
+    },
+    "1138115": {
+      "findings": [
+        {
+          "version": "4.3.0",
+          "paths": [
+            ".>stylelint>cosmiconfig>js-yaml",
+            ".>stylelint-config-standard>stylelint>cosmiconfig>js-yaml",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>cosmiconfig>js-yaml"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1138115,
+      "title": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) — CVE-2026-59870 fix not backported",
+      "module_name": "js-yaml",
+      "vulnerable_versions": ">=4.0.0 <4.3.1",
+      "patched_versions": ">=4.3.1",
+      "severity": "high",
+      "cwe": "CWE-407",
+      "github_advisory_id": "GHSA-5p4m-2wfm-xmqj",
+      "url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj"
+    },
+    "1138538": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1138538,
+      "title": "DOMPurify: IN_PLACE hook removal leaves a detached subtree executable, causing XSS",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.4.12",
+      "patched_versions": ">=3.4.13",
+      "severity": "moderate",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-55q2-fjhq-7xh7",
+      "url": "https://github.com/advisories/GHSA-55q2-fjhq-7xh7"
+    },
+    "1138811": {
+      "findings": [
+        {
+          "version": "3.3.15",
+          "paths": [
+            ".>stylelint>postcss>nanoid",
+            ".>stylelint>postcss-safe-parser>postcss>nanoid",
+            ".>stylelint-config-standard>stylelint>postcss>nanoid",
+            ".>stylelint-config-standard>stylelint>postcss-safe-parser>postcss>nanoid",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss>nanoid",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss-safe-parser>postcss>nanoid"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1138811,
+      "title": "nanoid: non-secure generators can loop indefinitely with negative size",
+      "module_name": "nanoid",
+      "vulnerable_versions": "<3.3.16",
+      "patched_versions": ">=3.3.16",
+      "severity": "high",
+      "cwe": "CWE-835",
+      "github_advisory_id": "GHSA-28wg-ghj8-5hjv",
+      "url": "https://github.com/advisories/GHSA-28wg-ghj8-5hjv"
+    },
+    "1139427": {
+      "findings": [
+        {
+          "version": "3.3.15",
+          "paths": [
+            ".>stylelint>postcss>nanoid",
+            ".>stylelint>postcss-safe-parser>postcss>nanoid",
+            ".>stylelint-config-standard>stylelint>postcss>nanoid",
+            ".>stylelint-config-standard>stylelint>postcss-safe-parser>postcss>nanoid",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss>nanoid",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss-safe-parser>postcss>nanoid"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1139427,
+      "title": "nanoid: custom generators can loop indefinitely when size is zero",
+      "module_name": "nanoid",
+      "vulnerable_versions": "<3.3.18",
+      "patched_versions": ">=3.3.18",
+      "severity": "high",
+      "cwe": "CWE-835",
+      "github_advisory_id": "GHSA-2v37-7h3g-55p8",
+      "url": "https://github.com/advisories/GHSA-2v37-7h3g-55p8"
+    },
+    "1139510": {
+      "findings": [
+        {
+          "version": "8.5.16",
+          "paths": [
+            ".>stylelint>postcss",
+            ".>stylelint>postcss-safe-parser>postcss",
+            ".>stylelint-config-standard>stylelint>postcss",
+            ".>stylelint-config-standard>stylelint>postcss-safe-parser>postcss",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss-safe-parser>postcss"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1139510,
+      "title": "PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure",
+      "module_name": "postcss",
+      "vulnerable_versions": "<=8.5.17",
+      "patched_versions": ">=8.5.18",
+      "severity": "high",
+      "cwe": "CWE-22",
+      "github_advisory_id": "GHSA-r28c-9q8g-f849",
+      "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849"
+    },
+    "1139518": {
+      "findings": [
+        {
+          "version": "4.0.1",
+          "paths": [
+            ".>svgo"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1139518,
+      "title": "SVGO removeScripts plugin leaves some executable scripts intact",
+      "module_name": "svgo",
+      "vulnerable_versions": ">=4.0.0 <4.0.2",
+      "patched_versions": ">=4.0.2",
+      "severity": "high",
+      "cwe": "CWE-79, CWE-184",
+      "github_advisory_id": "GHSA-2p49-hgcm-8545",
+      "url": "https://github.com/advisories/GHSA-2p49-hgcm-8545"
+    },
+    "1147955": {
+      "findings": [
+        {
+          "version": "0.2.2",
+          "paths": [
+            ".>eslint-plugin-path-alias>nanomatch>snapdragon>source-map-resolve>decode-uri-component"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1147955,
+      "title": "decode-uri-component: Denial of service via exponential decoding of malformed percent-encoded input",
+      "module_name": "decode-uri-component",
+      "vulnerable_versions": "<=0.4.2",
+      "patched_versions": ">=0.4.3",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-405, CWE-407, CWE-1176",
+      "github_advisory_id": "GHSA-vcc3-ghjq-m6fr",
+      "url": "https://github.com/advisories/GHSA-vcc3-ghjq-m6fr"
+    },
+    "1158521": {
+      "findings": [
+        {
+          "version": "3.1.3",
+          "paths": [
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1158521,
+      "title": "fast-uri vulnerable to host confusion via skipped IDN canonicalization on scheme-relative references",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.1.3 <3.1.6",
+      "patched_versions": ">=3.1.6",
+      "severity": "high",
+      "cwe": "CWE-436",
+      "github_advisory_id": "GHSA-5jgf-p345-68v8",
+      "url": "https://github.com/advisories/GHSA-5jgf-p345-68v8"
+    },
+    "1158524": {
+      "findings": [
+        {
+          "version": "3.1.3",
+          "paths": [
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1158524,
+      "title": "fast-uri vulnerable to server-side request forgery via malformed IPv6 normalization",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.0.0 <3.1.6",
+      "patched_versions": ">=3.1.6",
+      "severity": "high",
+      "cwe": "CWE-20, CWE-918",
+      "github_advisory_id": "GHSA-f65p-4m7j-42xc",
+      "url": "https://github.com/advisories/GHSA-f65p-4m7j-42xc"
+    },
+    "1158527": {
+      "findings": [
+        {
+          "version": "3.1.3",
+          "paths": [
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1158527,
+      "title": "fast-uri vulnerable to server-side request forgery via repeated hostname percent-decoding",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.1.2 <3.1.6",
+      "patched_versions": ">=3.1.6",
+      "severity": "high",
+      "cwe": "CWE-174, CWE-918",
+      "github_advisory_id": "GHSA-fph4-wmhf-6fwf",
+      "url": "https://github.com/advisories/GHSA-fph4-wmhf-6fwf"
+    },
+    "1158530": {
+      "findings": [
+        {
+          "version": "3.1.3",
+          "paths": [
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1158530,
+      "title": "fast-uri vulnerable to host confusion via percent-encoded scheme normalization",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.0.0 <3.1.6",
+      "patched_versions": ">=3.1.6",
+      "severity": "high",
+      "cwe": "CWE-177",
+      "github_advisory_id": "GHSA-jqff-g426-hqxp",
+      "url": "https://github.com/advisories/GHSA-jqff-g426-hqxp"
+    },
+    "1193675": {
+      "findings": [
+        {
+          "version": "2.9.3",
+          "paths": [
+            ".>stylelint>colord",
+            ".>stylelint-config-standard>stylelint>colord",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>colord"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1193675,
+      "title": "Colord: Slow rejection of oversized malformed color strings",
+      "module_name": "colord",
+      "vulnerable_versions": "<2.9.4",
+      "patched_versions": ">=2.9.4",
+      "severity": "moderate",
+      "cwe": "CWE-1333",
+      "github_advisory_id": "GHSA-2wm5-q62r-hmrv",
+      "url": "https://github.com/advisories/GHSA-2wm5-q62r-hmrv"
+    },
+    "1193727": {
+      "findings": [
+        {
+          "version": "4.3.0",
+          "paths": [
+            ".>stylelint>cosmiconfig>js-yaml",
+            ".>stylelint-config-standard>stylelint>cosmiconfig>js-yaml",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>cosmiconfig>js-yaml"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1193727,
+      "title": "js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+      "module_name": "js-yaml",
+      "vulnerable_versions": ">=4.0.0 <4.3.2",
+      "patched_versions": ">=4.3.2",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-2883-xcg3-v3hh",
+      "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh"
+    },
+    "1193735": {
+      "findings": [
+        {
+          "version": "4.0.1",
+          "paths": [
+            ".>svgo"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1193735,
+      "title": "SVGO: removeScripts allows executable links through namespace and control-character bypasses",
+      "module_name": "svgo",
+      "vulnerable_versions": ">=4.0.0 <4.1.0",
+      "patched_versions": ">=4.1.0",
+      "severity": "high",
+      "cwe": "CWE-79, CWE-184",
+      "github_advisory_id": "GHSA-w27v-7q3p-w38r",
+      "url": "https://github.com/advisories/GHSA-w27v-7q3p-w38r"
+    },
+    "1193738": {
+      "findings": [
+        {
+          "version": "4.0.1",
+          "paths": [
+            ".>svgo"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1193738,
+      "title": "SVGO: removeScripts incompletely sanitizes executable HTML in SVG foreignObject elements",
+      "module_name": "svgo",
+      "vulnerable_versions": ">=4.0.0 <4.1.0",
+      "patched_versions": ">=4.1.0",
+      "severity": "moderate",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-4vpr-x523-8j87",
+      "url": "https://github.com/advisories/GHSA-4vpr-x523-8j87"
+    },
+    "1239943": {
+      "findings": [
+        {
+          "version": "3.1.3",
+          "paths": [
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1239943,
+      "title": "fast-uri vulnerable to authority injection via an unvalidated port in serialize",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.0.0 <3.1.7",
+      "patched_versions": ">=3.1.7",
+      "severity": "high",
+      "cwe": "CWE-116",
+      "github_advisory_id": "GHSA-qw65-cvwx-89v3",
+      "url": "https://github.com/advisories/GHSA-qw65-cvwx-89v3"
+    },
+    "1240091": {
+      "findings": [
+        {
+          "version": "3.1.3",
+          "paths": [
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240091,
+      "title": "fast-uri vulnerable to inconsistent host case normalization via percent-encoded octets",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.0.0 <3.1.8",
+      "patched_versions": ">=3.1.8",
+      "severity": "moderate",
+      "cwe": "CWE-178",
+      "github_advisory_id": "GHSA-hrr3-gc8f-f4qj",
+      "url": "https://github.com/advisories/GHSA-hrr3-gc8f-f4qj"
+    },
+    "1240099": {
+      "findings": [
+        {
+          "version": "2.30.1",
+          "paths": [
+            ".>moment",
+            "packages__vencord-types>moment"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240099,
+      "title": "moment vulnerable to Path Traversal via crafted non-string locale name",
+      "module_name": "moment",
+      "vulnerable_versions": ">=2.29.2 <2.31.0",
+      "patched_versions": ">=2.31.0",
+      "severity": "moderate",
+      "cwe": "CWE-27",
+      "github_advisory_id": "GHSA-4p3w-j4w9-5jqw",
+      "url": "https://github.com/advisories/GHSA-4p3w-j4w9-5jqw"
+    },
+    "1240100": {
+      "findings": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint-import-resolver-alias>eslint-plugin-import>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "version": "1.1.12",
+          "paths": [
+            ".>eslint-plugin-react>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240100,
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.21",
+      "patched_versions": ">=1.1.21",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-q2hr-2g5m-vwhr",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr"
+    },
+    "1240101": {
+      "findings": [
+        {
+          "version": "2.1.0",
+          "paths": [
+            ".>typescript-transform-paths>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240101,
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.7",
+      "patched_versions": ">=2.1.7",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-q2hr-2g5m-vwhr",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr"
+    },
+    "1240103": {
+      "findings": [
+        {
+          "version": "5.0.7",
+          "paths": [
+            ".>@stylistic/eslint-plugin>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-path-alias>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-path-alias>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-react>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-react>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-header>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-header>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-import-sort>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-import-sort>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>eslint>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240103,
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=4.0.0 <5.0.12",
+      "patched_versions": ">=5.0.12",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-q2hr-2g5m-vwhr",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr"
+    },
+    "1240104": {
+      "findings": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint-import-resolver-alias>eslint-plugin-import>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "version": "1.1.12",
+          "paths": [
+            ".>eslint-plugin-react>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240104,
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.20",
+      "patched_versions": ">=1.1.20",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-qhr7-859c-m2p7",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7"
+    },
+    "1240105": {
+      "findings": [
+        {
+          "version": "2.1.0",
+          "paths": [
+            ".>typescript-transform-paths>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240105,
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.6",
+      "patched_versions": ">=2.1.6",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-qhr7-859c-m2p7",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7"
+    },
+    "1240107": {
+      "findings": [
+        {
+          "version": "5.0.7",
+          "paths": [
+            ".>@stylistic/eslint-plugin>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-path-alias>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-path-alias>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-react>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-react>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-header>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-header>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-import-sort>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-import-sort>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>eslint>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240107,
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=4.0.0 <5.0.11",
+      "patched_versions": ">=5.0.11",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-qhr7-859c-m2p7",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7"
+    },
+    "1240108": {
+      "findings": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint-import-resolver-alias>eslint-plugin-import>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "version": "1.1.12",
+          "paths": [
+            ".>eslint-plugin-react>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240108,
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.19",
+      "patched_versions": ">=1.1.19",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-6j4f-fj2g-mc7p",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+    },
+    "1240109": {
+      "findings": [
+        {
+          "version": "2.1.0",
+          "paths": [
+            ".>typescript-transform-paths>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240109,
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.5",
+      "patched_versions": ">=2.1.5",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-6j4f-fj2g-mc7p",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+    },
+    "1240111": {
+      "findings": [
+        {
+          "version": "5.0.7",
+          "paths": [
+            ".>@stylistic/eslint-plugin>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>@stylistic/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>eslint-module-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-import-resolver-alias>eslint-plugin-import>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-path-alias>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-path-alias>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-react>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-react>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-header>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-header>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-import-sort>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-simple-import-sort>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>eslint-plugin-unused-imports>@typescript-eslint/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>minimatch>brace-expansion",
+            ".>typescript-eslint>eslint>@eslint/config-array>minimatch>brace-expansion",
+            ".>typescript-eslint>eslint>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240111,
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=4.0.0 <5.0.10",
+      "patched_versions": ">=5.0.10",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-6j4f-fj2g-mc7p",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+    },
+    "1240978": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240978,
+      "title": "DOMPurify: `CUSTOM_ELEMENT_HANDLING` bypasses `afterSanitizeElements` for allowed custom elements.",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.4.11",
+      "patched_versions": ">=3.4.12",
+      "severity": "low",
+      "cwe": "CWE-79, CWE-184, CWE-693",
+      "github_advisory_id": "GHSA-c2j3-45gr-mqc4",
+      "url": "https://github.com/advisories/GHSA-c2j3-45gr-mqc4"
+    },
+    "1240992": {
+      "findings": [
+        {
+          "version": "3.0.3",
+          "paths": [
+            ".>stylelint>fast-glob>micromatch>braces",
+            ".>stylelint>globby>fast-glob>micromatch>braces",
+            ".>stylelint>micromatch>braces",
+            ".>stylelint-config-standard>stylelint>fast-glob>micromatch>braces",
+            ".>stylelint-config-standard>stylelint>globby>fast-glob>micromatch>braces",
+            ".>stylelint-config-standard>stylelint>micromatch>braces",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>fast-glob>micromatch>braces",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>globby>fast-glob>micromatch>braces",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>micromatch>braces"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240992,
+      "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+      "module_name": "braces",
+      "vulnerable_versions": "<=3.0.3",
+      "patched_versions": ">=3.0.4",
+      "severity": "high",
+      "cwe": "CWE-674",
+      "github_advisory_id": "GHSA-vfj7-8cjw-p6xm",
+      "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm"
+    },
+    "1241204": {
+      "findings": [
+        {
+          "version": "3.2.7",
+          "paths": [
+            ".>monaco-editor>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1241204,
+      "title": "DOMPurify: IN_PLACE returns a force-removed rawtext root whose text carries attacker markup — pure HTML reparse executes",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.4.15",
+      "patched_versions": ">=3.4.16",
+      "severity": "low",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-6688-9rhm-gjv2",
+      "url": "https://github.com/advisories/GHSA-6688-9rhm-gjv2"
+    },
+    "1241209": {
+      "findings": [
+        {
+          "version": "1.2.1",
+          "paths": [
+            ".>stylelint>@csstools/css-syntax-patches-for-csstree>css-tree>source-map-js",
+            ".>stylelint>css-tree>source-map-js",
+            ".>stylelint>postcss>source-map-js",
+            ".>stylelint>postcss-safe-parser>postcss>source-map-js",
+            ".>stylelint-config-standard>stylelint>@csstools/css-syntax-patches-for-csstree>css-tree>source-map-js",
+            ".>stylelint-config-standard>stylelint>css-tree>source-map-js",
+            ".>stylelint-config-standard>stylelint>postcss>source-map-js",
+            ".>stylelint-config-standard>stylelint>postcss-safe-parser>postcss>source-map-js",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>@csstools/css-syntax-patches-for-csstree>css-tree>source-map-js",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>css-tree>source-map-js",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss>source-map-js",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss-safe-parser>postcss>source-map-js",
+            ".>svgo>css-tree>source-map-js",
+            ".>svgo>csso>css-tree>source-map-js"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1241209,
+      "title": "source-map-js allows event-loop denial of service through indexed source-map section offsets",
+      "module_name": "source-map-js",
+      "vulnerable_versions": ">=1.0.0 <1.2.2",
+      "patched_versions": ">=1.2.2",
+      "severity": "high",
+      "cwe": "CWE-1284",
+      "github_advisory_id": "GHSA-68fv-2mgg-jv7q",
+      "url": "https://github.com/advisories/GHSA-68fv-2mgg-jv7q"
+    },
+    "1241232": {
+      "findings": [
+        {
+          "version": "7.1.4",
+          "paths": [
+            ".>stylelint>@csstools/selector-resolve-nested>postcss-selector-parser",
+            ".>stylelint>@csstools/selector-specificity>postcss-selector-parser",
+            ".>stylelint>postcss-selector-parser",
+            ".>stylelint-config-standard>stylelint>@csstools/selector-resolve-nested>postcss-selector-parser",
+            ".>stylelint-config-standard>stylelint>@csstools/selector-specificity>postcss-selector-parser",
+            ".>stylelint-config-standard>stylelint>postcss-selector-parser",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>@csstools/selector-resolve-nested>postcss-selector-parser",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>@csstools/selector-specificity>postcss-selector-parser",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>postcss-selector-parser"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1241232,
+      "title": "PostCSS: Quadratic complexity in flat selector parsing allows CPU exhaustion",
+      "module_name": "postcss-selector-parser",
+      "vulnerable_versions": "<7.1.6",
+      "patched_versions": ">=7.1.6",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-rj75-hqrm-r3gf",
+      "url": "https://github.com/advisories/GHSA-rj75-hqrm-r3gf"
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 5,
+      "moderate": 26,
+      "high": 35,
+      "critical": 0
+    },
+    "dependencies": 29,
+    "devDependencies": 556,
+    "optionalDependencies": 28,
+    "totalDependencies": 586
+  }
+}

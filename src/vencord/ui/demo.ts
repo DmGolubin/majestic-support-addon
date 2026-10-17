@@ -24,6 +24,24 @@ function invalidate(keepWindow = false) {
     ui.set({ windowOpen: keepWindow && ui.get().windowOpen, inline: null, menu: null, dialog: null, compose: [] });
 }
 function stopRequest() { epoch++; clearTimeout(timer); request?.abort(); request = null; }
+
+/** Drop session-owned records, retaining only account-independent UI preferences. */
+function clearLibrary() {
+    if (!library) return;
+    const { prefix, previewOpen, techProject } = library.data;
+    const empty = new Store({ get: async () => undefined, set: async () => {} });
+    library.data = { ...empty.data, prefix, previewOpen, techProject };
+    library.replaceDemoCatalog("");
+}
+
+function resetSession(keepWindow = false) {
+    stopRequest(); invalidate(keepWindow); credentials = null;
+    demoAccess.set({ ready: false });
+    // revision=0 also unmounts personal editors in Vencord's separate settings surface.
+    demo.set({ revision: 0, url: "", code: "", error: "", paused: false });
+    ui.set({ management: false });
+    clearLibrary();
+}
 async function api(path: string, body?: object) {
     const controller = new AbortController(); request = controller;
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -37,19 +55,25 @@ async function api(path: string, body?: object) {
 }
 
 export function enableDemo(keepWindow = false) {
-    stopRequest(); invalidate(keepWindow); credentials = null;
+    resetSession(keepWindow);
     library = new Store({ get: async () => undefined, set: async () => {} });
+    library.setPreviewOpen(false);
     demoAccess.set({ enabled: true, ready: false }); selectStore(library);
     demo.set({ enabled: true, localMode: false, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
 }
+/** Plugin teardown releases a session without opting the user into local mode. */
+export function disposeDemo() {
+    resetSession();
+    demo.set({ phase: "idle" });
+}
 export function disableDemo() {
-    stopRequest(); invalidate(); credentials = null; library = null;
+    disposeDemo(); library = null;
     demoAccess.set({ enabled: false, ready: false }); selectStore(realStore);
     demo.set({ enabled: false, localMode: true, phase: "idle", url: "", code: "", revision: 0, error: "", paused: false });
 }
 export async function connectDemo(fromMenu = false) {
     if (!demo.get().enabled) return;
-    stopRequest(); invalidate(fromMenu); credentials = null; demoAccess.set({ ready: false });
+    resetSession(fromMenu);
     const ownEpoch = epoch;
     demo.set({ phase: "connecting", error: "", url: "", code: "", revision: 0, paused: false });
     try {
@@ -84,16 +108,19 @@ async function poll(ownEpoch: number) {
         if (result.phase === "ready") {
             if (result.revision !== demo.get().revision) {
                 const changed = demo.get().revision > 0;
-                if (!changed) library!.setPreviewOpen(false);
                 invalidate(!changed && ui.get().windowOpen); library!.replaceDemoCatalog(result.raw);
                 if (changed) toast("Шаблоны обновлены. Выберите шаблон снова.", "success");
             }
             demoAccess.set({ ready: true });
             demo.set({ phase: "ready", revision: result.revision, error: "" });
         } else {
+            if (result.phase !== "pending") {
+                resetSession();
+                demo.set({ phase: result.phase });
+                return;
+            }
             if (demoAccess.get().ready) invalidate();
             demoAccess.set({ ready: false }); demo.set({ phase: result.phase, error: "" });
-            if (result.phase !== "pending") { credentials = null; demo.set({ url: "" }); return; }
         }
     } catch {
         if (epoch !== ownEpoch) return;
@@ -112,8 +139,7 @@ export function pauseDemo() {
 /** Cancel this attempt, not merely hide its window. Late replies cannot complete the next login. */
 export function cancelDemoLogin() {
     const previous = credentials;
-    stopRequest(); credentials = null; invalidate(true);
-    demoAccess.set({ ready: false });
+    resetSession(true);
     demo.set({ phase: "idle", url: "", code: "", error: "", paused: false });
     if (previous) {
         const controller = new AbortController();

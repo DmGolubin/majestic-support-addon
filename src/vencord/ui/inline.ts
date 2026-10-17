@@ -8,7 +8,7 @@ import { orderHits } from "../core/rank";
 import { search } from "../core/search";
 import { findTrigger } from "../core/trigger";
 import { Template } from "../core/types";
-import { activeEditor, insertText, toast } from "../platform";
+import { insertText, toast } from "../platform";
 import { costEnd, costStart, debugEnabled, dlog } from "./debug";
 import { prepareText, stillCurrent } from "./flow";
 import { latchKey } from "./keylatch";
@@ -155,26 +155,52 @@ async function runAccept(i: number, noGreeting: boolean) {
 
 async function doAccept(st: NonNullable<ReturnType<typeof ui.get>["inline"]>, t: NonNullable<typeof st.items[number]>, noGreeting: boolean, live: () => boolean) {
     ui.set({ inline: null });
-    const ed = activeEditor();
+    const ed = focusedEditor();
+    if (!ed) return;
+    const prefix = store.data.prefix;
+    const draft = ed.textContent;
+    const selection = () => {
+        const s = window.getSelection();
+        return s?.rangeCount ? { anchor: s.anchorNode, start: s.anchorOffset, focus: s.focusNode, end: s.focusOffset } : null;
+    };
+    const sameSelection = (expected: ReturnType<typeof selection>) => {
+        const now = selection();
+        return !!expected && !!now && now.anchor === expected.anchor && now.start === expected.start && now.focus === expected.focus && now.end === expected.end;
+    };
+    const caret = selection();
+    const sameTrigger = () => {
+        const before = textBeforeCaret(ed);
+        const trigger = before === null ? null : findTrigger(before.split("\n").pop() ?? "", prefix);
+        return trigger?.query === st.query && trigger.length === st.length;
+    };
+    if (!sameTrigger()) return; // the popup may be one animation frame behind the editor
+    const sameDraft = () => ed.isConnected && ed.textContent === draft && store.data.prefix === prefix;
+    const cancel = () => toast("Поле ввода изменилось — выберите шаблон снова", "message");
     const gen = generationNow();
     const prepared = await prepareText(t, { editor: ed, selection: "" }, { noGreeting }); // may open dialogs and steal focus
     if (!prepared || !live() || gen !== generationNow() || !stillCurrent(prepared.snap)) return;
-    ed?.focus();
+    // Our dialogs may temporarily own focus; another input/editor is never a reason to steal it back.
+    const focused = document.activeElement;
+    if (!sameDraft() || (focused !== document.body && focused !== ed && !ed.contains(focused) && !focused?.closest(".vc-stx-dialog"))) return cancel();
+    ed.focus();
     await new Promise(r => setTimeout(r, 0));
     if (!live() || !stillCurrent(prepared.snap)) return;
-    const trig = ed ? findTrigger((textBeforeCaret(ed) ?? "").split("\n").pop() ?? "", store.data.prefix) : null;
-    const selected = !!trig && selectTrigger(trig.length);
+    if (!sameDraft() || focusedEditor() !== ed || !sameSelection(caret) || !sameTrigger()) return cancel();
+    // Never insert beside an unselected trigger (e.g. one split across Slate text nodes).
+    if (!selectTrigger(st.length)) return cancel();
+    const replacement = selection();
     await new Promise(r => setTimeout(r, 30)); // let Slate pick up the DOM selection
     if (!live() || !stillCurrent(prepared.snap)) return;
+    if (!sameDraft() || focusedEditor() !== ed || !sameSelection(replacement)) return cancel();
     const ok = insertText(prepared.text);
-    dlog("insert", { id: prepared.t.id, title: prepared.t.title, via: "inline", ok, triggerSelected: selected, editor: !!ed });
+    dlog("insert", { id: prepared.t.id, title: prepared.t.title, via: "inline", ok, triggerSelected: true, editor: true });
     if (!ok) { dlog("error", { where: "insertText", id: prepared.t.id }); return; }
     store.markUsed(prepared.t.id);
-    if (!selected) toast(`Удалите «${store.data.prefix}${st.query}» вручную`, "message");
 }
 
 /** Keyboard while suggestions are shown. true = handled (event consumed). */
 export function handleInlineKey(e: KeyboardEvent): boolean {
+    if (e.isComposing || e.keyCode === 229) return false;
     const isEnter = e.key === "Enter", isTab = e.key === "Tab";
     if (accepting && (isEnter || isTab)) { dlog("key", { h: "inline-accepting-swallow", key: e.code }, "acc-swallow:" + e.code); return true; } // swallow repeats/double taps during accept
     const st = ui.get().inline;
