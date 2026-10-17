@@ -28,13 +28,7 @@ C · Панель. Начат первый блок production-входа: ва�
 
 Основание: [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md).
 
-## Реализовано · нужна приёмка (3)
-
-### C03 · Согласовать и получить API сайта
-
-C · Панель. Получены описание и OpenAPI 18.10: контракт изучен, JSON/$ref проверены. Реальная доступность API, тестовые аккаунты и разрешение включения ещё не проверены; по документации API выключен по умолчанию.
-
-Основание: [discord-plugin-api.md](contracts/panel-2026-10-18/discord-plugin-api.md), [discord-plugin-openapi.json](contracts/panel-2026-10-18/discord-plugin-openapi.json), [2026-10-18-api-integration-estimate.md](audits/2026-10-18-api-integration-estimate.md).
+## Реализовано · нужна приёмка (2)
 
 ### B02 · Звук нового тикета
 
@@ -48,7 +42,13 @@ A · Шаблоны. Исправлены гонки inline/compose, IME Tab, о
 
 Основание: [2026-10-18-release-audit.md](audits/2026-10-18-release-audit.md).
 
-## Ожидает API (1)
+## Ожидает API (2)
+
+### C03 · Согласовать и получить API сайта
+
+C · Панель. Контракт и адрес получены. 18.10 запрос GET /me без авторизации вернул 503 plugin_disabled: сервер доступен, API отключён. Для живого входа нужен допуск владельцем (PLUGIN_API_ENABLED=true по контракту); разработка клиента продолжается. Права аккаунта и CORS Discord пока не проверены.
+
+Основание: [discord-plugin-api.md](contracts/panel-2026-10-18/discord-plugin-api.md), [discord-plugin-openapi.json](contracts/panel-2026-10-18/discord-plugin-openapi.json), [2026-10-18-api-integration-estimate.md](audits/2026-10-18-api-integration-estimate.md), [2026-10-18-api-connectivity.md](audits/2026-10-18-api-connectivity.md).
 
 ### B01 · Разбор состояния тикета
 

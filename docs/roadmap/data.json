@@ -233,13 +233,14 @@
     {
       "id": "C03",
       "area": "C · Панель",
-      "status": "review",
+      "status": "blocked",
       "title": "Согласовать и получить API сайта",
-      "detail": "Получены описание и OpenAPI 18.10: контракт изучен, JSON/$ref проверены. Реальная доступность API, тестовые аккаунты и разрешение включения ещё не проверены; по документации API выключен по умолчанию.",
+      "detail": "Контракт и адрес получены. 18.10 запрос GET /me без авторизации вернул 503 plugin_disabled: сервер доступен, API отключён. Для живого входа нужен допуск владельцем (PLUGIN_API_ENABLED=true по контракту); разработка клиента продолжается. Права аккаунта и CORS Discord пока не проверены.",
       "evidence": [
         "contracts/panel-2026-10-18/discord-plugin-api.md",
         "contracts/panel-2026-10-18/discord-plugin-openapi.json",
-        "audits/2026-10-18-api-integration-estimate.md"
+        "audits/2026-10-18-api-integration-estimate.md",
+        "audits/2026-10-18-api-connectivity.md"
       ],
       "updated": "2026-10-18"
     },
