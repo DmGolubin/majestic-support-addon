@@ -53,7 +53,7 @@ function origin(value: string): string {
 
 /** Test/staging origins must be provided explicitly by trusted configuration, never an API body. */
 export function panelEndpoint(path: string, trustedOrigin = PANEL_ORIGIN): string {
-    if (!/^\/[a-z][a-z0-9/-]*$/.test(path) || path.includes("//")) return invalid();
+    if (!/^\/[a-z][a-z0-9/_-]*$/.test(path) || path.includes("//")) return invalid();
     return origin(trustedOrigin) + PANEL_API_PATH + path;
 }
 

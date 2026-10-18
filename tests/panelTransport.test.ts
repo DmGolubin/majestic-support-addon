@@ -1,7 +1,7 @@
 import { ReadableStream } from "node:stream/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PanelError } from "../src/core/panelClient";
+import { PanelClient, PanelError } from "../src/core/panelClient";
 import { PANEL_ORIGIN } from "../src/core/panelProtocol";
 import { createPanelTransport } from "../src/core/panelTransport";
 
@@ -40,6 +40,36 @@ afterEach(() => {
 });
 
 describe("panel JSON transport", () => {
+    it("completes device login through the actual URL builder and transport", async () => {
+        vi.useFakeTimers();
+        const scopes = "profile:read faq:read personal:read folders:read sync:read";
+        const fetch = vi.fn<typeof globalThis.fetch>(async url => {
+            if (String(url).endsWith("/oauth/device_authorization")) return json({
+                device_code: "fixture-device", user_code: "TEST-CODE", expires_in: 600, interval: 5,
+                verification_uri: PANEL_ORIGIN + "/connect", verification_uri_complete: PANEL_ORIGIN + "/connect?user_code=TEST-CODE"
+            });
+            if (String(url).endsWith("/oauth/token")) return json({
+                access_token: "fixture-access", refresh_token: "fixture-refresh", token_type: "Bearer", expires_in: 900,
+                scope: scopes, connectionId: "11111111-2222-4333-8444-555555555555"
+            });
+            return json({ ok: true });
+        });
+        const client = new PanelClient(createPanelTransport(fetch));
+        const device = vi.fn();
+        const result = client.login(device).then(() => null, error => error);
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(await result).toBeNull();
+        expect(device).toHaveBeenCalledOnce();
+        expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+            PANEL_ORIGIN + "/api/plugin/v1/oauth/device_authorization", PANEL_ORIGIN + "/api/plugin/v1/oauth/token"
+        ]);
+        expect(fetch.mock.calls[0][1]).toMatchObject({ method: "POST", credentials: "omit", redirect: "error" });
+        expect(JSON.parse(fetch.mock.calls[0][1]!.body as string)).toMatchObject({ client_id: "support-templates", scope: scopes });
+        await client.get("/me");
+        expect(fetch.mock.calls[2][1]?.headers).toMatchObject({ Authorization: "Bearer fixture-access" });
+        client.dispose();
+    });
+
     it("uses the fixed API base, Bearer header and no cookies/cache/redirect following", async () => {
         const fetch = mockFetch(json({ accountId: "123" }));
         await expect(createPanelTransport(fetch)("/me", { token: secret })).resolves.toEqual({ accountId: "123" });

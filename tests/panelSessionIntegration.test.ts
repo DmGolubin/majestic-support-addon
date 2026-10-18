@@ -61,6 +61,7 @@ function harness() {
     const events = new Map<string, () => void>();
     const windowEvents = new Map<string, () => void>();
     const deps: Record<string, unknown> = {
+        "../panelPermission": { ensurePanelPermission: async () => "ready" },
         "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: account }), addChangeListener() {}, removeChangeListener() {} },
             FluxDispatcher: { subscribe: (n: string, fn: () => void) => events.set(n, fn), unsubscribe: (n: string) => events.delete(n) } },
         "../buildInfo": { PLUGIN_VERSION: "1.0.0" }, "../core/state": { Store, STORE_KEY },

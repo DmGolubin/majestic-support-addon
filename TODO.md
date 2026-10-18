@@ -3,9 +3,13 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (0)
+## В работе (1)
 
-Нет задач.
+### C09 · Приёмка настоящей интеграции
+
+C · Панель. Живая проверка начата. Исправлены URL /oauth/device_authorization и штатный запрос CSP-разрешения для панели. Окно разрешения открыто: нужен Allow владельца и полный перезапуск Discord. Затем проверить настоящий device flow, /me, /snapshot, SSE и восстановление. Неавторизованный /me не доказывает выключение API.
+
+Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-panel-session-sse.md](docs/audits/2026-10-18-panel-session-sse.md), [2026-10-18-panel-live-login.md](docs/audits/2026-10-18-panel-live-login.md).
 
 ## Реализовано · нужна приёмка (7)
 
@@ -51,19 +55,13 @@ C · Панель. Реализовано: избранное, бинды, не�
 
 Основание: [2026-10-18-panel-preferences.md](docs/audits/2026-10-18-panel-preferences.md).
 
-## Ожидает API (3)
+## Ожидает API (2)
 
 ### C03 · Согласовать и получить API сайта
 
 C · Панель. Контракт и адрес получены. Ранний GET /me вернул 503 plugin_disabled; однократная проверка 18.10 около 15:07 по Бухаресту вернула HTTP 403 без распознанного кода API. Владелец подтвердил: API ещё не включён. Для живой приёмки нужен допуск владельцем; права и CORS Discord не проверены.
 
 Основание: [discord-plugin-api.md](docs/contracts/panel-2026-10-18/discord-plugin-api.md), [discord-plugin-openapi.json](docs/contracts/panel-2026-10-18/discord-plugin-openapi.json), [2026-10-18-api-integration-estimate.md](docs/audits/2026-10-18-api-integration-estimate.md), [2026-10-18-api-connectivity.md](docs/audits/2026-10-18-api-connectivity.md).
-
-### C09 · Приёмка настоящей интеграции
-
-C · Панель. Живая приёмка ждёт включения API, его отсутствие подтверждено владельцем. Однократная проверка выполнена: HTTP 403 без распознанного кода API; автоматизация завершена. После включения проверить вход, CORS, snapshot/HTML, перезапуск Discord, ОС-хранилище, SSE, отзыв и смену аккаунта. Локальные тесты не заменяют приёмку. Дополнительно C11: предпочтения аккаунта после перезапуска, ошибки DataStore и повтор сохранения.
-
-Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-panel-session-sse.md](docs/audits/2026-10-18-panel-session-sse.md).
 
 ### B01 · Разбор состояния тикета
 

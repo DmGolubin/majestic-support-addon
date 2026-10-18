@@ -80,7 +80,9 @@ function harness() {
         streams.push({ signal, emit, end, fail });
         signal.addEventListener("abort", () => end(), { once: true });
     }));
+    const permission = vi.fn(async (_interactive: boolean): Promise<string> => "ready");
     const deps: Record<string, unknown> = {
+        "../panelPermission": { ensurePanelPermission: permission },
         "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: state.discordId }),
             addChangeListener: (fn: () => void) => accountHandlers.add(fn), removeChangeListener: (fn: () => void) => accountHandlers.delete(fn) }, FluxDispatcher: {
             subscribe: (name: string, fn: () => void) => handlers.set(name, fn), unsubscribe: (name: string) => handlers.delete(name) } },
@@ -105,11 +107,36 @@ function harness() {
     runInNewContext(compiled, { module, exports: module.exports, Date, setTimeout, clearTimeout, Math, AbortController, window: { open,
         addEventListener: (name: string, fn: () => void) => windowHandlers.set(name, fn), removeEventListener: (name: string) => windowHandlers.delete(name) },
         require: (name: string) => { if (!(name in deps)) throw new Error("Unexpected import " + name); return deps[name]; } });
-    return { preferenceData, preferenceStorage, io, api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers, windowHandlers, accountHandlers, streams, streamReader,
+    return { permission, preferenceData, preferenceStorage, io, api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers, windowHandlers, accountHandlers, streams, streamReader,
         freshness: () => freshness(), generation: () => generation };
 }
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-18T00:00:00Z")); });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+
+describe("host permission before panel requests", () => {
+    it.each(["required", "restart", "unavailable"])("does not start login or SSE when permission is %s", async result => {
+        const h = harness(); h.permission.mockResolvedValue(result);
+        await h.api.connectPanel();
+        expect(h.permission).toHaveBeenCalledWith(true);
+        expect(h.clients).toHaveLength(0); expect(h.open).not.toHaveBeenCalled();
+        expect(h.streamReader).not.toHaveBeenCalled(); expect(h.access.get().ready).toBe(false);
+        expect(h.api.panel.get().phase).toBe("error"); h.api.disposePanel();
+    });
+    it("leaves first launch idle without a permission prompt", async () => {
+        const h = harness(); h.permission.mockResolvedValue("required");
+        await h.api.restorePanel();
+        expect(h.permission).toHaveBeenCalledWith(false);
+        expect(h.api.panel.get().phase).toBe("idle"); expect(h.api.panel.get().error).toBe("");
+        expect(h.clients).toHaveLength(0); h.api.disposePanel();
+    });
+    it("does not start login when the pending permission was cancelled by another action", async () => {
+        const h = harness(), pending = deferred<string>();
+        h.permission.mockReturnValue(pending.promise);
+        const login = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(0);
+        await h.api.cancelPanelLogin(); pending.resolve("ready"); await login;
+        expect(h.clients).toHaveLength(0); expect(h.open).not.toHaveBeenCalled(); h.api.disposePanel();
+    });
+});
 
 describe("account preferences through the real panel controller", () => {
     it("restores favorites, bindings, ranking and list settings only with a fresh catalog after restart", async () => {

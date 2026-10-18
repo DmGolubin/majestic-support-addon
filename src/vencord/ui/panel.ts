@@ -15,6 +15,7 @@ import { PANEL_ORIGIN } from "../core/panelProtocol";
 import { createPanelTransport } from "../core/panelTransport";
 import { StorageLike, Store, STORE_KEY } from "../core/state";
 import { htmlToDiscordText } from "../panelHtml";
+import { ensurePanelPermission } from "../panelPermission";
 import { createPanelVault } from "../panelVault";
 import { storage } from "../platform";
 import { disableDemo, enableDemo } from "./demo";
@@ -276,6 +277,16 @@ async function beginPanel(restore: boolean) {
         // Old clients must finish clearing the shared slot before a new native vault handle claims it.
         await finishCleanups();
         if (own !== epoch) return;
+        const permission = await ensurePanelPermission(!restore);
+        if (own !== epoch) return;
+        if (permission !== "ready") {
+            panel.set({ phase: restore && permission === "required" ? "idle" : "error", error: permission === "restart"
+                ? "Доступ к панели разрешён. Полностью закройте и запустите Discord, затем повторите вход."
+                : permission === "required"
+                    ? restore ? "" : "Для входа разрешите соединение с панелью в окне Vencord."
+                    : "Не удалось проверить разрешение на соединение с панелью. Перезапустите Discord." });
+            return;
+        }
         const vault = await createPanelVault(discordId);
         if (own !== epoch) return;
         const prefs = { storage: createPanelPreferencesStorage(storage, discordId), loaded: false, writable: false };
