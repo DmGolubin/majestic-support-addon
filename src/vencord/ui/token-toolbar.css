@@ -6,10 +6,4 @@
 .vc-stx-token-panel p { margin: 0; color: var(--stx-mu2); }
 .vc-stx-token-panel code { color: var(--stx-tx); }
 .vc-stx-token-panel > button { justify-self: start; }
-.vc-stx-token-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.vc-stx-token-choices button { display: grid; gap: 3px; padding: 9px 10px; text-align: left; background: var(--stx-input); color: var(--stx-tx); border: 1px solid var(--stx-bd); border-radius: 5px; font: inherit; cursor: pointer; }
-.vc-stx-token-choices button:hover { background: var(--stx-hover); }
-.vc-stx-token-choices button:focus-visible { outline: 2px solid var(--stx-ring); outline-offset: 2px; }
-.vc-stx-token-choices button span { color: var(--stx-mu2); font-size: 11px; }
 .vc-stx-token-panel .vc-stx-token-builder { margin: 0; padding: 0; border: 0; }
-@media (max-width: 560px) { .vc-stx-token-choices { grid-template-columns: 1fr; } }
