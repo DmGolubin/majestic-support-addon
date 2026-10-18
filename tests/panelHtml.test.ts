@@ -14,6 +14,16 @@ describe("inert FAQ HTML conversion", () => {
         const faq = '**Title**\n\n\\*literal\\*\n\n```txt\n  indented_line\n```\n\n<https://example.com/help>';
         expect(htmlToDiscordText(faq)).toBe(faq);
     });
+    it("preserves email addresses and URL handles while neutralizing actual Discord mentions", () => {
+        const text = "help@majestic-rp.ru support@everyone.example https://example.com/@support @support";
+        expect(htmlToDiscordText(text)).toBe(text);
+        expect(htmlToDiscordText("@everyone @here <@123> <@!123> <@&123>"))
+            .toBe("@\u200beveryone @\u200bhere <@\u200b123> <@\u200b!123> <@\u200b&123>");
+    });
+    it("preserves the real API greeting marker, Markdown, trailing space and Windows paths", () => {
+        const text = "**Приветствую!**\n[[greeting:end]]\n\n1. Проверьте файлы. \n`C:\\Users\\%username%\\Documents`\n\nid#00048394";
+        expect(htmlToDiscordText(text)).toBe(text);
+    });
     it("keeps readable paragraphs, breaks, lists, tables, entities and safe links", () => {
         const text = htmlToDiscordText('<p>Hello &amp; welcome</p><p>Next<br>line</p><ul><li>One</li><li>Two</li></ul><ol><li>Step A</li><li>Step B</li></ol><table><tr><td>Key</td><td>Value</td></tr></table><a href="https://example.com/help?a=1&amp;b=2">Help</a>');
         expect(text).toContain("Hello & welcome\n\nNext\nline");

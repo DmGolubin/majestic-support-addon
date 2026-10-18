@@ -36,7 +36,10 @@ function plain(text: string): string {
     text = decode(text).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
     // FAQ text contains Discord Markdown even inside HTML wrappers. Preserve its syntax,
     // line breaks and indentation; HTML is removed by the inert scanner below, never rendered.
-    return outsideTokens(text, part => part.replace(/@/g, "@\u200b"));
+    // A blanket @ replacement corrupts email addresses and URL handles from the FAQ.
+    return outsideTokens(text, part => part
+        .replace(/<@(?=[!&]?\d+>)/g, "<@\u200b")
+        .replace(/(^|[^\p{L}\p{N}_.+-])@(everyone|here)\b/gu, "$1@\u200b$2"));
 }
 function attr(attrs: string, name: string): string | null {
     const match = new RegExp("(?:^|\\s)" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'=<>`]+))", "i").exec(attrs);
