@@ -3,13 +3,9 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (1)
+## В работе (0)
 
-### C09 · Приёмка настоящей интеграции
-
-C · Панель. Живая проверка начата. Исправлены URL /oauth/device_authorization и штатный запрос CSP-разрешения для панели. Окно разрешения открыто: нужен Allow владельца и полный перезапуск Discord. Затем проверить настоящий device flow, /me, /snapshot, SSE и восстановление. Неавторизованный /me не доказывает выключение API.
-
-Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-panel-session-sse.md](docs/audits/2026-10-18-panel-session-sse.md), [2026-10-18-panel-live-login.md](docs/audits/2026-10-18-panel-live-login.md).
+Нет задач.
 
 ## Реализовано · нужна приёмка (7)
 
@@ -55,13 +51,19 @@ C · Панель. Реализовано: избранное, бинды, не�
 
 Основание: [2026-10-18-panel-preferences.md](docs/audits/2026-10-18-panel-preferences.md).
 
-## Ожидает API (2)
+## Ожидает API (3)
 
 ### C03 · Согласовать и получить API сайта
 
 C · Панель. Контракт и адрес получены. Ранний GET /me вернул 503 plugin_disabled; однократная проверка 18.10 около 15:07 по Бухаресту вернула HTTP 403 без распознанного кода API. Владелец подтвердил: API ещё не включён. Для живой приёмки нужен допуск владельцем; права и CORS Discord не проверены.
 
 Основание: [discord-plugin-api.md](docs/contracts/panel-2026-10-18/discord-plugin-api.md), [discord-plugin-openapi.json](docs/contracts/panel-2026-10-18/discord-plugin-openapi.json), [2026-10-18-api-integration-estimate.md](docs/audits/2026-10-18-api-integration-estimate.md), [2026-10-18-api-connectivity.md](docs/audits/2026-10-18-api-connectivity.md).
+
+### C09 · Приёмка настоящей интеграции
+
+C · Панель. 18.10 около 15:59: после Allow и полного перезапуска Discord проверен настоящий POST /oauth/device_authorization. Preflight 204, ответ API 503 plugin_disabled; код подтверждения не выдан. CSP больше не блокирует эту попытку. Нужна активация API на сервере; после неё проверить device flow, /me, /snapshot, SSE, отзыв, смену аккаунта, защищённое хранилище и предпочтения после перезапуска. Живая приёмка не завершена.
+
+Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-panel-session-sse.md](docs/audits/2026-10-18-panel-session-sse.md), [2026-10-18-panel-live-login.md](docs/audits/2026-10-18-panel-live-login.md), [2026-10-18-panel-live-api-disabled.md](docs/audits/2026-10-18-panel-live-api-disabled.md).
 
 ### B01 · Разбор состояния тикета
 
