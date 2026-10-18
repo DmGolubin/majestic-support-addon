@@ -835,6 +835,15 @@
       "evidence": [
         "audits/2026-10-18-editor-and-login.md"
       ]
+    },
+    {
+      "id": "D09",
+      "area": "D · Доставка",
+      "status": "active",
+      "title": "Три пакета и общие обновления GitHub",
+      "detail": "По запросу владельца: актуальный BetterDiscord, полный Vencord с плагином и standalone; BAT/PowerShell без EXE, канал обновлений GitHub Releases. Публикация и живая приёмка отдельно.",
+      "updated": "2026-10-19",
+      "evidence": []
     }
   ]
 }

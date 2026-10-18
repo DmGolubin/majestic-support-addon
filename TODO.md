@@ -3,13 +3,17 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (1)
+## В работе (2)
 
 ### C06 · Двусторонние личные шаблоны
 
 C · Панель. Владелец сообщил о неподтверждённом результате сохранения в .10. Проверяем HTTP-статус/ответ PATCH и путь обработки; черновик и исходная версия сохранены для безопасного повтора. Причина ещё не установлена.
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
+
+### D09 · Три пакета и общие обновления GitHub
+
+D · Доставка. По запросу владельца: актуальный BetterDiscord, полный Vencord с плагином и standalone; BAT/PowerShell без EXE, канал обновлений GitHub Releases. Публикация и живая приёмка отдельно.
 
 ## Реализовано · нужна приёмка (26)
 

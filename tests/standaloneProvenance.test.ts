@@ -23,6 +23,8 @@ function fixture() {
     put('standalone/runtime/loader.cjs');
     put('standalone/installer/install.bat');
     put('standalone/compile.mjs');
+    put('distribution/config.json');
+    put('distribution/updater/index.cjs');
     put('docs/audit.md');
     put('.gitignore', 'src/ignored/\n');
     git('add', '.');
@@ -35,7 +37,7 @@ describe('standalone build provenance', () => {
         const f = fixture();
         expect(cleanBuildCommit(f.root)).toBe(f.git('rev-parse', 'HEAD'));
     });
-    it.each(['src/core/input.ts', 'standalone/config.json'])('rejects tracked edits in %s', name => {
+    it.each(['src/core/input.ts', 'standalone/config.json', 'distribution/config.json', 'distribution/updater/index.cjs'])('rejects tracked edits in %s', name => {
         const f = fixture(); f.put(name, 'dirty');
         expect(() => cleanBuildCommit(f.root)).toThrow(/Build inputs.*dirty/);
     });
@@ -61,6 +63,7 @@ describe('standalone build provenance', () => {
         f.put('src/untracked.ts', 'not archived');
         const destination = path.join(f.root, 'snapshot'); mkdirSync(destination);
         extractBuildSnapshot(f.root, commit, destination);
+        expect(readFileSync(path.join(destination, 'distribution/updater/index.cjs'), 'utf8')).toBe('committed');
         for (const name of ['src/core/input.ts', 'standalone/config.json', 'standalone/runtime/loader.cjs', 'standalone/installer/install.bat', 'standalone/compile.mjs']) expect(readFileSync(path.join(destination, name), 'utf8')).toBe('committed');
         expect(() => readFileSync(path.join(destination, 'src/untracked.ts'))).toThrow();
         expect(() => readFileSync(path.join(destination, 'docs/audit.md'))).toThrow();

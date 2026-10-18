@@ -1,0 +1,8 @@
+.stx-bd-button-mount { display: inline-flex; align-items: center; align-self: center; }
+.stx-bd-chat-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 4px; border: 0; border-radius: 6px; background: transparent; color: var(--interactive-normal, #b5bac1); cursor: pointer; }
+.stx-bd-chat-button:hover { background: var(--background-modifier-hover, #ffffff18); color: var(--interactive-hover, #fff); }
+.stx-bd-chat-button:focus-visible { outline: 2px solid var(--brand-500, #5865f2); outline-offset: 2px; }
+.stx-bd-settings { position: relative; color: var(--text-normal, #eee); }
+.stx-bd-settings > header { margin-bottom: 16px; }
+.stx-bd-host-option { display: block; margin: 12px 0; }
+.stx-bd-host-option small { display: block; margin-left: 24px; opacity: .7; }

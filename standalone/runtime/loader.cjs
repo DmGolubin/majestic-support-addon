@@ -56,6 +56,7 @@ if (!config || process.argv.includes("--vanilla")) {
     originalDiscord();
 } else {
     process.env.SUPPORT_TEMPLATES_DATA_DIR = config.dataDir;
+    process.env.SUPPORT_TEMPLATES_CHANNEL = config.channel;
     process.env.DISABLE_UPDATER_AUTO_PATCHING = "1";
     require(path.join(config.runtime, "patcher.js"));
 }

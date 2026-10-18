@@ -1,0 +1,71 @@
+name: Build three Windows distributions
+on:
+  workflow_dispatch:
+    inputs:
+      create_draft:
+        description: Create a draft GitHub release after validation
+        type: boolean
+        default: false
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.12.0'
+      - name: Install project dependencies
+        shell: pwsh
+        run: |
+          npm exec --yes --package=pnpm@9.15.9 -- pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Project dependencies failed' }
+          npm ci --prefix betterdiscord
+          if ($LASTEXITCODE -ne 0) { throw 'BetterDiscord build dependencies failed' }
+      - name: Get pinned Vencord source and clean dependencies
+        shell: pwsh
+        run: |
+          git clone --filter=blob:none https://github.com/Vendicated/Vencord.git "$env:RUNNER_TEMP/Vencord-source"
+          if ($LASTEXITCODE -ne 0) { throw 'Vencord clone failed' }
+          $env:VENCORD_DIR = "$env:RUNNER_TEMP/Vencord-source"
+          $result = node distribution/prepare-upstream.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency preparation failed' }
+          $result | Write-Output
+          $evidence = $result[-1] | ConvertFrom-Json
+          "VENCORD_DIR=$($evidence.checkout)" >> $env:GITHUB_ENV
+      - name: Check types and regressions
+        shell: pwsh
+        run: |
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'Core types failed' }
+          npm run typecheck:vencord
+          if ($LASTEXITCODE -ne 0) { throw 'Vencord types failed' }
+          npm test -- --maxWorkers=4
+          if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+          npm run test:vencord-distribution
+          if ($LASTEXITCODE -ne 0) { throw 'Full Vencord runtime tests failed' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneAutoUpdate.Tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Standalone helper fixtures failed' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/vencordDistribution.Tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Full Vencord installer fixtures failed' }
+      - name: Build and verify release files
+        shell: pwsh
+        run: |
+          node distribution/build-release.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+          node distribution/publish-release.mjs --check
+          if ($LASTEXITCODE -ne 0) { throw 'Release verification failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SupportTemplates-three-variants
+          path: artifacts/distribution/*/
+          if-no-files-found: error
+      - name: Create draft release
+        if: inputs.create_draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node distribution/publish-release.mjs

@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
 
-const inputs = ['src', 'standalone'];
+const inputs = ['src', 'standalone', 'distribution'];
 
 export function cleanBuildCommit(root) {
     const status = execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all', '--ignored', '--', ...inputs], { cwd: root, encoding: 'utf8' });
-    if (status.trim()) throw new Error('Build inputs in src/ or standalone/ are dirty; commit or remove changes before building.');
+    if (status.trim()) throw new Error('Build inputs in src/, standalone/ or distribution/ are dirty; commit or remove changes before building.');
     return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 }
 
