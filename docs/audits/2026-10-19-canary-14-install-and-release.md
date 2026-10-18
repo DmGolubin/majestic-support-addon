@@ -24,6 +24,10 @@ Added ignore rules for Python caches and generated local graph output. Corrected
 
 ## Release
 
-Prepared all nine final files from `artifacts/distribution/0.1.0-canary.14`; `node distribution/publish-release.mjs --check` passed again after cleanup. Release notes are in `docs/releases/0.1.0-canary.14.md`. GitHub publication and remote asset verification are pending at this record's initial commit.
+All nine final files from `artifacts/distribution/0.1.0-canary.14` were uploaded after `node distribution/publish-release.mjs --check` passed again. Pushed `stage1` normally (no force), created a draft using the release script, verified all nine remote asset sizes and GitHub SHA-256 digests against local bytes, then published the private prerelease with the notes from `docs/releases/0.1.0-canary.14.md`.
+
+Release: https://github.com/skyjacc/support-templates/releases/tag/v0.1.0-canary.14
+
+GitHub confirmed `isDraft=false`, `isPrerelease=true`, `publishedAt=2026-10-18T22:12:48Z` (19 October locally), and the tag points to `d3ab8bc76a55e163d7189b6a71a45bb5661c8387`. Repository visibility is still `PRIVATE`. All three variants, source archive, installation guide, evidence, checksum file and updater manifest are present. No anonymous public update delivery is claimed: private release assets require repository access until the owner makes the repository public.
 
 Prior validation is recorded in `2026-10-19-three-distributions.md`: 1584 Vitest tests, both typechecks, 12 Node tests and Windows installer fixtures passed. No application source changed during cleanup, so the full suite was not rerun. Roadmap generation/check and whitespace checks passed.

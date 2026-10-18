@@ -3,13 +3,7 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (2)
-
-### D10 · Установка .14, очистка проекта и выпуск трёх пакетов
-
-D · Доставка. Отдельная .14 установлена, Status и запуск подтверждены. 778 генерируемых файлов (142.58 MiB) вынесены в восстанавливаемый архив после запрета рекурсивного удаления. README актуализирован; все 9 файлов трёх пакетов проверены. Отправка исходников и приватный GitHub prerelease в работе.
-
-Основание: [2026-10-19-canary-14-install-and-release.md](docs/audits/2026-10-19-canary-14-install-and-release.md), [2026-10-19-cleanup-files.json](docs/audits/2026-10-19-cleanup-files.json), [0.1.0-canary.14.md](docs/releases/0.1.0-canary.14.md).
+## В работе (1)
 
 ### C06 · Двусторонние личные шаблоны
 
@@ -177,9 +171,9 @@ C · Панель. Задержка после подтверждения на �
 
 ### D09 · Три пакета и общие обновления GitHub
 
-D · Доставка. Подготовлены три Windows-пакета .14: BetterDiscord, полный Vencord и отдельный клиент. Общий GitHub updater, BAT/PowerShell, исходники/хеши/Actions. 1584 теста, 12 Node-проверок, финальные TEMP install/status/uninstall прошли. Репозиторий остаётся приватным; публикация отложена владельцем, живая приёмка трёх платформ впереди.
+D · Доставка. Три Windows-пакета .14 опубликованы одним приватным prerelease: BetterDiscord, полный Vencord и отдельная сборка. Общий GitHub updater, BAT/PowerShell, исходники/хеши/Actions. 1584 теста, 12 Node-проверок и финальные TEMP install/status/uninstall прошли. Отдельная .14 установлена в Canary владельца. Живая приёмка трёх платформ и анонимное обновление после открытия репозитория ещё впереди.
 
-Основание: [2026-10-19-three-distributions.md](docs/audits/2026-10-19-three-distributions.md).
+Основание: [2026-10-19-three-distributions.md](docs/audits/2026-10-19-three-distributions.md), [2026-10-19-canary-14-install-and-release.md](docs/audits/2026-10-19-canary-14-install-and-release.md).
 
 ## Ожидает API (0)
 
