@@ -7,6 +7,7 @@
 import { useRef, useState } from "@webpack/common";
 
 import { cancelPanelLogin, connectPanel, logoutPanel, openPanelPage, panel, reloadPanel, retryPanelPreferences } from "./panel";
+import { IconLogout, IconRefresh } from "./svg";
 
 type Action = "connect" | "cancel" | "reload" | "logout" | "save";
 
@@ -50,7 +51,29 @@ export function PanelConnection({ compact = false }: { compact?: boolean; }) {
     };
     const error = p.error || actionError;
 
-    return <section className={compact ? "vc-stx-login-scene" : "vc-stx-setting-section"} aria-label="Подключение к панели">
+    if (!compact && (phase === "ready" || phase === "offline")) return <section className="vc-stx-setting-section vc-stx-setting-card" aria-label="Аккаунт и синхронизация">
+        <h3>Аккаунт панели</h3>
+        <div className="vc-stx-account-summary">
+            <div><strong>{p.name || "Аккаунт панели"}</strong>
+                <div className={"vc-stx-connection-state" + (phase === "ready" ? " ready" : "")} role="status"><span aria-hidden="true" />
+                    {phase === "offline" ? "Нет связи" : p.sync === "live" ? "Синхронизация включена" : p.sync === "retrying" ? "Восстанавливаем связь" : "Библиотека загружена"}
+                </div>
+            </div>
+            <div className="vc-stx-account-meta">
+                <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy !== null} onClick={() => run("reload", reloadPanel)}><IconRefresh />{busy === "reload" ? "Обновляем…" : phase === "offline" ? "Повторить" : "Обновить"}</button>
+                <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={ending} onClick={() => run("logout", logoutPanel)}><IconLogout />{busy === "logout" ? "Выходим…" : "Выйти"}</button>
+            </div>
+        </div>
+        {error && <p className="vc-stx-form-error" role="alert">{error}</p>}
+        {p.preferencesError && <p className="vc-stx-form-error" role="alert">{p.preferencesError === "read" ? "Не удалось прочитать настройки списка. Для повторной попытки войдите заново." : "Не удалось сохранить настройки списка."}</p>}
+        {p.preferencesError === "write" && <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy !== null} onClick={() => run("save", retryPanelPreferences)}>{busy === "save" ? "Сохраняем…" : "Повторить сохранение"}</button>}
+        <details className="vc-stx-account-detail"><summary>О подключении</summary>
+            <p>{p.persistent ? "Вход сохранён. После перезапуска Discord библиотека загрузится автоматически." : "Вход действует до перезапуска Discord."}</p>
+            {p.sync === "retrying" && <p>Пока проверяем изменения периодически.</p>}
+        </details>
+    </section>;
+
+    return <section className={compact ? "vc-stx-login-scene" : "vc-stx-setting-section vc-stx-setting-card"} aria-label="Подключение к панели">
         {compact ? <h2>Вход через панель</h2> : <h3>Аккаунт и синхронизация</h3>}
         <div className={waiting ? "vc-stx-login-progress" : "vc-stx-connection-state" + (phase === "ready" ? " ready" : "")} role="status">
             <span className={waiting ? "vc-stx-login-spinner" : undefined} aria-hidden="true" />{labels[phase]}

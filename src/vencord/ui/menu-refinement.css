@@ -1,0 +1,31 @@
+/* Keep the template menu's controls compact without changing Settings' shared Select styling. */
+.vc-stx-win .vc-stx-head { padding: 10px 10px 0; }
+.vc-stx-win .vc-stx-search-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.vc-stx-win .vc-stx-search-row .vc-stx-search { flex: 1; min-width: 0; width: auto; padding-inline: 10px; }
+.vc-stx-win .vc-stx-menu-settings,
+.vc-stx-win .vc-stx-category-reset {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: 30px; height: 30px; padding: 0; border: 1px solid transparent; border-radius: var(--stx-r);
+    background: transparent; color: var(--stx-mu2); cursor: pointer;
+}
+.vc-stx-win .vc-stx-menu-settings:hover,
+.vc-stx-win .vc-stx-category-reset:hover { background: var(--stx-hover); color: var(--stx-tx); }
+.vc-stx-win [data-stx-menu-control]:focus-visible,
+.vc-stx-win .vc-stx-select > button:focus-visible { outline: 2px solid var(--stx-ring); outline-offset: 2px; }
+.vc-stx-win .vc-stx-proj { margin-top: 8px; flex-wrap: wrap; }
+.vc-stx-win .vc-stx-tabs { margin-top: 8px; padding-bottom: 6px; gap: 2px; }
+.vc-stx-win .vc-stx-tab { padding-inline: 8px; }
+.vc-stx-win .vc-stx-category-filter { display: flex; align-items: center; gap: 6px; min-width: 0; margin: 7px 0 3px; }
+.vc-stx-win .vc-stx-category-filter .vc-stx-select { flex: 1; min-width: 0; }
+.vc-stx-win .vc-stx-category-filter .vc-stx-select > button { min-height: 30px; padding: 5px 8px; gap: 6px; font-size: 12px; }
+.vc-stx-win .vc-stx-category-filter .vc-stx-select > button span { min-width: 0; }
+.vc-stx-win .vc-stx-category-filter .vc-stx-select-options { overscroll-behavior: contain; font-size: 12px; }
+.vc-stx-win .vc-stx-category-filter [role=option] { padding: 7px 8px; }
+.vc-stx-win .vc-stx-filter-count { flex: none; min-width: 2ch; text-align: right; color: var(--stx-mu2); font: 11px var(--stx-mono); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 800px) {
+    .vc-stx-win .vc-stx-head { padding-inline: 8px; }
+    .vc-stx-win .vc-stx-search-row { gap: 4px; }
+    .vc-stx-win .vc-stx-tab { padding-inline: 6px; }
+    .vc-stx-win .vc-stx-foot { gap: 8px; padding-inline: 10px; }
+}

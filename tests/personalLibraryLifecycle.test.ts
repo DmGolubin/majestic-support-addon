@@ -80,7 +80,8 @@ function harness(initial: Store, rootName = "PersonalLibrary") {
     };
     const empty = () => null;
     const dependencies: Record<string, any> = {
-        "@webpack/common": hooks,
+        "@webpack/common": { ...hooks, GuildStore: { getGuild: () => null } },
+        "./settings-layout.css": {}, "./ProjectIcon": { ProjectIcon: empty },
         "../core/personal": { PERSONAL_COLORS }, "../core/tokenEditor": {},
         "../core/trigger": { PREFIXES, validPrefix }, "../platform": { toast },
         "./demo": { demo: { use: () => demoState, useSelect: (f: any) => f(demoState) } },
@@ -99,6 +100,10 @@ function harness(initial: Store, rootName = "PersonalLibrary") {
         },
     };
     const React = { Fragment: "fragment", createElement: (type: any, props: any, ...children: any[]) => ({ type, props: { ...props, children } }) };
+    // Exercise the parent's dirty/busy contract with the existing async editor fixture.
+    // PanelPersonalLibrary has separate API and lifecycle tests; this is a shell test.
+    dependencies["./PanelPersonalLibrary"] = { discardPanelDraft: vi.fn(), PanelPersonalLibrary: (props: any) => panelState.enabled ? null
+        : React.createElement(dependencies["./PersonalLibrary"].PersonalLibrary, props) };
     for (const name of ["PersonalLibrary", "Settings", "Management"]) {
         const exports: any = {};
         runInNewContext(codes[name], { exports, React, document, crypto: { randomUUID }, console,
@@ -327,22 +332,22 @@ describe("Settings / Management actual callbacks", () => {
         const { store, write } = makeStore(), gate = deferred();
         const h = harness(store, "Management");
         h.newDraft(); h.click("Настройки"); h.click("Закрыть");
-        const switchTab = h.button("Отменить изменения"), close = h.button("Закрыть без сохранения");
-        const tab = h.button("Подключение"), backdrop = h.tree();
+        const switchTab = h.button("Перейти без сохранения"), close = h.button("Закрыть без сохранения");
+        const tab = h.button("Тикеты"), backdrop = h.tree();
         write.mockImplementationOnce(() => gate.promise); h.submit();
         switchTab.props.onClick(); close.props.onClick(); tab.props.onClick(); h.button("Закрыть").props.onClick();
         backdrop.props.onMouseDown({ target: backdrop, currentTarget: backdrop });
         h.listeners.get("keydown")!({ key: "Escape", target: { closest: () => null }, preventDefault() {}, stopPropagation() {} });
         h.render();
         expect(h.ui.set).not.toHaveBeenCalled();
-        for (const label of ["Отменить изменения", "Закрыть без сохранения", "Закрыть", "Подключение"]) expect(h.button(label).props.disabled).toBe(true);
+        for (const label of ["Перейти без сохранения", "Закрыть без сохранения", "Закрыть", "Тикеты"]) expect(h.button(label).props.disabled).toBe(true);
         expect(h.nodes("textarea")).toHaveLength(1);
         if (outcome === "resolve") gate.resolve(); else gate.reject(new Error("disk"));
         await h.settle();
         expect(h.button("Закрыть").props.disabled).toBe(false);
         if (outcome === "reject") {
             expect(h.nodes("textarea")).toHaveLength(1);
-            h.click("Отменить изменения");
+            h.click("Перейти без сохранения");
             expect(h.nodes("textarea")).toHaveLength(0);
         } else expect(textOf(h.tree())).not.toContain("Есть несохранённые изменения");
         h.click("Закрыть"); expect(h.ui.set).toHaveBeenLastCalledWith({ management: false });
@@ -360,18 +365,13 @@ describe("Settings / Management actual callbacks", () => {
         expect(h.button("Закрыть без сохранения")).toBeDefined();
     });
 
-    it.each(["reading", "saving"])("ignores stale import completion when route changes during %s", async phase => {
-        const a = makeStore(), b = makeStore(), gate = deferred();
-        const importing = vi.spyOn(a.store, "importTextAsync").mockImplementation(async () => { if (phase === "saving") await gate.promise; return "Imported"; });
-        const h = harness(a.store, "Settings");
-        h.click("Настройки"); h.click("Выбрать файл");
-        const picker = h.picker();
-        picker.files = [{ text: async () => { if (phase === "reading") await gate.promise; return "backup"; } }];
-        const pending = picker.onchange();
-        for (let i = 0; i < 5; i++) await Promise.resolve();
-        h.route.select(b.store); h.route.select(a.store); gate.resolve(); await pending; h.render();
-        expect(importing).toHaveBeenCalledTimes(phase === "reading" ? 0 : 1);
-        expect(h.toast).not.toHaveBeenCalled(); expect(h.ui.set).not.toHaveBeenCalled();
-        expect(textOf(h.tree())).not.toContain("Imported");
+    it("exposes only three tabs and removes local import and demo entry points", () => {
+        const { store } = makeStore(), h = harness(store, "Settings");
+        h.click("Настройки");
+        const rendered = textOf(h.tree());
+        for (const removed of ["Выбрать файл", "Импорт", "Локальная библиотека", "Редактировать на панели", "Демо-данные"]) expect(rendered).not.toContain(removed);
+        for (const tab of ["Мои шаблоны", "Настройки", "Тикеты"]) expect(h.button(tab)).toBeDefined();
+        expect(h.nodes("a")).toHaveLength(3);
+        expect(h.nodes("input").filter(n => n.props.type === "file")).toHaveLength(0);
     });
 });

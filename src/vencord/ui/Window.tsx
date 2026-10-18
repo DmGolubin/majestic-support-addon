@@ -21,8 +21,11 @@ import { latchKey } from "./keylatch";
 import { windowEditor } from "./op";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
-import { IconEnter, IconSearch, IconSettings, IconShift, IconStar } from "./svg";
+import { Select } from "./Select";
+import { IconClose, IconEnter, IconSearch, IconSettings, IconShift, IconStar } from "./svg";
 import { activeScope, listedProject, pickTechProject, poolFor, store, ui, useStore, watchChatArea } from "./uiState";
+
+import "./menu-refinement.css";
 
 /** Rows currently visible in the window — Alt+1…9 uses them while the window is open. */
 export let visibleItems: Template[] = [];
@@ -120,6 +123,7 @@ function WindowView() {
     const [cat, setCat] = useState<string | null>(null);
     const [sel, setSel] = useState(0);
     const [peek, setPeek] = useState(false);
+    const [compactPreview, setCompactPreview] = useState(false);
     const [hover, setHover] = useState<{ t: Template; top: number; } | null>(null);
     // Anchored at the editor the window was opened from (focus moves to the search box; a side thread stays the anchor).
     const [rect, setRect] = useState<DOMRect | null>(() => chatAreaRect(windowEditor()));
@@ -151,6 +155,8 @@ function WindowView() {
         const ctx = store.ctx();
         const projectPool = poolFor(scope);
         const cats = categoriesOf(projectPool);
+        const categoryCounts = new Map<string, number>();
+        for (const t of projectPool) if (t.category) categoryCounts.set(t.category, (categoryCounts.get(t.category) ?? 0) + 1);
         const pool = cat ? projectPool.filter(t => t.category === cat) : projectPool;
         const res = query.trim() ? search(pool, query) : null;
         const hits = res ? orderHits(res.hits, ctx) : [];
@@ -169,7 +175,7 @@ function WindowView() {
         };
         const lines = new Map(hits.map(h => [h.t, h.line]));
         if (t0) noteSearch(t0, performance.now(), query, items.length);
-        return { total: projectPool.length, cats, res, secs, favs, items, positional, alt, lines, tokens: res?.tokens ?? NO_TOKENS };
+        return { total: projectPool.length, cats, categoryCounts, res, secs, favs, items, positional, alt, lines, tokens: res?.tokens ?? NO_TOKENS };
     }, [query, scope, listed, view, cat, version]);
     const { cats, res, secs, favs, items } = data;
 
@@ -221,6 +227,7 @@ function WindowView() {
         // strip, header, scrollbar) drops focus to <body>, and then the window never saw Shift (Task 20).
         // Peek is visual only: Shift is never prevented, so Discord still gets it.
         const onShift = (e: KeyboardEvent) => {
+            if ((e.target as HTMLElement)?.closest?.(".vc-stx-select, [data-stx-menu-control]")) return;
             const focusIn = !!winRef.current?.contains(document.activeElement);
             if (!startsPeek(e, focusIn, pointerIn.current)) return;
             noteKey(e, "window: peek");
@@ -330,15 +337,37 @@ function WindowView() {
         stopHover();
     }, []);
 
+    // Compact menus always start as a list, even if a wide-screen preview was previously pinned.
+    const vw = window.innerWidth;
+    const anchorRight = rect ? vw - rect.right : 80;
+    const compact = windowLayout(vw, anchorRight, false).mode === "compact";
+    const previewOpen = compact ? compactPreview : store.data.previewOpen;
+    const setPreviewOpen = (open: boolean) => compact ? setCompactPreview(open) : store.setPreviewOpen(open);
+    const wide = previewOpen || peek;
+    wideRef.current = wide;
+    peekRef.current = peek;
+    const lay = windowLayout(vw, anchorRight, wide);
+    const { width, right } = lay;
+    compactRef.current = compact;
+    const tipW = tipWidth(vw, right, width);
+    tipRoomRef.current = !compact && tipW > 0;
+
     /** «← назад» in compact mode: hides the pinned preview (and a Shift peek). */
     const back = () => {
         dlog("key", { h: "window", what: "скрыть превью (назад)" });
         setPeek(false);
-        store.setPreviewOpen(false);
+        setPreviewOpen(false);
     };
 
     const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         if (e.nativeEvent.isComposing || e.keyCode === 229) return; // IME composition: its Enter/arrows are the IME's
+        if (e.defaultPrevented) return;
+        // Escape on the category control belongs to the filter, including repeated keydowns after it closes.
+        if (e.key === "Escape" && (e.target as HTMLElement).closest(".vc-stx-select")) {
+            e.preventDefault(); e.stopPropagation(); return;
+        }
+        // Header controls own activation/navigation; plain Tab reaches every control.
+        if (e.key !== "Escape" && (e.target as HTMLElement).closest(".vc-stx-select, [data-stx-menu-control]")) return;
         const input = inputRef.current;
         const atEnd = !!input && input.selectionStart === input.value.length;
         const atStart = !!input && input.selectionEnd === 0;
@@ -348,7 +377,10 @@ function WindowView() {
             if (debugEnabled()) dlog("key", { h: "window", key: keyDesc(e), what, ...data }, "win:" + keyDesc(e) + what);
         };
         // Shift alone (peek) is handled at document level, see onShift.
-        if (e.key === "Escape" && ui.get().menu) {
+        if (e.altKey && e.key === "ArrowDown" && e.target === input) {
+            const category = winRef.current?.querySelector<HTMLButtonElement>(".vc-stx-category-filter [role=combobox]");
+            if (category) { eat(); category.focus(); category.click(); }
+        } else if (e.key === "Escape" && ui.get().menu) {
             eat();
             log("закрыть меню");
             ui.set({ menu: null });
@@ -368,16 +400,16 @@ function WindowView() {
             if (e.repeat) return;
             latchKey(e.nativeEvent.code);
             if (e.shiftKey) void addToCompose(current); else void insertTemplate(current, { via: "window-enter" });
-        } else if (e.key === "ArrowRight" && atEnd && !store.data.previewOpen) {
+        } else if (e.key === "ArrowRight" && atEnd && !previewOpen) {
             eat();
             log("открыть превью");
-            store.setPreviewOpen(true);
-        } else if (e.key === "ArrowLeft" && (atStart || compactRef.current) && store.data.previewOpen) {
+            setPreviewOpen(true);
+        } else if (e.key === "ArrowLeft" && (atStart || compactRef.current) && previewOpen) {
             // Compact: the preview covers the search input, so ← goes back wherever the caret is.
             eat();
             log("скрыть превью");
-            store.setPreviewOpen(false);
-        } else if (e.key === "Tab") {
+            setPreviewOpen(false);
+        } else if (e.key === "Tab" && e.ctrlKey) {
             eat();
             log("вкладка");
             const i = VIEWS.indexOf(view);
@@ -390,17 +422,6 @@ function WindowView() {
         }
     };
 
-    const wide = store.data.previewOpen || peek;
-    wideRef.current = wide;
-    peekRef.current = peek;
-    // Viewport-bound, right-anchored at the chat input's right edge (rect / innerWidth change → resize re-render).
-    const vw = window.innerWidth;
-    const lay = windowLayout(vw, rect ? vw - rect.right : 80, wide);
-    const { width, right } = lay;
-    const compact = lay.mode === "compact";
-    compactRef.current = compact;
-    const tipW = tipWidth(vw, right, width);
-    tipRoomRef.current = tipW > 0;
     /** Footer: keycaps only when the list is narrower than usual or in compact mode (full text in `title`). */
     const footKeys = compact || width < 360;
     const bottom = rect ? window.innerHeight - rect.top + EDGE + (hasCompose ? 48 : 0) : 80;
@@ -435,7 +456,7 @@ function WindowView() {
     );
 
     const empty = !store.templates.length
-        ? "Шаблонов нет. Импортируй конфиг в настройках плагина."
+        ? "В библиотеке пока нет шаблонов."
         : res ? "Ничего не найдено"
             : view === "fav" ? "В избранном пусто — Ctrl+D или ПКМ, «В избранное»"
                 : view === "recent" ? "Ещё ничего не вставлялось"
@@ -447,10 +468,10 @@ function WindowView() {
         <>
             <div
                 className={"vc-stx-win" + (compact ? " compact" : "")} ref={winRef} style={style} onKeyDown={onKeyDown}
-                // Nothing in the window but text fields takes focus: it stays in the search input, so the keys
+                // Filter/settings controls take focus; otherwise it stays in search, so the keys
                 // keep working after a click on a row, a button (even one that unmounts on Shift release), the
                 // tab strip, the header, a section title or empty space. The preview text stays selectable.
-                onMouseDown={e => { if (!(e.target as HTMLElement).closest("input, textarea, select, .vc-stx-body")) e.preventDefault(); }}
+                onMouseDown={e => { if (!(e.target as HTMLElement).closest("input, textarea, select, .vc-stx-body, .vc-stx-select, [data-stx-menu-control]")) e.preventDefault(); }}
                 onMouseEnter={() => { pointerIn.current = true; }}
                 onMouseLeave={() => { pointerIn.current = false; }}
             >
@@ -459,24 +480,30 @@ function WindowView() {
                 {wide && <Preview t={current} onBack={compact ? back : undefined} />}
                 <div className="vc-stx-col">
                     <div className="vc-stx-head">
-                        <button className="vc-stx-manage-link" onClick={() => ui.set({ management: true, windowOpen: false, menu: null, inline: null })}><IconSettings size={16} /> Мои шаблоны и настройки</button>
-                        <label className="vc-stx-search">
-                            <span className="vc-stx-sicon"><IconSearch size={15} /></span>
-                            <input
-                                ref={inputRef}
-                                className="vc-stx-sinput"
-                                placeholder="Поиск: название, текст или «снр», «фпс»…"
-                                value={query}
-                                onChange={e => setQuery(e.currentTarget.value)}
-                            />
-                        </label>
+                        <div className="vc-stx-search-row">
+                            <label className="vc-stx-search">
+                                <span className="vc-stx-sicon"><IconSearch size={15} /></span>
+                                <input
+                                    ref={inputRef}
+                                    className="vc-stx-sinput"
+                                    placeholder="Поиск: название, текст или «снр», «фпс»…"
+                                    aria-label="Поиск шаблонов"
+                                    aria-keyshortcuts="Alt+ArrowDown"
+                                    value={query}
+                                    onChange={e => setQuery(e.currentTarget.value)}
+                                />
+                            </label>
+                            <button type="button" className="vc-stx-menu-settings" data-stx-menu-control
+                                title="Мои шаблоны и настройки" aria-label="Мои шаблоны и настройки"
+                                onClick={() => ui.set({ management: true, windowOpen: false, menu: null, inline: null })}><IconSettings size={17} /></button>
+                        </div>
                         <div className="vc-stx-proj">
                             {scope === "all"
                                 // Tech: which project's templates to list (remembered). No project guard here.
                                 ? <><div className="vc-stx-seg" role="radiogroup" aria-label="Проект на Tech">
                                     {(["mj", "ro"] as const).map(p => (
                                         <button
-                                            key={p} role="radio" aria-checked={listed === p}
+                                            key={p} type="button" data-stx-menu-control role="radio" aria-checked={listed === p}
                                             className={"vc-stx-segb" + (listed === p ? " on" : "")}
                                             title={"Шаблоны " + PROJECTS[p].name + " и общие"}
                                             onClick={() => pickTechProject(p)}
@@ -489,16 +516,21 @@ function WindowView() {
                         </div>
                         <div className="vc-stx-tabs">
                             {VIEWS.map(v => (
-                                <button key={v} className={"vc-stx-tab" + (view === v ? " on" : "")} onClick={() => setView(v)}>
+                                <button key={v} type="button" data-stx-menu-control aria-pressed={view === v} className={"vc-stx-tab" + (view === v ? " on" : "")} onClick={() => setView(v)}>
                                     {v === "all" ? "Все" : v === "fav" ? <><IconStar size={13} />Избранное<i>{favs.length}</i></> : "Недавние"}
                                 </button>
                             ))}
                         </div>
-                        {cats.length >= 2 && (
-                            <div className="vc-stx-chips">
-                                {cats.map(c => (
-                                    <button key={c} className={"vc-stx-chipf" + (cat === c ? " on" : "")} onClick={() => setCat(cat === c ? null : c)}>{c}</button>
-                                ))}
+                        {cats.length > 0 && (
+                            <div className="vc-stx-category-filter" title="Категория · Alt + ArrowDown из поиска">
+                                <Select aria-label="Категория шаблонов" value={cat ?? ""} onChange={e => setCat(e.currentTarget.value || null)}>
+                                    <option value="">Все категории · {data.total}</option>
+                                    {cats.map(c => <option key={c} value={c}>{c} · {data.categoryCounts.get(c) ?? 0}</option>)}
+                                </Select>
+                                {cat && <button type="button" className="vc-stx-category-reset" data-stx-menu-control
+                                    title="Сбросить категорию" aria-label="Сбросить категорию"
+                                    onClick={() => { setCat(null); inputRef.current?.focus(); }}><IconClose size={14} /></button>}
+                                <span className="vc-stx-filter-count" aria-live="polite" aria-label={`Найдено шаблонов: ${items.length}`}>{items.length}</span>
                             </div>
                         )}
                         {res?.layout && <div className="vc-stx-hint">Раскладка: показаны результаты для «{res.layout}»</div>}
@@ -514,15 +546,15 @@ function WindowView() {
                                     {sec.items.map(t => row(t, idx++))}
                                 </div>))}
                     </div>
-                    <div className="vc-stx-foot" title={"Enter — вставить · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — вкладки · Ctrl+D — избранное · ПКМ — меню"}>
+                    <div className="vc-stx-foot" title={"Enter — вставить · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — элементы управления · Ctrl+Tab — вкладки · Alt+↓ — категории · Ctrl+D — избранное · ПКМ — меню"}>
                         <span><span className="vc-stx-kb"><IconEnter size={11} /></span>{!footKeys && "вставить"}</span>
                         <span><span className="vc-stx-kb"><IconShift size={11} /><IconEnter size={11} /></span>{!footKeys && "в ответ"}</span>
-                        <span><span className="vc-stx-kb">Tab</span>{!footKeys && "вкладки"}</span>
+                        <span><span className="vc-stx-kb">Tab</span>{!footKeys && "фокус"}</span>
                         <span><span className="vc-stx-kb">ПКМ</span>{!footKeys && "ещё"}</span>
                     </div>
                 </div>
             </div>
-            {hover && !wide && tipW > 0 && (
+            {hover && !compact && !wide && tipW > 0 && (
                 <div
                     className="vc-stx-tip" ref={tipRef}
                     style={{ right: right + width + EDGE, width: tipW, top: clampTop(hover.top, winTop, winBottom, tipH || tipMaxH), maxHeight: tipMaxH }}

@@ -6,9 +6,9 @@
 
 import { useEffect, useRef } from "@webpack/common";
 
-import { cancelDemoLogin, connectDemo, demo, disableDemo, enableDemo, pauseDemo } from "./demo";
-import { captureWindowTarget, windowEditor } from "./op";
-import { panel, useLocalLibrary } from "./panel";
+import { cancelDemoLogin, connectDemo, demo, enableDemo, pauseDemo } from "./demo";
+import { windowEditor } from "./op";
+import { panel } from "./panel";
 import { PanelConnection } from "./PanelConnection";
 import { ui, useChatRect } from "./uiState";
 
@@ -78,7 +78,6 @@ export function LoginWindow() {
             {d.phase === "expired" && <p role="status">Код истёк. Начните вход заново.</p>}
             <div className="vc-stx-login-actions"><button className="vc-stx-btn" onClick={login}>Войти через панель</button></div>
         </section>}
-        {p.enabled ? (p.phase === "idle" || p.phase === "error") && <footer className="vc-stx-login-demo"><button onClick={() => void useLocalLibrary()}>Локальная библиотека</button></footer>
-            : <footer className="vc-stx-login-demo"><span>Демо</span>{!waiting && !loading && <button onClick={() => { const editor = windowEditor(); disableDemo(); captureWindowTarget(editor); ui.set({ windowOpen: true }); }}>К локальной библиотеке</button>}</footer>}
+        {!p.enabled && <footer className="vc-stx-login-demo"><span>Демо</span></footer>}
     </div>;
 }

@@ -30,6 +30,42 @@ export interface PanelCatalog {
     templates: Template[];
     personal: PersonalTemplate[];
     folders: PersonalFolder[];
+    /** Server records stay in memory; never persist these through the local personal store. */
+    personalRecords: PanelPersonalRecord[];
+    folderRecords: PanelFolderRecord[];
+    colors: string[];
+    colorLabels: Record<string, string>;
+}
+
+export interface PanelPersonalRecord {
+    id: string; version: string; title: string; text: string; projects: ProjectId[];
+    shared: boolean; command: string | null; color: string | null; folderId: string | null; updatedAt: string;
+}
+export interface PanelFolderRecord {
+    id: string; version: string; title: string; project: ProjectId; position: number; updatedAt: string;
+}
+
+function serverVersion(value: unknown): string {
+    const v = string(value);
+    if (!/^[\x21\x23-\x5b\x5d-\x7e]{1,512}$/.test(v)) return invalid();
+    return v;
+}
+
+export function parsePersonalRecord(value: unknown, allowed: ProjectId[], colors: string[]): PanelPersonalRecord {
+    const t = record(value);
+    personalProject(t, allowed);
+    if (t.format !== "text") return invalid();
+    color(t.color, new Set(colors));
+    return { id: decimal(t.id), version: serverVersion(t.version), ...metadata(t), text: string(t.text, 20000, true),
+        projects: entryProjects(t.projects, allowed), shared: t.shared as boolean, command: command(t.command),
+        color: t.color as string | null, folderId: t.folderId === null ? null : decimal(t.folderId) };
+}
+
+export function parseFolderRecord(value: unknown, allowed: ProjectId[]): PanelFolderRecord {
+    const f = record(value), p = project(f.project);
+    if (!allowed.includes(p) || !Number.isSafeInteger(f.position) || (f.position as number) < 0 || (f.position as number) > 100000) return invalid();
+    return { id: decimal(f.id), version: serverVersion(f.version), title: string(f.title, 120), project: p,
+        position: f.position as number, updatedAt: timestamp(f.updatedAt) };
 }
 
 // The delivered schema leaves response required[] largely empty. The MD contract requires
@@ -177,6 +213,8 @@ export function parseSnapshot(value: unknown, profile: PanelProfile, htmlToText:
     const faqRows = list(r.faq), personalRows = list(r.personal), folderRows = list(r.folders), trashRows = list(r.trash);
     const folderIds = new Set<string>(), faqIds = new Set<string>(), personalIds = new Set<string>();
     const folderProjects = new Map<string, ProjectId>();
+    const folderRecords = folderRows.map(f => parseFolderRecord(f, ps)).sort((a, b) => a.position - b.position);
+    const personalRecords = personalRows.map(t => parsePersonalRecord(t, ps, [...allowedColors]));
     const folders = folderRows.map(value => {
         const f = record(value), id = decimal(takeId(f.id, folderIds));
         string(f.version); timestamp(f.updatedAt);
@@ -229,5 +267,6 @@ export function parseSnapshot(value: unknown, profile: PanelProfile, htmlToText:
         personalProject(t, ps); color(t.color, allowedColors); command(t.command); timestamp(t.purgeAt);
     }
     return { schemaVersion: 1, accountId, revision, permissionsRevision, serverTime, projects: ps,
-        templates: [...faq, ...personal], personal, folders };
+        templates: [...faq, ...personal], personal, folders, personalRecords, folderRecords,
+        colors: [...allowedColors], colorLabels: { ...record(r.colorLabels) } as Record<string, string> };
 }

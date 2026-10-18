@@ -6,7 +6,8 @@ import { Store, STORE_KEY } from "../src/core/state";
 import { routeStore } from "../src/core/storeRouter";
 import { createPanelPreferencesStorage } from "../src/core/panelPreferences";
 import { PanelError } from "../src/core/panelClient";
-import { parseProfile, parseSnapshot } from "../src/core/panelCatalog";
+import { parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot } from "../src/core/panelCatalog";
+import { PanelMutation, panelMutationScope } from "../src/core/panelProtocol";
 import { Template } from "../src/core/types";
 
 const compiled = ts.transpileModule(readFileSync(new URL("../src/vencord/ui/panel.ts", import.meta.url), "utf8"), {
@@ -23,7 +24,7 @@ function deferred<T>() {
 const template: Template = { id: "faq:majestic:7", source: "faq", project: "mj", title: "FAQ", text: "Answer", category: null,
     status: "actual", statusNote: null, color: null, command: null, updatedAt: null, teamUses: 0 };
 
-function harness(wire?: { get(path: string): Promise<unknown>; }) {
+function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: PanelMutation): Promise<unknown>; }) {
     const preferenceData = new Map<string, unknown>();
     const io = { readError: false, writeError: false, pendingRead: null as Promise<void> | null, pendingWrite: null as Promise<void> | null };
     const preferenceStorage = {
@@ -51,7 +52,8 @@ function harness(wire?: { get(path: string): Promise<unknown>; }) {
     class FakeClient {
         connectionId = wire ? "12345678-1234-1234-1234-123456789abc" : "connection";
         disposed = false;
-        constructor() { clients.push(this); }
+        constructor(_transport?: unknown, public options: { writeAccess?: boolean } = {}) { clients.push(this); }
+        mutate = vi.fn(async (request: PanelMutation, guard: () => void) => { guard(); return wire?.mutate?.(request); });
         login = vi.fn(async (device: (v: unknown) => void) => {
             device({ userCode: "ABCD", verificationUriComplete: "https://panel.majestic-rp.tech/connect?user_code=ABCD" });
             if (state.pendingLogin) await state.pendingLogin;
@@ -83,7 +85,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; }) {
         signal.addEventListener("abort", () => end(), { once: true });
     }));
     const permission = vi.fn(async (_interactive: boolean): Promise<string> => "ready");
-    const parsers = wire ? { parseProfile: vi.fn(parseProfile), parseSnapshot: vi.fn(parseSnapshot) }
+    const parsers = wire ? { parseProfile: vi.fn(parseProfile), parseSnapshot: vi.fn(parseSnapshot), parsePersonalRecord, parseFolderRecord }
         : { parseProfile: (v: unknown) => v, parseSnapshot: (v: unknown) => v };
     const deps: Record<string, unknown> = {
         "../panelPermission": { ensurePanelPermission: permission },
@@ -95,7 +97,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; }) {
         "../core/panelPreferences": { createPanelPreferencesStorage },
         "../platform": { storage: preferenceStorage },
         "../core/panelClient": { PanelClient: FakeClient, PanelError },
-        "../core/panelProtocol": { PANEL_ORIGIN: "https://panel.majestic-rp.tech" },
+        "../core/panelProtocol": { PANEL_ORIGIN: "https://panel.majestic-rp.tech", panelMutationScope },
         "../core/panelEvents": { createPanelEventStream: () => streamReader },
         "../panelVault": { createPanelVault: async () => { if (state.pendingVault) await state.pendingVault; return state.secure ? {} : undefined; } },
         "../core/panelTransport": { createPanelTransport: vi.fn() }, "../panelHtml": { htmlToDiscordText: vi.fn(() => "Answer") },
@@ -116,6 +118,112 @@ function harness(wire?: { get(path: string): Promise<unknown>; }) {
 }
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-18T00:00:00Z")); });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+
+describe("personal write controller", () => {
+    function setup(writeAccess = true) {
+        const date = "2026-10-18T00:00:00.000Z";
+        const profile = { schemaVersion: 1, accountId: "123456789012345678", connectionId: "12345678-1234-1234-1234-123456789abc",
+            name: "Support", projects: ["majestic", "russia-online"], permissionsRevision: "p1", minimumPluginVersion: "1.0.0", serverTime: date,
+            scopes: ["profile:read", "faq:read", "personal:read", "folders:read", "sync:read", ...(writeAccess ? ["personal:write", "folders:write"] : [])] };
+        const row = { id: "7", version: "opaque-seven", title: "Original", text: "**Answer**\r\n[[greeting:end]]", format: "text",
+            projects: ["majestic"], shared: false, command: null, color: "amber", folderId: null, updatedAt: date };
+        const folder = { id: "8", version: "folder-eight", title: "Folder", project: "russia-online", position: 3, updatedAt: date };
+        const snapshot = { schemaVersion: 1, accountId: profile.accountId, revision: "r1", permissionsRevision: "p1", serverTime: date,
+            projects: profile.projects, faq: [], personal: [row], folders: [folder], trash: [], limits: { colors: ["amber"] }, colorLabels: {} };
+        const get = vi.fn(async (path: string): Promise<unknown> => structuredClone(path === "/me" ? profile : snapshot));
+        const mutate = vi.fn(async (_request: PanelMutation): Promise<unknown> => ({ template: structuredClone(row) }));
+        return { ...harness({ get, mutate }), get, mutate, profile, snapshot, row, folder };
+    }
+    const create = (): PanelMutation => ({ path: "/personal-templates", method: "POST", idempotencyKey: "b5b3fc76-7453-49b8-932f-e1eaa6338f9d",
+        body: { title: "Draft", text: "Exact\r\n{{field}}", project: "majestic", shared: false, command: null, color: null, folderId: null } });
+    const patch = (): PanelMutation => ({ path: "/personal-templates/7", method: "PATCH", version: "opaque-seven", body: { title: "Draft" } });
+
+    it("publishes server metadata separately and never writes server records to local storage", async () => {
+        const h = setup(); await h.api.connectPanel();
+        expect(h.api.panelPersonal.get().catalog.personalRecords[0]).toMatchObject({ id: "7", version: "opaque-seven", color: "amber" });
+        expect(h.api.panelPersonal.get().catalog.folderRecords[0]).toMatchObject({ version: "folder-eight", project: "ro", position: 3 });
+        h.mutate.mockImplementation(async () => {
+            h.row.title = "Server result"; h.row.version = "opaque-next"; h.snapshot.revision = "r2";
+            return { template: structuredClone(h.row) };
+        });
+        await expect(h.api.preparePanelWrite(patch())()).resolves.toEqual({ refreshed: true });
+        expect(h.api.panelPersonal.get().catalog.personalRecords[0].title).toBe("Server result");
+        expect(h.store.templates[0].title).toBe("Server result"); expect(h.writes).not.toHaveBeenCalled();
+        expect(JSON.stringify([...h.preferenceData.values()])).not.toContain("Server result");
+        h.api.disposePanel();
+    });
+    it("retains immutable create JSON and key on a manual network retry", async () => {
+        const h = setup(); await h.api.connectPanel(); const request = create();
+        const action = h.api.preparePanelWrite(request), captured = JSON.stringify(request);
+        (request.body as any).title = "Changed outside";
+        h.mutate.mockRejectedValueOnce(new PanelError("network_error"));
+        await expect(action()).rejects.toMatchObject({ code: "network_error" });
+        expect(h.api.panelPersonal.get().catalog.personalRecords).toHaveLength(1);
+        await action();
+        expect(h.mutate.mock.calls.map(([sent]) => JSON.stringify(sent))).toEqual([captured, captured]); h.api.disposePanel();
+    });
+    it("412 refreshes the server record, preserves request inputs, and permanently blocks that action", async () => {
+        const h = setup(); await h.api.connectPanel(); const request = patch(), action = h.api.preparePanelWrite(request);
+        h.mutate.mockImplementationOnce(async () => { h.row.title = "Other device"; h.row.version = "v2"; throw new PanelError("version_conflict", 412); });
+        await expect(action()).rejects.toMatchObject({ status: 412 });
+        expect(h.api.panelPersonal.get().catalog.personalRecords[0].title).toBe("Other device");
+        expect(request).toEqual(patch());
+        await expect(action()).rejects.toMatchObject({ status: 412 }); expect(h.mutate).toHaveBeenCalledTimes(1); h.api.disposePanel();
+    });
+    it("a failed post-conflict refresh does not present cached records as current", async () => {
+        const h = setup(); await h.api.connectPanel(); const action = h.api.preparePanelWrite(patch());
+        h.mutate.mockImplementationOnce(async () => { h.get.mockRejectedValue(new PanelError("network_error")); throw new PanelError("version_conflict", 412); });
+        await expect(action()).rejects.toMatchObject({ status: 412 });
+        expect(h.api.panel.get().phase).toBe("offline"); expect(h.api.panel.get().checkedAt).toBe(0);
+        expect(h.access.get().ready).toBe(false); expect(h.api.panelPersonal.get().catalog.personalRecords[0].title).toBe("Original");
+        h.api.disposePanel();
+    });
+    it.each(["vault_error", "connection_mismatch", "access_denied", "invalid_grant", "not_authenticated", "refresh_uncertain"])("clears all editor data immediately on terminal %s", async code => {
+        const h = setup(); await h.api.connectPanel(); const generation = h.api.panelPersonal.get().generation;
+        const action = h.api.preparePanelWrite(patch()); h.mutate.mockRejectedValueOnce(new PanelError(code));
+        await expect(action()).rejects.toMatchObject({ code });
+        expect(h.api.panelPersonal.get()).toMatchObject({ catalog: null, connectionId: "", busy: false });
+        expect(h.api.panelPersonal.get().generation).toBeGreaterThan(generation);
+        expect(h.access.get().ready).toBe(false); expect(h.store.templates).toEqual([]); h.api.disposePanel();
+    });
+    it("read-only restore remains usable until explicit upgrade and keeps management open for the code", async () => {
+        const h = setup(false); h.state.saved = true; await h.api.restorePanel();
+        const old = h.clients[0]; expect(old.options.writeAccess).toBe(false);
+        expect(() => h.api.preparePanelWrite(patch())).toThrow(); expect(old.cancel).not.toHaveBeenCalled();
+        expect(h.api.panel.get().phase).toBe("ready"); h.ui.set({ management: true });
+        const wait = deferred<void>(); h.state.pendingLogin = wait.promise;
+        const upgrade = h.api.authorizePanelEditing(); await vi.advanceTimersByTimeAsync(0);
+        expect(h.api.panel.get().phase).toBe("pending"); expect(h.ui.get().management).toBe(true);
+        expect(h.clients[1].options.writeAccess).toBe(true); expect(old.cancel).toHaveBeenCalledOnce();
+        wait.resolve(); await upgrade; h.api.disposePanel();
+    });
+    it("fences stale account actions before send and ignores late mutation replies after revocation", async () => {
+        const h = setup(); await h.api.connectPanel(); const action = h.api.preparePanelWrite(patch());
+        h.state.discordId = "987654321098765432";
+        await expect(action()).rejects.toMatchObject({ code: "cancelled" }); expect(h.mutate).not.toHaveBeenCalled();
+        h.state.discordId = h.profile.accountId;
+        const wait = deferred<unknown>(); h.mutate.mockReturnValueOnce(wait.promise);
+        const saving = action().catch((error: unknown) => error); await vi.advanceTimersByTimeAsync(0);
+        h.streams[0].emit({ type: "session.revoked", data: {} }); wait.resolve({ template: h.row });
+        expect(await saving).toMatchObject({ code: "cancelled" }); expect(h.api.panelPersonal.get().catalog).toBeNull(); h.api.disposePanel();
+    });
+    it("performs folder CRUD through server results and original If-Match", async () => {
+        const h = setup(); await h.api.connectPanel();
+        h.mutate.mockImplementation(async request => {
+            if (request.method === "DELETE") { h.snapshot.folders = []; return { success: true }; }
+            h.folder.title = "Renamed"; h.folder.version = "folder-next"; return { folder: structuredClone(h.folder) };
+        });
+        await h.api.preparePanelWrite({ path: "/folders/8", method: "PATCH", version: "folder-eight", body: { title: "Renamed", position: 3 } })();
+        expect(h.api.panelPersonal.get().catalog.folderRecords[0].version).toBe("folder-next");
+        await h.api.preparePanelWrite({ path: "/folders/8", method: "DELETE", version: "folder-next" })();
+        expect(h.api.panelPersonal.get().catalog.folderRecords).toEqual([]); expect(h.writes).not.toHaveBeenCalled(); h.api.disposePanel();
+    });
+    it("rejects malformed success and makes no optimistic catalog change", async () => {
+        const h = setup(); await h.api.connectPanel(); h.mutate.mockResolvedValueOnce({ success: true });
+        await expect(h.api.preparePanelWrite(create())()).rejects.toMatchObject({ code: "invalid_response" });
+        expect(h.api.panelPersonal.get().catalog.personalRecords).toHaveLength(1); h.api.disposePanel();
+    });
+});
 
 describe("permission races through the controller and actual catalog parsers", () => {
     const date = "2026-10-18T00:00:00.000Z";

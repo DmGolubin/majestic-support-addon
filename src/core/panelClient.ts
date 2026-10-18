@@ -5,14 +5,17 @@
  */
 
 import {
-    DeviceAuthorization, PANEL_CLIENT_ID, PANEL_ORIGIN, panelEndpoint, PanelTokens,
-parseDeviceAuthorization, parsePanelTokens, slowerPolling,
+    DeviceAuthorization, PANEL_CLIENT_ID, PANEL_ORIGIN, panelEndpoint, panelMutationScope, PanelMutation, PanelTokens,
+    parseDeviceAuthorization, parsePanelTokens, slowerPolling,
 } from "./panelProtocol";
 
 export type PanelTransport = (path: string, options: {
     body?: unknown;
     token?: string;
     signal?: AbortSignal;
+    method?: "POST" | "PATCH" | "DELETE";
+    idempotencyKey?: string;
+    version?: string;
 }) => Promise<unknown>;
 
 /** No server body, token, URL or underlying exception message belongs in this error. */
@@ -33,6 +36,8 @@ export interface PanelClientOptions {
     vault?: PanelVault;
     /** Expected Discord snowflake; required whenever a vault is supplied. */
     accountId?: string;
+    /** Only explicit reauthorization requests additional personal-library write access. */
+    writeAccess?: boolean;
 }
 
 interface PanelSessionBinding {
@@ -66,6 +71,7 @@ interface VaultQueue {
 const vaultQueues = new WeakMap<PanelVault, VaultQueue>();
 
 const SCOPES = ["profile:read", "faq:read", "personal:read", "folders:read", "sync:read"] as const;
+const WRITE_SCOPES = ["personal:write", "folders:write"] as const;
 const safeError = (error: unknown): PanelError => error instanceof PanelError
     ? new PanelError(error.code, error.status, error.retryAfterMs)
     : new PanelError("transport_error");
@@ -94,9 +100,11 @@ export class PanelClient {
     #vaultQueue?: VaultQueue;
     #accountId?: string;
     #lease: symbol | null = null;
+    #writeAccess: boolean;
 
     constructor(transport: PanelTransport, options: PanelClientOptions = {}) {
         this.#transport = transport;
+        this.#writeAccess = options.writeAccess === true;
         this.#now = options.now ?? Date.now;
         this.#deviceName = options.deviceName ?? "Discord — SupportTemplates";
         this.#origin = options.trustedOrigin ?? PANEL_ORIGIN;
@@ -123,6 +131,8 @@ export class PanelClient {
         const session = this.#session;
         return session && !session.closing && !session.controller.signal.aborted ? session.tokens?.connectionId ?? null : null;
     }
+
+    get scopes(): readonly string[] { return [...(this.#session?.tokens?.scopes ?? [])]; }
 
     /** Restores only a validated local binding; the controller must still verify /me. No network IO. */
     async restore(): Promise<boolean> {
@@ -167,7 +177,7 @@ export class PanelClient {
             if (previousCode) await this.#request(session, "/device-requests/cancel", { body: { device_code: previousCode } });
             const started = this.#now();
             const raw = await this.#request(session, "/oauth/device_authorization", { body: {
-                client_id: PANEL_CLIENT_ID, device_name: this.#deviceName, scope: SCOPES.join(" "),
+                client_id: PANEL_CLIENT_ID, device_name: this.#deviceName, scope: [...SCOPES, ...(this.#writeAccess ? WRITE_SCOPES : [])].join(" "),
             } });
             let device: DeviceAuthorization;
             try { device = parseDeviceAuthorization(raw, this.#origin); }
@@ -216,6 +226,30 @@ export class PanelClient {
         const result = await this.#authorized(session, token => {
             if (session.closing) throw new PanelError("cancelled");
             return this.#request(session, path, { token });
+        });
+        this.#assert(session);
+        if (session.closing) throw new PanelError("cancelled");
+        return result;
+    }
+
+    /** Capture immutable retry inputs. Only 401 gets one automatic retry; network errors do not. */
+    async mutate(request: PanelMutation, guard: () => void = () => {}): Promise<unknown> {
+        let captured: PanelMutation;
+        let scope: string;
+        try { captured = JSON.parse(JSON.stringify(request)); scope = panelMutationScope(captured); }
+        catch { throw new PanelError("invalid_request"); }
+        const session = this.#active();
+        const check = () => {
+            this.#assert(session);
+            if (session.closing) throw new PanelError("cancelled");
+            if (!session.tokens?.scopes.includes(scope)) throw new PanelError("insufficient_scope", 403);
+            guard();
+        };
+        check();
+        const result = await this.#authorized(session, token => {
+            check();
+            const { path, ...options } = captured;
+            return this.#request(session, path, { ...options, token }, this.#timeout, check);
         });
         this.#assert(session);
         if (session.closing) throw new PanelError("cancelled");
@@ -338,7 +372,8 @@ export class PanelClient {
     #parseTokens(raw: unknown): PanelTokens {
         try {
             const tokens = parsePanelTokens(raw);
-            if (tokens.scopes.length !== SCOPES.length || !SCOPES.every(scope => tokens.scopes.includes(scope))) throw new Error();
+            if (!SCOPES.every(scope => tokens.scopes.includes(scope))
+                || tokens.scopes.some(scope => ![...SCOPES, ...WRITE_SCOPES].includes(scope as typeof SCOPES[number]))) throw new Error();
             return tokens;
         } catch { throw new PanelError("invalid_response"); }
     }
@@ -387,6 +422,7 @@ export class PanelClient {
             } });
             this.#assert(session);
             const next = this.#parseTokens(raw);
+            if (next.scopes.length !== previous.scopes.length || !previous.scopes.every(scope => next.scopes.includes(scope))) throw new PanelError("invalid_response");
             if (next.connectionId !== previous.connectionId) throw new PanelError("connection_mismatch");
             if (next.accessToken === previous.accessToken || next.refreshToken === previous.refreshToken) throw new PanelError("invalid_response");
             await this.#publish(session, next, started);
@@ -511,7 +547,7 @@ export class PanelClient {
         });
     }
 
-    async #request(session: Session, path: string, options: { body?: unknown; token?: string; }, timeout = this.#timeout): Promise<unknown> {
+    async #request(session: Session, path: string, options: Parameters<PanelTransport>[1], timeout = this.#timeout, beforeSend?: () => void): Promise<unknown> {
         this.#assert(session);
         const controller = new AbortController();
         const { signal } = session.controller;
@@ -525,6 +561,7 @@ export class PanelClient {
                 // Race cancellation even when an injected transport ignores AbortSignal.
                 Promise.resolve().then(() => {
                     this.#assert(session);
+                    beforeSend?.();
                     return this.#transport(path, { ...options, signal: controller.signal });
                 }).then(resolve, reject);
             });

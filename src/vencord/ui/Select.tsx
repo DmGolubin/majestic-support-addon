@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { React, useRef, useState } from "@webpack/common";
+import { React, useLayoutEffect, useRef, useState } from "@webpack/common";
 
 import { IconChevron } from "./svg";
 
@@ -19,17 +19,25 @@ export function Select({ value, onChange, children, "aria-label": label }: {
     const [open, setOpen] = useState(false);
     const [active, setActive] = useState(0);
     const [up, setUp] = useState(false);
+    const [maxHeight, setMaxHeight] = useState(200);
     const root = useRef<HTMLDivElement>(null);
     const button = useRef<HTMLButtonElement>(null);
+    const list = useRef<HTMLDivElement>(null);
     const [id] = useState(() => "stx-select-" + crypto.randomUUID());
     const selected = Math.max(0, options.findIndex(o => o.props.value === value));
+    const activeIndex = Math.max(0, Math.min(active, options.length - 1));
+    useLayoutEffect(() => {
+        if (open) list.current?.children[activeIndex]?.scrollIntoView({ block: "nearest" });
+    }, [open, activeIndex]);
     const show = () => {
         const rect = button.current?.getBoundingClientRect();
-        const bounds = root.current?.closest(".vc-stx-settings")?.getBoundingClientRect();
+        const bounds = root.current?.closest(".vc-stx-settings, .vc-stx-win")?.getBoundingClientRect();
         if (rect) {
             const below = Math.min(innerHeight, bounds?.bottom ?? innerHeight) - rect.bottom;
             const above = rect.top - Math.max(0, bounds?.top ?? 0);
-            setUp(below < Math.min(200, options.length * 38 + 8) && above > below);
+            const upward = below < Math.min(200, options.length * 38 + 8) && above > below;
+            setUp(upward);
+            setMaxHeight(Math.max(0, Math.min(200, (upward ? above : below) - 8)));
         }
         setOpen(true);
     };
@@ -37,20 +45,26 @@ export function Select({ value, onChange, children, "aria-label": label }: {
     return <div className={"vc-stx-select" + (up ? " vc-stx-select-up" : "")} ref={root} data-stx-select-open={open || undefined}
         onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false); }}>
         <button type="button" ref={button} role="combobox" aria-label={label} aria-expanded={open} aria-controls={id} aria-haspopup="listbox"
-            aria-activedescendant={open ? `${id}-${active}` : undefined}
+            aria-activedescendant={open && options.length ? `${id}-${activeIndex}` : undefined}
             onClick={() => { setActive(selected); if (open) setOpen(false); else show(); }}
             onKeyDown={e => {
+                if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                 if (e.key === "Escape" && open) { e.preventDefault(); e.stopPropagation(); setOpen(false); }
                 else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
                     e.preventDefault(); e.stopPropagation();
-                    setActive(e.key === "Home" ? 0 : e.key === "End" ? options.length - 1 : !open ? selected : (active + (e.key === "ArrowDown" ? 1 : -1) + options.length) % options.length);
+                    setActive(e.key === "Home" ? 0 : e.key === "End" ? Math.max(0, options.length - 1) : !open ? selected : (activeIndex + (e.key === "ArrowDown" ? 1 : -1) + options.length) % Math.max(1, options.length));
                     show();
-                } else if (open && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.stopPropagation(); choose(active); }
+                } else if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault(); e.stopPropagation();
+                    if (e.repeat) return;
+                    if (open) choose(activeIndex);
+                    else { setActive(selected); show(); }
+                }
                 else if (e.key === "Tab") setOpen(false);
             }}><span>{options[selected]?.props.children}</span><IconChevron open /></button>
-        {open && <div id={id} role="listbox" aria-label={label} className="vc-stx-select-options">
+        {open && <div id={id} ref={list} role="listbox" aria-label={label} className="vc-stx-select-options" style={{ maxHeight }}>
             {options.map((o, i) => <div key={o.props.value} id={`${id}-${i}`} role="option" aria-selected={value === o.props.value}
-                className={i === active ? "active" : ""} onMouseDown={e => e.preventDefault()} onMouseEnter={() => setActive(i)} onClick={() => choose(i)}>{o.props.children}</div>)}
+                className={i === activeIndex ? "active" : ""} onMouseDown={e => e.preventDefault()} onMouseEnter={() => setActive(i)} onClick={() => choose(i)}>{o.props.children}</div>)}
         </div>}
     </div>;
 }

@@ -1,0 +1,45 @@
+.vc-stx-settings-account .vc-stx-settings-nav { gap: 8px; padding-block: 14px; }
+.vc-stx-management:focus { outline: none; }
+.vc-stx-settings-account .vc-stx-settings-nav .vc-stx-btn { min-height: 38px; padding-inline: 14px; border-radius: 6px; }
+.vc-stx-settings-account .vc-stx-settings-nav .vc-stx-btn[aria-pressed=true] { background: var(--stx-acc); box-shadow: inset 0 -2px var(--stx-pr); }
+.vc-stx-settings-sections { display: grid; gap: 14px; padding-bottom: 4px; }
+.vc-stx-settings-account .vc-stx-setting-card { padding: 18px; margin: 0; border: 1px solid var(--stx-bd); border-radius: 8px; background: var(--stx-card); }
+.vc-stx-settings .vc-stx-setting-card > h3 { margin: 0 0 16px; font-size: 15px; }
+.vc-stx-setting-line, .vc-stx-prefix-control { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-block: 10px; }
+.vc-stx-setting-line > div, .vc-stx-prefix-control > label { display: grid; gap: 4px; }
+.vc-stx-setting-line strong, .vc-stx-prefix-control strong { font-weight: 500; font-size: 13px; }
+.vc-stx-setting-line > div > span, .vc-stx-prefix-control > label > span { color: var(--stx-mu2); font-size: 12px; }
+.vc-stx-prefix-control { border-top: 1px solid var(--stx-bd); margin-top: 8px; padding-top: 18px; }
+.vc-stx-prefix-control > div { display: flex; align-items: center; gap: 8px; }
+.vc-stx-settings-account .vc-stx-prefix-control input { width: 42px; min-width: 42px; text-align: center; font-family: var(--stx-mono); font-size: 16px; padding: 7px; }
+.vc-stx-switch { display: inline-flex; position: relative; width: 36px; height: 22px; flex: none; cursor: pointer; }
+.vc-stx-settings .vc-stx-switch input[type=checkbox] { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; z-index: 1; cursor: pointer; }
+.vc-stx-switch > span { display: block; width: 36px; height: 22px; border-radius: 11px; background: var(--stx-bd2); transition: background 120ms; }
+.vc-stx-switch > span::after { content: ''; display: block; width: 16px; height: 16px; border-radius: 50%; margin: 3px; background: var(--stx-tx); transition: transform 120ms; }
+.vc-stx-switch input:checked + span { background: var(--stx-pr); }
+.vc-stx-switch input:checked + span::after { transform: translateX(14px); }
+.vc-stx-switch input:focus-visible + span { outline: 2px solid var(--stx-ring); outline-offset: 3px; }
+.vc-stx-switch input:disabled + span { opacity: .4; }
+.vc-stx-server-tiles { display: flex; flex-wrap: wrap; gap: 10px; }
+.vc-stx-settings .vc-stx-server-tile { display: flex; align-items: center; gap: 10px; padding: 10px 14px 10px 10px; background: var(--stx-input); border: 1px solid var(--stx-bd); border-radius: 7px; color: var(--stx-tx); text-decoration: none; font-weight: 500; }
+.vc-stx-server-tile:hover { background: var(--stx-hover); border-color: var(--stx-bd2); text-decoration: none; }
+.vc-stx-server-tile > img { object-fit: cover; border-radius: 7px; }
+.vc-stx-account-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.vc-stx-account-summary > div { min-width: 0; }
+.vc-stx-account-summary strong { display: block; font-size: 15px; overflow-wrap: anywhere; }
+.vc-stx-account-summary .vc-stx-connection-state { margin: 5px 0 0; font-size: 12px; color: var(--stx-mu2); }
+.vc-stx-account-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vc-stx-account-detail { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--stx-bd); color: var(--stx-mu2); font-size: 12px; }
+.vc-stx-account-detail summary { cursor: pointer; }
+.vc-stx-account-detail p { margin-top: 8px; }
+.vc-stx-settings-account .vc-stx-pp-actions { position: sticky; bottom: 0; z-index: 3; padding: 12px 0; border-top: 1px solid var(--stx-bd); background: #0b0d10; box-shadow: 0 -8px 18px #0b0d10; }
+.vc-stx-settings-account .vc-stx-pp-preview > div { max-height: 160px; }
+.vc-stx-settings-account .vc-stx-panel-personal .vc-stx-pp-check { flex-direction: row; }
+@media (min-width: 800px) { .vc-stx-settings-account .vc-stx-panel-personal fieldset > .vc-stx-pp-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+    .vc-stx-settings-account .vc-stx-settings-nav { gap: 3px; }
+    .vc-stx-settings-account .vc-stx-settings-nav .vc-stx-btn { padding-inline: 8px; font-size: 12px; }
+    .vc-stx-settings-account .vc-stx-setting-card { padding: 14px; }
+    .vc-stx-prefix-control { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { .vc-stx-switch > span, .vc-stx-switch > span::after { transition: none; } }

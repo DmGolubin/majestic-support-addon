@@ -51,3 +51,5 @@ export const IconSettings = ({ size }: P) => <Svg size={size}><path d="M9 3h6l1 
 export const IconFolder = ({ size }: P) => <Svg size={size}><path d="M3 7V5h6l2 2h10v13H3z" /></Svg>;
 export const IconLink = ({ size }: P) => <Svg size={size}><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2" /></Svg>;
 export const IconPlus = ({ size }: P) => <Svg size={size}><path d="M12 5v14M5 12h14" /></Svg>;
+export const IconRefresh = ({ size }: P) => <Svg size={size}><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-2l2 3M4 16l2 3a7 7 0 0 0 12-2" /></Svg>;
+export const IconLogout = ({ size }: P) => <Svg size={size}><path d="M9 4H4v16h5M13 8l4 4-4 4M8 12h12" /></Svg>;

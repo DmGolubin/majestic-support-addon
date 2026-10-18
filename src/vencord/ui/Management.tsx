@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "@webpack/common";
 
 import { Settings } from "./Settings";
+import { discardPanelDraft } from "./PanelPersonalLibrary";
 import { ui } from "./uiState";
 
 export function Management() {
@@ -35,7 +36,7 @@ export function Management() {
     return <div className="vc-stx-management-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) close(); }}>
         <div ref={root} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Шаблоны и настройки" className="vc-stx-management">
             <header><b>SupportTemplates</b><button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={close}>Закрыть</button></header>
-            {confirm && <div className="vc-stx-local-note" role="alert">Есть несохранённые изменения. <button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => { if (!busyRef.current) setConfirm(false); }}>Вернуться</button><button className="vc-stx-btn" disabled={busy} onClick={() => { if (!busyRef.current) ui.set({ management: false }); }}>Закрыть без сохранения</button></div>}
+            {confirm && <div className="vc-stx-local-note" role="alert">Есть несохранённые изменения. <button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => { if (!busyRef.current) setConfirm(false); }}>Вернуться</button><button className="vc-stx-btn" disabled={busy} onClick={() => { if (!busyRef.current) { discardPanelDraft(); ui.set({ management: false }); } }}>Закрыть без сохранения</button></div>}
             <Settings onDirty={v => { dirty.current = v; if (!v) setConfirm(false); }} onBusy={v => { busyRef.current = v; setBusy(v); }} />
         </div>
     </div>;

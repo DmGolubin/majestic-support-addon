@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PanelClient, PanelClientOptions, PanelError, PanelTransport, PanelVault } from "../src/core/panelClient";
-import { PANEL_ORIGIN } from "../src/core/panelProtocol";
+import { PANEL_ORIGIN, PanelMutation } from "../src/core/panelProtocol";
 
 const scopes = "profile:read faq:read personal:read folders:read sync:read";
 const connection = "12345678-1234-1234-1234-123456789abc";
@@ -736,5 +736,75 @@ describe("PanelClient logout", () => {
         revoke.resolve({ success: true }); await tick();
         expect((await oldLogout).error).toMatchObject({ code: "cancelled" });
         expect(h.client.connectionId).toBe(connection);
+    });
+});
+
+describe("PanelClient personal mutations", () => {
+    const writeTokens = () => tokens({ scope: scopes + " personal:write folders:write" });
+    const create = (): PanelMutation => ({ path: "/personal-templates", method: "POST",
+        body: { title: "Draft", text: "**Exact**\r\n[[greeting:end]]\n{{name}}", project: "majestic" },
+        idempotencyKey: "b5b3fc76-7453-49b8-932f-e1eaa6338f9d" });
+
+    it("keeps read-only sessions authenticated and refuses writes before any transport call", async () => {
+        const h = harness(); await h.login(); h.transport.mockClear();
+        await expect(h.client.mutate(create())).rejects.toMatchObject({ code: "insufficient_scope", status: 403 });
+        expect(h.transport).not.toHaveBeenCalled(); expect(h.client.connectionId).toBe(connection);
+        await expect(h.client.get("/me")).resolves.toBeDefined();
+    });
+    it("requests writes only when explicitly selected and accepts returned read+write scopes", async () => {
+        const h = harness({ options: { writeAccess: true }, tokens: writeTokens() }); await h.login();
+        expect(h.transport.mock.calls[0][1].body).toMatchObject({ scope: scopes + " personal:write folders:write" });
+        expect(h.client.scopes).toContain("personal:write");
+        await h.client.mutate(create());
+    });
+    it.each(["POST", "PATCH", "DELETE"] as const)("one 401 retry preserves %s JSON/key/version despite caller edits", async method => {
+        const h = harness({ tokens: writeTokens() }); await h.login();
+        const request = method === "POST" ? create() : { path: "/personal-templates/7", method, version: "opaque-v7",
+            ...(method === "PATCH" ? { body: { title: "Original", text: "Exact\r\ntext" } } : {}) };
+        const serialized = JSON.stringify(request.body), first = JSON.parse(JSON.stringify(request));
+        let writes = 0;
+        h.transport.mockImplementation(async path => {
+            if (path === "/oauth/token") return { ...writeTokens(), access_token: "test-access-B", refresh_token: "test-refresh-B" };
+            if (++writes === 1) throw new PanelError("unauthorized", 401);
+            return { success: true };
+        });
+        const result = h.client.mutate(request);
+        if (request.body) (request.body as any).title = "Mutated by caller";
+        request.version = "changed";
+        await result;
+        const sent = h.transport.mock.calls.filter(([path]) => path.startsWith("/personal-templates"));
+        expect(sent).toHaveLength(2);
+        for (const [, options] of sent) {
+            expect(JSON.stringify(options.body)).toBe(serialized);
+            expect(options.idempotencyKey).toBe(first.idempotencyKey);
+            expect(options.version).toBe(first.version);
+        }
+        expect(sent.map(([, options]) => options.token)).toEqual(["test-access-A", "test-access-B"]);
+    });
+    it.each([new PanelError("version_conflict", 412), new PanelError("network_error")])("never automatically replays a conflict or uncertain network failure", async error => {
+        const h = harness({ tokens: writeTokens() }); await h.login(); h.transport.mockClear();
+        h.transport.mockRejectedValue(error);
+        await expect(h.client.mutate({ path: "/personal-templates/7", method: "PATCH", version: "old", body: { title: "Draft" } })).rejects.toMatchObject({ code: error.code });
+        expect(h.transport).toHaveBeenCalledTimes(1); expect(h.client.connectionId).toBe(connection);
+    });
+    it("cancellation between validation and send never reaches transport", async () => {
+        const h = harness({ tokens: writeTokens() }); await h.login(); h.transport.mockClear();
+        const result = outcome(h.client.mutate(create())); h.client.dispose();
+        expect((await result).error).toMatchObject({ code: "cancelled" });
+        expect(h.transport).not.toHaveBeenCalled();
+    });
+    it("rechecks the account guard immediately before send and after a 401 rotation", async () => {
+        const h = harness({ tokens: writeTokens() }); await h.login(); h.transport.mockClear();
+        let valid = true;
+        const guard = () => { if (!valid) throw new PanelError("cancelled"); };
+        const cancelled = outcome(h.client.mutate(create(), guard)); valid = false;
+        expect((await cancelled).error).toMatchObject({ code: "cancelled" }); expect(h.transport).not.toHaveBeenCalled();
+        valid = true;
+        h.transport.mockImplementation(async path => {
+            if (path === "/oauth/token") { valid = false; return { ...writeTokens(), access_token: "test-access-B", refresh_token: "test-refresh-B" }; }
+            throw new PanelError("unauthorized", 401);
+        });
+        await expect(h.client.mutate(create(), guard)).rejects.toMatchObject({ code: "cancelled" });
+        expect(h.transport.mock.calls.filter(([path]) => path === "/personal-templates")).toHaveLength(1);
     });
 });

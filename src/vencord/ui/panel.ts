@@ -7,11 +7,11 @@
 import { FluxDispatcher, UserStore } from "@webpack/common";
 
 import { PLUGIN_VERSION } from "../buildInfo";
-import { parseProfile, parseSnapshot } from "../core/panelCatalog";
+import { PanelCatalog, parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot } from "../core/panelCatalog";
 import { PanelClient, PanelError } from "../core/panelClient";
 import { createPanelEventStream } from "../core/panelEvents";
 import { createPanelPreferencesStorage } from "../core/panelPreferences";
-import { PANEL_ORIGIN } from "../core/panelProtocol";
+import { PANEL_ORIGIN, PanelMutation, panelMutationScope } from "../core/panelProtocol";
 import { createPanelTransport } from "../core/panelTransport";
 import { StorageLike, Store, STORE_KEY } from "../core/state";
 import { htmlToDiscordText } from "../panelHtml";
@@ -27,6 +27,10 @@ import { libraryIsFresh, panelAccess, realStore, selectStore, setFreshnessCheck,
 type Phase = "idle" | "connecting" | "pending" | "loading" | "ready" | "offline" | "error";
 export const panel = createObservable({ enabled: true, phase: "idle" as Phase, code: "", url: "", error: "", name: "", checkedAt: 0,
     persistent: false, preferencesError: "" as "" | "read" | "write", sync: "idle" as "idle" | "connecting" | "live" | "retrying" });
+export const panelPersonal = createObservable({ catalog: null as PanelCatalog | null, connectionId: "", scopes: [] as string[], generation: 0, busy: false });
+function clearPersonal() {
+    panelPersonal.set({ catalog: null, connectionId: "", scopes: [], generation: panelPersonal.get().generation + 1, busy: false });
+}
 let client: PanelClient | null = null;
 let library: Store | null = null;
 let preferences: { storage: StorageLike; loaded: boolean; writable: boolean; } | null = null;
@@ -61,6 +65,7 @@ function invalidate() {
 }
 
 function wipe() {
+    clearPersonal();
     // Let already captured preference writes finish before a later login reads the same account slot.
     if (library) {
         library.closePanelPreferences();
@@ -111,6 +116,7 @@ function requestResync(clearCatalog: boolean) {
     syncRevision++; resyncPending = true;
     panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
     if (clearCatalog) {
+        clearPersonal();
         library?.clearPanelCatalog(); fingerprint = "";
     }
     panel.set({ phase: "loading", checkedAt: 0 });
@@ -204,6 +210,7 @@ async function loadLibrary(): Promise<boolean> {
                 if (!supportsVersion(profile.minimumPluginVersion)) throw new PanelError("upgrade_required");
                 nextPermissions = JSON.stringify([profile.permissionsRevision, [...profile.projects].sort(), [...profile.scopes].sort()]);
                 if (permissions && nextPermissions !== permissions) {
+                    clearPersonal();
                     // Rights already changed: the old library must disappear BEFORE a slow snapshot completes.
                     panelAccess.set({ ready: false, projects: [], checkedAt: 0 });
                     invalidate(); library?.clearPanelCatalog();
@@ -220,6 +227,7 @@ async function loadLibrary(): Promise<boolean> {
                     && typeof snapshot.permissionsRevision === "string" && snapshot.permissionsRevision.trim()
                     && snapshot.permissionsRevision.length <= 512 && !/[\u0000-\u001f\u007f]/.test(snapshot.permissionsRevision)
                     && snapshot.permissionsRevision !== profile.permissionsRevision) {
+                    clearPersonal();
                     panelAccess.set({ ready: false, projects: [], checkedAt: 0 });
                     invalidate(); library.clearPanelCatalog(); fingerprint = "";
                     panel.set({ phase: "loading", checkedAt: 0 });
@@ -257,6 +265,7 @@ async function loadLibrary(): Promise<boolean> {
                 library.savePanelPreferences();
             }
             accountId = profile.accountId; permissions = nextPermissions; failures = 0; retryAt = 0;
+            panelPersonal.set({ catalog, connectionId: profile.connectionId, scopes: profile.scopes });
             panelAccess.set({ ready: true, accountId: profile.accountId, projects: profile.projects, checkedAt: started });
             panel.set({ phase: "ready", name: profile.name, checkedAt: started, error: "", code: "", url: "" });
             schedule(own);
@@ -290,11 +299,13 @@ async function loadLibrary(): Promise<boolean> {
     }
 }
 
-async function beginPanel(restore: boolean) {
+async function beginPanel(restore: boolean, writeAccess = !restore) {
     const editor = windowEditor();
+    const management = ui.get().management;
     const previous = client; client = null;
     if (previous) void trackCleanup(previous.cancel()).catch(() => {});
     disableDemo(); wipe();
+    if (!restore && management) ui.set({ management: true });
     const own = epoch;
     if (!restore) { captureWindowTarget(editor); ui.set({ windowOpen: true }); }
     const discordId = UserStore.getCurrentUser()?.id;
@@ -337,7 +348,7 @@ async function beginPanel(restore: boolean) {
         library.data.previewOpen = false;
         selectStore(library);
         panel.set({ persistent: !!vault });
-        active = new PanelClient(createPanelTransport(), { vault, accountId: discordId }); client = active;
+        active = new PanelClient(createPanelTransport(), { vault, accountId: discordId, writeAccess }); client = active;
         setFreshnessCheck(async () => libraryIsFresh() || await loadLibrary());
         if (restore) {
             if (!await active.restore()) {
@@ -361,6 +372,110 @@ async function beginPanel(restore: boolean) {
 
 export async function connectPanel() { await beginPanel(false); }
 export async function restorePanel() { await beginPanel(true); }
+
+/** Explicit user action only. Existing read-only credentials remain valid until this is chosen. */
+export async function authorizePanelEditing() { await beginPanel(false, true); }
+
+export function panelWriteMessage(error: unknown): string {
+    if (!(error instanceof PanelError)) return "Не удалось подтвердить запись. Черновик сохранён в этом окне.";
+    if (error.status === 412 || error.code === "version_conflict") return "Запись изменена на панели. Ваш черновик сохранён. Сравните с текущей записью; повторное сохранение заблокировано до вашего решения.";
+    const labels: Record<string, string> = {
+        insufficient_scope: "Для редактирования нужно явно разрешить запись на панели.",
+        name_exists: "Такое название уже занято. Выберите другое.",
+        invalid_request: "Проверьте название, текст, команду, проект и папку.",
+        not_found: "Запись удалена или больше недоступна. Черновик не отправлен повторно.",
+        cancelled: "Аккаунт или права изменились. Операция остановлена.",
+        write_busy: "Дождитесь завершения текущей записи.",
+        stale_library: "Сначала восстановите соединение и обновите библиотеку.",
+        idempotency_conflict: "Ключ сохранения уже использован с другим содержимым. Обновите библиотеку.",
+    };
+    return labels[error.code] ?? "Результат записи не подтверждён. Повторите ту же операцию; черновик остаётся в этом окне.";
+}
+
+/** One action captures JSON, version and UUID once. Reuse this function for uncertain retries. */
+export function preparePanelWrite(input: PanelMutation): () => Promise<{ refreshed: boolean }> {
+    const request: PanelMutation = JSON.parse(JSON.stringify(input));
+    const scope = panelMutationScope(request);
+    const active = client, own = epoch, generation = panelPersonal.get().generation;
+    const owner = boundAccountId;
+    let confirmed = false, conflicted = false;
+    const guard = () => {
+        if (!active || client !== active || own !== epoch || generation !== panelPersonal.get().generation
+            || !owner || owner !== UserStore.getCurrentUser()?.id) throw new PanelError("cancelled");
+        const { catalog, scopes } = panelPersonal.get();
+        if (!catalog || catalog.accountId !== owner) throw new PanelError("stale_library");
+        if (!scopes.includes(scope)) throw new PanelError("insufficient_scope", 403);
+        const body = request.body as Record<string, unknown> | undefined;
+        const personal = scope === "personal:write";
+        const id = request.path.split("/")[2];
+        const existing = personal ? catalog.personalRecords.find(t => t.id === id) : catalog.folderRecords.find(f => f.id === id);
+        // Missing records may be the result of an uncertain delete. Retrying with its original
+        // If-Match is safe; the server remains the authority for absence and access.
+        if ((body?.shared || (existing && "shared" in existing && existing.shared)) && catalog.projects.length !== 2) throw new PanelError("forbidden", 403);
+        const project = body?.project === "majestic" ? "mj" : body?.project === "russia-online" ? "ro" : undefined;
+        if (project && !catalog.projects.includes(project)) throw new PanelError("forbidden", 403);
+        if (body?.color && !catalog.colors.includes(body.color as string)) throw new PanelError("invalid_request");
+        if (body?.folderId) {
+            const folder = catalog.folderRecords.find(f => f.id === body.folderId);
+            if (!folder || (!body.shared && project && folder.project !== project)) throw new PanelError("invalid_request");
+        }
+    };
+    guard();
+    return async () => {
+        guard();
+        if (conflicted) throw new PanelError("version_conflict", 412);
+        if (panelPersonal.get().busy) throw new PanelError("write_busy");
+        panelPersonal.set({ busy: true });
+        try {
+            if (!libraryIsFresh() && !await loadLibrary()) throw new PanelError("stale_library");
+            guard();
+            if (!confirmed) {
+                const raw = await active!.mutate(request, () => {
+                    guard();
+                    if (!libraryIsFresh()) throw new PanelError("stale_library");
+                });
+                guard();
+                const result = raw as Record<string, unknown> | null;
+                const catalog = panelPersonal.get().catalog!;
+                try {
+                    if (request.method === "DELETE") {
+                        if (!result || result.success !== true) throw new Error();
+                    } else {
+                        const record = scope === "folders:write" ? parseFolderRecord(result?.folder, catalog.projects)
+                            : parsePersonalRecord(result?.template, catalog.projects, catalog.colors);
+                        if (request.method === "PATCH" && record.id !== request.path.split("/")[2]) throw new Error();
+                    }
+                } catch { throw new PanelError("invalid_response"); }
+                confirmed = true;
+            }
+            // Invalidate reads begun before the mutation; publish only a fresh server snapshot.
+            syncRevision++; resyncPending = false;
+            panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
+            panel.set({ phase: "loading", checkedAt: 0 });
+            if (loading) await loading;
+            const refreshed = await loadLibrary();
+            guard();
+            return { refreshed };
+        } catch (error) {
+            if (own === epoch && client === active) {
+                if (error instanceof PanelError && (error.status === 412 || error.code === "version_conflict")) {
+                    conflicted = true;
+                    syncRevision++; resyncPending = false;
+                    panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
+                    panel.set({ phase: "loading", checkedAt: 0 });
+                    if (loading) await loading;
+                    await loadLibrary(); // Draft and its original version are never replaced here.
+                } else if (error instanceof PanelError && (error.status === 401
+                    || ["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error", "connection_mismatch"].includes(error.code))) {
+                    terminateSession(active!, error);
+                } else if (error instanceof PanelError && error.status === 403 && error.code !== "insufficient_scope") requestResync(true);
+            }
+            throw error;
+        } finally {
+            if (own === epoch && generation === panelPersonal.get().generation) panelPersonal.set({ busy: false });
+        }
+    };
+}
 
 export function openPanelPage() {
     window.open(panel.get().url || PANEL_ORIGIN + "/connect", "_blank", "noopener,noreferrer");

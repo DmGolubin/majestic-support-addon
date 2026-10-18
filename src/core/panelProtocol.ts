@@ -11,6 +11,51 @@ const PANEL_LOGIN_ORIGIN = "https://majestic-rp.tech";
 export const PANEL_API_PATH = "/api/plugin/v1";
 export const PANEL_CLIENT_ID = "support-templates";
 
+export interface PanelMutation {
+    path: string;
+    method: "POST" | "PATCH" | "DELETE";
+    body?: unknown;
+    idempotencyKey?: string;
+    version?: string;
+}
+
+/** The only writable resources are the current user's personal library. */
+export function panelMutationScope(request: PanelMutation): "personal:write" | "folders:write" {
+    const create = /^\/(personal-templates|folders)$/.exec(request.path);
+    const entry = /^\/(personal-templates|folders)\/[1-9]\d{0,19}$/.exec(request.path);
+    const restore = /^\/trash\/[1-9]\d{0,19}\/restore$/.test(request.path);
+    if (create ? request.method !== "POST" : entry ? !["PATCH", "DELETE"].includes(request.method) : !restore || request.method !== "POST") return invalid();
+    if (create) {
+        if (typeof request.idempotencyKey !== "string" || !/^[\x21-\x7e]{1,128}$/.test(request.idempotencyKey) || request.version !== undefined) return invalid();
+    } else if (typeof request.version !== "string" || !/^[\x21\x23-\x5b\x5d-\x7e]{1,512}$/.test(request.version) || request.idempotencyKey !== undefined) return invalid();
+    if (request.method === "DELETE" || restore) {
+        if (request.body !== undefined) return invalid();
+    } else if (!request.body || typeof request.body !== "object" || Array.isArray(request.body)) return invalid();
+    else {
+        const body = request.body as Record<string, unknown>;
+        const folder = (create?.[1] ?? entry?.[1]) === "folders";
+        const fields = folder ? ["title", "position", ...(create ? ["project"] : [])]
+            : ["title", "text", "project", "shared", "command", "color", "folderId"];
+        if (!Object.keys(body).length || Object.keys(body).some(k => !fields.includes(k))) return invalid();
+        if (create && (body.title === undefined || (!folder && body.text === undefined))) return invalid();
+        for (const [key, value] of Object.entries(body)) {
+            if (key === "title" || key === "text") {
+                if (typeof value !== "string" || !value.trim() || value.length > (key === "text" ? 20000 : folder ? 120 : 160)
+                    || (key === "text" ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/ : /[\u0000-\u001f\u007f]/).test(value)) return invalid();
+            } else if (key === "project") { if (!["majestic", "russia-online"].includes(value as string)) return invalid(); }
+            else if (key === "shared") { if (typeof value !== "boolean") return invalid(); }
+            else if (key === "position") { if (!Number.isSafeInteger(value) || (value as number) < 0 || (value as number) > 100000) return invalid(); }
+            else if (value !== null) {
+                if (typeof value !== "string" || !value || /[\u0000-\u001f\u007f]/.test(value)) return invalid();
+                if (key === "command" && (value.length > 40 || /[\s/]/u.test(value))) return invalid();
+                if (key === "folderId" && !/^[1-9]\d{0,19}$/.test(value)) return invalid();
+                if (key === "color" && !/^[a-z][a-z0-9_-]{0,39}$/.test(value)) return invalid();
+            }
+        }
+    }
+    return (create?.[1] ?? entry?.[1]) === "folders" ? "folders:write" : "personal:write";
+}
+
 export interface DeviceAuthorization {
     deviceCode: string;
     userCode: string;

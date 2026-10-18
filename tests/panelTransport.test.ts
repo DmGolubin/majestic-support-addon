@@ -40,6 +40,31 @@ afterEach(() => {
 });
 
 describe("panel JSON transport", () => {
+    it("sends UUID idempotency for creates and opaque quoted If-Match for edits/deletes", async () => {
+        const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(async () => json({ success: true }));
+        const send = createPanelTransport(fetch);
+        const body = { title: "Exact", text: "**Markdown**\r\n{{name}}" };
+        const key = "b5b3fc76-7453-49b8-932f-e1eaa6338f9d";
+        await send("/personal-templates", { token: secret, method: "POST", body, idempotencyKey: key });
+        await send("/personal-templates/7", { token: secret, method: "PATCH", body, version: "opaque-v7" });
+        await send("/folders/8", { token: secret, method: "DELETE", version: "folder-v8" });
+        expect(fetch.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify(body), headers: { "Idempotency-Key": key } });
+        expect(fetch.mock.calls[1][1]).toMatchObject({ method: "PATCH", body: JSON.stringify(body), headers: { "If-Match": '"opaque-v7"' } });
+        expect(fetch.mock.calls[2][1]).toMatchObject({ method: "DELETE", body: undefined, headers: { "If-Match": '"folder-v8"' } });
+    });
+    it("rejects writable FAQ, unknown fields and unquoted-version injection before fetch", async () => {
+        const fetch = vi.fn<typeof globalThis.fetch>(); const send = createPanelTransport(fetch);
+        for (const request of [
+            { path: "/faq/7", method: "PATCH" as const, version: "1", body: { title: "No" } },
+            { path: "/folders/7", method: "PATCH" as const, version: "1", body: { project: "majestic" } },
+            { path: "/personal-templates/7", method: "PATCH" as const, version: "1", body: { owner: "other" } },
+            { path: "/personal-templates/7", method: "PATCH" as const, version: 'bad"version', body: { title: "No" } },
+        ]) {
+            const { path, ...options } = request;
+            await expect(send(path, { ...options, token: secret })).rejects.toMatchObject({ code: "invalid_request" });
+        }
+        expect(fetch).not.toHaveBeenCalled();
+    });
     it("completes device login through the actual URL builder and transport", async () => {
         vi.useFakeTimers();
         const scopes = "profile:read faq:read personal:read folders:read sync:read";

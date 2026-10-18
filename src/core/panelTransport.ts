@@ -5,7 +5,7 @@
  */
 
 import { PanelError, type PanelTransport } from "./panelClient";
-import { PANEL_ORIGIN, panelEndpoint } from "./panelProtocol";
+import { PANEL_ORIGIN, panelEndpoint, panelMutationScope } from "./panelProtocol";
 
 const TIMEOUT_MS = 15_000;
 const SMALL_LIMIT = 1024 * 1024;
@@ -53,6 +53,10 @@ export function createPanelTransport(fetchImpl = globalThis.fetch, trustedOrigin
         let body: string | undefined;
         try {
             url = panelEndpoint(path, trustedOrigin);
+            if (options.method !== undefined || options.idempotencyKey !== undefined || options.version !== undefined) {
+                if (!options.method || !options.token) throw new Error();
+                panelMutationScope({ ...options, path, method: options.method });
+            }
             if (options.body !== undefined) {
                 body = JSON.stringify(options.body);
                 if (body === undefined) throw new Error();
@@ -89,12 +93,14 @@ export function createPanelTransport(fetchImpl = globalThis.fetch, trustedOrigin
             try {
                 // Node's fetch types omit some browser RequestInit fields used by Electron.
                 const init: RequestInit & { cache: "no-store"; referrerPolicy: "no-referrer" } = {
-                    method: body === undefined ? "GET" : "POST",
+                    method: options.method ?? (body === undefined ? "GET" : "POST"),
                     body,
                     headers: {
                         Accept: "application/json",
                         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-                        ...(options.token === undefined ? {} : { Authorization: "Bearer " + options.token })
+                        ...(options.token === undefined ? {} : { Authorization: "Bearer " + options.token }),
+                        ...(options.idempotencyKey === undefined ? {} : { "Idempotency-Key": options.idempotencyKey }),
+                        ...(options.version === undefined ? {} : { "If-Match": '"' + options.version + '"' })
                     },
                     credentials: "omit",
                     redirect: "error",
