@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PANEL_ORIGIN, panelEndpoint, parseDeviceAuthorization, parsePanelTokens, slowerPolling } from "../src/core/panelProtocol";
+import { PANEL_ORIGIN, panelEndpoint, panelMutationScope, PanelMutation, parseDeviceAuthorization, parsePanelTokens, slowerPolling } from "../src/core/panelProtocol";
 
 const device = {
     device_code: "test-device-secret", user_code: "ABCD12",
@@ -10,6 +10,25 @@ const device = {
 };
 const tokens = { access_token: "test-access", refresh_token: "test-refresh", token_type: "Bearer", expires_in: 900,
     scope: "profile:read faq:read", connectionId: "11111111-2222-4333-8444-555555555555" };
+
+describe("notification settings mutation boundary", () => {
+    const request: PanelMutation = { path: "/notification-settings", method: "PATCH", version: "opaque-v1", body: { discordEnabled: true } };
+    it.each([true, false])("permits only the versioned Discord delivery switch: %s", discordEnabled => {
+        expect(panelMutationScope({ ...request, body: { discordEnabled } })).toBe("notifications:settings:write");
+    });
+    it.each([
+        { method: "POST" }, { method: "DELETE" }, { path: "/tickets/assigned" }, { path: "/notification-settings/1" },
+        { version: undefined }, { version: "" }, { version: '"quoted"' }, { version: "bad\r\nheader" }, { idempotencyKey: "extra" },
+        { body: undefined }, { body: null }, { body: [] }, { body: {} }, { body: { discordEnabled: "true" } },
+        { body: { discordEnabled: true, telegramEnabled: false } },
+        { body: { discordEnabled: true, personalReminderMinutes: 5 } },
+        { body: { discordEnabled: true, slow_reply_interval: 5 } },
+        { body: { discordEnabled: true, thresholdSource: "telegram" } },
+        { body: { discordEnabled: true, projects: [] } },
+    ])("rejects unsupported writes %j", patch => {
+        expect(() => panelMutationScope({ ...request, ...patch } as PanelMutation)).toThrow();
+    });
+});
 
 describe("production panel protocol boundary", () => {
     it("keeps OAuth paths under the plugin API base", () => {

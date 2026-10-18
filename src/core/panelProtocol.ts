@@ -19,12 +19,13 @@ export interface PanelMutation {
     version?: string;
 }
 
-/** The only writable resources are the current user's personal library. */
-export function panelMutationScope(request: PanelMutation): "personal:write" | "folders:write" {
+/** Writes are limited to the personal library and the Discord delivery switch. */
+export function panelMutationScope(request: PanelMutation): "personal:write" | "folders:write" | "notifications:settings:write" {
+    const notifications = request.path === "/notification-settings";
     const create = /^\/(personal-templates|folders)$/.exec(request.path);
     const entry = /^\/(personal-templates|folders)\/[1-9]\d{0,19}$/.exec(request.path);
     const restore = /^\/trash\/[1-9]\d{0,19}\/restore$/.test(request.path);
-    if (create ? request.method !== "POST" : entry ? !["PATCH", "DELETE"].includes(request.method) : !restore || request.method !== "POST") return invalid();
+    if (notifications ? request.method !== "PATCH" : create ? request.method !== "POST" : entry ? !["PATCH", "DELETE"].includes(request.method) : !restore || request.method !== "POST") return invalid();
     if (create) {
         if (typeof request.idempotencyKey !== "string" || !/^[\x21-\x7e]{1,128}$/.test(request.idempotencyKey) || request.version !== undefined) return invalid();
     } else if (typeof request.version !== "string" || !/^[\x21\x23-\x5b\x5d-\x7e]{1,512}$/.test(request.version) || request.idempotencyKey !== undefined) return invalid();
@@ -33,6 +34,11 @@ export function panelMutationScope(request: PanelMutation): "personal:write" | "
     } else if (!request.body || typeof request.body !== "object" || Array.isArray(request.body)) return invalid();
     else {
         const body = request.body as Record<string, unknown>;
+        if (notifications) {
+            if (Object.keys(body).length !== 1 || !Object.prototype.hasOwnProperty.call(body, "discordEnabled")
+                || typeof body.discordEnabled !== "boolean") return invalid();
+            return "notifications:settings:write";
+        }
         const folder = (create?.[1] ?? entry?.[1]) === "folders";
         const fields = folder ? ["title", "position", ...(create ? ["project"] : [])]
             : ["title", "text", "project", "shared", "command", "color", "folderId"];

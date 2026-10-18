@@ -789,6 +789,105 @@ describe("PanelClient logout", () => {
     });
 });
 
+describe("PanelClient reminder access", () => {
+    const reminderScopes = "tickets:assigned:read notifications:settings:read notifications:settings:write";
+    const fullScopes = scopes + " " + reminderScopes;
+    const reminderTokens = () => tokens({ scope: fullScopes });
+    const change = (): PanelMutation => ({ path: "/notification-settings", method: "PATCH", version: "settings-v1", body: { discordEnabled: true } });
+
+    it.each([false, true])("requests reminder scopes on explicit login, independently of writeAccess=%s", async writeAccess => {
+        const h = harness({ options: { reminderAccess: true, writeAccess }, tokens: reminderTokens() });
+        await h.login();
+        expect(h.transport.mock.calls[0][1].body).toMatchObject({
+            scope: scopes + (writeAccess ? " personal:write folders:write" : "") + " " + reminderScopes,
+        });
+        expect(h.client.scopes).toEqual(fullScopes.split(" "));
+    });
+
+    it.each([false, true])("restores old sessions with reminderAccess=%s without reauthorization or privilege escalation", async reminderAccess => {
+        const v = memoryVault(), old = harness({ options: v.options }); await old.login(); old.client.dispose();
+        const saved = v.read(), h = harness({ options: { ...v.options, reminderAccess } });
+        expect(await h.client.restore()).toBe(true);
+        expect(h.transport).not.toHaveBeenCalled(); expect(v.read()).toEqual(saved);
+        for (const path of ["/tickets/assigned", "/notification-settings"]) {
+            await expect(h.client.read(path)).rejects.toMatchObject({ code: "insufficient_scope", status: 403 });
+        }
+        await expect(h.client.mutate(change())).rejects.toMatchObject({ code: "insufficient_scope", status: 403 });
+        expect(h.transport).not.toHaveBeenCalled();
+        await expect(h.client.read("/me")).resolves.toBeDefined();
+        expect(h.client.connectionId).toBe(connection);
+    });
+
+    it("accepts persisted reminder tokens with the option omitted and keeps refresh singleflight and durable", async () => {
+        const v = memoryVault(), old = harness({ options: v.options, tokens: reminderTokens() });
+        await old.login(); old.client.dispose();
+        const h = harness({ options: v.options }); expect(await h.client.restore()).toBe(true);
+        h.transport.mockImplementation(async (path, options) => {
+            if (path === "/oauth/token") return { ...rotated(), scope: fullScopes };
+            if (options.token === "test-access-A") throw new PanelError("unauthorized", 401);
+            expect(v.read()).toMatchObject({ state: "ready", tokens: { accessToken: "test-access-B", scopes: fullScopes.split(" ") } });
+            return { path };
+        });
+        expect(await Promise.all([h.client.read("/tickets/assigned"), h.client.read("/notification-settings")]))
+            .toEqual([{ path: "/tickets/assigned" }, { path: "/notification-settings" }]);
+        expect(h.refreshCalls()).toHaveLength(1);
+    });
+
+    it.each([
+        ["tickets:assigned:read", "/tickets/assigned", "/notification-settings"],
+        ["notifications:settings:read", "/notification-settings", "/tickets/assigned"],
+    ])("checks each read scope separately: %s", async (scope, allowed, denied) => {
+        const h = harness({ tokens: tokens({ scope: scopes + " " + scope }) }); await h.login(); h.transport.mockClear();
+        await expect(h.client.read(allowed)).resolves.toBeDefined();
+        await expect(h.client.read(denied)).rejects.toMatchObject({ code: "insufficient_scope" });
+        await expect(h.client.mutate(change())).rejects.toMatchObject({ code: "insufficient_scope" });
+        expect(h.transport).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(["notifications:settings:write", "tickets:all:read", "telegram:write"])("never allows scope changes during refresh: %s", async added => {
+        const h = harness({ tokens: reminderTokens() }); await h.login();
+        h.transport.mockImplementation(async path => {
+            if (path === "/oauth/token") return { ...rotated(), scope: added === "notifications:settings:write"
+                ? fullScopes.replace(" notifications:settings:write", "") : fullScopes + " " + added };
+            throw new PanelError("unauthorized", 401);
+        });
+        await expect(h.client.read("/tickets/assigned")).rejects.toMatchObject({ code: "refresh_uncertain" });
+        expect(h.client.connectionId).toBeNull(); expect(h.refreshCalls()).toHaveLength(1);
+    });
+
+    it("keeps notification mutation inputs immutable across a 401 refresh", async () => {
+        const h = harness({ tokens: reminderTokens() }); await h.login(); h.transport.mockClear();
+        h.transport.mockImplementation(async (path, options) => {
+            if (path === "/oauth/token") return { ...rotated(), scope: fullScopes };
+            if (options.token === "test-access-A") throw new PanelError("unauthorized", 401);
+            return { version: "settings-v2", discordEnabled: true };
+        });
+        const request = change(), result = h.client.mutate(request);
+        request.body = { discordEnabled: false }; request.version = "changed";
+        await expect(result).resolves.toMatchObject({ discordEnabled: true });
+        const calls = h.transport.mock.calls.filter(([path]) => path === "/notification-settings");
+        expect(calls).toHaveLength(2);
+        for (const [, options] of calls) expect(options).toMatchObject({ method: "PATCH", version: "settings-v1", body: { discordEnabled: true } });
+        expect(h.refreshCalls()).toHaveLength(1);
+    });
+
+    it.each([new PanelError("version_conflict", 412), new PanelError("ticket_state_unavailable", 503, 2000)])("surfaces conflicts and unavailable snapshots without retry", async error => {
+        const h = harness({ tokens: reminderTokens() }); await h.login(); h.transport.mockClear(); h.transport.mockRejectedValue(error);
+        const result = error.status === 412 ? h.client.mutate(change()) : h.client.read("/tickets/assigned");
+        await expect(result).rejects.toMatchObject({ code: error.code, status: error.status, retryAfterMs: error.retryAfterMs });
+        expect(h.transport).toHaveBeenCalledTimes(1); expect(h.client.connectionId).toBe(connection);
+    });
+
+    it("rejects late reminder reads after a replacement login", async () => {
+        const h = harness({ tokens: reminderTokens() }); await h.login();
+        const response = deferred<unknown>(); h.transport.mockImplementationOnce(() => response.promise);
+        const result = outcome(h.client.read("/tickets/assigned")); await tick();
+        const signal = h.transport.mock.calls.at(-1)![1].signal!;
+        await h.login(); response.resolve({ accountId: "previous-account" });
+        expect((await result).error).toMatchObject({ code: "cancelled" }); expect(signal.aborted).toBe(true);
+    });
+});
+
 describe("PanelClient personal mutations", () => {
     const writeTokens = () => tokens({ scope: scopes + " personal:write folders:write" });
     const create = (): PanelMutation => ({ path: "/personal-templates", method: "POST",

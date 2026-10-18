@@ -40,6 +40,37 @@ afterEach(() => {
 });
 
 describe("panel JSON transport", () => {
+    it.each(["/tickets/assigned", "/notification-settings"])("reads %s with Bearer and no body", async path => {
+        const fetch = mockFetch(json({ revision: "v1" }));
+        await expect(createPanelTransport(fetch)(path, { token: secret })).resolves.toEqual({ revision: "v1" });
+        expect(fetch).toHaveBeenCalledExactlyOnceWith(PANEL_ORIGIN + "/api/plugin/v1" + path,
+            expect.objectContaining({ method: "GET", body: undefined, credentials: "omit", redirect: "error",
+                headers: { Accept: "application/json", Authorization: "Bearer " + secret } }));
+    });
+    it.each([true, false])("PATCHes discordEnabled=%s with a quoted opaque If-Match", async discordEnabled => {
+        const fetch = mockFetch(json({ version: "next", discordEnabled }));
+        await createPanelTransport(fetch)("/notification-settings", { token: secret, method: "PATCH", version: "opaque-v1", body: { discordEnabled } });
+        expect(fetch.mock.calls[0][1]).toMatchObject({ method: "PATCH", body: JSON.stringify({ discordEnabled }),
+            headers: { "If-Match": '"opaque-v1"', Authorization: "Bearer " + secret, "Content-Type": "application/json" } });
+        expect(fetch.mock.calls[0][1]?.headers).not.toHaveProperty("Idempotency-Key");
+    });
+    it("rejects Telegram edits, missing versions and implicit reminder POSTs before fetch", async () => {
+        const fetch = vi.fn<typeof globalThis.fetch>(), send = createPanelTransport(fetch);
+        for (const options of [
+            { method: "PATCH" as const, version: "v1", body: { discordEnabled: true, telegramEnabled: false } },
+            { method: "PATCH" as const, version: "v1", body: { discordEnabled: true, slow_reply_interval: 5 } },
+            { method: "PATCH" as const, body: { discordEnabled: true } },
+            { body: { discordEnabled: true } },
+        ]) await expect(send("/notification-settings", { token: secret, ...options })).rejects.toMatchObject({ code: "invalid_request" });
+        await expect(send("/tickets/assigned", { token: secret, body: {} })).rejects.toMatchObject({ code: "invalid_request" });
+        expect(fetch).not.toHaveBeenCalled();
+    });
+    it("preserves ticket_state_unavailable and Retry-After without retrying the fetch", async () => {
+        const fetch = mockFetch(json({ code: "ticket_state_unavailable" }, 503, { "Retry-After": "2" }));
+        expect(await failure(createPanelTransport(fetch)("/tickets/assigned", { token: secret })))
+            .toMatchObject({ code: "ticket_state_unavailable", status: 503, retryAfterMs: 2000 });
+        expect(fetch).toHaveBeenCalledTimes(1);
+    });
     it("sends UUID idempotency for creates and opaque quoted If-Match for edits/deletes", async () => {
         const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(async () => json({ success: true }));
         const send = createPanelTransport(fetch);

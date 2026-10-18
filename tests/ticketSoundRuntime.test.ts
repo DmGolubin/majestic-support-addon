@@ -27,7 +27,7 @@ interface Runtime {
 async function harness() {
     let saved = { ...core.defaultTicketSound(), enabled: true };
     const storage = {
-        get: vi.fn(async () => saved),
+        get: vi.fn(async (key: string) => key === KEY ? saved : undefined),
         set: vi.fn(async (_key: string, options: core.TicketSoundOptions) => { saved = options; }),
     };
     const resume = vi.fn(async () => {});

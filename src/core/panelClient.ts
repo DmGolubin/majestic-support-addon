@@ -38,6 +38,8 @@ export interface PanelClientOptions {
     accountId?: string;
     /** Only explicit reauthorization requests additional personal-library write access. */
     writeAccess?: boolean;
+    /** Request reminder reads and the Discord delivery switch on explicit login only. Existing sessions retain their scopes. */
+    reminderAccess?: boolean;
 }
 
 interface PanelSessionBinding {
@@ -72,6 +74,7 @@ const vaultQueues = new WeakMap<PanelVault, VaultQueue>();
 
 const SCOPES = ["profile:read", "faq:read", "personal:read", "folders:read", "sync:read"] as const;
 const WRITE_SCOPES = ["personal:write", "folders:write"] as const;
+const REMINDER_SCOPES = ["tickets:assigned:read", "notifications:settings:read", "notifications:settings:write"] as const;
 const safeError = (error: unknown): PanelError => error instanceof PanelError
     ? new PanelError(error.code, error.status, error.retryAfterMs)
     : new PanelError("transport_error");
@@ -102,10 +105,12 @@ export class PanelClient {
     #accountId?: string;
     #lease: symbol | null = null;
     #writeAccess: boolean;
+    #reminderAccess: boolean;
 
     constructor(transport: PanelTransport, options: PanelClientOptions = {}) {
         this.#transport = transport;
         this.#writeAccess = options.writeAccess === true;
+        this.#reminderAccess = options.reminderAccess === true;
         this.#now = options.now ?? Date.now;
         this.#deviceName = options.deviceName ?? "Discord — SupportTemplates";
         this.#origin = options.trustedOrigin ?? PANEL_ORIGIN;
@@ -184,7 +189,8 @@ export class PanelClient {
             if (previousCode) await this.#request(session, "/device-requests/cancel", { body: { device_code: previousCode } });
             const started = this.#now();
             const raw = await this.#request(session, "/oauth/device_authorization", { body: {
-                client_id: PANEL_CLIENT_ID, device_name: this.#deviceName, scope: [...SCOPES, ...(this.#writeAccess ? WRITE_SCOPES : [])].join(" "),
+                client_id: PANEL_CLIENT_ID, device_name: this.#deviceName,
+                scope: [...SCOPES, ...(this.#writeAccess ? WRITE_SCOPES : []), ...(this.#reminderAccess ? REMINDER_SCOPES : [])].join(" "),
             } });
             let device: DeviceAuthorization;
             try { device = parseDeviceAuthorization(raw, this.#origin); }
@@ -226,13 +232,24 @@ export class PanelClient {
         }
     }
 
+    /** Raw authenticated JSON; the consuming adapter validates reminder/account response data. */
+    read(path: string): Promise<unknown> { return this.get(path); }
+
     async get(path: string): Promise<unknown> {
         this.#validatePath(path);
         const session = this.#session;
         if (!session?.tokens || session.closing || session.controller.signal.aborted) throw new PanelError("not_authenticated", 401);
-        const result = await this.#authorized(session, token => {
+        const scope = path === "/tickets/assigned" ? "tickets:assigned:read"
+            : path === "/notification-settings" ? "notifications:settings:read" : null;
+        const check = () => {
+            this.#assert(session);
             if (session.closing) throw new PanelError("cancelled");
-            return this.#request(session, path, { token });
+            if (scope && !session.tokens?.scopes.includes(scope)) throw new PanelError("insufficient_scope", 403);
+        };
+        check();
+        const result = await this.#authorized(session, token => {
+            check();
+            return this.#request(session, path, { token }, this.#timeout, check);
         });
         this.#assert(session);
         if (session.closing) throw new PanelError("cancelled");
@@ -380,7 +397,7 @@ export class PanelClient {
         try {
             const tokens = parsePanelTokens(raw);
             if (!SCOPES.every(scope => tokens.scopes.includes(scope))
-                || tokens.scopes.some(scope => ![...SCOPES, ...WRITE_SCOPES].includes(scope as typeof SCOPES[number]))) throw new Error();
+                || tokens.scopes.some(scope => ![...SCOPES, ...WRITE_SCOPES, ...REMINDER_SCOPES].includes(scope as typeof SCOPES[number]))) throw new Error();
             return tokens;
         } catch { throw new PanelError("invalid_response"); }
     }

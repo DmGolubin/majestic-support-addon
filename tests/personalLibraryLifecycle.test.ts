@@ -371,7 +371,13 @@ describe("Settings / Management actual callbacks", () => {
         const rendered = textOf(h.tree());
         for (const removed of ["Выбрать файл", "Импорт", "Локальная библиотека", "Редактировать на панели", "Демо-данные"]) expect(rendered).not.toContain(removed);
         for (const tab of ["Мои шаблоны", "Настройки", "Тикеты"]) expect(h.button(tab)).toBeDefined();
-        expect(h.nodes("a")).toHaveLength(3);
+        expect(h.nodes("a")).toHaveLength(0);
+        const servers = h.nodes("div").filter(n => n.props.className === "vc-stx-server-tile");
+        expect(servers).toHaveLength(3);
+        for (const server of servers) {
+            expect(server.props.onClick).toBeUndefined();
+            expect(server.props.tabIndex).toBeUndefined();
+        }
         expect(h.nodes("input").filter(n => n.props.type === "file")).toHaveLength(0);
     });
 });

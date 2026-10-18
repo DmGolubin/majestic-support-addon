@@ -22,7 +22,6 @@
 .vc-stx-switch input:disabled + span { opacity: .4; }
 .vc-stx-server-tiles { display: flex; flex-wrap: wrap; gap: 10px; }
 .vc-stx-settings .vc-stx-server-tile { display: flex; align-items: center; gap: 10px; padding: 10px 14px 10px 10px; background: var(--stx-input); border: 1px solid var(--stx-bd); border-radius: 7px; color: var(--stx-tx); text-decoration: none; font-weight: 500; }
-.vc-stx-server-tile:hover { background: var(--stx-hover); border-color: var(--stx-bd2); text-decoration: none; }
 .vc-stx-server-tile > img { object-fit: cover; border-radius: 7px; }
 .vc-stx-account-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .vc-stx-account-summary > div { min-width: 0; }

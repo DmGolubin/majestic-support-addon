@@ -16,6 +16,17 @@
   ],
   "tasks": [
     {
+      "id": "B07",
+      "area": "B · Тикеты",
+      "status": "review",
+      "title": "Свой звук и аккуратные настройки",
+      "detail": "Реализованы свой локальный аудиофайл до 5 МБ/30 секунд, сброс, округлённый процент и статичные карточки серверов. Проверены компоненты браузерного стенда и синтетические аудио/хранилище; слышимость в Canary ещё не подтверждена.",
+      "updated": "2026-10-18",
+      "evidence": [
+        "audits/2026-10-18-ticket-reminders-and-custom-sound.md"
+      ]
+    },
+    {
       "id": "Q12",
       "area": "Качество и безопасность",
       "status": "review",
@@ -341,14 +352,15 @@
     {
       "id": "B01",
       "area": "B · Тикеты",
-      "status": "blocked",
+      "status": "review",
       "title": "Разбор состояния тикета",
-      "detail": "Контракт API состояния получен: assigned tickets и reminderAt/reminderId. Нужны настоящие примеры и тестовая среда для проверки назначения, окончания ожидания и возврата в пул. Упоминание бота не заменяет серверное состояние.",
+      "detail": "Подключён GET /tickets/assigned: строгая проверка аккаунта, проектов, назначения, waiting_support и свежести. Живая приёмка назначения, ответа и возврата в пул ещё нужна.",
       "evidence": [
         "TICKET-HELPER-SPEC.md",
-        "audits/2026-10-16-ticket-helper.md"
+        "audits/2026-10-16-ticket-helper.md",
+        "audits/2026-10-18-ticket-reminders-and-custom-sound.md"
       ],
-      "updated": "2026-10-16"
+      "updated": "2026-10-18"
     },
     {
       "id": "B02",
@@ -365,12 +377,13 @@
     {
       "id": "B03",
       "area": "B · Тикеты",
-      "status": "planned",
+      "status": "review",
       "title": "Напоминание об ответе",
-      "detail": "Контракт получен: серверные reminderAt/reminderId, ключ account+project+ticket+reminderId; повторы 10 мин, порог из Telegram, fallback 15. Старый локальный расчёт 5/10/15 и дедупликация по циклу требуют замены. Живая проверка ждёт тестовой среды.",
+      "detail": "Реализованы серверные reminderAt/reminderId, проверка перед звуком, постоянная дедупликация, SSE и polling/Retry-After. Порог читается из Telegram. Нужна живая проверка API и звука; ограничение 10000 сохранённых попыток описано в аудите.",
       "evidence": [
         "TICKET-HELPER-SPEC.md",
-        "audits/2026-10-16-ticket-helper.md"
+        "audits/2026-10-16-ticket-helper.md",
+        "audits/2026-10-18-ticket-reminders-and-custom-sound.md"
       ],
       "updated": "2026-10-18"
     },
@@ -397,13 +410,14 @@
     {
       "id": "B06",
       "area": "B · Тикеты",
-      "status": "planned",
+      "status": "review",
       "title": "Настройки помощника",
-      "detail": "Переделать интерфейс: два блока новых тикетов и ожидания ответа, единые переключатели/dropdown, компактная громкость и тест звука; проекты/имена каналов вместо ручного ввода ID в основном сценарии. По контракту порог читается из Telegram, меняется там; здесь discordEnabled. Личные напоминания ещё не подключены.",
+      "detail": "Настройки показывают пороги Telegram и изменяют только discordEnabled через версионный PATCH; старым сессиям доступна явная авторизация новых прав. Конфликт/неподтверждённая запись требуют перечитать состояние. Живая приёмка остаётся.",
       "evidence": [
         "TICKET-HELPER-SPEC.md",
         "audits/2026-10-16-ticket-helper.md",
-        "plans/2026-10-18-account-ui.md"
+        "plans/2026-10-18-account-ui.md",
+        "audits/2026-10-18-ticket-reminders-and-custom-sound.md"
       ],
       "updated": "2026-10-18"
     },

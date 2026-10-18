@@ -26,10 +26,10 @@ function ServerTile({ server }: { server: typeof SERVERS[number]; }) {
     const [failed, setFailed] = useState(false);
     const hash = GuildStore.getGuild(server.id)?.icon;
     const icon = !failed && hash && /^[a-zA-Z0-9_]+$/.test(hash) ? `https://cdn.discordapp.com/icons/${server.id}/${hash}.png?size=64` : null;
-    return <a className="vc-stx-server-tile" href={`https://discord.com/channels/${server.id}`} target="_blank" rel="noreferrer" title={`Открыть ${server.name}`}>
+    return <div className="vc-stx-server-tile">
         {icon ? <img src={icon} alt="" width={28} height={28} onError={() => setFailed(true)} /> : <ProjectIcon project={server.project} size={28} />}
         <span>{server.name}</span>
-    </a>;
+    </div>;
 }
 
 export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; onBusy?(busy: boolean): void; } = {}) {

@@ -1,0 +1,500 @@
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { PanelError } from "../src/core/panelClient";
+import { parseNotificationSettings, type PanelNotificationSettings, type ReminderOptions } from "../src/core/panelReminders";
+import type { PanelMutation } from "../src/core/panelProtocol";
+
+// Run the actual adapter; replace the engine and host services, retaining the real settings parser.
+const code = ts.transpileModule(readFileSync(new URL("../src/vencord/ui/ticketReminders.ts", import.meta.url), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const scopes = ["tickets:assigned:read", "notifications:settings:read", "notifications:settings:write"];
+const accountId = "111111111111111111";
+const otherAccountId = "222222222222222222";
+const settings = (discordEnabled = true, version = "settings-v1"): PanelNotificationSettings => ({
+    version, discordEnabled, thresholdSource: "telegram",
+    projects: [
+        { project: "majestic", personalReminderMinutes: 5, telegramEnabled: true },
+        { project: "russia-online", personalReminderMinutes: 15, telegramEnabled: false },
+    ],
+});
+const idle = { phase: "idle", settings: null, busy: false, error: "", deliveryError: "" };
+const flush = () => new Promise<void>(resolve => setImmediate(resolve));
+function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+    return { promise, resolve, reject };
+}
+
+function fakeClient() {
+    return {
+        connectionId: "12345678-1234-1234-1234-123456789abc",
+        get: vi.fn<(path: string) => Promise<unknown>>(async path => {
+            if (path === "/notification-settings") return settings();
+            throw new Error(`Unexpected GET: ${path}`);
+        }),
+        mutate: vi.fn<(request: PanelMutation, guard: () => void) => Promise<unknown>>(async () => {
+            throw new Error("Unexpected mutation");
+        }),
+    };
+}
+type Binding = {
+    client: ReturnType<typeof fakeClient>;
+    accountId: string;
+    projects: string[];
+    scopes: readonly string[];
+    permissionsRevision: string;
+    current(): boolean;
+    onAuthError(error: unknown): void;
+};
+interface State {
+    phase: "idle" | "permission" | "loading" | "ready" | "offline";
+    settings: PanelNotificationSettings | null;
+    busy: boolean;
+    error: string;
+    deliveryError: string;
+}
+interface Runtime {
+    ticketRemindersState: { get(): State; set(patch: Partial<State>): void; };
+    syncTicketReminders(binding: Binding): void;
+    refreshTicketReminders(): Promise<void>;
+    setDiscordReminders(enabled: boolean): Promise<void>;
+    stopTicketReminders(): void;
+    invalidateTicketReminders(event?: string): void;
+}
+type EngineOptions = ReminderOptions;
+const cleanups: (() => void)[] = [];
+afterEach(() => { for (const stop of cleanups.splice(0)) stop(); });
+
+function harness() {
+    const client = fakeClient();
+    const binding: Binding = {
+        client, accountId, projects: ["majestic", "russia-online"], scopes: [...scopes],
+        permissionsRevision: "permissions-v1", current: vi.fn(() => true), onAuthError: vi.fn(),
+    };
+    const storage = { get: vi.fn(async (_key: string): Promise<unknown> => undefined), set: vi.fn(async (_key: string, _value: unknown) => {}) };
+    const toast = vi.fn();
+    const playTicketReminder = vi.fn(async (valid: () => boolean) => valid());
+    const engines: {
+        options: EngineOptions;
+        running: boolean;
+        start: ReturnType<typeof vi.fn>;
+        stop: ReturnType<typeof vi.fn>;
+        invalidate: ReturnType<typeof vi.fn>;
+        refresh: ReturnType<typeof vi.fn>;
+    }[] = [];
+    const createReminderController = vi.fn((options: EngineOptions) => {
+        const engine = {
+            options, running: false,
+            start: vi.fn(() => { engine.running = true; }),
+            stop: vi.fn(() => { engine.running = false; }),
+            invalidate: vi.fn(), refresh: vi.fn(async () => {}),
+        };
+        engines.push(engine);
+        return engine;
+    });
+    const dependencies: Record<string, unknown> = {
+        "../core/panelClient": { PanelError },
+        "../core/panelReminders": { createReminderController, parseNotificationSettings },
+        "../platform": { storage, toast },
+        "./ticketSound": { playTicketReminder },
+        "./observable": {
+            createObservable<T extends object>(initial: T) {
+                let value = initial;
+                return { get: () => value, set: (patch: Partial<T>) => { value = { ...value, ...patch }; } };
+            },
+        },
+    };
+    const exports = {} as Runtime;
+    runInNewContext(code, {
+        exports,
+        require: (id: string) => { if (!(id in dependencies)) throw new Error(`Unexpected import: ${id}`); return dependencies[id]; },
+    });
+    cleanups.push(exports.stopTicketReminders);
+    const running = () => engines.filter(e => e.running);
+    async function ready(initial = settings()) {
+        client.get.mockResolvedValueOnce(initial);
+        exports.syncTicketReminders(binding);
+        await exports.refreshTicketReminders();
+        expect(exports.ticketRemindersState.get()).toMatchObject({ phase: "ready", settings: initial, busy: false });
+    }
+    return { ...exports, client, binding, storage, toast, playTicketReminder, createReminderController, engines, running, ready,
+        state: () => exports.ticketRemindersState.get() };
+}
+
+describe("ticket reminder adapter", () => {
+    it.each([[], ...scopes.map(missing => scopes.filter(scope => scope !== missing))].map(granted => ({ granted })))(
+        "requires every requested scope before reading or mutating ($granted)", async ({ granted }) => {
+            const h = harness();
+            h.binding.scopes = granted;
+            h.syncTicketReminders(h.binding);
+            h.syncTicketReminders({ ...h.binding });
+            await h.refreshTicketReminders();
+            await h.setDiscordReminders(true);
+            expect(h.state()).toEqual({ ...idle, phase: "permission" });
+            expect(h.client.get).not.toHaveBeenCalled();
+            expect(h.client.mutate).not.toHaveBeenCalled();
+            expect(h.createReminderController).not.toHaveBeenCalled();
+            expect(h.storage.set).not.toHaveBeenCalled();
+        },
+    );
+
+    it("coalesces pending settings reads for an unchanged binding and starts only after settings arrive", async () => {
+        const h = harness();
+        const read = deferred<unknown>();
+        h.client.get.mockReturnValueOnce(read.promise);
+        h.syncTicketReminders(h.binding);
+        h.syncTicketReminders({ ...h.binding, projects: [...h.binding.projects], scopes: [...scopes] });
+        const first = h.refreshTicketReminders(), second = h.refreshTicketReminders();
+        expect(h.state()).toMatchObject({ phase: "loading", settings: null });
+        expect(h.client.get).toHaveBeenCalledExactlyOnceWith("/notification-settings");
+        expect(h.running()).toHaveLength(0);
+        read.resolve(settings());
+        await Promise.all([first, second]);
+        expect(h.state().phase).toBe("ready");
+        expect(h.running()).toHaveLength(1);
+        expect(h.client.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("passes the verified context, assigned-ticket reader and storage to the engine", async () => {
+        const h = harness();
+        await h.ready();
+        const engine = h.running()[0];
+        expect(engine.options).toMatchObject({ accountId, projects: h.binding.projects, storage: h.storage });
+        expect(engine.options.storage).toBe(h.storage);
+        expect(engine.options.current()).toEqual({
+            accountId, projects: h.binding.projects, sessionId: h.client.connectionId,
+            permissionsRevision: h.binding.permissionsRevision, enabled: true,
+        });
+        const snapshot = { revision: "assigned-v1" };
+        h.client.get.mockResolvedValueOnce(snapshot);
+        await expect(engine.options.get()).resolves.toBe(snapshot);
+        expect(h.client.get).toHaveBeenLastCalledWith("/tickets/assigned");
+        engine.invalidate.mockClear();
+        h.invalidateTicketReminders("tickets.changed");
+        expect(engine.invalidate).toHaveBeenCalledExactlyOnceWith("tickets.changed");
+        h.binding.current = () => false;
+        expect(engine.options.current()).toBeNull();
+        await expect(engine.options.play(() => true)).resolves.toBe(false);
+    });
+
+    it.each([false, true])("GET 403 enters permission and requires reconnect (previously ready: %s)", async previouslyReady => {
+        const h = harness();
+        if (previouslyReady) await h.ready();
+        h.client.get.mockRejectedValueOnce(new PanelError("insufficient_scope", 403));
+        if (!previouslyReady) h.syncTicketReminders(h.binding);
+        await h.refreshTicketReminders();
+        expect(h.state()).toMatchObject({ phase: "permission", busy: false });
+        expect(h.state().error).toContain("Подключите аккаунт заново");
+        expect(h.running()).toHaveLength(0);
+        for (const engine of h.engines) {
+            expect(engine.options.current()).toMatchObject({ enabled: false });
+            await expect(engine.options.play(() => true)).resolves.toBe(false);
+        }
+        const reads = h.client.get.mock.calls.length;
+        await h.refreshTicketReminders();
+        h.syncTicketReminders({ ...h.binding });
+        await h.setDiscordReminders(true);
+        expect(h.client.get).toHaveBeenCalledTimes(reads);
+        expect(h.client.mutate).not.toHaveBeenCalled();
+        expect(h.binding.onAuthError).not.toHaveBeenCalled();
+        expect(h.playTicketReminder).not.toHaveBeenCalled();
+        const reconnected = fakeClient();
+        reconnected.connectionId = "12345678-1234-1234-1234-123456789def";
+        h.syncTicketReminders({ ...h.binding, client: reconnected });
+        await h.refreshTicketReminders();
+        expect(reconnected.get).toHaveBeenCalledExactlyOnceWith("/notification-settings");
+        expect(h.state()).toMatchObject({ phase: "ready", error: "", settings: settings() });
+        expect(h.running()).toHaveLength(1);
+    });
+
+    it.each([new PanelError("network_error"), new PanelError("server_error", 500)])(
+        "other settings read errors stay offline and allow an explicit retry ($code)", async error => {
+            const h = harness();
+            await h.ready();
+            const engine = h.running()[0];
+            h.client.get.mockRejectedValueOnce(error);
+            await h.refreshTicketReminders();
+            expect(h.state()).toMatchObject({ phase: "offline", busy: false });
+            expect(h.state().error).toContain("Повторите проверку");
+            expect(h.running()).toHaveLength(0);
+            expect(engine.options.current()).toMatchObject({ enabled: false });
+            expect(h.binding.onAuthError).not.toHaveBeenCalled();
+            await expect(engine.options.play(() => true)).resolves.toBe(false);
+            await h.refreshTicketReminders();
+            expect(h.client.get).toHaveBeenCalledTimes(3);
+            expect(h.state()).toMatchObject({ phase: "ready", error: "" });
+            expect(engine.options.current()).toMatchObject({ enabled: true });
+            expect(h.running()).toHaveLength(1);
+            expect(h.client.mutate).not.toHaveBeenCalled();
+        },
+    );
+
+    it.each([true, false])("PATCHes only discordEnabled=%s with the saved version, stopping delivery until verified", async enabled => {
+        const h = harness();
+        await h.ready(settings(!enabled, "opaque-v7"));
+        const write = deferred<unknown>();
+        h.client.mutate.mockImplementationOnce((_request, guard) => { guard(); return write.promise; });
+        const updating = h.setDiscordReminders(enabled);
+        expect(h.client.mutate).toHaveBeenCalledExactlyOnceWith({
+            path: "/notification-settings", method: "PATCH", version: "opaque-v7", body: { discordEnabled: enabled },
+        }, expect.any(Function));
+        expect(h.state()).toMatchObject({ busy: true, settings: settings(!enabled, "opaque-v7") });
+        expect(h.running()).toHaveLength(0);
+        for (const engine of h.engines) {
+            expect(engine.options.current()).toMatchObject({ enabled: false });
+            await expect(engine.options.play(() => true)).resolves.toBe(false);
+        }
+        await h.setDiscordReminders(!enabled);
+        await h.refreshTicketReminders();
+        expect(h.client.mutate).toHaveBeenCalledTimes(1);
+        expect(h.client.get).toHaveBeenCalledTimes(1);
+        write.resolve(settings(enabled, "opaque-v8"));
+        await updating;
+        expect(h.state()).toMatchObject({ phase: "ready", busy: false, error: "", settings: settings(enabled, "opaque-v8") });
+        expect(h.engines.at(-1)!.options.current()).toMatchObject({ enabled });
+        if (enabled) expect(h.running()).toHaveLength(1);
+        expect(h.playTicketReminder).not.toHaveBeenCalled();
+        expect(h.storage.set).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        { error: new PanelError("conflict", 412), message: "Настройки изменились на панели" },
+        { error: new PanelError("network_error"), message: "Результат сохранения не подтверждён" },
+    ])("keeps delivery stopped after $error.code until explicit reread, without replaying PATCH", async ({ error, message }) => {
+        const h = harness();
+        await h.ready();
+        h.client.mutate.mockRejectedValueOnce(error);
+        await h.setDiscordReminders(false);
+        expect(h.state()).toMatchObject({ phase: "offline", busy: false });
+        expect(h.state().error).toContain(message);
+        expect(h.running()).toHaveLength(0);
+        for (const engine of h.engines) await expect(engine.options.play(() => true)).resolves.toBe(false);
+        await h.setDiscordReminders(false);
+        await flush();
+        expect(h.client.get).toHaveBeenCalledTimes(1);
+        expect(h.client.mutate).toHaveBeenCalledTimes(1);
+        const reread = deferred<unknown>();
+        h.client.get.mockReturnValueOnce(reread.promise);
+        const retry = h.refreshTicketReminders();
+        expect(h.running()).toHaveLength(0);
+        expect(h.client.get).toHaveBeenLastCalledWith("/notification-settings");
+        reread.resolve(settings(true, "verified-v9"));
+        await retry;
+        expect(h.state()).toMatchObject({ phase: "ready", busy: false, error: "", settings: settings(true, "verified-v9") });
+        expect(h.running()).toHaveLength(1);
+        expect(h.client.mutate).toHaveBeenCalledTimes(1);
+        expect(h.playTicketReminder).not.toHaveBeenCalled();
+    });
+
+    it.each(["before", "after"] as const)("ignores a settings read that resolves %s the newer PATCH", async timing => {
+        const h = harness();
+        await h.ready();
+        const stale = deferred<unknown>(), write = deferred<unknown>();
+        h.client.get.mockReturnValueOnce(stale.promise);
+        const reading = h.refreshTicketReminders();
+        h.client.mutate.mockReturnValueOnce(write.promise);
+        const updating = h.setDiscordReminders(false);
+        if (timing === "before") {
+            stale.resolve(settings(true, "stale-v0"));
+            await reading;
+            expect(h.state()).toMatchObject({ busy: true, settings: settings() });
+            expect(h.running()).toHaveLength(0);
+        }
+        write.resolve(settings(false, "patch-v2"));
+        await updating;
+        if (timing === "after") {
+            stale.resolve(settings(true, "stale-v0"));
+            await reading;
+        }
+        expect(h.state()).toMatchObject({ phase: "ready", busy: false, settings: settings(false, "patch-v2") });
+        expect(h.client.mutate).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(["read", "patch"] as const)("stop clears state and ignores late %s responses and engine callbacks", async operation => {
+        const h = harness();
+        await h.ready();
+        const engine = h.running()[0];
+        engine.options.onState?.({ status: "unavailable" });
+        expect(h.state().deliveryError).not.toBe("");
+        const response = deferred<unknown>();
+        let pending: Promise<void>;
+        if (operation === "read") {
+            h.client.get.mockReturnValueOnce(response.promise);
+            pending = h.refreshTicketReminders();
+        } else {
+            h.client.mutate.mockReturnValueOnce(response.promise);
+            pending = h.setDiscordReminders(false);
+        }
+        h.stopTicketReminders();
+        expect(h.state()).toEqual(idle);
+        expect(h.running()).toHaveLength(0);
+        expect(engine.options.current()).toBeNull();
+        if (operation === "patch") expect(() => h.client.mutate.mock.calls[0][1]()).toThrow(PanelError);
+        response.resolve(settings(operation !== "patch", "late-v2"));
+        await pending;
+        engine.options.onState?.({ status: "unavailable" });
+        await expect(engine.options.play(() => true)).resolves.toBe(false);
+        expect(h.state()).toEqual(idle);
+        expect(h.playTicketReminder).not.toHaveBeenCalled();
+        expect(h.toast).not.toHaveBeenCalled();
+    });
+
+    it.each(["read", "patch"] as const)("switching accounts clears state and rejects the previous account's late %s", async operation => {
+        const h = harness();
+        await h.ready();
+        const oldEngine = h.running()[0];
+        oldEngine.options.onState?.({ status: "unavailable" });
+        const stale = deferred<unknown>();
+        let pending: Promise<void>;
+        if (operation === "read") {
+            h.client.get.mockReturnValueOnce(stale.promise);
+            pending = h.refreshTicketReminders();
+        } else {
+            h.client.mutate.mockReturnValueOnce(stale.promise);
+            pending = h.setDiscordReminders(false);
+        }
+        const nextClient = fakeClient(), nextRead = deferred<unknown>();
+        nextClient.get.mockReturnValueOnce(nextRead.promise);
+        h.syncTicketReminders({ ...h.binding, client: nextClient, accountId: otherAccountId });
+        expect(h.state()).toEqual({ ...idle, phase: "loading" });
+        expect(oldEngine.running).toBe(false);
+        expect(oldEngine.options.current()).toBeNull();
+        stale.resolve(settings(operation !== "patch", "old-account-v2"));
+        await pending;
+        oldEngine.options.onState?.({ status: "unavailable" });
+        expect(h.state()).toEqual({ ...idle, phase: "loading" });
+        await expect(oldEngine.options.play(() => true)).resolves.toBe(false);
+        const reading = h.refreshTicketReminders();
+        nextRead.resolve(settings(true, "new-account-v1"));
+        await reading;
+        expect(h.state()).toMatchObject({ phase: "ready", settings: settings(true, "new-account-v1") });
+        expect(h.running()).toHaveLength(1);
+        expect(h.running()[0].options.current()).toMatchObject({ accountId: otherAccountId });
+    });
+
+    it("rebinds when the permission revision changes", async () => {
+        const h = harness();
+        await h.ready();
+        const oldEngine = h.running()[0];
+        h.syncTicketReminders({ ...h.binding, permissionsRevision: "permissions-v2" });
+        await h.refreshTicketReminders();
+        expect(oldEngine.stop).toHaveBeenCalled();
+        expect(oldEngine.options.current()).toBeNull();
+        expect(h.running()).toHaveLength(1);
+        expect(h.running()[0].options.current()).toMatchObject({ permissionsRevision: "permissions-v2" });
+    });
+
+    it("maps engine status to delivery errors and clears them after recovery", async () => {
+        const h = harness();
+        await h.ready();
+        const engine = h.running()[0];
+        engine.options.onState?.({ status: "unavailable" });
+        expect(h.state().deliveryError).toContain("Напоминания приостановлены");
+        engine.options.onState?.({ status: "ready" });
+        expect(h.state().deliveryError).toBe("");
+    });
+
+    it("keeps the engine context disabled when the initial settings disable Discord reminders", async () => {
+        const h = harness();
+        await h.ready(settings(false));
+        expect(h.engines).toHaveLength(1);
+        expect(h.engines[0].options.current()).toMatchObject({
+            accountId, permissionsRevision: h.binding.permissionsRevision, enabled: false,
+        });
+        await expect(h.engines[0].options.play(() => true)).resolves.toBe(false);
+        expect(h.playTicketReminder).not.toHaveBeenCalled();
+        expect(h.toast).not.toHaveBeenCalled();
+    });
+
+    it("disables the engine context and never plays after switching Discord reminders off", async () => {
+        const h = harness();
+        await h.ready();
+        const engine = h.running()[0];
+        h.client.mutate.mockResolvedValueOnce(settings(false, "disabled-v2"));
+        await h.setDiscordReminders(false);
+        expect(engine.options.current()).toMatchObject({ enabled: false });
+        await expect(engine.options.play(() => true)).resolves.toBe(false);
+        for (const e of h.engines) await expect(e.options.play(() => true)).resolves.toBe(false);
+        expect(h.playTicketReminder).not.toHaveBeenCalled();
+        expect(h.toast).not.toHaveBeenCalled();
+    });
+
+    it("checks the engine validity guard before invoking sound", async () => {
+        const h = harness();
+        await h.ready();
+        const play = h.running()[0].options.play;
+        await expect(play(() => false)).resolves.toBe(false);
+        expect(h.playTicketReminder).not.toHaveBeenCalled();
+        await expect(play(() => true)).resolves.toBe(true);
+        expect(h.playTicketReminder).toHaveBeenCalledOnce();
+        expect(h.toast).toHaveBeenCalledExactlyOnceWith("Игрок ждёт ответа в назначенном вам тикете", "message");
+    });
+
+    it.each(["engine", "stop", "busy", "disabled"] as const)("rechecks %s validity inside deferred audio playback", async invalidation => {
+        const h = harness();
+        await h.ready();
+        let engineValid = true;
+        const audio = deferred<void>();
+        h.playTicketReminder.mockImplementationOnce(async valid => { await audio.promise; return valid(); });
+        const playing = h.running()[0].options.play(() => engineValid);
+        expect(h.playTicketReminder).toHaveBeenCalledOnce();
+        let updating: Promise<void> | undefined;
+        const write = deferred<unknown>();
+        if (invalidation === "engine") engineValid = false;
+        if (invalidation === "stop") h.stopTicketReminders();
+        if (invalidation === "busy" || invalidation === "disabled") {
+            h.client.mutate.mockReturnValueOnce(write.promise);
+            updating = h.setDiscordReminders(false);
+            if (invalidation === "disabled") { write.resolve(settings(false, "disabled-v2")); await updating; }
+        }
+        audio.resolve();
+        await expect(playing).resolves.toBe(false);
+        expect(h.toast).not.toHaveBeenCalled();
+        if (invalidation === "busy") { write.resolve(settings(false, "disabled-v2")); await updating; }
+    });
+
+    it.each([
+        new PanelError("unauthorized", 401), new PanelError("session_revoked"), new PanelError("refresh_uncertain"),
+        new PanelError("not_authenticated"), new PanelError("invalid_grant"), new PanelError("vault_error"),
+    ])("forwards fatal GET authentication errors to the parent ($code)", async error => {
+        const h = harness();
+        h.client.get.mockRejectedValueOnce(error);
+        h.syncTicketReminders(h.binding);
+        await h.refreshTicketReminders();
+        expect(h.binding.onAuthError).toHaveBeenCalledExactlyOnceWith(error);
+        expect(h.running()).toHaveLength(0);
+        expect(h.client.mutate).not.toHaveBeenCalled();
+    });
+
+    it("forwards assigned-ticket and PATCH 401 errors, letting the parent stop the session", async () => {
+        const h = harness();
+        await h.ready();
+        const error = new PanelError("unauthorized", 401);
+        h.client.get.mockRejectedValueOnce(error);
+        await expect(h.running()[0].options.get()).rejects.toBe(error);
+        expect(h.binding.onAuthError).toHaveBeenCalledExactlyOnceWith(error);
+        h.binding.onAuthError = vi.fn(() => h.stopTicketReminders());
+        h.client.mutate.mockRejectedValueOnce(error);
+        await h.setDiscordReminders(false);
+        expect(h.binding.onAuthError).toHaveBeenCalledExactlyOnceWith(error);
+        expect(h.state()).toEqual(idle);
+        expect(h.running()).toHaveLength(0);
+    });
+
+    it("ignores a late auth error from a stopped binding", async () => {
+        const h = harness(), response = deferred<unknown>();
+        h.client.get.mockReturnValueOnce(response.promise);
+        h.syncTicketReminders(h.binding);
+        const reading = h.refreshTicketReminders();
+        h.stopTicketReminders();
+        response.reject(new PanelError("unauthorized", 401));
+        await reading;
+        expect(h.binding.onAuthError).not.toHaveBeenCalled();
+        expect(h.state()).toEqual(idle);
+    });
+});

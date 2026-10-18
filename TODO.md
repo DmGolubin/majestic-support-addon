@@ -11,7 +11,13 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (18)
+## Реализовано · нужна приёмка (22)
+
+### B07 · Свой звук и аккуратные настройки
+
+B · Тикеты. Реализованы свой локальный аудиофайл до 5 МБ/30 секунд, сброс, округлённый процент и статичные карточки серверов. Проверены компоненты браузерного стенда и синтетические аудио/хранилище; слышимость в Canary ещё не подтверждена.
+
+Основание: [2026-10-18-ticket-reminders-and-custom-sound.md](docs/audits/2026-10-18-ticket-reminders-and-custom-sound.md).
 
 ### Q12 · Полировка текущего приложения: 20 независимых проверок
 
@@ -43,11 +49,29 @@ C · Панель. Вход ранее подтверждён владельце
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-panel-session-sse.md](docs/audits/2026-10-18-panel-session-sse.md), [2026-10-18-panel-live-login.md](docs/audits/2026-10-18-panel-live-login.md), [2026-10-18-panel-live-api-disabled.md](docs/audits/2026-10-18-panel-live-api-disabled.md), [2026-10-18-device-link-compatibility.md](docs/audits/2026-10-18-device-link-compatibility.md).
 
+### B01 · Разбор состояния тикета
+
+B · Тикеты. Подключён GET /tickets/assigned: строгая проверка аккаунта, проектов, назначения, waiting_support и свежести. Живая приёмка назначения, ответа и возврата в пул ещё нужна.
+
+Основание: [TICKET-HELPER-SPEC.md](docs/TICKET-HELPER-SPEC.md), [2026-10-16-ticket-helper.md](docs/audits/2026-10-16-ticket-helper.md), [2026-10-18-ticket-reminders-and-custom-sound.md](docs/audits/2026-10-18-ticket-reminders-and-custom-sound.md).
+
 ### B02 · Звук нового тикета
 
 B · Тикеты. Реализованы звук новой ветки, настройки/громкость/тест/пауза и дедупликация на основе TicketSound. Тесты и браузерный стенд проходят. Сборка готова; требуется живая проверка THREAD_CREATE и слышимости в Discord. Обычные сообщения и системный тег не обрабатываются.
 
 Основание: [TICKET-HELPER-SPEC.md](docs/TICKET-HELPER-SPEC.md), [2026-10-16-ticket-helper.md](docs/audits/2026-10-16-ticket-helper.md).
+
+### B03 · Напоминание об ответе
+
+B · Тикеты. Реализованы серверные reminderAt/reminderId, проверка перед звуком, постоянная дедупликация, SSE и polling/Retry-After. Порог читается из Telegram. Нужна живая проверка API и звука; ограничение 10000 сохранённых попыток описано в аудите.
+
+Основание: [TICKET-HELPER-SPEC.md](docs/TICKET-HELPER-SPEC.md), [2026-10-16-ticket-helper.md](docs/audits/2026-10-16-ticket-helper.md), [2026-10-18-ticket-reminders-and-custom-sound.md](docs/audits/2026-10-18-ticket-reminders-and-custom-sound.md).
+
+### B06 · Настройки помощника
+
+B · Тикеты. Настройки показывают пороги Telegram и изменяют только discordEnabled через версионный PATCH; старым сессиям доступна явная авторизация новых прав. Конфликт/неподтверждённая запись требуют перечитать состояние. Живая приёмка остаётся.
+
+Основание: [TICKET-HELPER-SPEC.md](docs/TICKET-HELPER-SPEC.md), [2026-10-16-ticket-helper.md](docs/audits/2026-10-16-ticket-helper.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-ticket-reminders-and-custom-sound.md](docs/audits/2026-10-18-ticket-reminders-and-custom-sound.md).
 
 ### I03 · Прототип открытой сборки на основе Vencord
 
@@ -121,15 +145,11 @@ C · Панель. Задержка после подтверждения на �
 
 Основание: [2026-10-18-editor-and-login.md](docs/audits/2026-10-18-editor-and-login.md).
 
-## Ожидает API (1)
+## Ожидает API (0)
 
-### B01 · Разбор состояния тикета
+Нет задач.
 
-B · Тикеты. Контракт API состояния получен: assigned tickets и reminderAt/reminderId. Нужны настоящие примеры и тестовая среда для проверки назначения, окончания ожидания и возврата в пул. Упоминание бота не заменяет серверное состояние.
-
-Основание: [TICKET-HELPER-SPEC.md](docs/TICKET-HELPER-SPEC.md), [2026-10-16-ticket-helper.md](docs/audits/2026-10-16-ticket-helper.md).
-
-## Осталось (16)
+## Осталось (14)
 
 ### A12 · Категории и теги из панели
 
@@ -151,12 +171,6 @@ C · Панель. Сохранение предпочтений аккаунт�
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md).
 
-### B03 · Напоминание об ответе
-
-B · Тикеты. Контракт получен: серверные reminderAt/reminderId, ключ account+project+ticket+reminderId; повторы 10 мин, порог из Telegram, fallback 15. Старый локальный расчёт 5/10/15 и дедупликация по циклу требуют замены. Живая проверка ждёт тестовой среды.
-
-Основание: [TICKET-HELPER-SPEC.md](docs/TICKET-HELPER-SPEC.md), [2026-10-16-ticket-helper.md](docs/audits/2026-10-16-ticket-helper.md).
-
 ### B04 · Подбор шаблонов по обращению
 
 B · Тикеты. Ключевые слова первого сообщения, релевантные ответы сверху; отключаемо, без автовставки.
@@ -166,12 +180,6 @@ B · Тикеты. Ключевые слова первого сообщения
 B · Тикеты. Подсказка и подтверждение ручного действия. Настоящее ограничение для всех требует бота; автозабора нет.
 
 Основание: [2026-10-15-todo-before-roadmap.md](docs/history/2026-10-15-todo-before-roadmap.md).
-
-### B06 · Настройки помощника
-
-B · Тикеты. Переделать интерфейс: два блока новых тикетов и ожидания ответа, единые переключатели/dropdown, компактная громкость и тест звука; проекты/имена каналов вместо ручного ввода ID в основном сценарии. По контракту порог читается из Telegram, меняется там; здесь discordEnabled. Личные напоминания ещё не подключены.
-
-Основание: [TICKET-HELPER-SPEC.md](docs/TICKET-HELPER-SPEC.md), [2026-10-16-ticket-helper.md](docs/audits/2026-10-16-ticket-helper.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md).
 
 ### X01 · BetterDiscord-версия
 

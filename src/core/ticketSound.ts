@@ -6,6 +6,35 @@
 
 import { PROJECTS } from "./types";
 
+export const MAX_TICKET_SOUND_BYTES = 5 * 1024 * 1024;
+export const MAX_TICKET_SOUND_SECONDS = 30;
+
+/** Encoded local bytes only; never a URL, path, or executable media element. */
+export interface CustomTicketSound {
+    version: 1;
+    name: string;
+    data: string;
+}
+
+export function ticketSoundFileName(name: string): string {
+    return name.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, "").trim().slice(0, 160) || "Свой звук";
+}
+
+/** DataStore is untrusted on read. Duration is checked again after decoding. */
+export function readCustomTicketSound(value: unknown): CustomTicketSound | null {
+    if (!value || typeof value !== "object") return null;
+    const v = value as Partial<CustomTicketSound>;
+    if (v.version !== 1 || typeof v.name !== "string" || typeof v.data !== "string") return null;
+    const { data } = v;
+    if (!data.length || data.length > Math.ceil(MAX_TICKET_SOUND_BYTES / 3) * 4 || data.length % 4 !== 0) return null;
+    // Strip at most two padding characters before checking the alphabet, avoiding
+    // a repeated-group regexp over a multi-megabyte string.
+    const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
+    if (/[^A-Za-z0-9+/]/.test(data.slice(0, data.length - padding))) return null;
+    if (data.length / 4 * 3 - padding > MAX_TICKET_SOUND_BYTES) return null;
+    return { version: 1, name: ticketSoundFileName(v.name), data };
+}
+
 export interface TicketSoundOptions {
     enabled: boolean;
     channelIds: string[];

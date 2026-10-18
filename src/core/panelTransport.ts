@@ -53,6 +53,9 @@ export function createPanelTransport(fetchImpl = globalThis.fetch, trustedOrigin
         let body: string | undefined;
         try {
             url = panelEndpoint(path, trustedOrigin);
+            // These endpoints never accept an implicit POST body (OAuth endpoints still do).
+            if ((path === "/tickets/assigned" || path === "/notification-settings")
+                && options.body !== undefined && options.method === undefined) throw new Error();
             if (options.method !== undefined || options.idempotencyKey !== undefined || options.version !== undefined) {
                 if (!options.method || !options.token) throw new Error();
                 panelMutationScope({ ...options, path, method: options.method });

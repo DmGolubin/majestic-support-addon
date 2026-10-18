@@ -78,6 +78,7 @@ function harness() {
             if (!signal.aborted) await new Promise<void>(resolve => signal.addEventListener("abort", () => resolve(), { once: true }));
         } },
         "./demo": { disableDemo() {}, enableDemo() {} },
+        "./ticketReminders": { invalidateTicketReminders() {}, stopTicketReminders() {}, syncTicketReminders() {} },
         "./flow": { confirmedForeign: new Set(), supersede() {} }, "./observable": { createObservable: observable },
         "./op": { nextGeneration() {}, captureWindowTarget() {}, windowEditor: () => null },
         "./uiState": { panelAccess: access, realStore: local, selectStore: (s: Store) => { selected = s; },

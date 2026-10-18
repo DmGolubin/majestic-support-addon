@@ -26,3 +26,8 @@
 .vc-stx-tickets .vc-stx-ticket-disabled { margin: 12px 0 6px; color: var(--stx-mu2); }
 .vc-stx-tickets .vc-stx-ticket-disabled input:disabled { cursor: not-allowed; }
 .vc-stx-tickets .vc-stx-ticket-error { margin-top: 12px; color: var(--text-danger, #f28ba8); overflow-wrap: anywhere; }
+.vc-stx-ticket-custom-sound { display: grid; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.vc-stx-sound-file { position: relative; overflow: hidden; }
+.vc-stx-settings .vc-stx-sound-file input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.vc-stx-sound-file:focus-within { outline: 2px solid var(--stx-ring); outline-offset: 2px; }
+.vc-stx-sound-file:has(input:disabled) { opacity: .5; }

@@ -15,18 +15,20 @@ const text = (node: any): string => Array.isArray(node) ? node.map(text).join(""
     : node && typeof node === "object" ? text(node.props.children) : node == null || typeof node === "boolean" ? "" : String(node);
 
 function harness(patch: Partial<TicketSoundOptions> = {}) {
-    const state = { options: { ...defaultTicketSound(), ...patch }, loaded: true, testing: false, error: "" };
+    const state = { options: { ...defaultTicketSound(), ...patch }, loaded: true, testing: false, error: "", customName: "", loadingSound: false };
     const channels = new Map<string, { name?: string; guild_id?: string; }>();
     const ChannelStore = { getChannel: (id: string) => channels.get(id) };
     const useStateFromStores = vi.fn((_stores, read: () => unknown) => read());
     const setTicketSound = vi.fn(), testTicketSound = vi.fn();
+    const chooseTicketSound = vi.fn(), resetTicketSound = vi.fn();
     const dependencies: Record<string, unknown> = {
         "./ticket-settings.css": {},
         "@webpack/common": { ChannelStore, useStateFromStores },
         "../core/types": { PROJECTS },
         "./Select": { Select: "Select" },
         "./svg": { IconBell: "IconBell" },
-        "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, testTicketSound },
+        "./ReminderSettings": { ReminderSettings: "ReminderSettings" },
+        "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, testTicketSound, chooseTicketSound, resetTicketSound },
     };
     const exports: any = {};
     runInNewContext(code, {
@@ -34,7 +36,7 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
         require: (id: string) => { if (!(id in dependencies)) throw new Error(`Unexpected import: ${id}`); return dependencies[id]; },
         React: { createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props: { ...props as object, children } }) },
     });
-    return { state, channels, ChannelStore, useStateFromStores, setTicketSound, testTicketSound, render: () => exports.TicketSettings() };
+    return { state, channels, ChannelStore, useStateFromStores, setTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, render: () => exports.TicketSettings() };
 }
 
 describe("ticket settings", () => {
@@ -51,7 +53,7 @@ describe("ticket settings", () => {
         expect(h.useStateFromStores).toHaveBeenCalledWith([h.ChannelStore], expect.any(Function), [h.state.options.channelIds]);
         h.channels.set("unknown", { name: "tickets", guild_id: PROJECTS.mj.guildId });
         expect(text(h.render())).toContain("Majestic#tickets");
-        expect(nodes(tree).some(n => n.type === "form" || n.type === "input" && !["range", "checkbox"].includes(n.props.type))).toBe(false);
+        expect(nodes(tree).some(n => n.type === "form" || n.type === "input" && !["range", "checkbox", "file"].includes(n.props.type))).toBe(false);
         expect(h.setTicketSound).not.toHaveBeenCalled();
     });
 
@@ -101,24 +103,26 @@ describe("ticket settings", () => {
         expect(h.testTicketSound).toHaveBeenCalledOnce();
     });
 
-    it("labels controls and preserves saved volume without snapping to a five-percent step", () => {
-        const h = harness({ volume: 37.5 });
+    it("rounds the volume label while preserving the saved value and using one-percent steps", () => {
+        const h = harness({ volume: 83.9506 });
         const all = nodes(h.render());
         const range = all.find(n => n.type === "input" && n.props.type === "range")!;
         expect(range.props).toMatchObject({
-            "aria-label": "Громкость нового тикета", "aria-valuetext": "37.5%",
-            min: 0, max: 100, step: "any", value: 37.5,
+            "aria-label": "Громкость нового тикета", "aria-valuetext": "84%",
+            min: 0, max: 100, step: 1, value: 83.9506,
         });
+        expect(text(all.find(n => n.type === "label" && nodes(n).includes(range)))).toBe("Громкость 84%");
+        expect(h.setTicketSound).not.toHaveBeenCalled();
         expect(all.find(n => n.type === "Select")!.props["aria-label"]).toBe("Пауза между сигналами");
         const labels = all.filter(n => n.type === "label" && nodes(n).some(child => child.type === "input" && child.props.type === "checkbox"));
         expect(labels.map(text)).toEqual([
-            "Звук при создании тикета", "Без звука, когда тикет открыт и Discord в фокусе", "Напоминать в Discord",
+            "Звук при создании тикета", "Без звука, когда тикет открыт и Discord в фокусе",
         ]);
         const testButton = all.find(n => n.type === "button")!;
         expect(testButton.props).toMatchObject({ type: "button", disabled: false });
         expect(text(testButton)).toBe("Проверить звук");
-        range.props.onChange({ currentTarget: { value: "38.5" } });
-        expect(h.setTicketSound).toHaveBeenCalledWith({ volume: 38.5 });
+        range.props.onChange({ currentTarget: { value: "85" } });
+        expect(h.setTicketSound).toHaveBeenCalledWith({ volume: 85 });
     });
 
     it("disables the sound test while testing or muted and keeps runtime errors visible", () => {
@@ -133,14 +137,62 @@ describe("ticket settings", () => {
         expect(text(all.find(n => n.props.role === "alert"))).toBe(h.state.error);
     });
 
-    it("shows reminders as unavailable without fabricating a Telegram threshold or an enabled state", () => {
+    it("keeps the new-ticket title and renders the dedicated reminder settings component", () => {
         const tree = harness().render();
-        const waiting = nodes(tree).find(n => n.type === "section" && n.props["aria-label"] === "Игрок ждёт ответа")!;
-        expect(text(waiting)).toContain("Не подключено");
-        expect(text(waiting)).toContain("Порог ожидания задаётся в Telegram.");
-        const controls = nodes(waiting).filter(n => n.type === "input" || n.type === "Select");
-        expect(controls).toHaveLength(1);
-        expect(controls[0].props).toMatchObject({ type: "checkbox", checked: false, disabled: true });
-        expect(controls[0].props.onChange).toBeUndefined();
+        expect(nodes(tree).filter(n => n.type === "h3").map(text)).toEqual(["Новые тикеты"]);
+        expect(nodes(tree).filter(n => n.type === "ReminderSettings")).toHaveLength(1);
+    });
+
+    it("dispatches the selected audio file and clears the picker so it can be selected again", () => {
+        const h = harness();
+        const tree = h.render();
+        const picker = nodes(tree).find(n => n.type === "input" && n.props.type === "file")!;
+        expect(picker.props).toMatchObject({ "aria-label": "Выбрать свой звук", disabled: false });
+        expect(picker.props.accept.split(",")).toEqual([
+            "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/flac", ".mp3", ".wav", ".ogg", ".m4a", ".flac",
+        ]);
+        expect(text(tree)).toContain("Стандартный звук");
+        const file = { name: "notification.ogg", type: "audio/ogg" };
+        const currentTarget = { files: [file, { name: "ignored.wav" }], value: "notification.ogg" };
+        picker.props.onChange({ currentTarget });
+        expect(h.chooseTicketSound).toHaveBeenCalledExactlyOnceWith(file);
+        expect(currentTarget.value).toBe("");
+        expect(h.setTicketSound).not.toHaveBeenCalled();
+    });
+
+    it.each([[], null, undefined])("does nothing when the file picker has no file (%j)", files => {
+        const h = harness();
+        const picker = nodes(h.render()).find(n => n.type === "input" && n.props.type === "file")!;
+        const currentTarget = { files, value: "previous selection" };
+        picker.props.onChange({ currentTarget });
+        expect(currentTarget.value).toBe("");
+        expect(h.chooseTicketSound).not.toHaveBeenCalled();
+        expect(h.resetTicketSound).not.toHaveBeenCalled();
+        expect(h.setTicketSound).not.toHaveBeenCalled();
+    });
+
+    it("shows the custom filename and only offers reset when a custom sound is selected", () => {
+        const h = harness();
+        const resetButton = () => nodes(h.render()).find(n => n.type === "button" && text(n) === "Вернуть стандартный");
+        expect(resetButton()).toBeUndefined();
+        h.state.customName = "notification.ogg";
+        expect(text(h.render())).toContain("notification.ogg");
+        expect(resetButton()!.props).toMatchObject({ type: "button", disabled: false });
+        resetButton()!.props.onClick();
+        expect(h.resetTicketSound).toHaveBeenCalledOnce();
+        expect(h.chooseTicketSound).not.toHaveBeenCalled();
+    });
+
+    it.each(["loadingSound", "testing"] as const)("disables file selection and reset while %s", flag => {
+        const h = harness();
+        h.state.customName = "notification.ogg";
+        h.state[flag] = true;
+        const tree = h.render();
+        const all = nodes(tree);
+        expect(all.find(n => n.type === "input" && n.props.type === "file")!.props.disabled).toBe(true);
+        expect(all.find(n => n.type === "button" && text(n) === "Вернуть стандартный")!.props.disabled).toBe(true);
+        if (flag === "loadingSound") expect(text(tree)).toContain("Загружаем звук…");
+        h.state[flag] = false;
+        expect(nodes(h.render()).find(n => n.type === "input" && n.props.type === "file")!.props.disabled).toBe(false);
     });
 });

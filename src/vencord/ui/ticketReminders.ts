@@ -1,0 +1,134 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 SupportTemplates contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+import { PanelClient, PanelError } from "../core/panelClient";
+import { createReminderController, parseNotificationSettings } from "../core/panelReminders";
+import { storage, toast } from "../platform";
+import { createObservable } from "./observable";
+import { playTicketReminder } from "./ticketSound";
+
+type Settings = ReturnType<typeof parseNotificationSettings>;
+type Binding = { client: PanelClient; accountId: string; projects: string[]; permissionsRevision: string; scopes: readonly string[]; current(): boolean; onAuthError(error: unknown): void; };
+export const ticketRemindersState = createObservable({
+    phase: "idle" as "idle" | "permission" | "loading" | "ready" | "offline",
+    settings: null as Settings | null, busy: false, error: "", deliveryError: "",
+});
+const REQUIRED = ["tickets:assigned:read", "notifications:settings:read", "notifications:settings:write"];
+let binding: Binding | null = null;
+let controller: ReturnType<typeof createReminderController> | null = null;
+let revision = 0;
+let settingsRead: Promise<void> | null = null;
+let settingsRevision = 0;
+
+export function stopTicketReminders() {
+    revision++; settingsRevision++;
+    controller?.stop(); controller = null; binding = null; settingsRead = null;
+    ticketRemindersState.set({ phase: "idle", settings: null, busy: false, error: "", deliveryError: "" });
+}
+
+function current(b: Binding, own: number) { return binding === b && own === revision && b.current(); }
+async function get(b: Binding, path: string) {
+    try { return await b.client.get(path); }
+    catch (error) {
+        if (binding === b && error instanceof PanelError && (error.status === 401
+            || ["session_revoked", "refresh_uncertain", "not_authenticated", "invalid_grant", "vault_error"].includes(error.code))) b.onAuthError(error);
+        throw error;
+    }
+}
+
+export function syncTicketReminders(next: Binding) {
+    const same = binding && binding.client === next.client && binding.accountId === next.accountId
+        && binding.permissionsRevision === next.permissionsRevision
+        && JSON.stringify(binding.projects) === JSON.stringify(next.projects)
+        && JSON.stringify(binding.scopes) === JSON.stringify(next.scopes);
+    if (same) { void refreshTicketReminders(); return; }
+    stopTicketReminders(); binding = next;
+    if (!REQUIRED.every(scope => next.scopes.includes(scope))) {
+        ticketRemindersState.set({ phase: "permission" }); return;
+    }
+    const own = revision;
+    controller = createReminderController({
+        accountId: next.accountId, projects: next.projects,
+        get: () => get(next, "/tickets/assigned"), storage,
+        current: () => current(next, own) && next.client.connectionId ? {
+            accountId: next.accountId, projects: next.projects, sessionId: next.client.connectionId,
+            permissionsRevision: next.permissionsRevision,
+            enabled: ticketRemindersState.get().phase === "ready" && !ticketRemindersState.get().busy
+                && ticketRemindersState.get().settings?.discordEnabled === true,
+        } : null,
+        play: async (valid: () => boolean) => {
+            if (!current(next, own)) return false;
+            const canPlay = () => valid() && current(next, own) && ticketRemindersState.get().phase === "ready"
+                && !ticketRemindersState.get().busy && ticketRemindersState.get().settings?.discordEnabled === true;
+            if (!canPlay()) return false;
+            const played = await playTicketReminder(canPlay);
+            if (played && current(next, own)) toast("Игрок ждёт ответа в назначенном вам тикете", "message");
+            return played;
+        },
+        onState: state => {
+            if (current(next, own) && state.status !== "refreshing") ticketRemindersState.set({
+                deliveryError: state.status === "unavailable" ? "Не удалось проверить назначенные тикеты. Напоминания приостановлены." : "",
+            });
+        },
+    });
+    void refreshTicketReminders();
+}
+
+export async function refreshTicketReminders(): Promise<void> {
+    const b = binding, own = revision;
+    if (!b || !current(b, own) || ticketRemindersState.get().phase === "permission" || ticketRemindersState.get().busy) return;
+    if (settingsRead) return settingsRead;
+    const readRevision = ++settingsRevision;
+    ticketRemindersState.set({ phase: ticketRemindersState.get().settings ? "ready" : "loading" });
+    const task = (async () => {
+        try {
+            const settings = parseNotificationSettings(await get(b, "/notification-settings"));
+            if (!current(b, own) || readRevision !== settingsRevision) return;
+            if (settings.projects.some(p => !b.projects.includes(p.project))) throw new Error("Invalid projects");
+            ticketRemindersState.set({ phase: "ready", settings, error: "" });
+            controller?.start();
+            controller?.invalidate();
+        } catch (error) {
+            if (!current(b, own) || readRevision !== settingsRevision) return;
+            controller?.stop();
+            ticketRemindersState.set({ phase: error instanceof PanelError && error.status === 403 ? "permission" : "offline", error: error instanceof PanelError && error.status === 403
+                ? "Нет доступа к настройкам напоминаний. Подключите аккаунт заново."
+                : "Не удалось загрузить настройки напоминаний. Повторите проверку." });
+        }
+    })();
+    settingsRead = task;
+    try { await task; } finally { if (settingsRead === task) settingsRead = null; }
+}
+
+export async function setDiscordReminders(enabled: boolean): Promise<void> {
+    const b = binding, own = revision, state = ticketRemindersState.get();
+    if (!b || !current(b, own) || state.phase !== "ready" || !state.settings || state.busy) return;
+    settingsRevision++; settingsRead = null;
+    controller?.stop();
+    ticketRemindersState.set({ busy: true, error: "" });
+    try {
+        const raw = await b.client.mutate({ path: "/notification-settings", method: "PATCH", version: state.settings.version, body: { discordEnabled: enabled } }, () => {
+            if (!current(b, own)) throw new PanelError("cancelled");
+        });
+        const settings = parseNotificationSettings(raw);
+        if (!current(b, own)) return;
+        if (settings.discordEnabled !== enabled || settings.projects.some(p => !b.projects.includes(p.project))) throw new PanelError("invalid_response");
+        ticketRemindersState.set({ settings, phase: "ready", error: "" });
+    } catch (error) {
+        if (!current(b, own)) return;
+        if (error instanceof PanelError && error.status === 401) { b.onAuthError(error); return; }
+        ticketRemindersState.set({ phase: "offline", error: error instanceof PanelError && error.status === 412
+            ? "Настройки изменились на панели. Повторите проверку и выберите нужное значение."
+            : "Результат сохранения не подтверждён. Повторите проверку настроек." });
+    } finally {
+        if (binding === b && own === revision) {
+            ticketRemindersState.set({ busy: false });
+            if (current(b, own) && ticketRemindersState.get().phase === "ready") controller?.start();
+        }
+    }
+}
+
+export function invalidateTicketReminders(event?: string) { controller?.invalidate(event); }

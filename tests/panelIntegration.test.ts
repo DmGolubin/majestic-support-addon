@@ -52,7 +52,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
     class FakeClient {
         connectionId = wire ? "12345678-1234-1234-1234-123456789abc" : "connection";
         disposed = false;
-        constructor(_transport?: unknown, public options: { writeAccess?: boolean } = {}) { clients.push(this); }
+        constructor(_transport?: unknown, public options: { writeAccess?: boolean; reminderAccess?: boolean } = {}) { clients.push(this); }
         mutate = vi.fn(async (request: PanelMutation, guard: () => void) => { guard(); return wire?.mutate?.(request); });
         login = vi.fn(async (device: (v: unknown) => void) => {
             device({ userCode: "ABCD", verificationUriComplete: "https://panel.majestic-rp.tech/connect?user_code=ABCD" });
@@ -87,6 +87,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
         signal.addEventListener("abort", () => end(), { once: true });
     }));
     const permission = vi.fn(async (_interactive: boolean): Promise<string> => "ready");
+    const reminders = { invalidateTicketReminders: vi.fn(), stopTicketReminders: vi.fn(), syncTicketReminders: vi.fn() };
     const parsers = wire ? { parseProfile: vi.fn(parseProfile), parseSnapshot: vi.fn(parseSnapshot), parsePersonalRecord, parseFolderRecord }
         : { parseProfile: (v: unknown) => v, parseSnapshot: (v: unknown) => v };
     const deps: Record<string, unknown> = {
@@ -104,6 +105,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
         "../panelVault": { createPanelVault: async () => { if (state.pendingVault) await state.pendingVault; return state.secure ? {} : undefined; } },
         "../core/panelTransport": { createPanelTransport: vi.fn() }, "../panelHtml": { htmlToDiscordText: vi.fn(() => "Answer") },
         "./demo": { disableDemo: vi.fn(), enableDemo: vi.fn() },
+        "./ticketReminders": reminders,
         "./flow": { confirmedForeign: new Set(), supersede: vi.fn() }, "./observable": { createObservable: observable },
         "./op": { nextGeneration: () => ++generation, captureWindowTarget: vi.fn(), windowEditor: () => null },
         "./uiState": { panelAccess: access, realStore, selectStore: routed.select, ui,
@@ -117,11 +119,40 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
         document: { visibilityState: "visible", addEventListener: (name: string, fn: () => void) => documentHandlers.set(name, fn),
             removeEventListener: (name: string) => documentHandlers.delete(name) },
         require: (name: string) => { if (!(name in deps)) throw new Error("Unexpected import " + name); return deps[name]; } });
-    return { parsers, permission, preferenceData, preferenceStorage, io, api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers, windowHandlers, accountHandlers, streams, streamReader,
+    return { reminders, parsers, permission, preferenceData, preferenceStorage, io, api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers, windowHandlers, accountHandlers, streams, streamReader,
         documentHandlers, freshness: () => freshness(), generation: () => generation };
 }
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-18T00:00:00Z")); });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+
+describe("reminder lifecycle wiring", () => {
+    it("binds verified identity and projects, forwards ticket events and invalidates on disposal", async () => {
+        const h = harness(); await h.api.connectPanel();
+        const binding = h.reminders.syncTicketReminders.mock.calls.at(-1)![0];
+        expect(binding).toMatchObject({ accountId: h.state.discordId, projects: ["majestic"], permissionsRevision: "1" });
+        expect(binding.current()).toBe(true);
+        for (const type of ["tickets.changed", "tickets.unavailable"]) {
+            h.streams[0].emit({ type, data: {} });
+            expect(h.reminders.invalidateTicketReminders).toHaveBeenCalledWith(type);
+        }
+        h.state.discordId = "223456789012345678";
+        expect(binding.current()).toBe(false);
+        h.api.disposePanel();
+        expect(h.reminders.stopTicketReminders).toHaveBeenCalled();
+    });
+    it("requests reminder scopes explicitly while preserving a read-only personal session", async () => {
+        const h = harness(); await h.api.connectPanel();
+        await h.api.authorizePanelReminders();
+        expect(h.clients.at(-1)!.options).toMatchObject({ reminderAccess: true, writeAccess: false });
+        h.api.disposePanel();
+    });
+    it("restores without an implicit scope upgrade", async () => {
+        const h = harness(); h.state.saved = true;
+        await h.api.restorePanel();
+        expect(h.clients.at(-1)!.options).toMatchObject({ reminderAccess: false, writeAccess: false });
+        h.api.disposePanel();
+    });
+});
 
 describe("personal write controller", () => {
     function setup(writeAccess = true) {
@@ -752,9 +783,12 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
 
     it("refreshes after token.expired then reconnects and resnapshots on resync.required", async () => {
         const h = harness(); await h.api.connectPanel();
+        h.reminders.stopTicketReminders.mockClear(); h.reminders.syncTicketReminders.mockClear();
         h.streams[0].emit({ type: "token.expired", data: {} }); h.streams[0].end();
+        expect(h.reminders.stopTicketReminders).toHaveBeenCalledOnce();
         await vi.advanceTimersByTimeAsync(250);
         expect(h.clients[0].refreshForStream).toHaveBeenCalledOnce(); expect(h.streams).toHaveLength(2);
+        expect(h.reminders.syncTicketReminders).toHaveBeenCalledOnce();
         const calls = h.clients[0].get.mock.calls.length;
         h.streams[1].emit({ type: "resync.required", data: {} }); await vi.advanceTimersByTimeAsync(0);
         expect(h.clients[0].get.mock.calls.length).toBe(calls + 2);

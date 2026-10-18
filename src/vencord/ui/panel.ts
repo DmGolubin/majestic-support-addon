@@ -21,6 +21,7 @@ import { storage } from "../platform";
 import { disableDemo, enableDemo } from "./demo";
 import { confirmedForeign, supersede } from "./flow";
 import { createObservable } from "./observable";
+import { invalidateTicketReminders, stopTicketReminders, syncTicketReminders } from "./ticketReminders";
 import { captureWindowTarget, nextGeneration, windowEditor } from "./op";
 import { libraryIsFresh, panelAccess, realStore, selectStore, setFreshnessCheck, ui } from "./uiState";
 
@@ -29,6 +30,7 @@ export const panel = createObservable({ enabled: true, phase: "idle" as Phase, c
     persistent: false, preferencesError: "" as "" | "read" | "write", sync: "idle" as "idle" | "connecting" | "live" | "retrying" });
 export const panelPersonal = createObservable({ catalog: null as PanelCatalog | null, connectionId: "", scopes: [] as string[], generation: 0, busy: false });
 function clearPersonal() {
+    stopTicketReminders();
     panelPersonal.set({ catalog: null, connectionId: "", scopes: [], generation: panelPersonal.get().generation + 1, busy: false });
 }
 let client: PanelClient | null = null;
@@ -113,6 +115,7 @@ function terminateSession(active: PanelClient, error: unknown) {
 
 /** Events invalidate in-flight snapshots as well as already displayed templates. */
 function requestResync(clearCatalog: boolean) {
+    invalidateTicketReminders();
     syncRevision++; resyncPending = true;
     panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
     if (clearCatalog) {
@@ -143,16 +146,22 @@ function startEvents() {
                         panel.set({ sync: "live" });
                         if (event.type === "session.revoked") {
                             terminateSession(active, new PanelError("session_revoked", 401));
-                        } else if (event.type === "token.expired") tokenExpired = true;
+                        } else if (event.type === "token.expired") {
+                            tokenExpired = true;
+                            stopTicketReminders();
+                        }
                         else if (["library.changed", "permissions.changed", "resync.required"].includes(event.type)) {
                             requestResync(event.type === "permissions.changed");
                         }
-                        // Ticket events belong to the ticket assistant, not the template catalog.
+                        if (["tickets.changed", "tickets.unavailable", "resync.required"].includes(event.type)) invalidateTicketReminders(event.type);
                     });
                 } finally { sessionSignal.removeEventListener("abort", abort); }
             });
             if (own !== epoch || controller.signal.aborted) return;
-            if (tokenExpired) await active.refreshForStream();
+            if (tokenExpired) {
+                await active.refreshForStream();
+                if (own === epoch && client === active) requestResync(false);
+            }
         } catch (error) {
             if (own !== epoch || client !== active) return;
             if (error instanceof PanelError && (["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error", "connection_mismatch"].includes(error.code)
@@ -285,6 +294,11 @@ async function loadLibrary(): Promise<boolean> {
             panelPersonal.set({ catalog, connectionId: profile.connectionId, scopes: profile.scopes });
             panelAccess.set({ ready: true, accountId: profile.accountId, projects: profile.projects, checkedAt: started });
             panel.set({ phase: "ready", name: profile.name, checkedAt: started, error: "", code: "", url: "" });
+            syncTicketReminders({ client: active, accountId: profile.accountId, permissionsRevision: profile.permissionsRevision,
+                projects: profile.projects.map(p => p === "mj" ? "majestic" : "russia-online"), scopes: profile.scopes,
+                current: () => own === epoch && client === active && UserStore.getCurrentUser()?.id === profile.accountId && panel.get().phase === "ready",
+                onAuthError: error => terminateSession(active, error),
+            });
             schedule(own);
             startEvents();
             return true;
@@ -295,6 +309,7 @@ async function loadLibrary(): Promise<boolean> {
             const terminal = terminalReadError(error);
             if (revision !== syncRevision && !terminal) return false;
             panelAccess.set({ ready: false }); invalidate();
+            stopTicketReminders();
             const transient = !terminal && error instanceof PanelError && (error.status === 429 || error.status >= 500 || ["network_error", "timeout", "request_timeout"].includes(error.code));
             if (transient) {
                 failures++;
@@ -315,7 +330,7 @@ async function loadLibrary(): Promise<boolean> {
     }
 }
 
-async function beginPanel(restore: boolean, writeAccess = !restore) {
+async function beginPanel(restore: boolean, writeAccess = !restore, reminderAccess = !restore) {
     const editor = windowEditor();
     const management = ui.get().management;
     const previous = client; client = null;
@@ -364,7 +379,7 @@ async function beginPanel(restore: boolean, writeAccess = !restore) {
         library.data.previewOpen = false;
         selectStore(library);
         panel.set({ persistent: !!vault });
-        active = new PanelClient(createPanelTransport(), { vault, accountId: discordId, writeAccess }); client = active;
+        active = new PanelClient(createPanelTransport(), { vault, accountId: discordId, writeAccess, reminderAccess }); client = active;
         setFreshnessCheck(async () => libraryIsFresh() || await loadLibrary());
         if (restore) {
             if (!await active.restore()) {
@@ -391,6 +406,12 @@ export async function restorePanel() { await beginPanel(true); }
 
 /** Explicit user action only. Existing read-only credentials remain valid until this is chosen. */
 export async function authorizePanelEditing() { await beginPanel(false, true); }
+
+/** Additional ticket/settings scopes require a new confirmation on the panel. */
+export async function authorizePanelReminders() {
+    const writeAccess = panelPersonal.get().scopes.includes("personal:write");
+    await beginPanel(false, writeAccess, true);
+}
 
 export function panelWriteMessage(error: unknown): string {
     if (!(error instanceof PanelError)) return "Не удалось подтвердить запись. Черновик сохранён в этом окне.";
@@ -568,6 +589,7 @@ export function startPanel() {
         if (cleanups.size) return;
         if (client) {
             if (!client.connectionId) { client.resumeLogin(); return; }
+            invalidateTicketReminders();
             if (!libraryIsFresh()) {
                 // The contract has no heartbeat. Replace a possibly half-open connection after sleep.
                 stream?.abort(); stream = null;
