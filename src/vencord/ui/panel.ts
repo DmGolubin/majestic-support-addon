@@ -9,10 +9,12 @@ import { FluxDispatcher, UserStore } from "@webpack/common";
 import { PLUGIN_VERSION } from "../buildInfo";
 import { parseProfile, parseSnapshot } from "../core/panelCatalog";
 import { PanelClient, PanelError } from "../core/panelClient";
+import { createPanelEventStream } from "../core/panelEvents";
 import { PANEL_ORIGIN } from "../core/panelProtocol";
 import { createPanelTransport } from "../core/panelTransport";
 import { Store } from "../core/state";
 import { htmlToDiscordText } from "../panelHtml";
+import { createPanelVault } from "../panelVault";
 import { disableDemo, enableDemo } from "./demo";
 import { confirmedForeign, supersede } from "./flow";
 import { createObservable } from "./observable";
@@ -20,17 +22,34 @@ import { captureWindowTarget, nextGeneration, windowEditor } from "./op";
 import { libraryIsFresh, panelAccess, realStore, selectStore, setFreshnessCheck, ui } from "./uiState";
 
 type Phase = "idle" | "connecting" | "pending" | "loading" | "ready" | "offline" | "error";
-export const panel = createObservable({ enabled: true, phase: "idle" as Phase, code: "", url: "", error: "", name: "", checkedAt: 0 });
+export const panel = createObservable({ enabled: true, phase: "idle" as Phase, code: "", url: "", error: "", name: "", checkedAt: 0,
+    persistent: false, sync: "idle" as "idle" | "connecting" | "live" | "retrying" });
 let client: PanelClient | null = null;
 let library: Store | null = null;
 let epoch = 0;
 let fingerprint = "";
 let permissions = "";
 let accountId: string | null = null;
+let boundAccountId: string | null = null;
 let loading: Promise<boolean> | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let failures = 0;
 let retryAt = 0;
+let syncRevision = 0;
+let resyncPending = false;
+let stream: AbortController | null = null;
+let streamTimer: ReturnType<typeof setTimeout> | undefined;
+let streamFailures = 0;
+const readEvents = createPanelEventStream();
+const cleanups = new Set<Promise<void>>();
+function trackCleanup(task: Promise<void>): Promise<void> {
+    cleanups.add(task);
+    void task.then(() => cleanups.delete(task), () => cleanups.delete(task));
+    return task;
+}
+async function finishCleanups() {
+    while (cleanups.size) await Promise.all([...cleanups].map(task => task.catch(() => {})));
+}
 
 function invalidate() {
     nextGeneration(); supersede(); confirmedForeign.clear();
@@ -38,12 +57,14 @@ function invalidate() {
 }
 
 function wipe() {
-    epoch++; clearTimeout(timer); loading = null; fingerprint = ""; permissions = ""; accountId = null; failures = 0; retryAt = 0;
+    epoch++; clearTimeout(timer); loading = null; fingerprint = ""; permissions = ""; accountId = null; boundAccountId = null; failures = 0; retryAt = 0;
+    stream?.abort(); stream = null; clearTimeout(streamTimer); streamTimer = undefined; streamFailures = 0;
+    syncRevision++; resyncPending = false;
     panelAccess.set({ ready: false, accountId: null, projects: [], checkedAt: 0 });
     invalidate(); ui.set({ management: false });
     library?.replacePanelCatalog({ templates: [], personal: [], folders: [] });
     library = null;
-    panel.set({ phase: "idle", code: "", url: "", error: "", name: "", checkedAt: 0 });
+    panel.set({ phase: "idle", code: "", url: "", error: "", name: "", checkedAt: 0, persistent: false, sync: "idle" });
 }
 
 function message(error: unknown): string {
@@ -56,6 +77,7 @@ function message(error: unknown): string {
         invalid_grant: "Сессия завершена. Войдите снова.",
         reauthentication_required: "Не удалось обновить сессию. Войдите снова.",
         refresh_uncertain: "Не удалось подтвердить обновление сессии. Войдите снова.",
+        vault_error: "Не удалось прочитать или сохранить защищённый вход. Попробуйте войти снова.",
         request_timeout: "Панель не ответила вовремя. Попробуйте снова.",
         account_mismatch: "На панели и в Discord должны быть открыты одинаковые аккаунты.",
         upgrade_required: "Для подключения нужна новая версия плагина.",
@@ -65,6 +87,74 @@ function message(error: unknown): string {
         invalid_response: "Ответ панели не соответствует контракту. Загрузка остановлена."
     };
     return labels[code] ?? "Не удалось подключиться к панели. Попробуйте снова.";
+}
+
+function terminateSession(active: PanelClient, error: unknown) {
+    if (client !== active) return;
+    client = null;
+    // cancel clears saved credentials too, including a restored session without a device code.
+    void trackCleanup(active.cancel()).catch(() => {});
+    wipe(); panel.set({ phase: "error", error: message(error) });
+}
+
+/** Events invalidate in-flight snapshots as well as already displayed templates. */
+function requestResync(clearCatalog: boolean) {
+    syncRevision++; resyncPending = true;
+    panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
+    if (clearCatalog) {
+        library?.replacePanelCatalog({ templates: [], personal: [], folders: [] }); fingerprint = "";
+    }
+    panel.set({ phase: "loading", checkedAt: 0 });
+    if (!loading) void loadLibrary();
+}
+
+function startEvents() {
+    const active = client, own = epoch;
+    if (!active?.connectionId || stream || streamTimer) return;
+    const controller = new AbortController(); stream = controller;
+    panel.set({ sync: "connecting" });
+    void (async () => {
+        let tokenExpired = false;
+        let retryAfter = 0;
+        const started = Date.now();
+        try {
+            await active.streamAuthorized(async (token, sessionSignal) => {
+                const abort = () => controller.abort();
+                sessionSignal.addEventListener("abort", abort, { once: true });
+                if (sessionSignal.aborted) controller.abort();
+                try {
+                    await readEvents(token, controller.signal, event => {
+                        if (own !== epoch || client !== active || controller.signal.aborted) return;
+                        panel.set({ sync: "live" });
+                        if (event.type === "session.revoked") {
+                            terminateSession(active, new PanelError("session_revoked", 401));
+                        } else if (event.type === "token.expired") tokenExpired = true;
+                        else if (["library.changed", "permissions.changed", "resync.required"].includes(event.type)) {
+                            requestResync(event.type === "permissions.changed");
+                        }
+                        // Ticket events belong to the ticket assistant, not the template catalog.
+                    });
+                } finally { sessionSignal.removeEventListener("abort", abort); }
+            });
+            if (own !== epoch || controller.signal.aborted) return;
+            if (tokenExpired) await active.refreshForStream();
+        } catch (error) {
+            if (own !== epoch || client !== active) return;
+            if (error instanceof PanelError && (["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error", "connection_mismatch"].includes(error.code)
+                || error.status === 401 || error.status === 403)) {
+                terminateSession(active, error); return;
+            }
+            retryAfter = error instanceof PanelError ? error.retryAfterMs ?? 0 : 0;
+        } finally {
+            if (stream === controller) stream = null;
+        }
+        if (own !== epoch || client !== active || controller.signal.aborted) return;
+        // A rapid successful handshake followed by EOF still backs off: no reconnect storm.
+        streamFailures = Date.now() - started >= 30000 ? 0 : Math.min(streamFailures + 1, 6);
+        const delay = tokenExpired ? 250 : Math.max(retryAfter, Math.min(60000, 1000 * 2 ** streamFailures) * (0.8 + Math.random() * 0.4));
+        panel.set({ sync: "retrying" });
+        streamTimer = setTimeout(() => { streamTimer = undefined; if (own === epoch) startEvents(); }, Math.min(delay, 2147483647));
+    })();
 }
 
 function supportsVersion(minimum: string) {
@@ -88,6 +178,8 @@ async function loadLibrary(): Promise<boolean> {
     if (Date.now() < retryAt) return false;
     const active = client, own = epoch;
     if (!active) return false;
+    const revision = syncRevision;
+    resyncPending = false;
     const run = async () => {
         const started = Date.now();
         try {
@@ -105,6 +197,7 @@ async function loadLibrary(): Promise<boolean> {
             }
             const catalog = parseSnapshot(await active.get("/snapshot"), profile, htmlToDiscordText);
             if (own !== epoch || !library) return false;
+            if (revision !== syncRevision) return false;
             if (profile.accountId !== UserStore.getCurrentUser()?.id) throw new PanelError("account_mismatch");
             const next = JSON.stringify({ accountId: catalog.accountId, revision: catalog.revision, permissionsRevision: catalog.permissionsRevision,
                 templates: catalog.templates, personal: catalog.personal, folders: catalog.folders });
@@ -115,6 +208,7 @@ async function loadLibrary(): Promise<boolean> {
             panelAccess.set({ ready: true, accountId: profile.accountId, projects: profile.projects, checkedAt: started });
             panel.set({ phase: "ready", name: profile.name, checkedAt: started, error: "", code: "", url: "" });
             schedule(own);
+            startEvents();
             return true;
         } catch (error) {
             if (own !== epoch) return false;
@@ -125,32 +219,51 @@ async function loadLibrary(): Promise<boolean> {
                 panel.set({ phase: "offline", error: message(error) });
                 schedule(own, error.retryAfterMs);
             } else {
-                client = null; void active.cancel().catch(() => {}); wipe();
-                panel.set({ phase: "error", error: message(error) });
+                terminateSession(active, error);
             }
             return false;
         }
     };
     const task = run(); loading = task;
-    try { return await task; } finally { if (loading === task) loading = null; }
+    try { return await task; } finally {
+        if (loading === task) {
+            loading = null;
+            if (resyncPending && own === epoch && Date.now() >= retryAt) void loadLibrary();
+        }
+    }
 }
 
-export async function connectPanel() {
+async function beginPanel(restore: boolean) {
     const editor = windowEditor();
     const previous = client; client = null;
-    if (previous) void previous.cancel().catch(() => {});
+    if (previous) void trackCleanup(previous.cancel()).catch(() => {});
     disableDemo(); wipe();
-    captureWindowTarget(editor); ui.set({ windowOpen: true });
-    library = new Store({ get: async () => undefined, set: async () => {} }, true);
-    library.setPreviewOpen(false);
-    selectStore(library);
-    panelAccess.set({ enabled: true, ready: false });
-    panel.set({ enabled: true, phase: "connecting" });
-    const active = new PanelClient(createPanelTransport()); client = active;
     const own = epoch;
-    setFreshnessCheck(async () => libraryIsFresh() || await loadLibrary());
+    if (!restore) { captureWindowTarget(editor); ui.set({ windowOpen: true }); }
+    const discordId = UserStore.getCurrentUser()?.id;
+    if (!discordId) return;
+    boundAccountId = discordId;
+    panelAccess.set({ enabled: true, ready: false });
+    panel.set({ enabled: true, phase: restore ? "loading" : "connecting" });
+    let active: PanelClient | null = null;
     try {
-        await active.login(device => {
+        // Old clients must finish clearing the shared slot before a new native vault handle claims it.
+        await finishCleanups();
+        if (own !== epoch) return;
+        const vault = await createPanelVault(discordId);
+        if (own !== epoch) return;
+        library = new Store({ get: async () => undefined, set: async () => {} }, true);
+        library.setPreviewOpen(false);
+        selectStore(library);
+        panel.set({ persistent: !!vault });
+        active = new PanelClient(createPanelTransport(), { vault, accountId: discordId }); client = active;
+        setFreshnessCheck(async () => libraryIsFresh() || await loadLibrary());
+        if (restore) {
+            if (!await active.restore()) {
+                if (own === epoch) { active.dispose(); client = null; panel.set({ phase: "idle" }); }
+                return;
+            }
+        } else await active.login(device => {
             if (own !== epoch) return;
             panel.set({ phase: "pending", code: device.userCode, url: device.verificationUriComplete });
             openPanelPage();
@@ -160,10 +273,13 @@ export async function connectPanel() {
         await loadLibrary();
     } catch (error) {
         if (own !== epoch) return;
-        client = null; void active.cancel().catch(() => {}); wipe();
+        client = null; if (active) void trackCleanup(active.cancel()).catch(() => {}); wipe();
         panel.set({ phase: "error", error: message(error) });
     }
 }
+
+export async function connectPanel() { await beginPanel(false); }
+export async function restorePanel() { await beginPanel(true); }
 
 export function openPanelPage() {
     window.open(panel.get().url || PANEL_ORIGIN + "/connect", "_blank", "noopener,noreferrer");
@@ -172,14 +288,14 @@ export function openPanelPage() {
 export async function cancelPanelLogin() {
     const previous = client; client = null; wipe();
     const own = epoch;
-    try { await previous?.cancel(); }
+    try { if (previous) await trackCleanup(previous.cancel()); }
     catch { if (own === epoch) panel.set({ error: "Локальный вход отменён. Если доступ уже разрешён, отключите устройство на панели." }); }
 }
 
 export async function logoutPanel() {
     const previous = client; client = null; wipe();
     const own = epoch;
-    try { await previous?.logout(); }
+    try { if (previous) await trackCleanup(previous.logout()); }
     catch { if (own === epoch) panel.set({ error: "Локальный вход завершён. Не удалось отозвать устройство на панели — отключите его в разделе подключений." }); }
 }
 
@@ -213,7 +329,36 @@ export function disposePanel() {
 
 /** Discord logout must immediately remove the other account's templates from the UI. */
 export function startPanel() {
-    const disconnected = () => { if (panel.get().enabled) disposePanel(); };
+    const disconnected = () => { if (panel.get().enabled) void logoutPanel(); };
+    const resume = () => {
+        if (!panel.get().enabled) return;
+        if (boundAccountId && boundAccountId !== UserStore.getCurrentUser()?.id) { void logoutPanel(); return; }
+        if (cleanups.size) return;
+        if (client) {
+            if (!client.connectionId) return; // Focus commonly returns before device confirmation.
+            if (!libraryIsFresh()) {
+                // The contract has no heartbeat. Replace a possibly half-open connection after sleep.
+                stream?.abort(); stream = null;
+                void loadLibrary();
+            }
+            startEvents(); // An existing Retry-After timer is still respected.
+        }
+        else if (panel.get().phase === "idle" && UserStore.getCurrentUser()?.id) void restorePanel();
+    };
     FluxDispatcher.subscribe("LOGOUT", disconnected);
-    return () => FluxDispatcher.unsubscribe("LOGOUT", disconnected);
+    FluxDispatcher.subscribe("CONNECTION_OPEN", resume);
+    const changedAccount = () => {
+        if (boundAccountId && boundAccountId !== UserStore.getCurrentUser()?.id) disconnected();
+    };
+    UserStore.addChangeListener(changedAccount);
+    window.addEventListener("online", resume);
+    window.addEventListener("focus", resume);
+    resume();
+    return () => {
+        FluxDispatcher.unsubscribe("LOGOUT", disconnected);
+        FluxDispatcher.unsubscribe("CONNECTION_OPEN", resume);
+        UserStore.removeChangeListener(changedAccount);
+        window.removeEventListener("online", resume);
+        window.removeEventListener("focus", resume);
+    };
 }

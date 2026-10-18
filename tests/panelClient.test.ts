@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PanelClient, PanelError, PanelTransport } from "../src/core/panelClient";
+import { PanelClient, PanelClientOptions, PanelError, PanelTransport, PanelVault } from "../src/core/panelClient";
 import { PANEL_ORIGIN } from "../src/core/panelProtocol";
 
 const scopes = "profile:read faq:read personal:read folders:read sync:read";
@@ -23,14 +23,14 @@ const outcome = (promise: Promise<unknown>) => promise.then(value => ({ value, e
 const tick = (ms = 0) => vi.advanceTimersByTimeAsync(ms);
 const grant = (options: Parameters<PanelTransport>[1]) => (options.body as { grant_type?: string } | undefined)?.grant_type;
 
-function harness(overrides: { device?: unknown; tokens?: unknown; timeout?: number } = {}) {
+function harness(overrides: { device?: unknown; tokens?: unknown; timeout?: number; options?: PanelClientOptions } = {}) {
     const transport = vi.fn<PanelTransport>(async (path, options) => {
         if (path === "/oauth/device_authorization") return overrides.device ?? device();
         if (path === "/oauth/token") return grant(options) === "refresh_token" ? rotated() : overrides.tokens ?? tokens();
         if (path === "/me") return { accountId: "test-account", connectionId: connection };
         return { success: true };
     });
-    const client = new PanelClient(transport, { requestTimeoutMs: overrides.timeout });
+    const client = new PanelClient(transport, { requestTimeoutMs: overrides.timeout, ...overrides.options });
     const onDevice = vi.fn();
     const login = async () => {
         const result = client.login(onDevice);
@@ -187,6 +187,356 @@ describe("PanelClient device login", () => {
         expect(error).toMatchObject({ code: "invalid_response", message: "Panel request failed." });
         expect(JSON.stringify(error)).not.toContain("SECRET");
         expect(h.client.connectionId).toBeNull();
+    });
+});
+
+const discordAccount = "123456789012345678";
+function memoryVault(initial: unknown = null) {
+    let record = structuredClone(initial);
+    const put = (value: unknown) => { record = structuredClone(value); };
+    const vault = {
+        load: vi.fn<PanelVault["load"]>(async () => structuredClone(record)),
+        save: vi.fn<PanelVault["save"]>(async value => { put(value); }),
+        clear: vi.fn<PanelVault["clear"]>(async () => { record = null; }),
+    };
+    return { vault, put, read: () => structuredClone(record), options: { vault, accountId: discordAccount } };
+}
+
+describe("PanelClient durable session vault", () => {
+    it("publishes a login only after the complete bound pair is durable", async () => {
+        const v = memoryVault(), h = harness({ options: v.options }), saved = deferred<void>();
+        v.vault.save.mockImplementationOnce(async record => { await saved.promise; v.put(record); });
+        const login = h.client.login(h.onDevice); await tick(5000);
+        expect(h.client.connectionId).toBeNull();
+        await expect(h.client.get("/me")).rejects.toMatchObject({ code: "not_authenticated" });
+        expect(v.read()).toBeNull();
+        saved.resolve(); await login;
+        expect(v.read()).toEqual({ version: 1, state: "ready", origin: PANEL_ORIGIN, clientId: "support-templates",
+            accountId: discordAccount, expiresAt: 905000, tokens: {
+                accessToken: "test-access-A", refreshToken: "test-refresh-A", expiresIn: 900,
+                connectionId: connection, scopes: scopes.split(" "),
+            } });
+        expect(h.client.connectionId).toBe(connection);
+    });
+
+    it("preserves saved auth on ordinary disposal and restores without network IO or exposed credentials", async () => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login();
+        const saved = v.read(); h.client.dispose(); expect(v.read()).toEqual(saved);
+        const next = harness({ options: v.options });
+        expect(await next.client.restore()).toBe(true);
+        expect(next.transport).not.toHaveBeenCalled();
+        expect(next.client.connectionId).toBe(connection);
+        expect(JSON.stringify(next.client)).toBe("{}");
+        await next.client.get("/me");
+        expect(next.transport).toHaveBeenLastCalledWith("/me", expect.objectContaining({ token: "test-access-A" }));
+    });
+
+    it("restores an expired access token but rotates once before authorized use", async () => {
+        const v = memoryVault(), h = harness({ options: v.options, tokens: tokens({ expires_in: 1 }) });
+        await h.login(); h.client.dispose(); await tick(1000);
+        const next = harness({ options: v.options });
+        expect(await next.client.restore()).toBe(true);
+        expect(next.transport).not.toHaveBeenCalled();
+        await Promise.all([next.client.get("/me"), next.client.get("/snapshot")]);
+        expect(next.refreshCalls()).toHaveLength(1);
+        expect(v.read()).toMatchObject({ state: "ready", tokens: { refreshToken: "test-refresh-B" } });
+    });
+
+    it.each([
+        { version: 2 }, { origin: "https://example.invalid" }, { clientId: "other" },
+        { accountId: "987654321098765432" }, { state: "rotating" }, { expiresAt: Infinity },
+        { expiresAt: -1 }, { expiresAt: 10_000_000 }, { tokens: {} }, { tokens: null },
+    ])("discards invalid or mismatched persisted records %j", async patch => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login(); h.client.dispose();
+        v.put({ ...(v.read() as object), ...patch });
+        const next = harness({ options: v.options });
+        expect(await next.client.restore()).toBe(false);
+        expect(v.read()).toBeNull(); expect(next.client.connectionId).toBeNull();
+        expect(next.transport).not.toHaveBeenCalled();
+    });
+
+    it("requires a string snowflake with a vault and treats an absent vault as memory-only", async () => {
+        const v = memoryVault();
+        for (const accountId of [undefined, "", "account", "0", "1", "1e18", "123 456", "18446744073709551616"]) {
+            expect(() => new PanelClient(vi.fn(), { vault: v.vault, accountId })).toThrow(PanelError);
+        }
+        expect(await harness().client.restore()).toBe(false);
+        expect(await harness({ options: v.options }).client.restore()).toBe(false);
+    });
+
+    it("waits for a durable token-free rotating marker before POST and a durable pair before retrying GET", async () => {
+        const v = memoryVault(), h = harness({ options: v.options, tokens: tokens({ expires_in: 1 }) });
+        await h.login(); await tick(1000);
+        const marker = deferred<void>(), pair = deferred<void>(), events: string[] = [];
+        v.vault.save.mockImplementation(async record => {
+            events.push("save:" + record.state);
+            await (record.state === "rotating" ? marker.promise : pair.promise);
+            v.put(record);
+        });
+        h.transport.mockImplementation(async (_path, options) => {
+            if (grant(options) === "refresh_token") {
+                events.push("refresh");
+                expect(v.read()).toEqual({ version: 1, state: "rotating", origin: PANEL_ORIGIN,
+                    clientId: "support-templates", accountId: discordAccount });
+                return rotated();
+            }
+            events.push("get"); return options.token;
+        });
+        const a = h.client.get("/me"), b = h.client.get("/snapshot"); await tick();
+        expect(events).toEqual(["save:rotating"]); expect(h.refreshCalls()).toHaveLength(0);
+        marker.resolve(); await tick();
+        expect(events).toEqual(["save:rotating", "refresh", "save:ready"]);
+        pair.resolve(); expect(await a).toBe("test-access-B"); expect(await b).toBe("test-access-B");
+        expect(events.slice(-2)).toEqual(["get", "get"]); expect(h.refreshCalls()).toHaveLength(1);
+    });
+
+    it.each(["rotating", "ready"])("fails closed on %s persistence failure during refresh", async failing => {
+        const v = memoryVault(), h = harness({ options: v.options, tokens: tokens({ expires_in: 1 }) });
+        await h.login(); await tick(1000);
+        v.vault.save.mockImplementation(async record => {
+            if (record.state === failing) { v.put(record); throw new Error("SECRET native failure"); }
+            v.put(record);
+        });
+        await expect(h.client.get("/me")).rejects.toMatchObject({ code: "vault_error", message: "Panel request failed." });
+        expect(h.refreshCalls()).toHaveLength(failing === "rotating" ? 0 : 1);
+        expect(v.read()).toBeNull(); expect(h.client.connectionId).toBeNull();
+        await expect(h.client.get("/me")).rejects.toMatchObject({ code: "not_authenticated" });
+    });
+
+    it("does not fall back to memory after an initial save or load failure", async () => {
+        const v = memoryVault(), h = harness({ options: v.options });
+        v.vault.save.mockRejectedValueOnce(new Error("SECRET"));
+        const login = outcome(h.client.login(h.onDevice)); await tick(5000);
+        expect((await login).error).toMatchObject({ code: "vault_error" });
+        expect(h.client.connectionId).toBeNull(); expect(v.read()).toBeNull();
+        v.vault.load.mockRejectedValueOnce(new Error("SECRET"));
+        await expect(h.client.restore()).rejects.toMatchObject({ code: "vault_error" });
+        expect(h.client.connectionId).toBeNull();
+    });
+
+    it("a crash marker is never reusable on restore", async () => {
+        const v = memoryVault(), h = harness({ options: v.options, tokens: tokens({ expires_in: 1 }) });
+        await h.login(); await tick(1000);
+        const response = deferred<unknown>(); h.transport.mockImplementationOnce(() => response.promise);
+        const result = outcome(h.client.get("/me")); await tick();
+        expect(v.read()).toMatchObject({ state: "rotating" });
+        h.client.dispose(); expect((await result).error).toMatchObject({ code: "cancelled" });
+        const next = harness({ options: v.options });
+        expect(await next.client.restore()).toBe(false); expect(v.read()).toBeNull();
+        expect(next.transport).not.toHaveBeenCalled();
+        response.resolve(rotated()); await tick(); expect(v.read()).toBeNull();
+    });
+
+    it.each(["network_error", "timeout", "session_revoked"])("clears durable auth on terminal refresh failure %s", async code => {
+        const v = memoryVault(), h = harness({ options: v.options, tokens: tokens({ expires_in: 1 }) });
+        await h.login(); await tick(1000); h.transport.mockRejectedValueOnce(new PanelError(code, code === "session_revoked" ? 401 : 0));
+        await expect(h.client.get("/me")).rejects.toMatchObject({ code: code === "session_revoked" ? code : "refresh_uncertain" });
+        expect(v.read()).toBeNull();
+    });
+
+    it("clears a restored session on cancel even without a device code", async () => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login(); h.client.dispose();
+        const next = harness({ options: v.options }); expect(await next.client.restore()).toBe(true);
+        await next.client.cancel(); expect(v.read()).toBeNull(); expect(next.client.connectionId).toBeNull();
+        expect(next.transport).not.toHaveBeenCalled();
+    });
+
+    it("clears on explicit server revocation and reports vault deletion failure without retaining local auth", async () => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login();
+        h.transport.mockRejectedValueOnce(new PanelError("session_revoked", 401));
+        await expect(h.client.get("/me")).rejects.toMatchObject({ code: "session_revoked" });
+        expect(v.read()).toBeNull();
+        await h.login(); v.vault.clear.mockRejectedValueOnce(new Error("SECRET"));
+        await expect(h.client.logout()).rejects.toMatchObject({ code: "vault_error" });
+        expect(h.client.connectionId).toBeNull();
+        expect(h.transport).toHaveBeenLastCalledWith("/oauth/revoke", expect.objectContaining({ token: "test-access-A" }));
+        // A failed deletion poisons the local slot until a later successful clear.
+        const next = harness({ options: v.options }); expect(await next.client.restore()).toBe(false);
+        expect(v.read()).toBeNull();
+    });
+
+    it.each(["cancel", "logout"] as const)("%s clears before remote cleanup and never erases a newer client's login", async method => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login();
+        const remote = deferred<unknown>();
+        h.transport.mockImplementationOnce(async () => { expect(v.read()).toBeNull(); return remote.promise; });
+        const old = outcome(h.client[method]()); await tick(); expect(v.read()).toBeNull();
+        const next = harness({ options: v.options }); await next.login();
+        const saved = v.read(); remote.resolve({}); await old; await tick();
+        expect(v.read()).toEqual(saved); expect(next.client.connectionId).toBe(connection);
+    });
+
+    it("a synchronously queued logout clear precedes another client's restore", async () => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login();
+        const old = outcome(h.client.logout());
+        const next = harness({ options: v.options });
+        expect(await next.client.restore()).toBe(false);
+        await old; expect(v.read()).toBeNull();
+    });
+
+    it.each(["dispose", "cancel", "new client", "failed save"])("does not resurrect a delayed initial save after %s", async mode => {
+        const v = memoryVault(), h = harness({ options: v.options });
+        const write = deferred<void>();
+        v.vault.save.mockImplementationOnce(async record => {
+            await write.promise; v.put(record);
+            if (mode === "failed save") throw new Error("SECRET");
+        });
+        const login = outcome(h.client.login(h.onDevice)); await tick(5000);
+        let cleanup: Promise<unknown> | undefined;
+        let next: ReturnType<typeof harness> | undefined;
+        if (mode === "cancel") cleanup = h.client.cancel();
+        else if (mode === "new client") {
+            next = harness({ options: v.options }); cleanup = next.client.login(next.onDevice);
+        } else h.client.dispose();
+        write.resolve(); await tick(5000); await cleanup;
+        expect((await login).error).toBeInstanceOf(PanelError);
+        if (next) {
+            expect(v.read()).toMatchObject({ state: "ready" }); expect(next.client.connectionId).toBe(connection);
+        } else expect(v.read()).toBeNull();
+        expect(h.client.connectionId).toBeNull();
+    });
+
+    it("logout joining refresh never writes a ready record after its early clear", async () => {
+        const v = memoryVault(), h = harness({ options: v.options, tokens: tokens({ expires_in: 1 }) });
+        await h.login(); await tick(1000);
+        const response = deferred<unknown>(); h.transport.mockImplementationOnce(() => response.promise);
+        const read = outcome(h.client.get("/me")); await tick();
+        const logout = h.client.logout(); await tick(); expect(v.read()).toBeNull();
+        response.resolve(rotated()); await logout;
+        expect((await read).error).toMatchObject({ code: "cancelled" });
+        expect(v.read()).toBeNull(); expect(h.refreshCalls()).toHaveLength(1);
+        expect(v.vault.save.mock.calls.map(([r]) => r.state)).toEqual(["ready", "rotating"]);
+    });
+
+    it.each(["cancel", "dispose"] as const)("cleans a delayed rotated pair after %s before any reader can reuse it", async method => {
+        const v = memoryVault(), h = harness({ options: v.options, tokens: tokens({ expires_in: 1 }) });
+        await h.login(); await tick(1000); const write = deferred<void>();
+        v.vault.save.mockImplementation(async record => {
+            if (record.state === "ready") await write.promise;
+            v.put(record);
+        });
+        const read = outcome(h.client.get("/me")); await tick();
+        expect(v.read()).toMatchObject({ state: "rotating" });
+        const cleanup = h.client[method](); write.resolve(); await cleanup; await read;
+        const next = harness({ options: v.options });
+        expect(await next.client.restore()).toBe(false); expect(v.read()).toBeNull();
+        expect(h.refreshCalls()).toHaveLength(1);
+    });
+
+    it("a cancelled slow restore cannot publish or clear a replacement client's saved login", async () => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login(); h.client.dispose();
+        const saved = v.read(), loaded = deferred<unknown>();
+        v.vault.load.mockImplementationOnce(() => loaded.promise);
+        const restoring = outcome(h.client.restore()); await tick();
+        const next = harness({ options: v.options }); const login = next.client.login(next.onDevice);
+        loaded.resolve(saved); await tick(5000); await login;
+        expect((await restoring).error).toMatchObject({ code: "cancelled" });
+        expect(v.read()).toMatchObject({ state: "ready" }); expect(next.client.connectionId).toBe(connection);
+    });
+
+    it("a new client restore waits for a disposed client's unfinished save and cleanup", async () => {
+        const v = memoryVault(), h = harness({ options: v.options }), write = deferred<void>();
+        v.vault.save.mockImplementationOnce(async record => { await write.promise; v.put(record); });
+        const login = outcome(h.client.login(h.onDevice)); await tick(5000); h.client.dispose();
+        const next = harness({ options: v.options }); const restoring = next.client.restore();
+        await tick(); expect(v.vault.load).not.toHaveBeenCalled();
+        write.resolve(); expect(await restoring).toBe(false);
+        expect((await login).error).toMatchObject({ code: "cancelled" });
+        expect(v.read()).toBeNull(); expect(next.client.connectionId).toBeNull();
+    });
+
+    it("does not POST refresh when logout cannot clear persisted credentials", async () => {
+        const v = memoryVault(), h = harness({ options: v.options, tokens: tokens({ expires_in: 1 }) });
+        await h.login(); await tick(1000); v.vault.clear.mockRejectedValueOnce(new Error("SECRET"));
+        await expect(h.client.logout()).rejects.toMatchObject({ code: "vault_error" });
+        expect(h.refreshCalls()).toHaveLength(0); expect(h.client.connectionId).toBeNull();
+        expect(h.transport).toHaveBeenLastCalledWith("/oauth/revoke", expect.objectContaining({ token: "test-access-A" }));
+    });
+
+    it("still attempts device cancellation if durable deletion fails, but reports the vault failure", async () => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login();
+        v.vault.clear.mockRejectedValueOnce(new Error("SECRET"));
+        await expect(h.client.cancel()).rejects.toMatchObject({ code: "vault_error" });
+        expect(h.transport).toHaveBeenLastCalledWith("/device-requests/cancel", expect.anything());
+        expect(h.client.connectionId).toBeNull();
+    });
+});
+
+describe("PanelClient authorized streams", () => {
+    it("allows a long stream beyond the request timeout and aborts promptly on disposal", async () => {
+        const h = harness({ timeout: 1000 }); await h.login();
+        const stream = deferred<string>();
+        const operation = vi.fn(async (_token: string, _signal: AbortSignal) => stream.promise);
+        const result = outcome(h.client.streamAuthorized(operation)); await tick(60_000);
+        expect(operation).toHaveBeenCalledOnce();
+        const signal = operation.mock.calls[0][1]; expect(signal.aborted).toBe(false);
+        h.client.dispose(); expect(signal.aborted).toBe(true);
+        expect((await result).error).toMatchObject({ code: "cancelled" });
+        stream.resolve("late"); await tick(); expect(h.client.connectionId).toBeNull();
+    });
+
+    it("refreshes once after stream 401 and passes the new pair only after persistence", async () => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login();
+        const operation = vi.fn(async (token: string) => {
+            if (token === "test-access-A") throw new PanelError("token_expired", 401);
+            expect(v.read()).toMatchObject({ state: "ready", tokens: { accessToken: token } });
+            return "complete";
+        });
+        expect(await h.client.streamAuthorized(operation)).toBe("complete");
+        expect(operation).toHaveBeenCalledTimes(2); expect(h.refreshCalls()).toHaveLength(1);
+    });
+
+    it.each(["session_revoked", "invalid_token"])("clears saved auth when a stream terminates with %s", async code => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login();
+        const operation = vi.fn(async () => { throw new PanelError(code, 401); });
+        await expect(h.client.streamAuthorized(operation)).rejects.toMatchObject({ code });
+        expect(operation).toHaveBeenCalledTimes(code === "session_revoked" ? 1 : 2);
+        expect(v.read()).toBeNull(); expect(h.client.connectionId).toBeNull();
+    });
+
+    it("singleflights token.expired events with expired GETs and ignores an old stream's later expiry", async () => {
+        const h = harness({ tokens: tokens({ expires_in: 1 }) }); await h.login();
+        await h.client.streamAuthorized(async () => "token.expired"); await tick(1000);
+        const response = deferred<unknown>(); h.transport.mockImplementationOnce(() => response.promise);
+        const eventA = h.client.refreshForStream(), eventB = h.client.refreshForStream(), get = h.client.get("/me");
+        await tick(); expect(h.refreshCalls()).toHaveLength(1);
+        response.resolve(rotated()); await Promise.all([eventA, eventB, get]);
+        await h.client.refreshForStream(); expect(h.refreshCalls()).toHaveLength(1);
+        const operation = vi.fn(async (token: string) => token);
+        expect(await h.client.streamAuthorized(operation)).toBe("test-access-B");
+    });
+
+    it("rejects a late stream result after a newer login", async () => {
+        const h = harness(); await h.login(); const stream = deferred<string>();
+        const result = outcome(h.client.streamAuthorized(async () => stream.promise)); await tick();
+        await h.login(); stream.resolve("previous-account");
+        expect((await result).error).toMatchObject({ code: "cancelled" });
+        expect(h.client.connectionId).toBe(connection);
+    });
+
+    it("aborts streams immediately while remote logout remains pending", async () => {
+        const h = harness(); await h.login(); const stream = deferred<void>(), revoked = deferred<unknown>();
+        let signal!: AbortSignal;
+        const result = outcome(h.client.streamAuthorized(async (_token, current) => { signal = current; return stream.promise; }));
+        await tick(); h.transport.mockImplementationOnce(() => revoked.promise);
+        const logout = h.client.logout();
+        expect(signal.aborted).toBe(true); expect((await result).error).toMatchObject({ code: "cancelled" });
+        revoked.resolve({}); await logout; stream.resolve();
+    });
+
+    it("does not start a queued stream callback after logout has already aborted its signal", async () => {
+        const h = harness(); await h.login(); const operation = vi.fn(async () => "late");
+        const stream = outcome(h.client.streamAuthorized(operation));
+        await h.client.logout();
+        expect((await stream).error).toMatchObject({ code: "cancelled" });
+        expect(operation).not.toHaveBeenCalled();
+    });
+
+    it("does not replay or erase a valid session for an ordinary stream network failure", async () => {
+        const v = memoryVault(), h = harness({ options: v.options }); await h.login(); const saved = v.read();
+        const operation = vi.fn(async () => { throw new PanelError("network_error"); });
+        await expect(h.client.streamAuthorized(operation)).rejects.toMatchObject({ code: "network_error" });
+        expect(operation).toHaveBeenCalledOnce(); expect(h.refreshCalls()).toHaveLength(0);
+        expect(v.read()).toEqual(saved); expect(h.client.connectionId).toBe(connection);
     });
 });
 

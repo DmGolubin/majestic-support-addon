@@ -30,7 +30,7 @@ export function PanelConnection({ compact = false }: { compact?: boolean; }) {
 
     const run = (action: Action, fn: () => Promise<void>) => {
         // Cancellation/logout can interrupt a pending connection or refresh.
-        const current = activeAction.current;
+        const { current } = activeAction;
         if (current && (current.kind === "cancel" || current.kind === "logout" || (action !== "cancel" && action !== "logout"))) return;
         const ownAction = { kind: action };
         activeAction.current = ownAction;
@@ -52,7 +52,6 @@ export function PanelConnection({ compact = false }: { compact?: boolean; }) {
 
     return <section className={compact ? "vc-stx-login-scene" : "vc-stx-setting-section"} aria-label="Подключение к панели">
         {compact ? <h2>Вход через панель</h2> : <h3>Аккаунт и синхронизация</h3>}
-        <p className="vc-stx-local-note"><strong>Вход действует до перезапуска Discord.</strong></p>
         <div className={waiting ? "vc-stx-login-progress" : "vc-stx-connection-state" + (phase === "ready" ? " ready" : "")} role="status">
             <span className={waiting ? "vc-stx-login-spinner" : undefined} aria-hidden="true" />{labels[phase]}
         </div>
@@ -63,6 +62,13 @@ export function PanelConnection({ compact = false }: { compact?: boolean; }) {
         </>}
         {phase === "ready" && <p>Аккаунт: <strong>{p.name || "Аккаунт панели"}</strong></p>}
         {phase === "offline" && <p className="vc-stx-login-copy">Повторите загрузку библиотеки, чтобы продолжить работу.</p>}
+        {(phase === "ready" || phase === "offline") && <>
+            <p className="vc-stx-local-note"><strong>{p.persistent
+                ? "Вход сохранён в защищённом хранилище."
+                : "Вход действует до перезапуска Discord."}</strong></p>
+            {p.sync === "live" && <p className="vc-stx-local-note" role="status">Изменения появляются автоматически.</p>}
+            {p.sync === "retrying" && <p className="vc-stx-local-note" role="status">Восстанавливаем связь. Пока проверяем изменения периодически.</p>}
+        </>}
         {error && <p className="vc-stx-form-error" role="alert">{error}</p>}
         <div className={compact ? "vc-stx-login-actions" : "vc-stx-lib-actions"}>
             {(phase === "idle" || phase === "error") && <button type="button" className="vc-stx-btn" disabled={busy !== null} onClick={() => run("connect", connectPanel)}>

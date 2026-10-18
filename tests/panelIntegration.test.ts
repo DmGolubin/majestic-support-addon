@@ -29,7 +29,8 @@ function harness() {
     const ui = observable({ windowOpen: true, management: false, compose: [] as string[], inline: null, menu: null, dialog: null });
     const state = { discordId: "123", revision: "1", name: "Support", profileId: "123", error: null as unknown,
         templates: [template], pendingLogin: null as Promise<void> | null, pendingGet: null as Promise<unknown> | null,
-        pendingLogout: null as Promise<void> | null, nowServer: "time-a", projects: ["mj"], permissions: "1", pendingSnapshot: null as Promise<unknown> | null };
+        pendingLogout: null as Promise<void> | null, nowServer: "time-a", projects: ["mj"], permissions: "1", pendingSnapshot: null as Promise<unknown> | null,
+        saved: false, secure: true, pendingVault: null as Promise<void> | null, restoreError: null as unknown };
     const clients: FakeClient[] = [];
     class FakeClient {
         connectionId = "connection";
@@ -39,6 +40,9 @@ function harness() {
             device({ userCode: "ABCD", verificationUriComplete: "https://panel.majestic-rp.tech/connect?user_code=ABCD" });
             if (state.pendingLogin) await state.pendingLogin;
         });
+        restore = vi.fn(async () => { if (state.restoreError) throw state.restoreError; return state.saved; });
+        streamAuthorized = vi.fn(async (operation: (token: string, signal: AbortSignal) => Promise<void>) => operation("test-only", new AbortController().signal));
+        refreshForStream = vi.fn(async () => {});
         get = vi.fn(async (path: string) => {
             if (state.pendingGet) return state.pendingGet;
             if (state.error) throw state.error;
@@ -54,13 +58,23 @@ function harness() {
     let freshness: () => Promise<boolean> = async () => false;
     let generation = 0;
     const handlers = new Map<string, () => void>();
+    const windowHandlers = new Map<string, () => void>();
+    const accountHandlers = new Set<() => void>();
+    const streams: { signal: AbortSignal; emit: (event: { type: string; data: unknown }) => void; end: () => void; fail: (error: unknown) => void }[] = [];
+    const streamReader = vi.fn((_token: string, signal: AbortSignal, emit: (event: { type: string; data: unknown }) => void) => new Promise<void>((end, fail) => {
+        streams.push({ signal, emit, end, fail });
+        signal.addEventListener("abort", () => end(), { once: true });
+    }));
     const deps: Record<string, unknown> = {
-        "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: state.discordId }) }, FluxDispatcher: {
+        "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: state.discordId }),
+            addChangeListener: (fn: () => void) => accountHandlers.add(fn), removeChangeListener: (fn: () => void) => accountHandlers.delete(fn) }, FluxDispatcher: {
             subscribe: (name: string, fn: () => void) => handlers.set(name, fn), unsubscribe: (name: string) => handlers.delete(name) } },
         "../buildInfo": { PLUGIN_VERSION: "1.0.0" }, "../core/state": { Store },
         "../core/panelCatalog": { parseProfile: (v: unknown) => v, parseSnapshot: (v: unknown) => v },
         "../core/panelClient": { PanelClient: FakeClient, PanelError },
         "../core/panelProtocol": { PANEL_ORIGIN: "https://panel.majestic-rp.tech" },
+        "../core/panelEvents": { createPanelEventStream: () => streamReader },
+        "../panelVault": { createPanelVault: async () => { if (state.pendingVault) await state.pendingVault; return state.secure ? {} : undefined; } },
         "../core/panelTransport": { createPanelTransport: vi.fn() }, "../panelHtml": { htmlToDiscordText: vi.fn() },
         "./demo": { disableDemo: vi.fn(), enableDemo: vi.fn() },
         "./flow": { confirmedForeign: new Set(), supersede: vi.fn() }, "./observable": { createObservable: observable },
@@ -71,9 +85,10 @@ function harness() {
     };
     const module = { exports: {} as any };
     const open = vi.fn();
-    runInNewContext(compiled, { module, exports: module.exports, Date, setTimeout, clearTimeout, Math, window: { open },
+    runInNewContext(compiled, { module, exports: module.exports, Date, setTimeout, clearTimeout, Math, AbortController, window: { open,
+        addEventListener: (name: string, fn: () => void) => windowHandlers.set(name, fn), removeEventListener: (name: string) => windowHandlers.delete(name) },
         require: (name: string) => { if (!(name in deps)) throw new Error("Unexpected import " + name); return deps[name]; } });
-    return { api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers,
+    return { api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers, windowHandlers, accountHandlers, streams, streamReader,
         freshness: () => freshness(), generation: () => generation };
 }
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-18T00:00:00Z")); });
@@ -110,7 +125,7 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
     });
     it("ignores login completion after cancellation and never reads a snapshot", async () => {
         const h = harness(), wait = deferred<void>(); h.state.pendingLogin = wait.promise;
-        const task = h.api.connectPanel(); await h.api.cancelPanelLogin(); wait.resolve(); await task;
+        const task = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(0); await h.api.cancelPanelLogin(); wait.resolve(); await task;
         expect(h.api.panel.get().phase).toBe("idle"); expect(h.store.templates).toEqual([]);
         expect(h.clients[0].get).not.toHaveBeenCalled();
     });
@@ -163,8 +178,110 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
     it("does not switch a new login to local mode when an older logout completes late", async () => {
         const h = harness(); await h.api.connectPanel(); const delayed = deferred<void>(); h.state.pendingLogout = delayed.promise;
         const leaving = h.api.useLocalLibrary(); h.state.pendingLogout = null;
-        await h.api.connectPanel(); delayed.resolve(); await leaving;
+        const reconnect = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(0);
+        expect(h.clients).toHaveLength(1); // New vault is not claimed before the old cleanup settles.
+        delayed.resolve(); await leaving; await reconnect;
         expect(h.api.panel.get().enabled).toBe(true); expect(h.api.panel.get().phase).toBe("ready");
         expect(h.store.catalogReadOnly).toBe(true);
+    });
+
+    it("restores saved login without opening a browser and checks fresh rights before the catalog", async () => {
+        const h = harness(); h.state.saved = true; h.ui.set({ windowOpen: false });
+        await h.api.restorePanel();
+        expect(h.open).not.toHaveBeenCalled(); expect(h.clients[0].login).not.toHaveBeenCalled();
+        expect(h.clients[0].get.mock.calls.map(([path]) => path)).toEqual(["/me", "/snapshot"]);
+        expect(h.api.panel.get().persistent).toBe(true); expect(h.api.panel.get().phase).toBe("ready");
+        expect(h.ui.get().windowOpen).toBe(false);
+    });
+
+    it("starts idle without saved credentials, and reports a memory-only environment truthfully", async () => {
+        const h = harness(); h.state.secure = false;
+        await h.api.restorePanel();
+        expect(h.clients[0].get).not.toHaveBeenCalled(); expect(h.open).not.toHaveBeenCalled();
+        expect(h.api.panel.get().phase).toBe("idle"); expect(h.api.panel.get().persistent).toBe(false);
+    });
+
+    it("cannot finish restoring after stop during a slow native vault lookup", async () => {
+        const h = harness(), wait = deferred<void>(); h.state.saved = true; h.state.pendingVault = wait.promise;
+        const task = h.api.restorePanel(); h.api.disposePanel(); wait.resolve(); await task;
+        expect(h.clients).toHaveLength(0); expect(h.store.templates).toEqual([]);
+    });
+
+    it("coalesces SSE changes and rejects a snapshot overtaken by a newer event", async () => {
+        const h = harness(); await h.api.connectPanel();
+        const old = deferred<unknown>(); h.state.pendingSnapshot = old.promise;
+        h.streams[0].emit({ type: "library.changed", data: {} }); await vi.advanceTimersByTimeAsync(0);
+        h.streams[0].emit({ type: "library.changed", data: {} }); h.streams[0].emit({ type: "library.changed", data: {} });
+        h.state.pendingSnapshot = null; h.state.revision = "3"; h.state.templates = [{ ...template, text: "New answer" }];
+        old.resolve({ accountId: "123", revision: "2", templates: [{ ...template, text: "Old answer" }], personal: [], folders: [] });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(h.store.templates[0].text).toBe("New answer"); expect(h.access.get().ready).toBe(true);
+        expect(h.clients[0].get.mock.calls.filter(([p]) => p === "/snapshot")).toHaveLength(3);
+    });
+
+    it("clears rights immediately on permissions event even while snapshot is delayed", async () => {
+        const h = harness(); await h.api.connectPanel(); const wait = deferred<unknown>(); h.state.pendingSnapshot = wait.promise;
+        h.streams[0].emit({ type: "permissions.changed", data: {} });
+        expect(h.access.get().ready).toBe(false); expect(h.store.templates).toEqual([]);
+        await h.api.logoutPanel(); wait.resolve({}); await vi.advanceTimersByTimeAsync(0);
+        expect(h.store.templates).toEqual([]);
+    });
+
+    it("revocation stops the stream, clears credentials and ignores late events", async () => {
+        const h = harness(); await h.api.connectPanel(); const active = h.clients[0];
+        h.streams[0].emit({ type: "session.revoked", data: {} });
+        expect(h.store.templates).toEqual([]); expect(active.cancel).toHaveBeenCalledOnce();
+        expect(h.streams[0].signal.aborted).toBe(true);
+        const calls = active.get.mock.calls.length;
+        h.streams[0].emit({ type: "library.changed", data: {} }); await vi.advanceTimersByTimeAsync(120000);
+        expect(active.get).toHaveBeenCalledTimes(calls); expect(h.streamReader).toHaveBeenCalledOnce();
+    });
+
+    it("refreshes after token.expired then reconnects and resnapshots on resync.required", async () => {
+        const h = harness(); await h.api.connectPanel();
+        h.streams[0].emit({ type: "token.expired", data: {} }); h.streams[0].end();
+        await vi.advanceTimersByTimeAsync(250);
+        expect(h.clients[0].refreshForStream).toHaveBeenCalledOnce(); expect(h.streams).toHaveLength(2);
+        const calls = h.clients[0].get.mock.calls.length;
+        h.streams[1].emit({ type: "resync.required", data: {} }); await vi.advanceTimersByTimeAsync(0);
+        expect(h.clients[0].get.mock.calls.length).toBe(calls + 2);
+    });
+
+    it("honours SSE Retry-After while the fallback catalog poll remains available", async () => {
+        const h = harness(); await h.api.connectPanel();
+        h.streams[0].fail(new PanelError("rate_limited", 429, 120000)); await vi.advanceTimersByTimeAsync(119999);
+        expect(h.streams).toHaveLength(1); expect(h.clients[0].get.mock.calls.length).toBeGreaterThan(2);
+        expect(h.api.panel.get().sync).toBe("retrying"); await vi.advanceTimersByTimeAsync(1);
+        expect(h.streams).toHaveLength(2);
+    });
+
+    it("checks stale state on focus and removes resume listeners at stop", async () => {
+        const h = harness(); const off = h.api.startPanel(); await vi.advanceTimersByTimeAsync(0); await h.api.connectPanel();
+        const active = h.clients.at(-1)!; const calls = active.get.mock.calls.length;
+        vi.setSystemTime(Date.now() + 31000); h.windowHandlers.get("focus")!(); await vi.advanceTimersByTimeAsync(0);
+        expect(active.get.mock.calls.length).toBe(calls + 2);
+        off(); h.api.disposePanel(); expect(h.windowHandlers.size).toBe(0); expect(h.streams[0].signal.aborted).toBe(true);
+    });
+
+    it("drops the previous account immediately on a UserStore change", async () => {
+        const h = harness(); const off = h.api.startPanel(); await vi.advanceTimersByTimeAsync(0); await h.api.connectPanel();
+        h.state.discordId = "999"; for (const listener of h.accountHandlers) listener();
+        expect(h.store.templates).toEqual([]); expect(h.access.get().ready).toBe(false);
+        expect(h.clients.at(-1)!.logout).toHaveBeenCalledOnce(); off(); expect(h.accountHandlers.size).toBe(0);
+    });
+
+    it("a pending SSE retry from a previous login cannot block a new session's stream", async () => {
+        const h = harness(); await h.api.connectPanel(); h.streams[0].fail(new PanelError("network_error"));
+        await vi.advanceTimersByTimeAsync(0); await h.api.logoutPanel(); await h.api.connectPanel();
+        expect(h.streams).toHaveLength(2);
+    });
+
+    it("cancels a pending device login immediately when Discord switches accounts", async () => {
+        const h = harness(), wait = deferred<void>(); const off = h.api.startPanel(); await vi.advanceTimersByTimeAsync(0);
+        h.state.pendingLogin = wait.promise; const connecting = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(0);
+        const active = h.clients.at(-1)!; h.state.discordId = "999";
+        for (const listener of h.accountHandlers) listener();
+        expect(h.api.panel.get().code).toBe(""); expect(active.logout).toHaveBeenCalledOnce();
+        wait.resolve(); await connecting; expect(active.get).not.toHaveBeenCalled(); off();
     });
 });
