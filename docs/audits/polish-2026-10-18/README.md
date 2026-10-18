@@ -56,3 +56,14 @@ Actual React components with synthetic transport at a local loopback harness; no
 - Graphify AST graph rebuilt successfully. No semantic/API extraction was requested.
 
 Native Discord visual acceptance remains with the owner after Ctrl+R.
+
+## Delivery
+
+- Implementation commit: `5e8c306`.
+- Isolated pinned-source build succeeded: `0.1.0-canary.11`, 199 source inputs; forbidden-feature checks passed.
+- Artifact: `artifacts/standalone/0.1.0-canary.11-5e8c306/SupportTemplates-0.1.0-canary.11.zip`.
+- ZIP SHA-256: `7cb26729dc65fad6c7e2d440c0bd7ccf066489fc234200e6910ac9d04a06eb12`.
+- Final core and Vencord overlay typechecks passed. No production code changed afterward.
+- `UpdateRenderer -Channel Canary -WhatIf` passed, then actual update completed. Read-only `Status` confirms renderer `.11`, native runtime `.6`, current host `DiscordCanary/app-1.0.1251/resources`.
+- Activation needs Ctrl+R after saving any open draft. No Discord process was stopped; this task did not send messages or write live panel records.
+- Coordinator's complete installer fixture run is recorded separately once finished; all 15 renderer-update fixture groups already passed before activation.
