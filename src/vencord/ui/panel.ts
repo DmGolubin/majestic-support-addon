@@ -188,6 +188,11 @@ function schedule(own: number, retryAfter = 0) {
     timer = setTimeout(() => void loadLibrary(), Math.min(delay, 2147483647));
 }
 
+function terminalReadError(error: unknown): boolean {
+    return error instanceof PanelError && (error.status === 401 || error.status === 403
+        || ["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error", "connection_mismatch"].includes(error.code));
+}
+
 async function loadLibrary(): Promise<boolean> {
     if (loading) return loading;
     if (Date.now() < retryAt) return false;
@@ -203,7 +208,18 @@ async function loadLibrary(): Promise<boolean> {
             let nextPermissions: string;
             for (let attempt = 0; ; attempt++) {
                 started = Date.now();
-                const rawProfile = await active.get("/me");
+                const initial = accountId === null;
+                let rawProfile: unknown;
+                let initialSnapshot: PromiseSettledResult<unknown> | undefined;
+                if (initial) {
+                    // No catalog is exposed yet. Overlap authenticated reads, but wait for
+                    // both outcomes so a transient failure cannot hide a revocation.
+                    const [me, snapshot] = await Promise.allSettled([active.get("/me"), active.get("/snapshot")]);
+                    if (me.status === "rejected" && terminalReadError(me.reason)) throw me.reason;
+                    if (snapshot.status === "rejected" && terminalReadError(snapshot.reason)) throw snapshot.reason;
+                    if (me.status === "rejected") throw me.reason;
+                    rawProfile = me.value; initialSnapshot = snapshot;
+                } else rawProfile = await active.get("/me");
                 if (own !== epoch || revision !== syncRevision || !library) return false;
                 profile = parseProfile(rawProfile);
                 if (profile.connectionId !== active.connectionId || profile.accountId !== UserStore.getCurrentUser()?.id || (accountId && accountId !== profile.accountId)) throw new PanelError("account_mismatch");
@@ -217,7 +233,8 @@ async function loadLibrary(): Promise<boolean> {
                     fingerprint = "";
                     panel.set({ phase: "loading", checkedAt: 0 });
                 }
-                const rawSnapshot = await active.get("/snapshot");
+                if (initialSnapshot?.status === "rejected") throw initialSnapshot.reason;
+                const rawSnapshot = initialSnapshot ? initialSnapshot.value : await active.get("/snapshot");
                 if (own !== epoch || revision !== syncRevision || !library) return false;
                 if (profile.accountId !== UserStore.getCurrentUser()?.id) throw new PanelError("account_mismatch");
                 const snapshot = rawSnapshot as { schemaVersion?: unknown; accountId?: unknown; permissionsRevision?: unknown; } | null;
@@ -275,8 +292,7 @@ async function loadLibrary(): Promise<boolean> {
             if (own !== epoch) return false;
             // Superseded reads cannot fail a newer resync, but auth/storage failures
             // still fail closed: invalidation must never suppress a genuine revocation.
-            const terminal = error instanceof PanelError && (error.status === 401 || error.status === 403
-                || ["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error", "connection_mismatch"].includes(error.code));
+            const terminal = terminalReadError(error);
             if (revision !== syncRevision && !terminal) return false;
             panelAccess.set({ ready: false }); invalidate();
             const transient = !terminal && error instanceof PanelError && (error.status === 429 || error.status >= 500 || ["network_error", "timeout", "request_timeout"].includes(error.code));
@@ -538,7 +554,7 @@ export function startPanel() {
         if (boundAccountId && boundAccountId !== UserStore.getCurrentUser()?.id) { void logoutPanel(); return; }
         if (cleanups.size) return;
         if (client) {
-            if (!client.connectionId) return; // Focus commonly returns before device confirmation.
+            if (!client.connectionId) { client.resumeLogin(); return; }
             if (!libraryIsFresh()) {
                 // The contract has no heartbeat. Replace a possibly half-open connection after sleep.
                 stream?.abort(); stream = null;
@@ -556,6 +572,8 @@ export function startPanel() {
     UserStore.addChangeListener(changedAccount);
     window.addEventListener("online", resume);
     window.addEventListener("focus", resume);
+    const visible = () => { if (document.visibilityState === "visible") resume(); };
+    document.addEventListener("visibilitychange", visible);
     resume();
     return () => {
         FluxDispatcher.unsubscribe("LOGOUT", disconnected);
@@ -563,5 +581,6 @@ export function startPanel() {
         UserStore.removeChangeListener(changedAccount);
         window.removeEventListener("online", resume);
         window.removeEventListener("focus", resume);
+        document.removeEventListener("visibilitychange", visible);
     };
 }

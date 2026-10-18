@@ -86,6 +86,7 @@ interface Session {
     closing: boolean;
     lease: symbol | null;
     streamToken: string | null;
+    wakePoll: (() => void) | null;
 }
 
 /** The transport owns HTTP, an optional secure vault owns persistence, and this class owns session lifetime. */
@@ -133,6 +134,12 @@ export class PanelClient {
     }
 
     get scopes(): readonly string[] { return [...(this.#session?.tokens?.scopes ?? [])]; }
+
+    /** Resume an overdue device poll after background timer suspension; never shorten its wait. */
+    resumeLogin(): void {
+        const session = this.#session;
+        if (session && !session.tokens && !session.closing && !session.controller.signal.aborted) session.wakePoll?.();
+    }
 
     /** Restores only a validated local binding; the controller must still verify /me. No network IO. */
     async restore(): Promise<boolean> {
@@ -331,7 +338,7 @@ export class PanelClient {
             if (this.#vaultQueue) this.#vaultQueue.owner = this.#lease;
         }
         const session: Session = { controller: new AbortController(), streamController: new AbortController(), deviceCode: null, tokens: null,
-            expiresAt: 0, refresh: null, closing: false, lease: this.#lease, streamToken: null };
+            expiresAt: 0, refresh: null, closing: false, lease: this.#lease, streamToken: null, wakePoll: null };
         this.#session = session;
         if (claim && this.#vaultQueue) this.#vaultQueue.interrupt = () => this.#drop(session);
         return session;
@@ -541,8 +548,16 @@ export class PanelClient {
         this.#assert(session);
         return new Promise((resolve, reject) => {
             const { signal } = session.controller;
-            const abort = () => { clearTimeout(timer); signal.removeEventListener("abort", abort); reject(new PanelError("cancelled")); };
-            const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, Math.min(ms, 2_147_483_647));
+            const due = this.#now() + ms;
+            const cleanup = () => {
+                clearTimeout(timer); signal.removeEventListener("abort", abort);
+                if (session.wakePoll === wake) session.wakePoll = null;
+            };
+            const finish = () => { cleanup(); resolve(); };
+            const wake = () => { if (this.#now() >= due) finish(); };
+            const abort = () => { cleanup(); reject(new PanelError("cancelled")); };
+            const timer = setTimeout(finish, Math.min(ms, 2_147_483_647));
+            session.wakePoll = wake;
             signal.addEventListener("abort", abort, { once: true });
         });
     }

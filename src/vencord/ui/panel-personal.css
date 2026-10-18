@@ -8,6 +8,7 @@
 .vc-stx-panel-personal textarea { min-height: 180px; resize: vertical; line-height: 1.5; }
 .vc-stx-panel-personal input:focus-visible, .vc-stx-panel-personal textarea:focus-visible, .vc-stx-panel-personal button:focus-visible { outline: 2px solid var(--stx-ring); outline-offset: 2px; }
 .vc-stx-pp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.vc-stx-pp-grid > .vc-stx-color-picker { grid-column: 1 / -1; }
 .vc-stx-pp-cards { display: grid; gap: 7px; }
 .vc-stx-pp-card { display: grid; text-align: left; gap: 5px; padding: 12px 14px; color: inherit; background: var(--stx-card); border: 1px solid var(--stx-bd); border-radius: 8px; cursor: pointer; }
 .vc-stx-pp-card:hover { background: var(--stx-hover); }

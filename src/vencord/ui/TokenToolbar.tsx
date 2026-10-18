@@ -8,6 +8,7 @@ import { useState } from "@webpack/common";
 
 import { fieldToken } from "../core/tokenEditor";
 import { Select } from "./Select";
+import "./token-toolbar.css";
 
 export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void; insert(token: string): boolean; hasBoundary: boolean; }) {
     const [kind, setKind] = useState<"field" | "list" | "date" | "time" | null>(null);
@@ -16,11 +17,13 @@ export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void
     const [offset, setOffset] = useState("0");
     const [unit, setUnit] = useState("d");
     const [error, setError] = useState("");
+    const [expanded, setExpanded] = useState(false);
+    const [greeting, setGreeting] = useState(false);
     const open = (next: typeof kind) => {
         capture(); setKind(next); setName(""); setValue(""); setOffset("0");
         setUnit(next === "time" ? "m" : "d"); setError("");
     };
-    const add = (token: string) => { if (insert(token)) setKind(null); };
+    const add = (token: string) => { capture(); if (insert(token)) { setKind(null); setExpanded(false); setGreeting(false); } };
     const submit = () => {
         try {
             if (kind === "field" || kind === "list") add(fieldToken(name, value, kind === "list"));
@@ -33,19 +36,26 @@ export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void
         } catch (e) { setError((e as Error).message); }
     };
     return <div className="vc-stx-token-tools">
-        <div className="vc-stx-token-buttons" role="group" aria-label="Добавить переменную">
-            <button type="button" onClick={() => open("field")}>Поле</button>
-            <button type="button" onClick={() => open("list")}>Список</button>
-            <button type="button" onClick={() => open("date")}>Дата</button>
-            <button type="button" onClick={() => open("time")}>Время</button>
-            {[
-                ["Буфер", "{{clipboard}}", "Содержимое буфера при использовании шаблона"],
-                ["Выделение", "{{selection}}", "Текст, выделенный перед открытием окна шаблонов"],
-                ["Ссылка", "{{url}}", "Ссылка на канал Discord"],
-                ["Заголовок", "{{title}}", "Название канала Discord"],
-            ].map(([label, token, hint]) => <button type="button" key={token} title={hint} onClick={() => { capture(); add(token); }}>{label}</button>)}
-            <button type="button" disabled={hasBoundary} onClick={() => { capture(); add("\n[[greeting:end]]\n"); }}>Граница приветствия</button>
+        <div className="vc-stx-token-buttons vc-stx-token-disclosures">
+            <button type="button" aria-expanded={expanded} onClick={() => { capture(); setExpanded(!expanded); setGreeting(false); setKind(null); }}>Добавить подстановку <span aria-hidden="true">{expanded ? "−" : "+"}</span></button>
+            <button type="button" aria-expanded={greeting} onClick={() => { capture(); setGreeting(!greeting); setExpanded(false); setKind(null); }}>Приветствие <span aria-hidden="true">{greeting ? "−" : "+"}</span></button>
         </div>
+        {expanded && <div className="vc-stx-token-panel">
+            <p>Подстановка меняется при использовании шаблона. Например, <code>{"{{ник}}"}</code> предложит ввести ник игрока перед вставкой.</p>
+            {!kind && <div className="vc-stx-token-choices" role="group" aria-label="Что подставить в текст">
+            {([
+                ["field", "Запросить значение", "Ник, номер обращения или другой текст"],
+                ["list", "Выбрать из списка", "Например, сервер из заданных вариантов"],
+                ["date", "Текущая дата", "Дата вставки или дата со сдвигом"],
+                ["time", "Текущее время", "Время вставки или время со сдвигом"],
+            ] as const).map(([key, label, hint]) => <button type="button" key={key} onClick={() => open(key)}><strong>{label}</strong><span>{hint}</span></button>)}
+            {[
+                ["Скопированный текст", "{{clipboard}}", "Из буфера обмена в момент вставки"],
+                ["Выделенный текст", "{{selection}}", "Выделение перед открытием шаблонов"],
+                ["Ссылка на канал", "{{url}}", "Адрес текущего канала Discord"],
+                ["Название канала", "{{title}}", "Название текущего канала Discord"],
+            ].map(([label, token, hint]) => <button type="button" key={token} onClick={() => add(token)}><strong>{label}</strong><span>{hint}</span></button>)}
+            </div>}
         {kind && <div className="vc-stx-token-builder" role="group" aria-label="Настройка переменной" onKeyDown={e => { if (e.key === "Enter" && e.target instanceof HTMLInputElement && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } }}>
             {kind === "field" || kind === "list" ? <>
                 <label>Имя поля<input autoFocus value={name} placeholder="Например: ник" onChange={e => setName(e.currentTarget.value)} /></label>
@@ -58,7 +68,14 @@ export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void
                 <p className="vc-stx-muted">{kind === "date" ? "Формат: ДД.ММ.ГГГГ." : "Формат: ЧЧ:ММ."} Ноль — текущее значение; отрицательное число — назад.</p>
             </>}
             {error && <p role="alert" className="vc-stx-form-error">{error}</p>}
-            <div className="vc-stx-lib-actions"><button type="button" className="vc-stx-btn vc-stx-ghost" onClick={() => setKind(null)}>Отмена переменной</button><button type="button" className="vc-stx-btn" onClick={submit}>Добавить в текст</button></div>
+            <div className="vc-stx-lib-actions"><button type="button" className="vc-stx-btn vc-stx-ghost" onClick={() => setKind(null)}>Назад</button><button type="button" className="vc-stx-btn" onClick={submit}>Добавить в текст</button></div>
+        </div>}
+        </div>}
+        {greeting && <div className="vc-stx-token-panel">
+            <strong>Вставка без повторного приветствия</strong>
+            <p>{hasBoundary ? "Конец приветствия уже отмечен. При вставке без приветствия останется только основной ответ." : "Поставьте курсор после приветствия в тексте и нажмите кнопку ниже. При вставке без приветствия текст до этой отметки будет пропущен."}</p>
+            <p className="vc-stx-muted">Служебная отметка видна только в редакторе и не попадёт в сообщение.</p>
+            <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={hasBoundary} onClick={() => add("\n[[greeting:end]]\n")}>Отметить конец приветствия</button>
         </div>}
     </div>;
 }

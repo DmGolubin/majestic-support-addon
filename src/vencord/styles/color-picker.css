@@ -1,0 +1,31 @@
+.vc-stx-color-picker { display: grid; gap: 6px; min-width: 0; color: var(--stx-tx); font-size: 12px; }
+.vc-stx-color-picker-title { color: var(--stx-mu); }
+.vc-stx-color-picker-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 6px; min-width: 0; }
+.vc-stx-color-picker .vc-stx-color-picker-option {
+    display: flex; align-items: center; gap: 8px; box-sizing: border-box; min-width: 0; min-height: 36px;
+    padding: 7px 9px; border: 1px solid var(--stx-bd); border-radius: 6px;
+    background: var(--stx-input); color: var(--stx-tx); font: inherit; line-height: 1.4; text-align: left; cursor: pointer;
+}
+.vc-stx-color-picker .vc-stx-color-picker-option:hover:not(:disabled) { background: var(--stx-hover); }
+.vc-stx-color-picker .vc-stx-color-picker-option[aria-pressed=true] { border-color: var(--stx-ring); box-shadow: inset 0 0 0 1px var(--stx-ring); background: var(--stx-acc); }
+.vc-stx-color-picker .vc-stx-color-picker-option:focus-visible { outline: 2px solid var(--stx-ring); outline-offset: 2px; }
+.vc-stx-color-picker .vc-stx-color-picker-option:disabled { opacity: .5; cursor: default; }
+.vc-stx-color-picker-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.vc-stx-color-picker-swatch { position: relative; flex: none; box-sizing: border-box; width: 18px; height: 18px; border: 1px solid currentColor; border-radius: 50%; background: var(--stx-mu2); }
+.vc-stx-color-picker-swatch[data-color=red] { background: #ef4444; }
+.vc-stx-color-picker-swatch[data-color=orange] { background: #f97316; }
+.vc-stx-color-picker-swatch[data-color=amber] { background: #f59e0b; }
+.vc-stx-color-picker-swatch[data-color=green] { background: #22c55e; }
+.vc-stx-color-picker-swatch[data-color=teal] { background: #14b8a6; }
+.vc-stx-color-picker-swatch[data-color=blue] { background: #3b82f6; }
+.vc-stx-color-picker-swatch[data-color=violet] { background: #8b5cf6; }
+.vc-stx-color-picker-swatch[data-color=pink] { background: #ec4899; }
+.vc-stx-color-picker-swatch[data-color=none] { background: transparent; }
+.vc-stx-color-picker-swatch[data-color=none]::after { content: ""; position: absolute; top: 7px; left: 1px; width: 14px; height: 1px; background: currentColor; transform: rotate(-45deg); }
+.vc-stx-color-picker-check { flex: none; visibility: hidden; }
+.vc-stx-color-picker-option[aria-pressed=true] .vc-stx-color-picker-check { visibility: visible; }
+@media (forced-colors: active) {
+    .vc-stx-color-picker .vc-stx-color-picker-option[aria-pressed=true] { border-color: Highlight; }
+    .vc-stx-color-picker .vc-stx-color-picker-option:focus-visible { outline-color: Highlight; }
+    .vc-stx-color-picker .vc-stx-color-picker-option:disabled { color: GrayText; opacity: 1; }
+}

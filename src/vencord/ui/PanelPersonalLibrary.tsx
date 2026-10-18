@@ -17,6 +17,7 @@ import { authorizePanelEditing, panel, panelPersonal, panelWriteMessage, prepare
 import { PanelConnection } from "./PanelConnection";
 import { Select } from "./Select";
 import { TokenToolbar } from "./TokenToolbar";
+import { ColorPicker } from "./ColorPicker";
 
 import "./panel-personal.css";
 
@@ -205,9 +206,8 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
                         <label>Папка<Select aria-label="Папка шаблона" value={editor.draft.folderId ?? ""} onChange={e => change({ folderId: e.currentTarget.value || null })}>
                             <option value="">Без папки</option>{catalog.folderRecords.filter(f => editor.draft.shared || f.project === editor.draft.project).map(f => <option key={f.id} value={f.id}>{f.title} · {projectName(f.project)}</option>)}
                         </Select></label>
-                        <label>Цвет<Select aria-label="Цвет" value={editor.draft.color ?? ""} onChange={e => change({ color: e.currentTarget.value || null })}>
-                            <option value="">Без цвета</option>{catalog.colors.map(c => <option key={c} value={c}>{colorName(c)}</option>)}
-                        </Select></label>
+                        <ColorPicker value={editor.draft.color} colors={catalog.colors} labels={catalog.colorLabels}
+                            disabled={locked || state.conflict} onChange={color => change({ color })} />
                     </> : <label>Позиция<input type="number" min={0} max={100000} step={1} required value={editor.draft.position} onChange={e => change({ position: Number(e.currentTarget.value) })} /></label>}
                 </div>
                 {editor.kind === "template" && <label className="vc-stx-pp-check"><input type="checkbox" disabled={catalog.projects.length !== 2} checked={editor.draft.shared} onChange={e => change({ shared: e.currentTarget.checked, folderId: null })} />Общий для двух проектов</label>}

@@ -60,6 +60,9 @@ function harness() {
     let selected = local;
     const events = new Map<string, () => void>();
     const windowEvents = new Map<string, () => void>();
+    const documentEvents = new Map<string, () => void>();
+    const document = { visibilityState: "visible", addEventListener: (n: string, fn: () => void) => documentEvents.set(n, fn),
+        removeEventListener: (n: string) => documentEvents.delete(n) };
     const deps: Record<string, unknown> = {
         "../panelPermission": { ensurePanelPermission: async () => "ready" },
         "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: account }), addChangeListener() {}, removeChangeListener() {} },
@@ -82,11 +85,11 @@ function harness() {
             libraryIsFresh: () => access.get().ready && Date.now() - access.get().checkedAt <= 30000 }
     };
     const module = { exports: {} as any };
-    runInNewContext(compiled, { module, exports: module.exports, Date, Math, AbortController, setTimeout, clearTimeout,
+    runInNewContext(compiled, { module, exports: module.exports, Date, Math, AbortController, setTimeout, clearTimeout, document,
         window: { open() {}, addEventListener: (n: string, fn: () => void) => windowEvents.set(n, fn),
             removeEventListener: (n: string) => windowEvents.delete(n) },
         require: (name: string) => { if (!(name in deps)) throw new Error("Unexpected import " + name); return deps[name]; } });
-    return { api: module.exports, state, native, transport, windowEvents, localSelected: () => selected === local,
+    return { api: module.exports, state, native, transport, windowEvents, documentEvents, document, localSelected: () => selected === local,
         saved: () => saved };
 }
 
@@ -100,8 +103,40 @@ describe("session boundaries across real controller, auth client and renderer va
         expect(h.api.panel.get().phase).toBe("pending");
         h.windowEvents.get("focus")!(); await vi.advanceTimersByTimeAsync(0);
         const phase = h.api.panel.get().phase;
+        expect(h.transport.mock.calls.map(([path]) => path)).toEqual(["/oauth/device_authorization"]);
         await h.api.cancelPanelLogin(); await login; off();
         expect(phase).toBe("pending");
+    });
+
+    it("restores a saved session without device authorization or its polling delay", async () => {
+        const h = harness(); const login = h.api.connectPanel();
+        await vi.advanceTimersByTimeAsync(4999);
+        expect(h.transport.mock.calls.map(([path]) => path)).toEqual(["/oauth/device_authorization"]);
+        await vi.advanceTimersByTimeAsync(1); await login;
+        expect(h.api.panel.get().phase).toBe("ready"); h.api.disposePanel();
+        h.transport.mockClear();
+        const restoring = h.api.restorePanel(); await vi.advanceTimersByTimeAsync(0); await restoring;
+        expect(h.transport.mock.calls.map(([path]) => path)).toEqual(["/me", "/snapshot"]);
+        expect(h.api.panel.get().phase).toBe("ready"); h.api.disposePanel();
+    });
+
+    it.each(["focus", "visibilitychange"])("resumes only an overdue device poll on %s and loads the library once", async event => {
+        const h = harness(), off = h.api.startPanel(); await vi.advanceTimersByTimeAsync(0);
+        const login = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(0);
+        const resume = event === "focus" ? h.windowEvents.get(event)! : h.documentEvents.get(event)!;
+        // Elapse wall time without dispatching timers, as with a suspended renderer.
+        vi.setSystemTime(Date.now() + 4999); resume(); await vi.advanceTimersByTimeAsync(0);
+        expect(h.transport.mock.calls.map(([path]) => path)).toEqual(["/oauth/device_authorization"]);
+        vi.setSystemTime(Date.now() + 1001);
+        if (event === "visibilitychange") {
+            h.document.visibilityState = "hidden"; resume(); await vi.advanceTimersByTimeAsync(0);
+            expect(h.transport).toHaveBeenCalledTimes(1);
+            h.document.visibilityState = "visible";
+        }
+        resume(); resume(); await vi.advanceTimersByTimeAsync(0); await login;
+        expect(h.transport.mock.calls.map(([path]) => path)).toEqual(["/oauth/device_authorization", "/oauth/token", "/me", "/snapshot"]);
+        expect(h.api.panel.get().phase).toBe("ready"); off(); h.api.disposePanel();
+        expect(h.documentEvents.size).toBe(0); expect(h.windowEvents.size).toBe(0);
     });
 
     it("completes an explicit local-library switch despite focus during remote logout", async () => {

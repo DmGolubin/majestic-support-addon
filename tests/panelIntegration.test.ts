@@ -59,6 +59,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
             if (state.pendingLogin) await state.pendingLogin;
         });
         restore = vi.fn(async () => { if (state.restoreError) throw state.restoreError; return state.saved; });
+        resumeLogin = vi.fn();
         streamAuthorized = vi.fn(async (operation: (token: string, signal: AbortSignal) => Promise<void>) => operation("test-only", new AbortController().signal));
         refreshForStream = vi.fn(async () => {});
         get = vi.fn(async (path: string) => {
@@ -78,6 +79,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
     let generation = 0;
     const handlers = new Map<string, () => void>();
     const windowHandlers = new Map<string, () => void>();
+    const documentHandlers = new Map<string, () => void>();
     const accountHandlers = new Set<() => void>();
     const streams: { signal: AbortSignal; emit: (event: { type: string; data: unknown }) => void; end: () => void; fail: (error: unknown) => void }[] = [];
     const streamReader = vi.fn((_token: string, signal: AbortSignal, emit: (event: { type: string; data: unknown }) => void) => new Promise<void>((end, fail) => {
@@ -112,9 +114,11 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
     const open = vi.fn();
     runInNewContext(compiled, { module, exports: module.exports, Date, setTimeout, clearTimeout, Math, AbortController, window: { open,
         addEventListener: (name: string, fn: () => void) => windowHandlers.set(name, fn), removeEventListener: (name: string) => windowHandlers.delete(name) },
+        document: { visibilityState: "visible", addEventListener: (name: string, fn: () => void) => documentHandlers.set(name, fn),
+            removeEventListener: (name: string) => documentHandlers.delete(name) },
         require: (name: string) => { if (!(name in deps)) throw new Error("Unexpected import " + name); return deps[name]; } });
     return { parsers, permission, preferenceData, preferenceStorage, io, api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers, windowHandlers, accountHandlers, streams, streamReader,
-        freshness: () => freshness(), generation: () => generation };
+        documentHandlers, freshness: () => freshness(), generation: () => generation };
 }
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-18T00:00:00Z")); });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
@@ -243,6 +247,71 @@ describe("permission races through the controller and actual catalog parsers", (
         const get = vi.fn(async (path: string): Promise<unknown> => path === "/me" ? profile("1") : snapshot("1"));
         return { ...harness({ get }), get };
     }
+
+    it.each(["restorePanel", "connectPanel"])("overlaps initial reads during %s but publishes only after both validate", async action => {
+        const h = setup(), me = deferred<unknown>(), data = deferred<unknown>();
+        h.state.saved = true;
+        h.get.mockImplementation(path => path === "/me" ? me.promise : data.promise);
+        const starting = h.api[action](); await vi.advanceTimersByTimeAsync(0);
+        expect(h.get.mock.calls.map(([path]) => path)).toEqual(["/me", "/snapshot"]);
+        data.resolve(snapshot("1")); await vi.advanceTimersByTimeAsync(0);
+        expect(h.access.get().ready).toBe(false); expect(h.store.templates).toEqual([]);
+        expect(h.preferenceStorage.get).not.toHaveBeenCalled();
+        me.resolve(profile("1")); await starting;
+        expect(h.access.get().ready).toBe(true); expect(h.store.templates).toHaveLength(1);
+        expect(h.get).toHaveBeenCalledTimes(2); h.api.disposePanel();
+    });
+
+    it.each(["/me", "/snapshot"])("does not hide delayed startup revocation on %s behind another read's network error", async route => {
+        const h = setup(), revoked = deferred<unknown>();
+        h.state.saved = true;
+        h.get.mockImplementation(async path => {
+            if (path === route) return revoked.promise;
+            throw new PanelError("network_error");
+        });
+        const starting = h.api.restorePanel(); await vi.advanceTimersByTimeAsync(0);
+        expect(h.access.get().ready).toBe(false);
+        revoked.reject(new PanelError("session_revoked", 401)); await starting;
+        expect(h.api.panel.get().phase).toBe("error"); expect(h.clients[0].cancel).toHaveBeenCalledOnce();
+        expect(h.preferenceStorage.get).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(120000);
+        expect(h.get).toHaveBeenCalledTimes(2); h.api.disposePanel();
+    });
+
+    it.each([
+        { accountId: "987654321098765432" },
+        { connectionId: "12345678-1234-1234-1234-123456789abd" },
+        { scopes: ["profile:read"] },
+        { minimumPluginVersion: "99.0.0" },
+    ])("rejects an invalid startup profile despite a successful parallel snapshot: %j", async patch => {
+        const h = setup(); h.state.saved = true;
+        h.get.mockImplementation(async path => path === "/me" ? { ...profile("1"), ...patch } : snapshot("1"));
+        await h.api.restorePanel();
+        expect(h.api.panel.get().phase).toBe("error"); expect(h.access.get().ready).toBe(false);
+        expect(h.store.templates).toEqual([]); expect(h.clients[0].cancel).toHaveBeenCalledOnce();
+        expect(h.preferenceStorage.get).not.toHaveBeenCalled(); h.api.disposePanel();
+    });
+
+    it("retries a mismatched startup permissions pair before publishing", async () => {
+        const h = setup(); h.state.saved = true;
+        h.get.mockResolvedValueOnce(profile("1")).mockResolvedValueOnce(snapshot("2"))
+            .mockResolvedValueOnce(profile("2")).mockResolvedValueOnce(snapshot("2"));
+        await h.api.restorePanel();
+        expect(h.get).toHaveBeenCalledTimes(4); expect(h.access.get().ready).toBe(true);
+        expect(h.api.panelPersonal.get().catalog.permissionsRevision).toBe("2");
+        expect(h.clients[0].cancel).not.toHaveBeenCalled(); h.api.disposePanel();
+    });
+
+    it.each(["logout", "account change"])("discards late initial reads after %s", async change => {
+        const h = setup(), data = deferred<unknown>(); h.state.saved = true;
+        h.get.mockImplementation(async path => path === "/me" ? profile("1") : data.promise);
+        const starting = h.api.restorePanel(); await vi.advanceTimersByTimeAsync(0);
+        if (change === "logout") await h.api.logoutPanel();
+        else h.state.discordId = "987654321098765432";
+        data.resolve(snapshot("1")); await starting;
+        expect(h.access.get().ready).toBe(false); expect(h.store.templates).toEqual([]);
+        expect(h.preferenceStorage.get).not.toHaveBeenCalled(); h.api.disposePanel();
+    });
 
     it("blocks and clears the old catalog while retrying a fresh pair without cancelling auth", async () => {
         const h = setup(); await h.api.connectPanel();
@@ -521,7 +590,8 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
     it("blocks a different Discord account and erases catalog", async () => {
         const h = harness(); h.state.discordId = "987654321098765432"; await h.api.connectPanel();
         expect(h.api.panel.get().phase).toBe("error"); expect(h.store.templates).toEqual([]);
-        expect(h.clients[0].get).toHaveBeenCalledTimes(1);
+        expect(h.clients[0].get.mock.calls.map(([path]) => path)).toEqual(["/me", "/snapshot"]);
+        expect(h.access.get().ready).toBe(false); expect(h.clients[0].cancel).toHaveBeenCalledOnce();
     });
     it("clears data on Discord logout and plugin disposal", async () => {
         const h = harness(); const off = h.api.startPanel(); await h.api.connectPanel();
@@ -635,6 +705,7 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
         vi.setSystemTime(Date.now() + 31000); h.windowHandlers.get("focus")!(); await vi.advanceTimersByTimeAsync(0);
         expect(active.get.mock.calls.length).toBe(calls + 2);
         off(); h.api.disposePanel(); expect(h.windowHandlers.size).toBe(0); expect(h.streams[0].signal.aborted).toBe(true);
+        expect(h.documentHandlers.size).toBe(0);
     });
 
     it("drops the previous account immediately on a UserStore change", async () => {

@@ -11,6 +11,9 @@ import { splitGreeting } from "../src/core/text";
 const code = ts.transpileModule(readFileSync(new URL("../src/vencord/ui/PanelPersonalLibrary.tsx", import.meta.url), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React }
 }).outputText;
+const colorCode = ts.transpileModule(readFileSync(new URL("../src/vencord/ui/ColorPicker.tsx", import.meta.url), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React }
+}).outputText;
 const textOf = (n: any): string => Array.isArray(n) ? n.map(textOf).join("") : n == null || typeof n === "boolean" ? ""
     : typeof n === "object" ? textOf(n.props?.children) : String(n);
 const all = (n: any, p: (n: any) => boolean): any[] => Array.isArray(n) ? n.flatMap(v => all(v, p))
@@ -55,10 +58,16 @@ function harness() {
     const prepare = vi.fn((_request: unknown) => action);
     const props = { onDirty: vi.fn(), onBusy: vi.fn() };
     const React = { Fragment: "fragment", createElement: (type: any, props: any, ...children: any[]) => ({ type, props: { ...props, children } }) };
+    const colorExports: any = {};
+    runInNewContext(colorCode, { exports: colorExports, React, require: (id: string) => {
+        if (id !== "../styles/color-picker.css") throw new Error("Unexpected palette import " + id);
+        return {};
+    } });
     const deps: Record<string, unknown> = {
         "@webpack/common": hooks, "../core/panelClient": { PanelError }, "../core/text": { splitGreeting }, "../core/tokenEditor": {},
         "./markdown": { Markdown: ({ text }: any) => text }, "./Select": { Select: (props: any) => React.createElement("select", props, ...props.children) },
         "./TokenToolbar": { TokenToolbar: () => null }, "./PanelConnection": { PanelConnection: () => "Connection" }, "./panel-personal.css": {},
+        "./ColorPicker": colorExports,
         "./panel": { panel, panelPersonal: personal, preparePanelWrite: prepare, authorizePanelEditing: vi.fn(), reloadPanel: vi.fn(),
             panelWriteMessage: (error: PanelError) => error.code }
     };

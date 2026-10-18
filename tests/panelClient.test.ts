@@ -92,6 +92,56 @@ describe("PanelClient device login", () => {
         expect(times).toEqual([5000, 10000, 20000, 40000]);
     });
 
+    it("wakes an overdue poll once and never starts another while its exchange is in flight", async () => {
+        const h = harness(), exchange = deferred<unknown>();
+        h.transport.mockImplementation(async path => path === "/oauth/device_authorization" ? device() : exchange.promise);
+        const pending = h.client.login(h.onDevice); await tick();
+        vi.setSystemTime(4999); h.client.resumeLogin(); await tick();
+        expect(h.transport).toHaveBeenCalledTimes(1);
+        vi.setSystemTime(6000); h.client.resumeLogin(); h.client.resumeLogin(); await tick();
+        expect(h.transport).toHaveBeenCalledTimes(2);
+        h.client.resumeLogin(); await tick(5000); expect(h.transport).toHaveBeenCalledTimes(2);
+        exchange.resolve(tokens()); await pending;
+        h.client.resumeLogin(); await tick(); expect(h.transport).toHaveBeenCalledTimes(2);
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it.each([
+        { code: "authorization_pending", retryAfter: undefined, next: 10000 },
+        { code: "slow_down", retryAfter: undefined, next: 15000 },
+        { code: "slow_down", retryAfter: 20000, next: 25000 },
+    ])("resume preserves $code and Retry-After=$retryAfter", async ({ code, retryAfter, next }) => {
+        const h = harness(); let polls = 0;
+        h.transport.mockImplementation(async path => {
+            if (path === "/oauth/device_authorization") return device();
+            if (++polls === 1) throw new PanelError(code, 400, retryAfter);
+            return tokens();
+        });
+        const pending = h.client.login(h.onDevice); await tick(5000);
+        vi.setSystemTime(next - 1); h.client.resumeLogin(); h.client.resumeLogin(); await tick();
+        expect(polls).toBe(1);
+        vi.setSystemTime(next); h.client.resumeLogin(); h.client.resumeLogin(); await tick(); await pending;
+        expect(polls).toBe(2); expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("an overdue wake after code expiry does not exchange the expired code", async () => {
+        const h = harness({ device: device({ expires_in: 12 }) });
+        const result = outcome(h.client.login(h.onDevice)); await tick();
+        vi.setSystemTime(12000); h.client.resumeLogin(); await tick();
+        expect((await result).error).toMatchObject({ code: "expired_token" });
+        expect(h.transport).toHaveBeenCalledTimes(1); expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("cannot resume a cancelled poll or reuse its deadline in a replacement login", async () => {
+        const h = harness(); const old = outcome(h.client.login(h.onDevice)); await tick();
+        await h.client.cancel(); vi.setSystemTime(6000); h.client.resumeLogin(); await tick();
+        expect((await old).error).toMatchObject({ code: "cancelled" });
+        const next = h.client.login(h.onDevice); await tick(); h.client.resumeLogin(); await tick();
+        expect(h.transport.mock.calls.filter(([path]) => path === "/oauth/token")).toHaveLength(0);
+        await tick(5000); await next;
+        expect(h.transport.mock.calls.filter(([path]) => path === "/oauth/token")).toHaveLength(1);
+    });
+
     it.each(["access_denied", "expired_token"])("terminates on %s without polling again", async code => {
         const h = harness();
         h.transport.mockImplementation(async path => {
