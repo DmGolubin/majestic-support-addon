@@ -32,7 +32,18 @@
 .vc-stx-account-detail { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--stx-bd); color: var(--stx-mu2); font-size: 12px; }
 .vc-stx-account-detail summary { cursor: pointer; }
 .vc-stx-account-detail p { margin-top: 8px; }
-.vc-stx-settings-account .vc-stx-pp-actions { position: sticky; bottom: 0; z-index: 3; padding: 12px 0; border-top: 1px solid var(--stx-bd); background: #0b0d10; box-shadow: 0 -8px 18px #0b0d10; }
+.vc-stx-pp-editor-body { display: grid; gap: 12px; min-width: 0; }
+.vc-stx-pp-editor-footer { display: grid; gap: 12px; flex: none; padding: 12px 0; border-top: 1px solid var(--stx-bd); background: #0b0d10; }
+.vc-stx-management { overflow: hidden; }
+.vc-stx-management > header, .vc-stx-management > .vc-stx-close-confirm { flex: none; }
+.vc-stx-management > .vc-stx-settings:has(.vc-stx-pp-editor) { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.vc-stx-management .vc-stx-settings:has(.vc-stx-pp-editor) > .vc-stx-settings-nav { position: static; flex: none; margin-bottom: 14px; }
+.vc-stx-management .vc-stx-panel-personal:has(.vc-stx-pp-editor) { display: flex; flex-direction: column; min-height: 0; }
+.vc-stx-management .vc-stx-panel-personal:has(.vc-stx-pp-editor) > :not(form) { flex: none; }
+.vc-stx-management .vc-stx-panel-personal .vc-stx-pp-editor { display: flex; flex-direction: column; min-height: 0; gap: 0; }
+.vc-stx-management .vc-stx-pp-editor-body { overflow: auto; min-height: 0; padding: 4px 8px 16px 4px; scrollbar-width: thin; scrollbar-color: #303641 transparent; overscroll-behavior: contain; }
+.vc-stx-management > .vc-stx-close-confirm { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; margin: 12px 24px 0; }
+.vc-stx-close-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .vc-stx-settings-account .vc-stx-pp-preview > div { max-height: 160px; }
 .vc-stx-settings-account .vc-stx-panel-personal .vc-stx-pp-check { flex-direction: row; }
 @media (min-width: 800px) { .vc-stx-settings-account .vc-stx-panel-personal fieldset > .vc-stx-pp-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
@@ -41,5 +52,6 @@
     .vc-stx-settings-account .vc-stx-settings-nav .vc-stx-btn { padding-inline: 8px; font-size: 12px; }
     .vc-stx-settings-account .vc-stx-setting-card { padding: 14px; }
     .vc-stx-prefix-control { flex-wrap: wrap; }
+    .vc-stx-management > .vc-stx-close-confirm { margin-inline: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { .vc-stx-switch > span, .vc-stx-switch > span::after { transition: none; } }

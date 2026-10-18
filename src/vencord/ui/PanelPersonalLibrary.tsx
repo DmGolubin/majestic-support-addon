@@ -187,7 +187,8 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
         {!ready && <div className="vc-stx-pp-note" role="status"><p>Запись временно недоступна. Черновик остаётся в памяти этого аккаунта.</p><button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => void reloadPanel()}>Обновить библиотеку</button></div>}
         {state.error && <p role="alert" className="vc-stx-form-error">{state.error}</p>}
         {notice && <p role="status">{notice}</p>}
-        {editor ? <form onSubmit={e => { e.preventDefault(); void run(); }}>
+        {editor ? <form className="vc-stx-pp-editor" onSubmit={e => { e.preventDefault(); void run(); }}>
+            <div className="vc-stx-pp-editor-body">
             <h4>{editor.id ? "Редактирование" : "Создание"} {editor.kind === "folder" ? "папки" : "шаблона"}</h4>
             {restricted && <p role="status">Общая запись доступна для просмотра. Для изменения нужны права на оба проекта.</p>}
             <fieldset disabled={locked || state.conflict}>
@@ -220,6 +221,9 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
                 {editor.kind === "template" && canWrite && !restricted && <button type="button" className="vc-stx-btn" disabled={busy} onClick={() => update({ editor: { ...editor, id: undefined, version: undefined, draft: { ...editor.draft, title: (editor.draft.title.slice(0, 150) + " (копия)"), command: "" } }, conflict: false, remove: false, pending: null, error: "", dirty: true })}>Продолжить как новый шаблон</button>}
             </div>}
             {state.pending && !busy && <p className="vc-stx-pp-note">Результат пока неизвестен. Повтор отправит те же данные. Перед новой операцией проверьте список на панели.</p>}
+            <p className="vc-stx-muted">Несохранённый черновик останется при закрытии настроек до выхода из аккаунта или перезапуска Discord.</p>
+            </div>
+            <div className="vc-stx-pp-editor-footer">
             <div className="vc-stx-pp-actions">
                 <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={close}>Отмена</button>
                 {editor.id && writable && !restricted && !state.pending && !state.conflict && <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy || !ready} onClick={() => update({ remove: true })}>Удалить</button>}
@@ -234,7 +238,7 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
                     discardPanelDraft(); setDiscard(false);
                     if (replacement) update({ ...empty(), editor: replacement });
                 }}>Удалить черновик</button><button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => setDiscard(false)}>Продолжить редактирование</button></div>}
-            <p className="vc-stx-muted">Несохранённый черновик останется при закрытии настроек до выхода из аккаунта или перезапуска Discord.</p>
+            </div>
         </form> : <>
             <div className="vc-stx-pp-grid"><label>Поиск<input value={query} placeholder="Название, текст или команда" onChange={e => setQuery(e.currentTarget.value)} /></label>
                 <label>Папка<Select aria-label="Фильтр папок" value={folder} onChange={e => setFolder(e.currentTarget.value)}><option value="all">Все папки</option><option value="none">Без папки</option>
