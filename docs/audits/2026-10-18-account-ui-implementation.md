@@ -27,3 +27,9 @@ Screenshots of actual components with synthetic data: [categories](images/2026-1
 Integration run: 885 tests in 45 files passed. Core TypeScript and the read-only Vencord overlay typecheck passed. Ordinary Discord and the installed base Vencord checkout are outside the installation scope.
 
 Remaining live acceptance: install .7 on Canary; authorize writing; create/edit/move/color/delete an owned test template and verify panel synchronization. Real ticket sounds and player-waiting reminders are separate acceptance tasks. No messages were sent by these checks.
+
+## Build and handoff
+
+Canary .7 built from `67d4170`: 196 source inputs; forbidden-feature checks passed. All 10 payload files matched manifest size and SHA-256. Archive: `artifacts/standalone/0.1.0-canary.7-67d4170/SupportTemplates-0.1.0-canary.7.zip` (SHA-256 `815eacc4c24b9d40b6e9bd930aea4fcf79893c288ea51e946df5534a0701e9c5`).
+
+Installer status still reports .6. Owner asked to quit only Canary before installation; .7 has not yet been installed. No Stable Discord changes.
