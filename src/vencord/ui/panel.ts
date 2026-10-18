@@ -79,7 +79,7 @@ function wipe() {
 function message(error: unknown): string {
     const code = error instanceof PanelError ? error.code : "invalid_response";
     const labels: Record<string, string> = {
-        plugin_disabled: "API панели пока выключен. Дождитесь включения администратором.",
+        plugin_disabled: "Подключение к панели пока недоступно. Попробуйте позже.",
         access_denied: "Вход не подтверждён. Можно попробовать снова.",
         expired_token: "Код истёк. Начните вход заново.",
         session_revoked: "Доступ отозван. Войдите снова.",

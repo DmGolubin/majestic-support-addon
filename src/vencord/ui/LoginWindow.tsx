@@ -24,7 +24,12 @@ export function LoginWindow() {
     const waiting = d.phase === "connecting" || d.phase === "pending" || (d.phase === "offline" && !!d.url);
     useEffect(() => {
         ref.current?.focus();
-        const outside = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) ui.set({ windowOpen: false }); };
+        const outside = (e: MouseEvent) => {
+            const target = e.target as HTMLElement | null;
+            // The chat button toggles on click; closing on its mousedown would reopen the window.
+            if (ref.current?.contains(target) || target?.closest?.("[data-stx=button]")) return;
+            ui.set({ windowOpen: false });
+        };
         document.addEventListener("mousedown", outside);
         return () => document.removeEventListener("mousedown", outside);
     }, []);

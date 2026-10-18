@@ -11,6 +11,7 @@ const compile = (file: string) => ts.transpileModule(readFileSync(new URL(file, 
 }).outputText;
 const demoCode = compile("../src/vencord/ui/demo.ts");
 const pluginCode = compile("../src/vencord/index.tsx");
+const loginCode = compile("../src/vencord/ui/LoginWindow.tsx");
 const observable = <T extends object>(initial: T) => {
     let value = initial;
     return { get: () => value, set: (patch: Partial<T>) => { value = { ...value, ...patch }; } };
@@ -73,7 +74,7 @@ async function harness() {
     const addEventListener = vi.fn();
     const document = { addEventListener, removeEventListener: vi.fn(), createElement: () => ({ id: "", remove: vi.fn() }), body: { append } };
     const noops = (names: string[]) => Object.fromEntries(names.map(name => [name, vi.fn(() => 0)]));
-    const plugin = evaluate(pluginCode, {
+    const pluginModule = evaluate(pluginCode, {
         "./styles.css": {}, "@api/ChatButtons": {},
         "@api/Settings": { definePluginSettings: () => ({ store: {} }) },
         "@utils/types": { default: (value: unknown) => value, OptionType: { COMPONENT: 1, BOOLEAN: 2 } },
@@ -88,7 +89,18 @@ async function harness() {
         "./ui/keylatch": { startLatch: () => vi.fn(), latchKey: vi.fn(), swallowLatched: vi.fn() },
         "./ui/op": op, "./ui/panel": { startPanel: () => vi.fn(), disposePanel: vi.fn() }, "./ui/ProjectIcon": {}, "./ui/Settings": {},
         "./ui/ticketSound": { startTicketSound: () => vi.fn() }, "./ui/uiState": state, "./ui/Window": {},
-    }, { document, performance: { now: () => 0 }, React: { createElement: () => ({}) } }).default;
+    }, { document, performance: { now: () => 0 }, React: { createElement: () => ({}) } });
+    const plugin = pluginModule.default;
+    const mountLogin = () => {
+        const login = evaluate(loginCode, {
+            "@webpack/common": { useRef: () => ({ current: { focus() {}, contains: (target: any) => target.inside === true } }), useEffect: (effect: () => void) => effect() },
+            "./demo": { ...demo, demo: { use: () => ({ enabled: false }) } },
+            "./op": op, "./panel": { panel: { use: () => ({ enabled: true, phase: "idle" }) } },
+            "./PanelConnection": {}, "./uiState": { ui, useChatRect: () => null },
+        }, { document, innerWidth: 1280, innerHeight: 720, React: { createElement: () => ({}) } });
+        login.LoginWindow();
+        return addEventListener.mock.calls.find(([event]) => event === "mousedown")![1] as (event: unknown) => void;
+    };
     const connect = async () => {
         await demo.connectDemo();
         await vi.advanceTimersByTimeAsync(700);
@@ -119,13 +131,28 @@ async function harness() {
         expect(real.data).toEqual(localBefore);
         expect(write).toHaveBeenCalledTimes(writesBefore);
     };
-    return { demo, plugin, real, router, ui, access, server, fetch, mount, append, addEventListener, op, connect, seedSession, expectCleared, expectLocalUntouched };
+    return { demo, plugin, toggleWindow: pluginModule.toggleWindow, mountLogin, real, router, ui, access, server, fetch, mount, append, addEventListener, op, connect, seedSession, expectCleared, expectLocalUntouched };
 }
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("demo session and plugin lifecycle", () => {
+    it("closes login on the second icon click without reopening after outside mousedown", async () => {
+        const h = await harness();
+        h.toggleWindow();
+        const onDown = h.mountLogin();
+        // The nested icon resolves its owning chat button, as Element.closest does in Discord.
+        onDown({ target: { closest: (selector: string) => selector === "[data-stx=button]" ? {} : null } });
+        h.toggleWindow();
+        expect(h.ui.get().windowOpen).toBe(false);
+        h.toggleWindow();
+        expect(h.ui.get().windowOpen).toBe(true);
+        onDown({ target: { inside: true, closest: () => null } });
+        expect(h.ui.get().windowOpen).toBe(true);
+        onDown({ target: { closest: () => null } });
+        expect(h.ui.get().windowOpen).toBe(false);
+    });
     it.each(["template", "folder"])("cannot republish a pending %s into a retired demo session", async kind => {
         const h = await harness();
         h.demo.enableDemo();
