@@ -42,6 +42,45 @@ describe("panel profile", () => {
 });
 
 describe("panel snapshot", () => {
+    it("accepts the live text FAQ format and preserves Media links without HTML conversion", () => {
+        const wire = snapshotWire();
+        const text = "**Приветствую!\nБлагодарим Вас за обращение в службу поддержки.**\n[[greeting:end]]\n\nЛюбые вопросы по Media:\nСтать медиа проекта → [Majestic Media Bot](<https://t.me/majestic_media_bot>)\nВся коммуникация → [VK Majestic Media](<https://vk.com/majestic.media>)\nОфициальный канал \"Медиа\" → [Majestic GTA Media](<https://t.me/majesticgta_media>)";
+        Object.assign(wire.faq[0], { format: "text", text });
+        const converter = vi.fn(() => { throw Error("Text must not enter HTML conversion"); });
+        expect(parse(wire, parseProfile(profileWire()), converter).templates[0].text).toBe(text);
+        expect(converter).not.toHaveBeenCalled();
+    });
+    it("preserves literal text, entities, CRLF, indentation and markers in text FAQ", () => {
+        const wire = snapshotWire();
+        const text = "**Hello**\r\n[[greeting:end]]\r\n\r\n1. Step\r\n   detail\r\n\r\n\r\n`<div>` &amp; <https://example.org/?a=1&b=2>\r\n{{name=Player}} {|} help@example.org\r\n";
+        Object.assign(wire.faq[0], { format: "text", text });
+        expect(parse(wire).templates[0].text).toBe(text);
+    });
+    it("keeps the FAQ mention protection in text format without changing emails or token defaults", () => {
+        const wire = snapshotWire();
+        Object.assign(wire.faq[0], { format: "text", text: "@everyone @here <@123> <@!123> <@&123> help@example.org {{name=@here}}" });
+        expect(parse(wire).templates[0].text).toBe("@\u200beveryone @\u200bhere <@\u200b123> <@\u200b!123> <@\u200b&123> help@example.org {{name=@here}}");
+    });
+    it("converts only HTML in a mixed-format snapshot", () => {
+        const wire = snapshotWire();
+        wire.faq.push({ ...wire.faq[0], id: "russia-online:1", projects: ["russia-online"], format: "text", text: "**text**" });
+        const converter = vi.fn(htmlToDiscordText);
+        expect(parse(wire, parseProfile(profileWire()), converter).templates.slice(0, 2).map(t => t.text)).toEqual(["FAQ answer", "**text**"]);
+        expect(converter).toHaveBeenCalledExactlyOnceWith(wire.faq[0].text);
+    });
+    it.each(["", " \n", "bad\u0000text", 123, null])("rejects invalid text FAQ content %j", text => {
+        const wire = snapshotWire();
+        Object.assign(wire.faq[0], { format: "text", text });
+        expect(() => parse(wire)).toThrow();
+    });
+    it("rejects oversized text FAQ and missing format", () => {
+        const wire = snapshotWire();
+        Object.assign(wire.faq[0], { format: "text", text: "x".repeat(1000001) });
+        expect(() => parse(wire)).toThrow();
+        wire.faq[0].text = "Valid text";
+        delete wire.faq[0].format;
+        expect(() => parse(wire)).toThrow();
+    });
     it("preserves FAQ Markdown and paragraphs through the real snapshot conversion", () => {
         const wire = snapshotWire();
         const text = "**Приветствую! Благодарим Вас за обращение в службу поддержки.**\n\nДля решения Вашей проблемы:\n\n1. Проверьте файлы.\n2. Обновите драйвера.\n\nid#00048394";
@@ -84,7 +123,7 @@ describe("panel snapshot", () => {
     });
     it.each([
         ["faq", { id: "same title" }], ["faq", { id: "russia-online:1" }], ["faq", { projects: [] }],
-        ["faq", { projects: ["majestic", "russia-online"] }], ["faq", { format: "text" }], ["faq", { status: "unknown" }],
+        ["faq", { projects: ["majestic", "russia-online"] }], ["faq", { format: "markdown" }], ["faq", { status: "unknown" }],
         ["faq", { tags: "help" }], ["faq", { version: 1 }], ["personal", { id: "personal:1" }],
         ["personal", { format: "html" }], ["personal", { shared: "false" }], ["personal", { folderId: "missing" }],
         ["personal", { command: "with space" }], ["personal", { command: "/cmd" }], ["personal", { text: "x".repeat(20001) }],

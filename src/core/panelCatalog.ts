@@ -147,6 +147,22 @@ function metadata(r: Record<string, unknown>) {
     return { title: string(r.title, 160), updatedAt: timestamp(r.updatedAt) };
 }
 
+function faqText(text: string): string {
+    // Match the legacy HTML converter's mention policy without decoding HTML or normalizing
+    // whitespace. Token defaults/options remain template syntax, as in that converter.
+    const tokens = /\{\{\s*([^}|=]+?)\s*(?:=\s*([^}|]*?)\s*)?(\|[^}]*)?\s*\}\}|\[\[greeting:end\]\]|\{\|\}/g;
+    const neutralize = (part: string) => part.replace(/<@(?=[!&]?\d+>)/g, "<@\u200b")
+        .replace(/(^|[^\p{L}\p{N}_.+-])@(everyone|here)\b/gu, "$1@\u200b$2");
+    const parts: string[] = [];
+    let end = 0;
+    for (const match of text.matchAll(tokens)) {
+        parts.push(neutralize(text.slice(end, match.index)), match[0]);
+        end = match.index! + match[0].length;
+    }
+    parts.push(neutralize(text.slice(end)));
+    return parts.join("");
+}
+
 /** Pure all-or-nothing validation. The caller binds profile.accountId to the active session/Discord user. */
 export function parseSnapshot(value: unknown, profile: PanelProfile, htmlToText: (html: string) => string): PanelCatalog {
     const r = record(value);
@@ -176,7 +192,7 @@ export function parseSnapshot(value: unknown, profile: PanelProfile, htmlToText:
         const t = record(value), id = takeId(t.id, faqIds);
         const match = /^(majestic|russia-online):([1-9]\d{0,19})$/.exec(id);
         const owned = entryProjects(t.projects, ps);
-        if (!match || owned.length !== 1 || project(match[1]) !== owned[0] || t.format !== "html") return invalid();
+        if (!match || owned.length !== 1 || project(match[1]) !== owned[0] || (t.format !== "html" && t.format !== "text")) return invalid();
         strings(t.tags, 100, 160);
         const category = t.category === null ? null : string(t.category, 1024);
         // The server may redact editing status for a reader without faq_edit.
@@ -184,7 +200,12 @@ export function parseSnapshot(value: unknown, profile: PanelProfile, htmlToText:
         if (!["actual", "needs_review", "outdated"].includes(status as string)) return invalid();
         const meta = metadata(t);
         let text: string;
-        try { text = string(htmlToText(string(t.text, 1000000, true)), 1000000, true); } catch { return invalid(); }
+        try {
+            const source = string(t.text, 1000000, true);
+            // Live API now sends Discord Markdown as text. HTML decoding would change literal
+            // entities, tags, whitespace and URLs; only legacy HTML needs the converter.
+            text = string(t.format === "text" ? faqText(source) : htmlToText(source), 1000000, true);
+        } catch { return invalid(); }
         return { id: "faq:" + id, ...meta, text, project: owned[0], category, status: status as TemplateStatus,
             source: "faq", statusNote: null, command: null, color: null, teamUses: 0 };
     });
