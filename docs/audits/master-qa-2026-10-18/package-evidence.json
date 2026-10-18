@@ -1,0 +1,243 @@
+{
+  "version": "0.1.0-canary.13",
+  "pluginCommit": "e8d089bda0a83fc3539ec8c8ef88e9d6db801db6",
+  "upstreamCommit": "32c90633ce6a95d7e56c95479efbb431bacf1eac",
+  "zipSha256": "1b3eec158724ab6898e1c7204d70c8412847f6562fc68fd66abb97111ffb13a5",
+  "sourceArchiveSha256": "80be91e9c42782321701d9b5a7855745b8794e8c712189e42adacb6e5208957d",
+  "payload": [
+    {
+      "path": "payload/loader.asar",
+      "size": 3484,
+      "sha256": "f5449b676f7bc3f43dd62365c011bac48949fd53c96b00c1586015a6a6bae8e3",
+      "valid": true
+    },
+    {
+      "path": "payload/runtime/patcher.js",
+      "size": 16887,
+      "sha256": "34f549a2561aadcf1ff1b2d1fd449506358aa1e4b5b5a114c647568604fc97bb",
+      "valid": true
+    },
+    {
+      "path": "payload/runtime/patcher.js.map",
+      "size": 77628,
+      "sha256": "cdba3bf1d7d012b6f8d6060301dc1031fed279085cd06ca1c4f9013c1cabb9d2",
+      "valid": true
+    },
+    {
+      "path": "payload/runtime/preload.js",
+      "size": 2867,
+      "sha256": "eca227f680f4bbf1abbccda035c3e5f3bd22d93e69c6585a2346800ce04cd2c8",
+      "valid": true
+    },
+    {
+      "path": "payload/runtime/preload.js.map",
+      "size": 10095,
+      "sha256": "340cbbf556ce67009ec37f397140eb788c774c6972dc89c899f8611b350fe227",
+      "valid": true
+    },
+    {
+      "path": "payload/runtime/renderer.css",
+      "size": 53803,
+      "sha256": "251950bcff89e490a49ac1bae05d9fe7da4b9a649c901191ffa2cfed1ae04d40",
+      "valid": true
+    },
+    {
+      "path": "payload/runtime/renderer.css.map",
+      "size": 109111,
+      "sha256": "225793c7102d556d02ac85249323b9092d0bb1b6f83c153f7b943a994a43978f",
+      "valid": true
+    },
+    {
+      "path": "payload/runtime/renderer.js",
+      "size": 536003,
+      "sha256": "56b926df9675cea646a105e41c3b0231365a805ed79e004a11bbf2d5039af48d",
+      "valid": true
+    },
+    {
+      "path": "payload/runtime/renderer.js.LEGAL.txt",
+      "size": 774,
+      "sha256": "bf5436f7cc587ed75bfede8322a230fb0156440a8e941e1661255686de1c5252",
+      "valid": true
+    },
+    {
+      "path": "payload/runtime/renderer.js.map",
+      "size": 1574419,
+      "sha256": "0869286bc05b52267f7ae4d171f5bcea2a2e61b00d44e25bb3fd1453a5240f0e",
+      "valid": true
+    }
+  ],
+  "toolchain": {
+    "node": "v24.12.0",
+    "dependencies": {
+      "esbuild": "0.28.1",
+      "typescript": "6.0.3",
+      "@intrnl/xxhash64": "0.1.2",
+      "diff": "9.0.0"
+    }
+  },
+  "outputs": {
+    "dist/patcher.js.map": {
+      "npm": [],
+      "externals": []
+    },
+    "dist/patcher.js": {
+      "npm": [],
+      "externals": [
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "electron",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "electron",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "electron",
+          "kind": "require-resolve",
+          "external": true
+        },
+        {
+          "path": "electron",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:crypto",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:fs/promises",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "electron",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:crypto",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "electron",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "electron",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "electron",
+          "kind": "require-call",
+          "external": true
+        }
+      ]
+    },
+    "dist/preload.js.map": {
+      "npm": [],
+      "externals": []
+    },
+    "dist/preload.js": {
+      "npm": [],
+      "externals": [
+        {
+          "path": "electron/renderer",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "electron/renderer",
+          "kind": "require-call",
+          "external": true
+        }
+      ]
+    },
+    "dist/renderer.js.LEGAL.txt": {
+      "npm": [],
+      "externals": []
+    },
+    "dist/renderer.js.map": {
+      "npm": [],
+      "externals": []
+    },
+    "dist/renderer.js": {
+      "npm": [
+        {
+          "name": "../../../../../dev/Vencord/node_modules/.pnpm/@intrnl+xxhash64@0.1.2/node_modules/@intrnl/xxhash64/src/index.js",
+          "bytes": 2391
+        }
+      ],
+      "externals": []
+    },
+    "dist/renderer.css.map": {
+      "npm": [],
+      "externals": []
+    },
+    "dist/renderer.css": {
+      "npm": [],
+      "externals": []
+    }
+  },
+  "sourceInputs": 203,
+  "limitations": [
+    "Build dependencies reused from local pinned Vencord node_modules; exact-lock tree integrity not independently verified",
+    "No real Discord installation or publication"
+  ]
+}

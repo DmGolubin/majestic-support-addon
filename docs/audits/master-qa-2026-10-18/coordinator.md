@@ -24,6 +24,7 @@ Executed:
 - At 900×675, editor body overflow is `auto` with bottom 597; footer action top 610, bottom 642; management bottom 655. No text is drawn behind the footer in [captured image](editor-900x675.png), visually inspected by coordinator.
 - At 360×541, 360×540 and 320×480, Save was scrolled into view, fully inside viewport and center-point hit testing returned that button. No horizontal overflow. This exercises the short-window scrolling-owner breakpoint.
 - Recovery alert was visible in the harness; clicking Repeat reading removed it, with no horizontal overflow at 360×640. This uses synthetic recovery state, not IndexedDB.
+- At 360×640 Tickets under browser light/dark color-scheme emulation: no horizontal overflow, volume label `84%` for synthetic 83.9506, branded dialog background stays rgb(11,13,16). Host body stress `font:18px/1.8 serif; color:#00ff00; color-scheme:light` preserves the dialog's scoped STX font and no horizontal overflow. This is a bounded inheritance check, not every host theme/control state.
 
 The screenshot includes faint harness-only Settings/Menu controls outside the dialog. It is not a Discord screenshot. Live theme/forced-colors/OS-IME/screen-reader checks remain pending; role13 lists concrete future fixtures. No claim of 100 physical mouse interactions, heap-leak absence, or complete host lifecycle stress follows from these checks.
 
@@ -31,7 +32,9 @@ The screenshot includes faint harness-only Settings/Menu controls outside the di
 
 - Initial full suite: 1425/1426 pass, one new near-million-character Markdown VM deadline failure; [raw result](full-suite-initial.json). Single-worker repeat: 28/28 pass, 746ms total test execution. Independent role19 confirms bounded scaling and baseline failure, and increases only that maximal-input deadline to 5s; smaller regression remains 1s. [Independent review](Report19.md).
 - Native TEMP fixture: `powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneInstaller.Tests.ps1 -Only 'latest numeric app version and repair after Discord update'` — 1 group passed, PowerShell 5.1.26100.9711. No real Discord paths were targets.
-- Final combined tests, typechecks, graph refresh, package/manifest and real-payload fixture results are recorded in the master report when complete. Individual role counts overlap.
+- Final combined tests: 1464/1464 in 65 files, zero failures/pending; four workers. Core and Vencord typechecks passed. AST-only graph refresh completed. Individual role counts overlap.
+- Build `.13` from committed frozen inputs `e8d089bda0a83fc3539ec8c8ef88e9d6db801db6`: passed, 203 source inputs. All 10 payload hashes/sizes verified; emitted dependency/external inventory and archive hashes in `package-evidence.json`.
+- TEMP installer actual `.13` payload install/status/uninstall with exact original restore: passed. Separate native/loader-change renderer-update refusal group: passed. These plus the earlier host-update fixture are three selected groups; full installer suite not rerun.
 
 ## Explicit outstanding work
 

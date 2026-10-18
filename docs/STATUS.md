@@ -5,7 +5,7 @@
 
 Единственный список задач: [roadmap/data.json](roadmap/data.json). [Сайт roadmap](roadmap/index.html) запускается командой `pnpm roadmap:serve` и открывается на http://127.0.0.1:47834/roadmap/.
 
-18.10: Renderer .12 установлен на native runtime .6; применить Ctrl+R. Добавлены свой звук, округлённая громкость, статичные карточки серверов и напоминания по API назначенных тикетов. 1267 тестов и обе проверки типов прошли; после ужесточения чтения аудио ещё 47 целевых тестов прошли. Нужны живая авторизация/проверка напоминаний и слышимости. Q09/Q11 и причина исходного первого неуспешного сохранения остаются открыты.
+19.10: Master QA — 20 независимых ролей; 22 source-дефекта исправлены, 1464 теста/65 файлов и обе проверки типов прошли. Кандидат .13 собран из e8d089b; 10 payload-хешей и 3 выбранные TEMP installer-группы проверены. Не установлен: в Canary renderer .12/native .6. Остаются живая приёмка, R18-01 аттестация зависимостей и upstream maintenance; причина исходного первого сбоя сохранения не установлена.
 
 Статус «реализовано · нужна приёмка» не означает готовый релиз. Демо не является настоящим API. Исторические аудиты фиксируют состояние на дату отчёта и не заменяют этот список.
 
@@ -33,13 +33,15 @@ C · Панель. Владелец сообщил о неподтверждён
 
 ### Q13 · Полный цикл Master QA: 20 специализаций
 
-Качество и безопасность. 20 независимых ролей завершены; 22 подтверждённых source-дефекта исправлены. 1464/1464 теста, core/Vencord types проходят. Браузер: 100 циклов и адаптивный редактор. Кандидат .13 готовится локально; живой выпуск и зависимое дерево сборки ещё не приняты
+Качество и безопасность. Цикл 20 ролей завершён: 22 source-дефекта исправлены; 1464/1464 теста в 65 файлах, core/Vencord types; браузер: 100 циклов и адаптивность. .13 собрана из e8d089b, 10 payload-хешей и 3 TEMP installer-группы прошли. Не установлена. Review: живая приёмка/зависимости, BetterDiscord отсутствует.
+
+Основание: [README.md](audits/master-qa-2026-10-18/README.md).
 
 ### B07 · Свой звук и аккуратные настройки
 
 B · Тикеты. Свой звук и целые проценты реализованы; Master QA защищает настройки от потерянной очереди и перезаписи после ошибки чтения, добавлен retry. 139 целевых проверок прошли; нужна живая слышимость
 
-Основание: [2026-10-18-ticket-reminders-and-custom-sound.md](audits/2026-10-18-ticket-reminders-and-custom-sound.md).
+Основание: [2026-10-18-ticket-reminders-and-custom-sound.md](audits/2026-10-18-ticket-reminders-and-custom-sound.md), [README.md](audits/master-qa-2026-10-18/README.md).
 
 ### Q12 · Полировка текущего приложения: 20 независимых проверок
 
@@ -69,7 +71,7 @@ C · Панель. Реализован авторизованный SSE: изм
 
 C · Панель. Некорректное содержимое snapshot сохраняет действующую сессию при закрытом доступе до повторной проверки; исправлен дробный backoff. 401/403/чужая identity остаются terminal. Причина первого сбоя сохранения не установлена
 
-Основание: [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md).
+Основание: [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md), [README.md](audits/master-qa-2026-10-18/README.md).
 
 ### C09 · Приёмка настоящей интеграции
 
@@ -135,13 +137,13 @@ C · Панель. Владелец сообщает сохранение вхо
 
 Выпуск. Master QA: проект audit 0; upstream 66 записей / 55 GHSA — tooling/optional debt, не доказанные уязвимости урезанного runtime. R18-01: borrowed node_modules не аттестован против точного lock; release gate. Обновление зависимостей отдельно
 
-Основание: [2026-10-18-release-audit.md](audits/2026-10-18-release-audit.md), [2026-10-18-vencord-dependencies.json](audits/2026-10-18-vencord-dependencies.json), [2026-10-18-standalone-dependencies.md](audits/2026-10-18-standalone-dependencies.md).
+Основание: [2026-10-18-release-audit.md](audits/2026-10-18-release-audit.md), [2026-10-18-vencord-dependencies.json](audits/2026-10-18-vencord-dependencies.json), [2026-10-18-standalone-dependencies.md](audits/2026-10-18-standalone-dependencies.md), [README.md](audits/master-qa-2026-10-18/README.md).
 
 ### C11 · Сохранение предпочтений библиотеки аккаунта
 
 C · Панель. Настройки аккаунта и звук проверены на 100 быстрых изменений и stop/start; запись непрочитанного состояния запрещена. Требуется живая проверка перезагрузки
 
-Основание: [2026-10-18-panel-preferences.md](audits/2026-10-18-panel-preferences.md).
+Основание: [2026-10-18-panel-preferences.md](audits/2026-10-18-panel-preferences.md), [README.md](audits/master-qa-2026-10-18/README.md).
 
 ### A16 · Повторный клик по иконке и текст ошибки входа
 
@@ -153,7 +155,7 @@ A · Шаблоны. Исправлен повторный клик по ико�
 
 Качество и безопасность. Master QA: ошибка чтения больше не останавливает UI; запись непрочитанных настроек заблокирована, есть повтор чтения; regression и 10 lifecycle-циклов проходят. Живой сбой IndexedDB не воспроизводился
 
-Основание: [2026-10-18-plugin-review-formatting.md](audits/2026-10-18-plugin-review-formatting.md).
+Основание: [2026-10-18-plugin-review-formatting.md](audits/2026-10-18-plugin-review-formatting.md), [README.md](audits/master-qa-2026-10-18/README.md).
 
 ### Q10 · Защита черновика в настройках standalone
 
@@ -165,7 +167,7 @@ A · Шаблоны. Исправлен повторный клик по ико�
 
 Качество и безопасность. Загрузчик принимает тот же prerelease-формат каталога app, что installer; 44 VM-проверки прошли. Требуется полный native-upgrade и живая проверка
 
-Основание: [2026-10-18-plugin-review-formatting.md](audits/2026-10-18-plugin-review-formatting.md), [20.md](audits/polish-2026-10-18/20.md).
+Основание: [2026-10-18-plugin-review-formatting.md](audits/2026-10-18-plugin-review-formatting.md), [20.md](audits/polish-2026-10-18/20.md), [README.md](audits/master-qa-2026-10-18/README.md).
 
 ### C12 · Восстановить пустые ссылки в исходных FAQ API
 
