@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PanelClient, PanelError, PanelTransport } from "../src/core/panelClient";
 import { PANEL_ORIGIN } from "../src/core/panelProtocol";
 import { createPanelPreferencesStorage } from "../src/core/panelPreferences";
+import { PanelCatalogValidationError, parseProfile, parseSnapshot } from "../src/core/panelCatalog";
 import { Store, STORE_KEY } from "../src/core/state";
 import { createPanelVault } from "../src/vencord/panelVault";
 
@@ -27,7 +28,8 @@ function observable<T extends object>(value: T) {
 // No OS storage, production requests, or synthetic secrets are printed.
 function harness() {
     let saved: unknown = null;
-    const state = { saveWait: null as Promise<void> | null, revokeWait: null as Promise<void> | null };
+    const state = { saveWait: null as Promise<void> | null, revokeWait: null as Promise<void> | null,
+        malformed: false, snapshotError: null as PanelError | null, foreignSnapshot: false };
     const native = {
         panelVaultAvailable: vi.fn(async () => true),
         panelVaultLoad: vi.fn(async () => structuredClone(saved)),
@@ -49,10 +51,14 @@ function harness() {
         };
         if (path === "/oauth/revoke") { if (state.revokeWait) await state.revokeWait; return {}; }
         if (path === "/device-requests/cancel") return {};
-        if (path === "/me") return { accountId: account, connectionId: connection, minimumPluginVersion: "1.0.0",
-            projects: ["mj"], scopes: scopes.split(" "), permissionsRevision: "1", name: "Fixture" };
-        if (path === "/snapshot") return { accountId: account, revision: "1", permissionsRevision: "1",
-            templates: [], personal: [], folders: [] };
+        if (path === "/me") return { schemaVersion: 1, accountId: account, connectionId: connection, minimumPluginVersion: "1.0.0",
+            projects: ["majestic"], scopes: scopes.split(" "), permissionsRevision: "1", name: "Fixture", serverTime: "2026-10-18T00:00:00Z" };
+        if (path === "/snapshot") {
+            if (state.snapshotError) throw state.snapshotError;
+            return { schemaVersion: 1, accountId: state.foreignSnapshot ? "987654321098765432" : account,
+                revision: "1", permissionsRevision: "1", serverTime: "2026-10-18T00:00:00Z", projects: ["majestic"],
+                faq: state.malformed ? null : [], personal: [], folders: [], trash: [], limits: { colors: [] }, colorLabels: {} };
+        }
         throw new Error("Unexpected mock endpoint");
     });
     const access = observable({ ready: false, checkedAt: 0 });
@@ -72,7 +78,7 @@ function harness() {
         "../platform": { storage: { get: async () => undefined, set: async () => {} } },
         "../core/panelClient": { PanelClient, PanelError }, "../core/panelProtocol": { PANEL_ORIGIN },
         "../panelVault": { createPanelVault }, "../core/panelTransport": { createPanelTransport: () => transport },
-        "../core/panelCatalog": { parseProfile: (v: unknown) => v, parseSnapshot: (v: unknown) => v },
+        "../core/panelCatalog": { PanelCatalogValidationError, parseProfile, parseSnapshot },
         "../panelHtml": { htmlToDiscordText: () => "" },
         "../core/panelEvents": { createPanelEventStream: () => async (_token: string, signal: AbortSignal) => {
             if (!signal.aborted) await new Promise<void>(resolve => signal.addEventListener("abort", () => resolve(), { once: true }));
@@ -90,14 +96,57 @@ function harness() {
         window: { open() {}, addEventListener: (n: string, fn: () => void) => windowEvents.set(n, fn),
             removeEventListener: (n: string) => windowEvents.delete(n) },
         require: (name: string) => { if (!(name in deps)) throw new Error("Unexpected import " + name); return deps[name]; } });
-    return { api: module.exports, state, native, transport, windowEvents, documentEvents, document, localSelected: () => selected === local,
+    return { api: module.exports, state, native, transport, access, windowEvents, documentEvents, document, localSelected: () => selected === local,
         saved: () => saved };
 }
 
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-18T00:00:00Z")); });
-afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("session boundaries across real controller, auth client and renderer vault", () => {
+    it("retains the saved session through malformed data, backoff and successful retry", async () => {
+        vi.spyOn(Math, "random").mockReturnValue(0.50001);
+        const h = harness(); h.state.malformed = true;
+        const login = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(0);
+        // Explicit login clears the previous slot before device authorization, as designed.
+        h.native.panelVaultClear.mockClear();
+        await vi.advanceTimersByTimeAsync(5000); await login;
+        expect(h.api.panel.get().phase).toBe("offline");
+        expect(h.access.get().ready).toBe(false);
+        expect(h.saved() !== null).toBe(true);
+        expect(h.native.panelVaultClear).not.toHaveBeenCalled();
+        h.state.malformed = false;
+        await vi.advanceTimersByTimeAsync(10001);
+        expect(h.api.panel.get().phase).toBe("ready");
+        expect(h.access.get().ready).toBe(true);
+        expect(h.saved() !== null).toBe(true);
+        expect(h.native.panelVaultClear).not.toHaveBeenCalled();
+        expect(h.transport.mock.calls.map(([path]) => path)).toEqual([
+            "/oauth/device_authorization", "/oauth/token", "/me", "/snapshot", "/me", "/snapshot",
+        ]);
+        h.api.disposePanel();
+    });
+
+    it.each(["foreign", "401", "403", "revoked"])("still clears saved credentials for %s during a catalog retry", async failure => {
+        vi.spyOn(Math, "random").mockReturnValue(0.50001);
+        const h = harness(); h.state.malformed = true;
+        const login = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(5000); await login;
+        expect(h.api.panel.get().phase).toBe("offline");
+        h.native.panelVaultClear.mockClear();
+        if (failure === "foreign") h.state.foreignSnapshot = true;
+        else h.state.snapshotError = failure === "revoked" ? new PanelError("session_revoked")
+            : new PanelError("access_denied", Number(failure));
+        await vi.advanceTimersByTimeAsync(10001);
+        expect(h.api.panel.get().phase).toBe("error");
+        expect(h.access.get().ready).toBe(false);
+        expect(h.saved() === null).toBe(true);
+        expect(h.native.panelVaultClear).toHaveBeenCalled();
+        const calls = h.transport.mock.calls.length;
+        await vi.advanceTimersByTimeAsync(120000);
+        expect(h.transport).toHaveBeenCalledTimes(calls);
+        h.api.disposePanel();
+    });
+
     it("keeps an unfinished device login alive when Discord regains focus", async () => {
         const h = harness(); const off = h.api.startPanel(); await vi.advanceTimersByTimeAsync(0);
         const login = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(0);

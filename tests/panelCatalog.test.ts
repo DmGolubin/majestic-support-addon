@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseProfile, parseSnapshot } from "../src/core/panelCatalog";
+import { PanelCatalogValidationError, parseProfile, parseSnapshot } from "../src/core/panelCatalog";
 import { PERSONAL_COLORS } from "../src/core/personal";
 import { htmlToDiscordText } from "../src/vencord/panelHtml";
 
@@ -42,6 +42,24 @@ describe("panel profile", () => {
 });
 
 describe("panel snapshot", () => {
+    it.each([
+        { faq: null }, { personal: null }, { folders: null }, { trash: null },
+        { revision: null }, { serverTime: "bad" }, { limits: null }, { colorLabels: null },
+    ])("classifies malformed content as recoverable only after validating access: %j", patch => {
+        expect(() => parse({ ...snapshotWire(), ...patch })).toThrow(PanelCatalogValidationError);
+        try { parse({ ...snapshotWire(), ...patch }); } catch (error) {
+            expect(error).toMatchObject({ kind: "data" });
+        }
+    });
+    it.each([
+        { accountId: "999999999999999999" }, { accountId: null }, { schemaVersion: 2 },
+        { permissionsRevision: null }, { permissionsRevision: "changed" }, { projects: ["majestic"] },
+    ])("classifies invalid identity/rights as terminal even with malformed content: %j", patch => {
+        try { parse({ ...snapshotWire(), faq: null, ...patch }); expect.fail("must reject"); } catch (error) {
+            expect(error).toBeInstanceOf(PanelCatalogValidationError);
+            expect(error).toMatchObject({ kind: "access" });
+        }
+    });
     it("accepts the live text FAQ format and preserves Media links without HTML conversion", () => {
         const wire = snapshotWire();
         const text = "**Приветствую!\nБлагодарим Вас за обращение в службу поддержки.**\n[[greeting:end]]\n\nЛюбые вопросы по Media:\nСтать медиа проекта → [Majestic Media Bot](<https://t.me/majestic_media_bot>)\nВся коммуникация → [VK Majestic Media](<https://vk.com/majestic.media>)\nОфициальный канал \"Медиа\" → [Majestic GTA Media](<https://t.me/majesticgta_media>)";

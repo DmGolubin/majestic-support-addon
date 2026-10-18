@@ -30,7 +30,8 @@ export function captureWindowTarget(editor: HTMLElement | null = null) {
 
 /** The Slate editor of the chat box that contains `el` (a chat-bar button): focus-independent. */
 export function editorNear(el: Element | null): HTMLElement | null {
-    return el?.closest?.('[class*="channelTextArea"]')?.querySelector<HTMLElement>('[data-slate-editor="true"]') ?? null;
+    const editor = el?.closest?.('[class*="channelTextArea"]')?.querySelector<HTMLElement>('[data-slate-editor="true"]');
+    return editor?.isConnected ? editor : null;
 }
 export function clearTargets() { windowTarget = composeTarget = null; }
 

@@ -22,12 +22,28 @@ function decode(text: string): string {
 function outsideTokens(text: string, convert: (part: string) => string): string {
     // Same token grammar as core/tokens.ts; escaping its pipes, underscores or defaults changes
     // field names/options. Preserve grammar plus greeting/caret markers during text cleanup.
-    const tokens = /\{\{\s*([^}|=]+?)\s*(?:=\s*([^}|]*?)\s*)?(\|[^}]*)?\s*\}\}|\[\[greeting:end\]\]|\{\|\}/g;
+    // Standalone equivalent of core/templateTokens: never retry a suffix without a closer.
+    const openings = /\{\{|\{\|\}|\[\[greeting:end\]\]/g;
+    const token = /\{\{([^}|=]+)(?:=([^}|]*))?(\|[^}]*)?\}\}/y;
     const parts: string[] = [];
-    let end = 0;
-    for (const match of text.matchAll(tokens)) {
-        parts.push(convert(text.slice(end, match.index)), match[0]);
-        end = match.index! + match[0].length;
+    let end = 0, close = -1, exhausted = false;
+    for (let opening; (opening = openings.exec(text));) {
+        let raw = opening[0];
+        if (raw === "{{") {
+            openings.lastIndex = opening.index + 1;
+            if (exhausted) continue;
+            if (close < opening.index + 2) {
+                close = text.indexOf("}", opening.index + 2);
+                if (close < 0) { exhausted = true; continue; }
+            }
+            if (text[close + 1] !== "}") continue;
+            token.lastIndex = opening.index;
+            const match = token.exec(text);
+            if (!match) continue;
+            raw = match[0]; openings.lastIndex = token.lastIndex;
+        }
+        parts.push(convert(text.slice(end, opening.index)), raw);
+        end = opening.index + raw.length;
     }
     parts.push(convert(text.slice(end)));
     return parts.join("");

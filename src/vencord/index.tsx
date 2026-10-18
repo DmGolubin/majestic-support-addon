@@ -14,7 +14,7 @@ import { createRoot } from "@webpack/common";
 import { serverMode } from "./core/guard";
 import { comboOf } from "./core/keys";
 import { favoritesOf } from "./core/rank";
-import { currentChannel, currentGuildId, onChannelChange, toast } from "./platform";
+import { currentChannel, currentGuildId, disposePlatformNotices, onChannelChange, toast } from "./platform";
 import { resetMenuGuards } from "./ui/ContextMenu";
 import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
 import { disposeDemo } from "./ui/demo";
@@ -36,9 +36,16 @@ const Icon: IconComponent = ({ height = 20, width = 20, className }) => (
     <img src={MJ_ICON} height={height} width={width} className={className} style={{ borderRadius: 5 }} alt="" />
 );
 
-export function toggleWindow(open = !ui.get().windowOpen, editor: HTMLElement | null = null) {
+export function toggleWindow(open = !ui.get().windowOpen, editor?: HTMLElement | null) {
     // The editor and selection are captured before focus moves to the window's search box.
-    if (open && !ui.get().windowOpen) captureWindowTarget(editor);
+    if (open && !ui.get().windowOpen) {
+        // Undefined is keyboard-open; explicit null means the chat button lost its editor.
+        if (editor === null || (editor !== undefined && !editor.isConnected)) {
+            toast("Не удалось определить поле ввода — выберите его и откройте шаблоны снова", "failure");
+            return;
+        }
+        captureWindowTarget(editor);
+    }
     ui.set({ windowOpen: open, menu: null });
 }
 
@@ -64,7 +71,13 @@ const ButtonView: ChatBarButtonFactory = ({ isAnyChat, channel }) => {
 /** Focus is in another Discord input (search etc.), not the chat editor or our own UI. */
 const inForeignInput = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement;
-    return !!target?.closest?.("input, textarea, select") && !target.closest(".vc-stx-root");
+    if (!target?.closest || target.closest(".vc-stx-root")) return false;
+    if (target.closest("input, textarea, select")) return true;
+    const editable = target.closest('[contenteditable]:not([contenteditable="false"]), [role="textbox"]');
+    if (!editable && !target.isContentEditable) return false;
+    // Only Discord's chat Slate editor may receive template shortcuts outside our UI.
+    const editor = target.closest('[data-slate-editor="true"]');
+    return !editor?.closest('[class*="channelTextArea"]');
 };
 
 /** Focusable controls of the open dialog, in tab order. */
@@ -102,6 +115,7 @@ function onKey(e: KeyboardEvent) {
 
 function handleKey(e: KeyboardEvent) {
     if (swallowLatched(e)) return; // held key after an insert: never repeat it, never leak it to Discord
+    if (e.defaultPrevented) return; // an earlier listener already owns this event
     const s = ui.get();
     if (s.management || (e.target as HTMLElement)?.closest?.(".vc-stx-settings")) return;
     if (s.dialog) {
@@ -117,6 +131,8 @@ function handleKey(e: KeyboardEvent) {
         return;
     }
 
+    if (inForeignInput(e)) return;
+
     if (handleInlineKey(e)) {
         e.preventDefault();
         e.stopPropagation();
@@ -125,7 +141,7 @@ function handleKey(e: KeyboardEvent) {
         return;
     }
 
-    if (e.ctrlKey && e.altKey && !e.shiftKey && e.code === "KeyT") {
+    if (e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey && e.code === "KeyT") {
         e.preventDefault();
         e.stopPropagation();
         noteKey(e, "hotkey");
@@ -137,13 +153,14 @@ function handleKey(e: KeyboardEvent) {
     const digit = /^Digit([1-9])$/.exec(e.code);
     if (digit && e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
         if (inForeignInput(e)) { noteKey(e, "alt-n: пропуск (чужое поле)"); dlog("key", { h: "alt-n", key: keyDesc(e), skip: "фокус в чужом поле ввода" }); return; }
+        const i = Number(digit[1]) - 1;
+        const list = s.windowOpen ? visibleItems : favoritesOf(poolFor(activeScope()), store.ctx());
+        const t = list[i];
+        if (!t) return;
         e.preventDefault();
         e.stopPropagation();
         noteKey(e, "alt-n");
         if (e.repeat) { dlog("key", { h: "alt-n", key: keyDesc(e), skip: "repeat" }, "altn-repeat:" + e.code); return; }
-        const i = Number(digit[1]) - 1;
-        const list = s.windowOpen ? visibleItems : favoritesOf(poolFor(activeScope()), store.ctx());
-        const t = list[i];
         dlog("key", { h: "alt-n", key: keyDesc(e), from: s.windowOpen ? "окно" : "избранное", id: t?.id, title: t?.title ?? "(пусто)" });
         if (t) {
             latchKey(e.code);
@@ -231,7 +248,11 @@ export default definePlugin({
         const t0 = performance.now();
         const gen = ++lifecycle;
         nextGeneration();
-        await realStore.load();
+        try { await realStore.load(); }
+        catch {
+            if (gen !== lifecycle) return;
+            toast("Локальные настройки не прочитаны. Повторите чтение в настройках шаблонов.", "failure");
+        }
         // Vencord does not await start(): a stop() during the load must not be followed by a late mount.
         if (gen !== lifecycle) return;
         const t1 = performance.now();
@@ -279,5 +300,6 @@ export default definePlugin({
         unloadFonts();
         ui.set({ management: false, windowOpen: false, dialog: null, inline: null, menu: null, compose: [] });
         setDebugEnabled(false);
+        disposePlatformNotices();
     },
 });

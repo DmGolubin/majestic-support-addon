@@ -53,6 +53,7 @@ function harness(root = "Management", kind = "fields") {
         "./uiState": { ui, store, useStore: empty }, "./panel": { panel: { use: () => ({ phase: "ready" }) } },
         "./PanelPersonalLibrary": { discardPanelDraft: discard, PanelPersonalLibrary: (props: any) => { personal = props; return null; } },
         "./PanelConnection": { PanelConnection: empty }, "./TicketSettings": { TicketSettings: empty },
+        "./LocalStorageNotice": { LocalStorageNotice: empty },
         "./ProjectIcon": { ProjectIcon: empty }, "./svg": { IconBell: empty, IconSettings: empty, IconTemplates: empty },
         "../core/keys": { comboOf, comboLabel: (s: string) => s, bindProblem: () => null },
         "../platform": { toast: vi.fn() }, "./debug": { dlog: vi.fn() }, "./keylatch": { latchKey: vi.fn() }

@@ -72,7 +72,8 @@ async function harness() {
     const unmount = vi.fn();
     const append = vi.fn();
     const addEventListener = vi.fn();
-    const document = { addEventListener, removeEventListener: vi.fn(), createElement: () => ({ id: "", remove: vi.fn() }), body: { append } };
+    const removeEventListener = vi.fn(), removeHost = vi.fn();
+    const document = { addEventListener, removeEventListener, createElement: () => ({ id: "", remove: removeHost }), body: { append } };
     const noops = (names: string[]) => Object.fromEntries(names.map(name => [name, vi.fn(() => 0)]));
     const pluginModule = evaluate(pluginCode, {
         "./styles.css": {}, "@api/ChatButtons": {},
@@ -80,7 +81,7 @@ async function harness() {
         "@utils/types": { default: (value: unknown) => value, OptionType: { COMPONENT: 1, BOOLEAN: 2 } },
         "@webpack/common": { createRoot: () => ({ render: mount, unmount }) },
         "./core/guard": { serverMode: vi.fn() }, "./core/keys": { comboOf: vi.fn() }, "./core/rank": { favoritesOf: vi.fn() },
-        "./platform": { currentGuildId: vi.fn(), currentChannel: vi.fn(), toast: vi.fn(), onChannelChange: () => vi.fn() },
+        "./platform": { currentGuildId: vi.fn(), currentChannel: vi.fn(), toast: vi.fn(), disposePlatformNotices: vi.fn(), onChannelChange: () => vi.fn() },
         "./ui/ContextMenu": { resetMenuGuards: vi.fn() },
         "./ui/debug": noops(["costEnd", "costStart", "debugEnabled", "dlog", "keyDesc", "noteKey", "setDebugEnabled", "setDebugVerbose", "setLoadTime"]),
         "./ui/demo": demo, "./ui/flow": flow, "./ui/fonts": noops(["loadFonts", "unloadFonts"]),
@@ -131,13 +132,32 @@ async function harness() {
         expect(real.data).toEqual(localBefore);
         expect(write).toHaveBeenCalledTimes(writesBefore);
     };
-    return { demo, plugin, toggleWindow: pluginModule.toggleWindow, mountLogin, real, router, ui, access, server, fetch, mount, append, addEventListener, op, connect, seedSession, expectCleared, expectLocalUntouched };
+    return { demo, plugin, toggleWindow: pluginModule.toggleWindow, mountLogin, real, router, ui, access, server, fetch, mount, unmount, removeHost, removeEventListener, append, addEventListener, op, connect, seedSession, expectCleared, expectLocalUntouched };
 }
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("demo session and plugin lifecycle", () => {
+    it("balances root, host and key listener cleanup across ten enable/disable cycles", async () => {
+        const h = await harness();
+        for (let i = 0; i < 10; i++) { await h.plugin.start(); h.plugin.stop(); }
+        expect(h.mount).toHaveBeenCalledTimes(10);
+        expect(h.unmount).toHaveBeenCalledTimes(10);
+        expect(h.append).toHaveBeenCalledTimes(10);
+        expect(h.removeHost).toHaveBeenCalledTimes(10);
+        expect(h.addEventListener).toHaveBeenCalledTimes(10);
+        expect(h.removeEventListener).toHaveBeenCalledTimes(10);
+        expect(h.addEventListener.mock.calls).toEqual(h.removeEventListener.mock.calls);
+        h.expectLocalUntouched();
+    });
+    it("mounts the recovery UI after a rejected storage read and can stop", async () => {
+        const h = await harness();
+        vi.spyOn(h.real, "load").mockRejectedValueOnce(new Error("IndexedDB unavailable"));
+        await expect(h.plugin.start()).resolves.toBeUndefined();
+        expect(h.mount).toHaveBeenCalledOnce();
+        h.plugin.stop();
+    });
     it("closes login on the second icon click without reopening after outside mousedown", async () => {
         const h = await harness();
         h.toggleWindow();

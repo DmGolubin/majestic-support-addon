@@ -100,20 +100,25 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
         };
     }, [owner]);
     const catalog = p.catalog!;
+    const selectedFolder = catalog.folderRecords.find(f => f.id === folder);
+    const effectiveFolder = folder === "none" || selectedFolder ? folder : "all";
+    useLayoutEffect(() => { if (folder !== effectiveFolder) setFolder(effectiveFolder); }, [folder, effectiveFolder]);
     const colorName = (key: string) => catalog.colorLabels[key] || COLOR_NAMES[key] || key;
     const busy = state.busy || p.busy;
     const canWrite = p.scopes.includes("personal:write");
     const canFolders = p.scopes.includes("folders:write");
     const ready = connection.phase === "ready";
     const editor = state.editor;
+    const editorFolders = catalog.folderRecords.filter(f => editor?.draft.shared || f.project === editor?.draft.project);
+    const missingFolder = editor?.kind === "template" && !!editor.draft.folderId && !editorFolders.some(f => f.id === editor.draft.folderId);
     const writable = editor?.kind === "folder" ? canFolders : canWrite;
     const restricted = !!editor?.draft.shared && catalog.projects.length !== 2;
     const locked = busy || !!state.pending || !writable || restricted;
     const begin = (kind: Editor["kind"], row?: PanelPersonalRecord | PanelFolderRecord) => {
         if (!current() || busy || editor) return;
         setNotice(""); setDiscard(false);
-        update({ ...empty(), editor: row ? toEditor(kind, row) : { kind, draft: { title: "", text: "", project: (kind === "template" ? catalog.folderRecords.find(f => f.id === folder)?.project : undefined) ?? catalog.projects[0],
-            shared: false, command: "", color: null, folderId: folder !== "all" && folder !== "none" ? folder : null, position: 0 } } });
+        update({ ...empty(), editor: row ? toEditor(kind, row) : { kind, draft: { title: "", text: "", project: (kind === "template" ? selectedFolder?.project : undefined) ?? catalog.projects[0],
+            shared: false, command: "", color: null, folderId: selectedFolder?.id ?? null, position: 0 } } });
     };
     const change = (patch: Partial<Draft>) => {
         if (!current() || locked || !live.current.editor) return;
@@ -174,7 +179,7 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
     };
     const latest = ready && editor?.id ? editor.kind === "folder" ? catalog.folderRecords.find(f => f.id === editor.id)
         : catalog.personalRecords.find(t => t.id === editor.id) : undefined;
-    const rows = catalog.personalRecords.filter(t => (folder === "all" || (folder === "none" ? !t.folderId : t.folderId === folder))
+    const rows = catalog.personalRecords.filter(t => (effectiveFolder === "all" || (effectiveFolder === "none" ? !t.folderId : t.folderId === effectiveFolder))
         && `${t.title} ${t.text} ${t.command ?? ""}`.toLowerCase().includes(query.toLowerCase()));
 
     return <section className="vc-stx-panel-personal" aria-label="Личная библиотека панели">
@@ -205,8 +210,8 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
                     {editor.kind === "template" ? <>
                         <label>Команда<input maxLength={40} placeholder="Без пробелов и /" value={editor.draft.command} onChange={e => change({ command: e.currentTarget.value })} /></label>
                         <label>Папка<Select aria-label="Папка шаблона" value={editor.draft.folderId ?? ""} onChange={e => change({ folderId: e.currentTarget.value || null })}>
-                            <option value="">Без папки</option>{catalog.folderRecords.filter(f => editor.draft.shared || f.project === editor.draft.project).map(f => <option key={f.id} value={f.id}>{f.title} · {projectName(f.project)}</option>)}
-                        </Select></label>
+                            <option value="">Без папки</option>{missingFolder && <option value={editor.draft.folderId!}>Папка недоступна</option>}{editorFolders.map(f => <option key={f.id} value={f.id}>{f.title} · {projectName(f.project)}</option>)}
+                        </Select>{missingFolder && !state.pending && <span role="status">Выберите другую папку или «Без папки». Черновик сохранён.</span>}</label>
                         <ColorPicker value={editor.draft.color} colors={catalog.colors} labels={catalog.colorLabels}
                             disabled={locked || state.conflict} onChange={color => change({ color })} />
                     </> : <label>Позиция<input type="number" min={0} max={100000} step={1} required value={editor.draft.position} onChange={e => change({ position: Number(e.currentTarget.value) })} /></label>}
@@ -241,11 +246,11 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
             </div>
         </form> : <>
             <div className="vc-stx-pp-grid"><label>Поиск<input value={query} placeholder="Название, текст или команда" onChange={e => setQuery(e.currentTarget.value)} /></label>
-                <label>Папка<Select aria-label="Фильтр папок" value={folder} onChange={e => setFolder(e.currentTarget.value)}><option value="all">Все папки</option><option value="none">Без папки</option>
+                <label>Папка<Select aria-label="Фильтр папок" value={effectiveFolder} onChange={e => setFolder(e.currentTarget.value)}><option value="all">Все папки</option><option value="none">Без папки</option>
                     {catalog.folderRecords.map(f => <option key={f.id} value={f.id}>{f.title} · {projectName(f.project)}</option>)}</Select></label></div>
             <div className="vc-stx-pp-cards">{rows.map(t => <button type="button" key={t.id} className="vc-stx-pp-card" disabled={busy} onClick={() => begin("template", t)}>
                 <strong>{t.title}</strong><span><Markdown text={splitGreeting(t.text).body} /></span><small>{t.shared ? "Общий" : projectName(t.projects[0])}{t.command ? ` · команда ${t.command}` : ""}{t.color ? ` · ${colorName(t.color)}` : ""}</small>
-            </button>)}{!rows.length && <p className="vc-stx-muted">{query || folder !== "all" ? "Шаблоны не найдены." : "Личных шаблонов пока нет."}</p>}</div>
+            </button>)}{!rows.length && <p className="vc-stx-muted">{query || effectiveFolder !== "all" ? "Шаблоны не найдены." : "Личных шаблонов пока нет."}</p>}</div>
             <details className="vc-stx-pp-folders"><summary>Папки · {catalog.folderRecords.length}</summary>
                 <div className="vc-stx-pp-folder-list">{catalog.folderRecords.map(f => <button type="button" key={f.id} disabled={busy} onClick={() => begin("folder", f)}><strong>{f.title}</strong><span>{projectName(f.project)}</span></button>)}</div>
                 <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy || !ready || !canFolders || !catalog.projects.length} onClick={() => begin("folder")}>Создать папку</button>

@@ -6,7 +6,7 @@ import { Store, STORE_KEY } from "../src/core/state";
 import { routeStore } from "../src/core/storeRouter";
 import { createPanelPreferencesStorage } from "../src/core/panelPreferences";
 import { PanelError } from "../src/core/panelClient";
-import { parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot } from "../src/core/panelCatalog";
+import { PanelCatalogValidationError, parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot } from "../src/core/panelCatalog";
 import { PanelMutation, panelMutationScope } from "../src/core/panelProtocol";
 import { Template } from "../src/core/types";
 
@@ -96,7 +96,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
             addChangeListener: (fn: () => void) => accountHandlers.add(fn), removeChangeListener: (fn: () => void) => accountHandlers.delete(fn) }, FluxDispatcher: {
             subscribe: (name: string, fn: () => void) => handlers.set(name, fn), unsubscribe: (name: string) => handlers.delete(name) } },
         "../buildInfo": { PLUGIN_VERSION: "1.0.0" }, "../core/state": { Store, STORE_KEY },
-        "../core/panelCatalog": parsers,
+        "../core/panelCatalog": { ...parsers, PanelCatalogValidationError },
         "../core/panelPreferences": { createPanelPreferencesStorage },
         "../platform": { storage: preferenceStorage },
         "../core/panelClient": { PanelClient: FakeClient, PanelError },
@@ -123,7 +123,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
         documentHandlers, freshness: () => freshness(), generation: () => generation };
 }
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-18T00:00:00Z")); });
-afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("reminder lifecycle wiring", () => {
     it("binds verified identity and projects, forwards ticket events and invalidates on disposal", async () => {
@@ -485,13 +485,41 @@ describe("permission races through the controller and actual catalog parsers", (
     it.each([
         { accountId: "987654321098765432", permissionsRevision: "2" },
         { permissionsRevision: null },
-        { permissionsRevision: "1", faq: null },
     ])("does not classify identity/malformed snapshots as permission races: %j", async patch => {
         const h = setup(); await h.api.connectPanel();
         h.get.mockResolvedValueOnce(profile("1")).mockResolvedValueOnce({ ...snapshot("1"), ...patch });
         await h.api.reloadPanel();
         expect(h.get).toHaveBeenCalledTimes(4); expect(h.clients[0].cancel).toHaveBeenCalledOnce();
         expect(h.access.get().ready).toBe(false); expect(h.store.templates).toEqual([]);
+        h.api.disposePanel();
+    });
+
+    it.each(["connect", "restore", "refresh"])("recovers malformed authenticated snapshot during %s without a new login", async mode => {
+        // Fractional jitter must not let the timeout fire before the retryAt guard.
+        vi.spyOn(Math, "random").mockReturnValue(0.50001);
+        const h = setup();
+        if (mode === "refresh") await h.api.connectPanel();
+        h.state.saved = true;
+        h.get.mockImplementation(async path => path === "/me" ? profile("1") : { ...snapshot("1"), faq: null });
+        await h.api[mode === "connect" ? "connectPanel" : mode === "restore" ? "restorePanel" : "reloadPanel"]();
+        expect(h.api.panel.get().phase).toBe("offline");
+        expect(h.clients[0].cancel).not.toHaveBeenCalled();
+        expect(h.clients[0].logout).not.toHaveBeenCalled();
+        expect(h.access.get().ready).toBe(false);
+        expect(await h.freshness()).toBe(false);
+        expect(h.api.panel.get().persistent).toBe(true);
+        const calls = h.get.mock.calls.length;
+        await h.api.reloadPanel(); await h.api.reloadPanel();
+        await vi.advanceTimersByTimeAsync(7999);
+        expect(h.get).toHaveBeenCalledTimes(calls);
+        h.get.mockImplementation(async path => path === "/me" ? profile("1") : snapshot("1"));
+        await vi.advanceTimersByTimeAsync(4002);
+        expect(h.get).toHaveBeenCalledTimes(calls + 2);
+        expect(h.api.panel.get()).toMatchObject({ phase: "ready", error: "" });
+        expect(await h.freshness()).toBe(true);
+        expect(h.store.templates).toHaveLength(1);
+        expect(h.clients).toHaveLength(1);
+        expect(h.clients[0].login).toHaveBeenCalledTimes(mode === "restore" ? 0 : 1);
         h.api.disposePanel();
     });
 });

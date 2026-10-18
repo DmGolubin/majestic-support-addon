@@ -70,7 +70,7 @@ export function recentOf(pool: Template[], ctx: RankCtx, n: number): Template[] 
 
 /** Distinct categories in first-seen order (category filter chips). */
 export function categoriesOf(pool: Template[]): string[] {
-    const out: string[] = [];
-    for (const t of pool) if (t.category && !out.includes(t.category)) out.push(t.category);
-    return out;
+    const seen = new Set<string>();
+    for (const t of pool) if (t.category) seen.add(t.category);
+    return [...seen];
 }

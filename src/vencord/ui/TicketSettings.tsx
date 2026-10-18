@@ -11,7 +11,7 @@ import { ChannelStore, useStateFromStores } from "@webpack/common";
 import { PROJECTS } from "../core/types";
 import { Select } from "./Select";
 import { IconBell } from "./svg";
-import { chooseTicketSound, resetTicketSound, setTicketSound, testTicketSound, ticketSoundState } from "./ticketSound";
+import { chooseTicketSound, resetTicketSound, retryTicketSoundSettings, setTicketSound, testTicketSound, ticketSoundState } from "./ticketSound";
 import { ReminderSettings } from "./ReminderSettings";
 
 export function TicketSettings() {
@@ -60,13 +60,14 @@ export function TicketSettings() {
             </fieldset>
             <div className="vc-stx-ticket-channels">
                 <span className="vc-stx-muted">Каналы уведомлений</span>
-                {!loaded ? <p className="vc-stx-muted" role="status">Загрузка каналов…</p>
+                {!loaded ? <p className="vc-stx-muted" role="status">{error ? "Настройки недоступны." : "Загрузка каналов…"}</p>
                     : channels.length ? <ul>{channels.map((channel, index) => <li key={channel.id}>
                         <span className="vc-stx-ticket-project">{channel.project ?? (channel.unsupported ? "Вне поддерживаемых проектов" : "Проект не определён")}</span>
                         <span>{channel.name ? `#${channel.name}` : `Канал ${index + 1}: название недоступно`}{channel.unsupported && <small>Сигнал для этого канала отключён</small>}</span>
                     </li>)}</ul> : <p className="vc-stx-muted">Каналы не настроены.</p>}
             </div>
             {error && <p className="vc-stx-ticket-error" role="alert">{error}</p>}
+            {!loaded && error && <button type="button" className="vc-stx-btn vc-stx-ghost" onClick={retryTicketSoundSettings}>Повторить загрузку настроек</button>}
         </section>
         <ReminderSettings />
     </div>;

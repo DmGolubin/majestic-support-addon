@@ -89,6 +89,7 @@ function harness(initial: Store, rootName = "PersonalLibrary") {
         "./Select": { Select: "select" }, "./TokenToolbar": { TokenToolbar: empty },
         "./DemoConnection": { DemoConnection: empty }, "./PanelConnection": { PanelConnection: empty },
         "./TicketSettings": { TicketSettings: empty },
+        "./LocalStorageNotice": { LocalStorageNotice: empty },
         "./svg": Object.fromEntries(["IconFolder", "IconPlus", "IconBell", "IconLink", "IconSettings", "IconTemplates"].map(n => [n, empty])),
         "./flow": { confirmedForeign: new Set(), supersede: vi.fn() }, "./op": { nextGeneration: vi.fn() },
         "./uiState": {

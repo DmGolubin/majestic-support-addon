@@ -29,7 +29,7 @@ export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void
         </div>
         {expanded && <div className="vc-stx-token-panel">
             <p>Например, <code>{"{{ник}}"}</code> предложит ввести ник игрока перед вставкой шаблона.</p>
-        <div className="vc-stx-token-builder" role="group" aria-label="Настройка поля" onKeyDown={e => { if (e.key === "Enter" && e.target instanceof HTMLInputElement && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } }}>
+        <div className="vc-stx-token-builder" role="group" aria-label="Настройка поля" onKeyDown={e => { if (e.key === "Enter" && e.target instanceof HTMLInputElement && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); submit(); } }}>
                 <label>Имя поля<input autoFocus value={name} placeholder="Например: ник" onChange={e => setName(e.currentTarget.value)} /></label>
                 <label>Значение по умолчанию (необязательно)<input value={value} onChange={e => setValue(e.currentTarget.value)} /></label>
             {error && <p role="alert" className="vc-stx-form-error">{error}</p>}

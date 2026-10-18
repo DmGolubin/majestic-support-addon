@@ -19,7 +19,7 @@ const isWord = (c: string | undefined) => !!c && WORD.test(c);
 const isSpace = (c: string | undefined) => !c || /\s/.test(c);
 
 /** Index of the closing marker for the opener at i, or -1. */
-function closer(s: string, i: number, m: string): number {
+function closer(s: string, i: number, m: string, exhausted: Set<string>): number {
     const start = i + m.length;
     if (m.length === 2) {
         let j = s.indexOf(m, start);
@@ -27,12 +27,13 @@ function closer(s: string, i: number, m: string): number {
         return j > start ? j : -1;
     }
     // single * / _: no space right inside, _ only on word boundaries (snake_case stays literal)
-    if (isSpace(s[start]) || (m === "_" && isWord(s[i - 1]))) return -1;
+    if (exhausted.has(m) || isSpace(s[start]) || (m === "_" && isWord(s[i - 1]))) return -1;
     for (let j = start; j < s.length; j++) {
         if (s[j] === "\\") { j++; continue; }
         if (s.startsWith(m + m, j)) { j++; continue; } // a nested ** / __ pair is not our closer
         if (s[j] === m && j > start && !isSpace(s[j - 1]) && !(m === "_" && isWord(s[j + 1]))) return j;
     }
+    exhausted.add(m); // Later openers in this parse share the already-scanned suffix.
     return -1;
 }
 
@@ -43,6 +44,7 @@ function sticky(re: RegExp, s: string, i: number) {
 
 function parse(s: string, key: string): React.ReactNode[] {
     const out: React.ReactNode[] = [];
+    const exhausted = new Set<string>();
     let buf = "";
     const push = (n: React.ReactNode) => { if (buf) out.push(buf); buf = ""; out.push(n); };
     for (let i = 0; i < s.length;) {
@@ -68,7 +70,7 @@ function parse(s: string, key: string): React.ReactNode[] {
         const mark = MARKS.find(([m]) => s.startsWith(m, i));
         if (mark) {
             const [m, T] = mark;
-            const j = closer(s, i, m);
+            const j = closer(s, i, m, exhausted);
             if (j > 0) {
                 push(<T key={k}>{parse(s.slice(i + m.length, j), k)}</T>);
                 i = j + m.length;

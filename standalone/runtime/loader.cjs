@@ -19,7 +19,8 @@ function rejectRedirects(location) {
 
 // A rejected host must never become the fallback destination either.
 const hostPath = path.relative(process.env.LOCALAPPDATA, resources);
-const hostMatch = /^(DiscordCanary|Discord)[\\/]app-\d+\.\d+\.\d+[\\/]resources$/i.exec(hostPath);
+// Keep the version grammar aligned with Select-Resources / Uninstall-Channel in the installer.
+const hostMatch = /^(DiscordCanary|Discord)[\\/]app-\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?[\\/]resources$/i.exec(hostPath);
 if (!hostMatch || !fs.existsSync(original)) throw new Error("Invalid original Discord location");
 rejectRedirects(resources);
 rejectRedirects(original);

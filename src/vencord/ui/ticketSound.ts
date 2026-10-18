@@ -19,6 +19,7 @@ let customBuffer: AudioBuffer | null = null;
 let lifecycle = 0;
 let soundRevision = 0;
 let running = false;
+let settingsLoading = false;
 let writes: Promise<void> = Promise.resolve();
 let audioWrites: Promise<void> = Promise.resolve();
 let persistenceError = "";
@@ -38,9 +39,8 @@ function saveSettings(): Promise<void> {
     const options = ticketSoundState.get().options;
     const revision = ++writeRevision;
     const gen = lifecycle;
-    writes = writes.catch(() => {}).then(() => {
-        if (running && gen === lifecycle) return storage.set(KEY, options);
-    });
+    // Accepted snapshots outlive playback; a restart waits for this queue before reading.
+    writes = writes.catch(() => {}).then(() => storage.set(KEY, options));
     return writes.then(() => {
         if (!running || gen !== lifecycle || revision !== writeRevision) return;
         persistenceError = "";
@@ -56,9 +56,7 @@ function saveSettings(): Promise<void> {
 function saveAudio(sound: CustomTicketSound | null): Promise<void> {
     const revision = ++audioWriteRevision;
     const gen = lifecycle;
-    audioWrites = audioWrites.catch(() => {}).then(() => {
-        if (running && gen === lifecycle) return storage.set(AUDIO_KEY, sound);
-    });
+    audioWrites = audioWrites.catch(() => {}).then(() => storage.set(AUDIO_KEY, sound));
     return audioWrites.then(() => {
         if (!running || gen !== lifecycle || revision !== audioWriteRevision) return;
         audioPersistenceError = "";
@@ -255,18 +253,25 @@ function onThread(e: ThreadEvent) {
 }
 
 async function loadSettings(gen: number) {
+    settingsLoading = true;
+    let optionsLoaded = false;
+    persistenceError = audioPersistenceError = customError = "";
+    publishError();
     try {
         await writes.catch(() => {});
         if (!running || gen !== lifecycle) return;
         const value = await storage.get(KEY);
         if (!running || gen !== lifecycle) return;
         ticketSoundState.set({ options: readTicketSound(value) });
+        optionsLoaded = true;
     } catch {
         if (!running || gen !== lifecycle) return;
         persistenceError = "Не удалось прочитать настройки звука.";
         ticketSoundState.set({ options: defaultTicketSound() });
     }
     try {
+        customBuffer = null;
+        ticketSoundState.set({ customName: "" });
         await audioWrites.catch(() => {});
         if (!running || gen !== lifecycle) return;
         const stored = await storage.get(AUDIO_KEY);
@@ -290,17 +295,27 @@ async function loadSettings(gen: number) {
         audioPersistenceError = "Не удалось прочитать сохранённый звук.";
     } finally {
         if (running && gen === lifecycle) {
-            ticketSoundState.set({ loaded: true, loadingSound: false });
+            settingsLoading = false;
+            // A failed read is not an empty record: keep all edits blocked until retry succeeds.
+            ticketSoundState.set({ loaded: optionsLoaded, loadingSound: false });
             publishError();
         }
     }
+}
+
+/** Retry failed reads without replacing the runtime or invalidating its stop callback. */
+export function retryTicketSoundSettings(): void {
+    if (!running || settingsLoading || ticketSoundState.get().loaded) return;
+    void loadSettings(lifecycle);
 }
 
 function stopRuntime() {
     running = false;
     lifecycle++;
     soundRevision++;
-    FluxDispatcher.unsubscribe("THREAD_CREATE", onThread);
+    try { FluxDispatcher?.unsubscribe?.("THREAD_CREATE", onThread); } catch {
+        // An unavailable/lazy host dispatcher must not prevent audio cleanup.
+    }
     for (const stop of activeSources) stop();
     if (audio) void audio.close().catch(() => {});
     audio = null;
@@ -316,7 +331,9 @@ export function startTicketSound() {
     persistenceError = audioPersistenceError = playbackError = customError = "";
     ticketSoundState.set({ loaded: false, error: "", customName: "", loadingSound: false });
     void loadSettings(gen);
-    FluxDispatcher.subscribe("THREAD_CREATE", onThread);
+    try { FluxDispatcher?.subscribe?.("THREAD_CREATE", onThread); } catch {
+        // Settings and manual playback remain available without thread events.
+    }
     return () => {
         if (gen === lifecycle) stopRuntime();
     };

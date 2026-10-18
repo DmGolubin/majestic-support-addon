@@ -41,4 +41,12 @@ describe("rank", () => {
         const p = [T("x", { category: "Навигация" }), T("y"), T("z", { category: "Частые проблемы" }), T("w", { category: "Навигация" })];
         expect(categoriesOf(p)).toEqual(["Навигация", "Частые проблемы"]);
     });
+    it("categoriesOf preserves exact spelling and first appearance without changing the pool", () => {
+        const categories = [null, "", "Б", " A ", "Б", "A", "a", " ", " A ", "__proto__", "constructor", "__proto__"];
+        const p = categories.map((category, i) => T(String(i), { category }));
+        const before = structuredClone(p);
+        expect(categoriesOf(p)).toEqual(["Б", " A ", "A", "a", " ", "__proto__", "constructor"]);
+        expect(p).toEqual(before);
+        expect(categoriesOf([])).toEqual([]);
+    });
 });

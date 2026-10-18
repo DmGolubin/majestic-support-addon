@@ -12,7 +12,7 @@ import { dlog } from "./debug";
 import { latchKey } from "./keylatch";
 import { Dialog, store, ui } from "./uiState";
 
-function Frame({ children, onEscape }: { children: React.ReactNode; onEscape(): void; }) {
+function Frame({ children, onEscape, label }: { children: React.ReactNode; onEscape(): void; label: string; }) {
     useEffect(() => {
         const h = (e: KeyboardEvent) => { if (e.key === "Escape" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); e.stopPropagation(); onEscape(); } };
         document.addEventListener("keydown", h, true);
@@ -24,7 +24,7 @@ function Frame({ children, onEscape }: { children: React.ReactNode; onEscape(): 
         if (ref.current && !ref.current.contains(document.activeElement)) ref.current.focus();
     }, []);
     return <><div className="vc-stx-backdrop" onMouseDown={onEscape} /><div
-        className="vc-stx-dialog" ref={ref} tabIndex={-1}
+        className="vc-stx-dialog" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={label}
         // Enter/Space here may confirm and insert: latch it so a held key never repeats into Discord.
         onKeyDownCapture={e => { if ((e.key === "Enter" || e.key === " ") && !e.nativeEvent.isComposing) latchKey(e.nativeEvent.code); }}
     >{children}</div></>;
@@ -35,7 +35,7 @@ function Confirm({ d }: { d: Extract<Dialog, { kind: "confirm"; }>; }) {
     const cancelRef = useRef<HTMLButtonElement>(null);
     useEffect(() => { cancelRef.current?.focus(); }, []); // safe default: Enter = cancel
     return (
-        <Frame onEscape={() => d.resolve({ ok: false, checked })}>
+        <Frame label={d.title} onEscape={() => d.resolve({ ok: false, checked })}>
             <div className={"vc-stx-callout " + d.tone}><span>{d.label}</span>{d.body}</div>
             <h4>{d.title}</h4>
             {d.checkbox && <label className="vc-stx-check"><input type="checkbox" checked={checked} onChange={e => setChecked(e.currentTarget.checked)} />{d.checkbox}</label>}
@@ -53,14 +53,15 @@ function Fields({ d }: { d: Extract<Dialog, { kind: "fields"; }>; }) {
     const submit = () => d.resolve(vals);
     const firstText = d.fields.find(f => !f.options.length);
     return (
-        <Frame onEscape={() => d.resolve(null)}>
+        <Frame label={`${d.title} — заполните перед вставкой`} onEscape={() => d.resolve(null)}>
             <h4>{d.title} — заполните перед вставкой</h4>
-            {d.fields.map(f => (
-                <div key={f.name} className="vc-stx-field">
-                    <label>{f.name}</label>
+            {d.fields.map((f, index) => (
+                <div key={f.name} className="vc-stx-field" role={f.options.length ? "group" : undefined} aria-labelledby={f.options.length ? `stx-field-${idOf(d)}-${index}-label` : undefined}>
+                    <label id={`stx-field-${idOf(d)}-${index}-label`} htmlFor={f.options.length ? undefined : `stx-field-${idOf(d)}-${index}`}>{f.name}</label>
                     {f.options.length
-                        ? f.options.map(o => <button key={o} className={"vc-stx-opt" + (vals[f.name] === o ? " on" : "")} onClick={() => set(f.name, o)}>{o}</button>)
+                        ? f.options.map(o => <button key={o} aria-pressed={vals[f.name] === o} className={"vc-stx-opt" + (vals[f.name] === o ? " on" : "")} onClick={() => set(f.name, o)}>{o}</button>)
                         : <input
+                            id={`stx-field-${idOf(d)}-${index}`}
                             className="vc-stx-search" style={{ width: "100%", boxSizing: "border-box" }}
                             autoFocus={f === firstText} value={vals[f.name] ?? ""}
                             onChange={e => set(f.name, e.currentTarget.value)}

@@ -4,11 +4,22 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-/** Lower case, ё→е, nbsp→space. Keeps string length (needed for highlighting). */
+/** Lower case, ё→е, nbsp→space. Unicode casing can expand characters (e.g. İ). */
 export const soft = (s: string) => String(s ?? "").replace(/\u00A0/g, " ").toLowerCase().replace(/ё/g, "е");
 
 /** For matching: placeholders {…} removed, whitespace squeezed. */
-export const hard = (s: string) => soft(s).replace(/\{[^}]*\}/g, " ").replace(/\s+/g, " ").trim();
+export function hard(s: string): string {
+    const text = soft(s), parts: string[] = [];
+    let end = 0;
+    for (let open = text.indexOf("{"); open >= 0; open = text.indexOf("{", end)) {
+        const close = text.indexOf("}", open + 1);
+        if (close < 0) break; // No later opener can have a closer either.
+        parts.push(text.slice(end, open), " ");
+        end = close + 1;
+    }
+    parts.push(text.slice(end));
+    return parts.join("").replace(/\s+/g, " ").trim();
+}
 
 export const tokenize = (s: string) => hard(s).split(" ").filter(Boolean);
 

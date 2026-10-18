@@ -7,7 +7,7 @@
 import { FluxDispatcher, UserStore } from "@webpack/common";
 
 import { PLUGIN_VERSION } from "../buildInfo";
-import { PanelCatalog, parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot } from "../core/panelCatalog";
+import { PanelCatalog, PanelCatalogValidationError, parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot } from "../core/panelCatalog";
 import { PanelClient, PanelError } from "../core/panelClient";
 import { createPanelEventStream } from "../core/panelEvents";
 import { createPanelPreferencesStorage } from "../core/panelPreferences";
@@ -84,6 +84,9 @@ function wipe() {
 }
 
 function message(error: unknown): string {
+    if (error instanceof PanelCatalogValidationError && error.kind === "data") {
+        return "Не удалось проверить содержимое библиотеки панели. Повторим загрузку. Вставка недоступна до успешной проверки.";
+    }
     const code = error instanceof PanelError ? error.code : "invalid_response";
     const labels: Record<string, string> = {
         plugin_disabled: "Подключение к панели пока недоступно. Попробуйте позже.",
@@ -192,7 +195,8 @@ function supportsVersion(minimum: string) {
 function schedule(own: number, retryAfter = 0) {
     clearTimeout(timer);
     if (epoch !== own || !client) return;
-    const delay = failures ? Math.max(retryAfter, Math.min(120000, 5000 * 2 ** Math.min(failures, 5)) * (0.8 + Math.random() * 0.4)) : 50000 + Math.random() * 20000;
+    // Timers truncate fractions; use the same whole milliseconds for the timer and retry guard.
+    const delay = Math.ceil(failures ? Math.max(retryAfter, Math.min(120000, 5000 * 2 ** Math.min(failures, 5)) * (0.8 + Math.random() * 0.4)) : 50000 + Math.random() * 20000);
     retryAt = failures ? Date.now() + delay : 0;
     timer = setTimeout(() => void loadLibrary(), Math.min(delay, 2147483647));
 }
@@ -310,11 +314,12 @@ async function loadLibrary(): Promise<boolean> {
             if (revision !== syncRevision && !terminal) return false;
             panelAccess.set({ ready: false }); invalidate();
             stopTicketReminders();
-            const transient = !terminal && error instanceof PanelError && (error.status === 429 || error.status >= 500 || ["network_error", "timeout", "request_timeout"].includes(error.code));
+            const transient = !terminal && ((error instanceof PanelCatalogValidationError && error.kind === "data")
+                || (error instanceof PanelError && (error.status === 429 || error.status >= 500 || ["network_error", "timeout", "request_timeout"].includes(error.code))));
             if (transient) {
                 failures++;
                 panel.set({ phase: "offline", error: message(error) });
-                schedule(own, error.retryAfterMs);
+                schedule(own, error instanceof PanelError ? error.retryAfterMs : 0);
             } else {
                 terminateSession(active, error);
             }

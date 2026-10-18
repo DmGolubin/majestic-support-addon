@@ -15,6 +15,7 @@ import { discardPanelDraft, PanelPersonalLibrary } from "./PanelPersonalLibrary"
 import { ProjectIcon } from "./ProjectIcon";
 import { IconBell, IconSettings, IconTemplates } from "./svg";
 import { TicketSettings } from "./TicketSettings";
+import { LocalStorageNotice } from "./LocalStorageNotice";
 import { store, useStore } from "./uiState";
 
 const SERVERS = [
@@ -55,6 +56,7 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
         if (dirty) setPending(id); else setTab(id);
     };
     return <div className="vc-stx-settings vc-stx-settings-account">
+        <LocalStorageNotice />
         <nav className="vc-stx-settings-nav" aria-label="Разделы настроек">
             {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["tickets", "Тикеты"]].map(([id, label]) => <button key={id}
                 type="button" className="vc-stx-btn vc-stx-ghost" aria-pressed={tab === id} disabled={busy} onClick={() => changeTab(id)}>

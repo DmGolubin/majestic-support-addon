@@ -5,6 +5,7 @@
  */
 
 import { PersonalFolder, PersonalTemplate } from "./personal";
+import { templateTokens } from "./tokens";
 import { ProjectId, Template, TemplateStatus } from "./types";
 
 export interface PanelProfile {
@@ -70,7 +71,13 @@ export function parseFolderRecord(value: unknown, allowed: ProjectId[]): PanelFo
 
 // The delivered schema leaves response required[] largely empty. The MD contract requires
 // identity, schema and rights metadata: missing fields must never grant access by default.
-function invalid(): never { throw new Error("Некорректный каталог или права API панели"); }
+export class PanelCatalogValidationError extends Error {
+    constructor(public readonly kind: "access" | "data" = "access") {
+        super("Некорректный каталог или права API панели");
+        this.name = "PanelCatalogValidationError";
+    }
+}
+function invalid(): never { throw new PanelCatalogValidationError(); }
 function record(value: unknown): Record<string, unknown> {
     if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
     return value as Record<string, unknown>;
@@ -202,12 +209,11 @@ function neutralizeFaqMentions(text: string): string {
 function faqText(text: string): string {
     // Match the legacy HTML converter's mention policy without decoding HTML or normalizing
     // whitespace. Token defaults/options remain template syntax, as in that converter.
-    const tokens = /\{\{\s*([^}|=]+?)\s*(?:=\s*([^}|]*?)\s*)?(\|[^}]*)?\s*\}\}|\[\[greeting:end\]\]|\{\|\}/g;
     const parts: string[] = [];
     let end = 0;
-    for (const match of text.matchAll(tokens)) {
-        parts.push(neutralizeFaqMentions(text.slice(end, match.index)), match[0]);
-        end = match.index! + match[0].length;
+    for (const match of templateTokens(text)) {
+        parts.push(neutralizeFaqMentions(text.slice(end, match.index)), match.raw);
+        end = match.index + match.raw.length;
     }
     parts.push(neutralizeFaqMentions(text.slice(end)));
     return parts.join("");
@@ -221,6 +227,18 @@ export function parseSnapshot(value: unknown, profile: PanelProfile, htmlToText:
     const ps = projects(r.projects);
     if (accountId !== profile.accountId || permissionsRevision !== profile.permissionsRevision || !equalProjects(ps, profile.projects)
         || !["profile:read", "faq:read", "personal:read", "folders:read"].every(s => profile.scopes.includes(s))) return invalid();
+    // Only content failures AFTER identity and rights validation may retain the session.
+    // Unknown exceptions remain terminal rather than disguising programming errors as bad data.
+    try {
+        return parseSnapshotContents(r, accountId, permissionsRevision, ps, htmlToText);
+    } catch (error) {
+        if (error instanceof PanelCatalogValidationError) throw new PanelCatalogValidationError("data");
+        throw error;
+    }
+}
+
+function parseSnapshotContents(r: Record<string, unknown>, accountId: string, permissionsRevision: string,
+    ps: ProjectId[], htmlToText: (html: string) => string): PanelCatalog {
     const revision = string(r.revision), serverTime = timestamp(r.serverTime);
     const allowedColors = colorKeys(record(r.limits).colors);
     for (const label of Object.values(record(r.colorLabels))) string(label, 160);

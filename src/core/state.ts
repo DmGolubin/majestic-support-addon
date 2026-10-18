@@ -96,11 +96,15 @@ export class Store {
     private lastImport: Promise<unknown> = Promise.resolve();
     private pendingPersonal = 0;
     private panelPreferencesClosed = false;
+    private readBlocked = false;
+    private loading: Promise<void> | null = null;
+    loadError = false;
 
     constructor(private storage: StorageLike, readonly catalogReadOnly = false) { }
 
     private writableCatalog() {
         if (this.catalogReadOnly) throw new Error("Библиотека панели доступна только для чтения");
+        if (this.readBlocked) throw new Error("Сначала восстановите чтение локальных настроек");
     }
 
     /** A validated, complete server snapshot. Never merges stale/local records into an account. */
@@ -157,20 +161,38 @@ export class Store {
     }
 
     private changed() {
-        if (this.panelPreferencesClosed) { this.subs.forEach(fn => fn()); return; }
+        if (this.panelPreferencesClosed || this.readBlocked) { this.subs.forEach(fn => fn()); return; }
         // Account preferences must survive a later logout/catalog clear. Local writes instead
         // read the committed catalog when their turn arrives, after earlier personal transactions.
         const snapshot = this.catalogReadOnly ? structuredClone(this.data) : undefined;
-        this.lastSave = this.lastSave.catch(() => {}).then(() => this.storage.set(STORE_KEY, snapshot ?? structuredClone(this.data)));
+        this.lastSave = this.lastSave.catch(() => {}).then(() => {
+            if (!this.readBlocked) return this.storage.set(STORE_KEY, snapshot ?? structuredClone(this.data));
+        });
         this.lastSave.catch(e => console.error("[SupportTemplates]", e));
         this.subs.forEach(fn => fn());
     }
 
-    async load() {
+    load(): Promise<void> {
+        if (this.loading) return this.loading;
+        this.readBlocked = true;
+        const task = this.readStored().then(() => { this.loadError = false; }, error => {
+            this.readBlocked = true;
+            this.loadError = true;
+            throw error;
+        }).finally(() => {
+            if (this.loading === task) this.loading = null;
+            this.subs.forEach(fn => fn());
+        });
+        this.loading = task;
+        return task;
+    }
+
+    private async readStored() {
         const saved = await this.storage.get(STORE_KEY) as Record<string, unknown> | undefined;
         if (isRecord(saved) && saved.v === 2) {
             this.templates = parseRaw(typeof saved.raw === "string" ? saved.raw : "");
             const { data, fixed } = sanitize(saved, this.templates);
+            this.readBlocked = false;
             this.data = data;
             this.templates = [...this.templates, ...data.personal];
             if (fixed.length) {
@@ -181,6 +203,7 @@ export class Store {
             }
         } else {
             const legacy = await this.storage.get(LEGACY_KEY) as { raw?: string; } | undefined;
+            this.readBlocked = false;
             if (legacy && typeof legacy.raw === "string" && legacy.raw.trim()) {
                 try { this.importText(JSON.stringify(legacy)); return; } catch (e) { console.error("[SupportTemplates] legacy data not imported", e); /* start empty */ }
             }
@@ -251,6 +274,7 @@ export class Store {
     private commitPersonal(prepare: () => (data: Persisted) => Persisted): Promise<void> {
         this.pendingPersonal++;
         const saving = this.lastSave.catch(() => {}).then(async () => {
+            if (this.readBlocked) throw new Error("Сначала восстановите чтение локальных настроек");
             const apply = prepare();
             await this.storage.set(STORE_KEY, structuredClone(apply(this.data)));
             // Preferences may have changed while IO was pending; retain those changes.

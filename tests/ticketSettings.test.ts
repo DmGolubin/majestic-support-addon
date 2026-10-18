@@ -21,6 +21,7 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
     const useStateFromStores = vi.fn((_stores, read: () => unknown) => read());
     const setTicketSound = vi.fn(), testTicketSound = vi.fn();
     const chooseTicketSound = vi.fn(), resetTicketSound = vi.fn();
+    const retryTicketSoundSettings = vi.fn();
     const dependencies: Record<string, unknown> = {
         "./ticket-settings.css": {},
         "@webpack/common": { ChannelStore, useStateFromStores },
@@ -28,7 +29,7 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
         "./Select": { Select: "Select" },
         "./svg": { IconBell: "IconBell" },
         "./ReminderSettings": { ReminderSettings: "ReminderSettings" },
-        "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, testTicketSound, chooseTicketSound, resetTicketSound },
+        "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings },
     };
     const exports: any = {};
     runInNewContext(code, {
@@ -36,10 +37,35 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
         require: (id: string) => { if (!(id in dependencies)) throw new Error(`Unexpected import: ${id}`); return dependencies[id]; },
         React: { createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props: { ...props as object, children } }) },
     });
-    return { state, channels, ChannelStore, useStateFromStores, setTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, render: () => exports.TicketSettings() };
+    return { state, channels, ChannelStore, useStateFromStores, setTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, render: () => exports.TicketSettings() };
 }
 
 describe("ticket settings", () => {
+    it("offers read retry outside disabled controls, hiding it while loading and after recovery", () => {
+        const h = harness();
+        const retryLabel = "Повторить загрузку настроек";
+        const retry = (tree: unknown) => nodes(tree).find(n => n.type === "button" && text(n) === retryLabel);
+        h.state.loaded = false;
+        expect(retry(h.render())).toBeUndefined();
+        h.state.error = "Не удалось прочитать настройки звука.";
+        const tree = h.render();
+        const fieldset = nodes(tree).find(n => n.type === "fieldset")!;
+        expect(fieldset.props.disabled).toBe(true);
+        const button = retry(tree)!;
+        expect(button).toBeDefined();
+        expect(nodes(fieldset)).not.toContain(button);
+        expect(button.props.disabled).toBeFalsy();
+        expect(text(tree)).toContain("Настройки недоступны.");
+        button.props.onClick();
+        expect(h.retryTicketSoundSettings).toHaveBeenCalledOnce();
+        h.state.error = "";
+        expect(retry(h.render())).toBeUndefined();
+        expect(text(h.render())).toContain("Загрузка каналов…");
+        h.state.loaded = true;
+        expect(retry(h.render())).toBeUndefined();
+        expect(nodes(h.render()).find(n => n.type === "fieldset")!.props.disabled).toBe(false);
+    });
+
     it("subscribes to channel metadata and resolves names on the next render", () => {
         const h = harness({ channelIds: ["mj", "ro", "unknown", "other"] });
         h.channels.set("mj", { name: "support", guild_id: PROJECTS.mj.guildId });

@@ -303,7 +303,7 @@ describe("custom ticket audio", () => {
         expect(h.ticketSoundState.get()).toMatchObject({ customName: "", loadingSound: false, options: { volume: 81 } });
     });
 
-    it("skips queued saves after stop and ignores their late completions", async () => {
+    it("drains queued resets after stop while ignoring stale error publication", async () => {
         const h = await harness();
         const pending = deferred<void>();
         h.storage.set.mockReturnValueOnce(pending.promise);
@@ -314,7 +314,9 @@ describe("custom ticket audio", () => {
         pending.reject(new Error("late save error"));
         await importing;
         await flush();
-        expect(h.storage.set).toHaveBeenCalledOnce();
+        expect(h.storage.set).toHaveBeenCalledTimes(2);
+        expect(h.storage.set).toHaveBeenLastCalledWith(AUDIO_KEY, null);
+        expect(h.saved(AUDIO_KEY)).toBeNull();
         expect(h.ticketSoundState.get()).toMatchObject({ loaded: false, customName: "", loadingSound: false, error: "" });
     });
 
