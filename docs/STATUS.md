@@ -5,7 +5,7 @@
 
 Единственный список задач: [roadmap/data.json](roadmap/data.json). [Сайт roadmap](roadmap/index.html) запускается командой `pnpm roadmap:serve` и открывается на http://127.0.0.1:47834/roadmap/.
 
-18.10: 781 тест в 41 файле, типы ядра/изолированного Vencord и сборка проходят. Canary-прототип 0.1.0-canary.1 собран из 40d5895: один пользовательский плагин, отдельные данные, локальная BAT-установка. В живом Canary проверены install/uninstall/repair, запуск и настройки; чат и вход ещё требуют приёмки. Рабочий Stable и исходный Vencord не изменены. Последний настоящий вход в панель: preflight 204, device_authorization — 503 plugin_disabled; вход, snapshot и SSE не приняты. GitHub-обновлятор и API-запись личных шаблонов остаются.
+18.10: 781 тест в 41 файле, типы ядра/изолированного Vencord и сборка проходят. Canary-прототип 0.1.0-canary.1 собран из 40d5895: один пользовательский плагин, отдельные данные, локальная BAT-установка. В живом Canary проверены install/uninstall/repair, запуск и настройки; чат и вход ещё требуют приёмки. Рабочий Stable и исходный Vencord не изменены. Последний ответ, предоставленный владельцем: device_authorization выдаёт код и ссылку majestic-rp.tech/connect?code=…. Выявлено несовпадение локальной проверки URL; сайт при подтверждении возвращает csrf_failed. Вход, snapshot и SSE не приняты. GitHub-обновлятор и API-запись личных шаблонов остаются.
 
 Статус «реализовано · нужна приёмка» не означает готовый релиз. Демо не является настоящим API. Исторические аудиты фиксируют состояние на дату отчёта и не заменяют этот список.
 
@@ -28,9 +28,9 @@
 
 ### C04 · Настоящий вход и токены
 
-C · Панель. Device-вход, отмена, выход и refresh подключены. Добавлены восстановление сессии и безопасная ротация через C10; без native-хранилища вход остаётся только в памяти. API ещё выключен по подтверждению владельца; живая приёмка C09.
+C · Панель. Исправлена проверка ссылки: принимаются два конкретных HTTPS-адреса панели и code/user_code при точном совпадении кода. API/токены не перенаправляются. 165 профильных тестов и типы ядра проходят. Живой вход ждёт установки новой Canary-сборки и исправления csrf_failed на сайте.
 
-Основание: [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md), [2026-10-18-panel-client.md](audits/2026-10-18-panel-client.md), [2026-10-18-panel-session-sse.md](audits/2026-10-18-panel-session-sse.md).
+Основание: [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md), [2026-10-18-panel-client.md](audits/2026-10-18-panel-client.md), [2026-10-18-panel-session-sse.md](audits/2026-10-18-panel-session-sse.md), [2026-10-18-device-link-compatibility.md](audits/2026-10-18-device-link-compatibility.md).
 
 ### C05 · Загрузка библиотеки аккаунта
 
@@ -102,15 +102,15 @@ A · Шаблоны. Исправлен порядок mousedown/click: повт
 
 ### C03 · Согласовать и получить API сайта
 
-C · Панель. Контракт и адрес получены. 18.10 около 15:59 настоящий POST /oauth/device_authorization из Discord вернул 503 plugin_disabled, preflight — 204. Дмитрий запросил Discord ID владельца для допуска. Причина и охват ограничения на сервере не подтверждены; токен и код ещё не получены. Нужен серверный допуск для продолжения C09; CORS начала входа проверен, остальные маршруты и права — нет.
+C · Панель. Панель уже выдаёт device_code/user_code — подтверждено ответом владельца 18.10. На сайте подтверждение отклоняется с csrf_failed. Дмитрию нужно проверить сессионный маршрут подтверждения; полный вход и защищённые маршруты ещё не приняты.
 
-Основание: [discord-plugin-api.md](contracts/panel-2026-10-18/discord-plugin-api.md), [discord-plugin-openapi.json](contracts/panel-2026-10-18/discord-plugin-openapi.json), [2026-10-18-api-integration-estimate.md](audits/2026-10-18-api-integration-estimate.md), [2026-10-18-api-connectivity.md](audits/2026-10-18-api-connectivity.md), [2026-10-18-panel-live-api-disabled.md](audits/2026-10-18-panel-live-api-disabled.md).
+Основание: [discord-plugin-api.md](contracts/panel-2026-10-18/discord-plugin-api.md), [discord-plugin-openapi.json](contracts/panel-2026-10-18/discord-plugin-openapi.json), [2026-10-18-api-integration-estimate.md](audits/2026-10-18-api-integration-estimate.md), [2026-10-18-api-connectivity.md](audits/2026-10-18-api-connectivity.md), [2026-10-18-panel-live-api-disabled.md](audits/2026-10-18-panel-live-api-disabled.md), [2026-10-18-device-link-compatibility.md](audits/2026-10-18-device-link-compatibility.md).
 
 ### C09 · Приёмка настоящей интеграции
 
-C · Панель. 18.10 около 15:59: после Allow и полного перезапуска Discord проверен настоящий POST /oauth/device_authorization. Preflight 204, ответ API 503 plugin_disabled; код подтверждения не выдан. CSP больше не блокирует эту попытку. Нужна активация API на сервере; после неё проверить device flow, /me, /snapshot, SSE, отзыв, смену аккаунта, защищённое хранилище и предпочтения после перезапуска. Живая приёмка не завершена.
+C · Панель. Владелец предоставил ответ выдачи кода и скриншот csrf_failed на странице подтверждения. Нужно установить исправление URL в плагине и устранить отказ подтверждения на сайте; затем проверить вход, /me, /snapshot, SSE и отзыв. Секреты ответа не сохраняем в репозиторий.
 
-Основание: [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md), [2026-10-18-panel-session-sse.md](audits/2026-10-18-panel-session-sse.md), [2026-10-18-panel-live-login.md](audits/2026-10-18-panel-live-login.md), [2026-10-18-panel-live-api-disabled.md](audits/2026-10-18-panel-live-api-disabled.md).
+Основание: [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md), [2026-10-18-panel-session-sse.md](audits/2026-10-18-panel-session-sse.md), [2026-10-18-panel-live-login.md](audits/2026-10-18-panel-live-login.md), [2026-10-18-panel-live-api-disabled.md](audits/2026-10-18-panel-live-api-disabled.md), [2026-10-18-device-link-compatibility.md](audits/2026-10-18-device-link-compatibility.md).
 
 ### B01 · Разбор состояния тикета
 

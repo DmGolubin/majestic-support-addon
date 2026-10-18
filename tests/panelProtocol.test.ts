@@ -23,6 +23,34 @@ describe("production panel protocol boundary", () => {
         expect(slowerPolling(slowerPolling(5))).toBe(15);
         expect(parseDeviceAuthorization({ ...device, verification_uri_complete: undefined }).verificationUriComplete).toBe(device.verification_uri);
     });
+    it.each([PANEL_ORIGIN, "https://majestic-rp.tech"])("accepts the deployed code link on %s without moving the API", webOrigin => {
+        const value = { ...device, user_code: "TEST123456", verification_uri: webOrigin + "/connect",
+            verification_uri_complete: webOrigin + "/connect?code=TEST123456" };
+        expect(parseDeviceAuthorization(value)).toMatchObject({ userCode: "TEST123456", verificationUriComplete: value.verification_uri_complete });
+        expect(parseDeviceAuthorization({ ...value, verification_uri_complete: undefined }).verificationUriComplete).toBe(value.verification_uri);
+        expect(panelEndpoint("/oauth/token")).toBe(PANEL_ORIGIN + "/api/plugin/v1/oauth/token");
+    });
+    it.each([
+        "https://majestic-rp.tech/connect?code=OTHER",
+        "https://majestic-rp.tech/connect?code=ABCD12&code=ABCD12",
+        "https://majestic-rp.tech/connect?code=ABCD12&user_code=ABCD12",
+        "https://majestic-rp.tech/connect?code=ABCD12&redirect=https://evil.example",
+        "https://majestic-rp.tech/connect?code=ABCD12#fragment",
+        "https://majestic-rp.tech/other?code=ABCD12",
+        "http://majestic-rp.tech/connect?code=ABCD12",
+        "https://majestic-rp.tech:8443/connect?code=ABCD12",
+        "https://majestic-rp.tech.evil.example/connect?code=ABCD12",
+        "https://user:pass@majestic-rp.tech/connect?code=ABCD12"
+    ])("rejects unsafe deployed-format links %s", verification_uri_complete => {
+        expect(() => parseDeviceAuthorization({ ...device, verification_uri_complete })).toThrow();
+    });
+    it("does not extend staging trust to production login sites", () => {
+        const staging = "https://staging.example";
+        const value = { ...device, verification_uri: staging + "/connect", verification_uri_complete: staging + "/connect?code=ABCD12" };
+        expect(parseDeviceAuthorization(value, staging).verificationUriComplete).toBe(value.verification_uri_complete);
+        expect(() => parseDeviceAuthorization(device, staging)).toThrow();
+        expect(() => parseDeviceAuthorization({ ...value, verification_uri_complete: "https://majestic-rp.tech/connect?code=ABCD12" }, staging)).toThrow();
+    });
     it.each([
         "https://evil.example/connect?user_code=ABCD12",
         PANEL_ORIGIN + "/connect?user_code=OTHER",

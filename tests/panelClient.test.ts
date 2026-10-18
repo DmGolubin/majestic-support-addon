@@ -45,6 +45,16 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(0); });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("PanelClient device login", () => {
+    it("opens the deployed public-site code link and continues polling through the API transport", async () => {
+        const h = harness({ device: device({ verification_uri: "https://majestic-rp.tech/connect",
+            verification_uri_complete: "https://majestic-rp.tech/connect?code=TEST-CODE" }) });
+        await h.login();
+        expect(h.onDevice).toHaveBeenCalledWith(expect.objectContaining({
+            verificationUriComplete: "https://majestic-rp.tech/connect?code=TEST-CODE"
+        }));
+        expect(h.transport.mock.calls.map(([path]) => path)).toEqual(["/oauth/device_authorization", "/oauth/token"]);
+        expect(h.client.connectionId).toBe(connection);
+    });
     it("requests only read scopes, waits the advertised interval, then authorizes GET", async () => {
         const h = harness();
         expect(h.client.connectionId).toBeNull();

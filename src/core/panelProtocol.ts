@@ -6,6 +6,8 @@
 
 /** Wire boundary for the delivered panel contract. No IO or token persistence here. */
 export const PANEL_ORIGIN = "https://panel.majestic-rp.tech";
+// The deployed API can return the public site's confirmation page. API/token requests stay on PANEL_ORIGIN.
+const PANEL_LOGIN_ORIGIN = "https://majestic-rp.tech";
 export const PANEL_API_PATH = "/api/plugin/v1";
 export const PANEL_CLIENT_ID = "support-templates";
 
@@ -60,10 +62,11 @@ export function panelEndpoint(path: string, trustedOrigin = PANEL_ORIGIN): strin
 function verification(value: unknown, trustedOrigin: string, userCode: string, complete: boolean): string {
     let u: URL;
     try { u = new URL(string(value)); } catch { return invalid(); }
-    if (u.origin !== trustedOrigin || u.username || u.password || u.pathname !== "/connect" || u.hash) return invalid();
-    // Local allowlist, to verify against staging: do not accept arbitrary redirect/token parameters.
-    if ([...u.searchParams.keys()].some(k => k !== "user_code")) return invalid();
-    const codes = u.searchParams.getAll("user_code");
+    const allowedOrigin = u.origin === trustedOrigin || (trustedOrigin === PANEL_ORIGIN && u.origin === PANEL_LOGIN_ORIGIN);
+    if (!allowedOrigin || u.username || u.password || u.pathname !== "/connect" || u.hash) return invalid();
+    // Deployed links use code; retain user_code compatibility. Exactly one matching code, no redirects/tokens.
+    if ([...u.searchParams.keys()].some(k => k !== "user_code" && k !== "code")) return invalid();
+    const codes = [...u.searchParams.getAll("user_code"), ...u.searchParams.getAll("code")];
     if (complete ? codes.length !== 1 || codes[0] !== userCode : codes.length !== 0) return invalid();
     return u.href;
 }
