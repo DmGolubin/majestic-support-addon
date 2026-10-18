@@ -6,6 +6,7 @@ import { Store, STORE_KEY } from "../src/core/state";
 import { routeStore } from "../src/core/storeRouter";
 import { createPanelPreferencesStorage } from "../src/core/panelPreferences";
 import { PanelError } from "../src/core/panelClient";
+import { parseProfile, parseSnapshot } from "../src/core/panelCatalog";
 import { Template } from "../src/core/types";
 
 const compiled = ts.transpileModule(readFileSync(new URL("../src/vencord/ui/panel.ts", import.meta.url), "utf8"), {
@@ -22,7 +23,7 @@ function deferred<T>() {
 const template: Template = { id: "faq:majestic:7", source: "faq", project: "mj", title: "FAQ", text: "Answer", category: null,
     status: "actual", statusNote: null, color: null, command: null, updatedAt: null, teamUses: 0 };
 
-function harness() {
+function harness(wire?: { get(path: string): Promise<unknown>; }) {
     const preferenceData = new Map<string, unknown>();
     const io = { readError: false, writeError: false, pendingRead: null as Promise<void> | null, pendingWrite: null as Promise<void> | null };
     const preferenceStorage = {
@@ -48,7 +49,7 @@ function harness() {
         saved: false, secure: true, pendingVault: null as Promise<void> | null, restoreError: null as unknown };
     const clients: FakeClient[] = [];
     class FakeClient {
-        connectionId = "connection";
+        connectionId = wire ? "12345678-1234-1234-1234-123456789abc" : "connection";
         disposed = false;
         constructor() { clients.push(this); }
         login = vi.fn(async (device: (v: unknown) => void) => {
@@ -59,6 +60,7 @@ function harness() {
         streamAuthorized = vi.fn(async (operation: (token: string, signal: AbortSignal) => Promise<void>) => operation("test-only", new AbortController().signal));
         refreshForStream = vi.fn(async () => {});
         get = vi.fn(async (path: string) => {
+            if (wire) return wire.get(path);
             if (state.pendingGet) return state.pendingGet;
             if (state.error) throw state.error;
             if (path === "/me") return { accountId: state.profileId, connectionId: "connection", minimumPluginVersion: "1.0.0", projects: state.projects, name: state.name, permissionsRevision: state.permissions, scopes: ["profile:read"] };
@@ -81,20 +83,22 @@ function harness() {
         signal.addEventListener("abort", () => end(), { once: true });
     }));
     const permission = vi.fn(async (_interactive: boolean): Promise<string> => "ready");
+    const parsers = wire ? { parseProfile: vi.fn(parseProfile), parseSnapshot: vi.fn(parseSnapshot) }
+        : { parseProfile: (v: unknown) => v, parseSnapshot: (v: unknown) => v };
     const deps: Record<string, unknown> = {
         "../panelPermission": { ensurePanelPermission: permission },
         "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: state.discordId }),
             addChangeListener: (fn: () => void) => accountHandlers.add(fn), removeChangeListener: (fn: () => void) => accountHandlers.delete(fn) }, FluxDispatcher: {
             subscribe: (name: string, fn: () => void) => handlers.set(name, fn), unsubscribe: (name: string) => handlers.delete(name) } },
         "../buildInfo": { PLUGIN_VERSION: "1.0.0" }, "../core/state": { Store, STORE_KEY },
-        "../core/panelCatalog": { parseProfile: (v: unknown) => v, parseSnapshot: (v: unknown) => v },
+        "../core/panelCatalog": parsers,
         "../core/panelPreferences": { createPanelPreferencesStorage },
         "../platform": { storage: preferenceStorage },
         "../core/panelClient": { PanelClient: FakeClient, PanelError },
         "../core/panelProtocol": { PANEL_ORIGIN: "https://panel.majestic-rp.tech" },
         "../core/panelEvents": { createPanelEventStream: () => streamReader },
         "../panelVault": { createPanelVault: async () => { if (state.pendingVault) await state.pendingVault; return state.secure ? {} : undefined; } },
-        "../core/panelTransport": { createPanelTransport: vi.fn() }, "../panelHtml": { htmlToDiscordText: vi.fn() },
+        "../core/panelTransport": { createPanelTransport: vi.fn() }, "../panelHtml": { htmlToDiscordText: vi.fn(() => "Answer") },
         "./demo": { disableDemo: vi.fn(), enableDemo: vi.fn() },
         "./flow": { confirmedForeign: new Set(), supersede: vi.fn() }, "./observable": { createObservable: observable },
         "./op": { nextGeneration: () => ++generation, captureWindowTarget: vi.fn(), windowEditor: () => null },
@@ -107,11 +111,113 @@ function harness() {
     runInNewContext(compiled, { module, exports: module.exports, Date, setTimeout, clearTimeout, Math, AbortController, window: { open,
         addEventListener: (name: string, fn: () => void) => windowHandlers.set(name, fn), removeEventListener: (name: string) => windowHandlers.delete(name) },
         require: (name: string) => { if (!(name in deps)) throw new Error("Unexpected import " + name); return deps[name]; } });
-    return { permission, preferenceData, preferenceStorage, io, api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers, windowHandlers, accountHandlers, streams, streamReader,
+    return { parsers, permission, preferenceData, preferenceStorage, io, api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers, windowHandlers, accountHandlers, streams, streamReader,
         freshness: () => freshness(), generation: () => generation };
 }
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-18T00:00:00Z")); });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+
+describe("permission races through the controller and actual catalog parsers", () => {
+    const date = "2026-10-18T00:00:00.000Z";
+    const accountId = "123456789012345678";
+    const profile = (permissionsRevision: string) => ({
+        schemaVersion: 1, accountId, connectionId: "12345678-1234-1234-1234-123456789abc", name: "Support",
+        projects: ["majestic"], scopes: ["profile:read", "faq:read", "personal:read", "folders:read", "sync:read"],
+        permissionsRevision, minimumPluginVersion: "1.0.0", serverTime: date,
+    });
+    const snapshot = (permissionsRevision: string) => ({
+        schemaVersion: 1, accountId, revision: permissionsRevision, permissionsRevision, serverTime: date, projects: ["majestic"],
+        faq: [{ id: "majestic:7", version: "1", title: "FAQ", text: "<p>Answer</p>", format: "html", projects: ["majestic"],
+            category: null, tags: [], status: "actual", updatedAt: date }],
+        personal: [], folders: [], trash: [], colorLabels: {}, limits: { colors: [] },
+    });
+    function setup() {
+        const get = vi.fn(async (path: string): Promise<unknown> => path === "/me" ? profile("1") : snapshot("1"));
+        return { ...harness({ get }), get };
+    }
+
+    it("blocks and clears the old catalog while retrying a fresh pair without cancelling auth", async () => {
+        const h = setup(); await h.api.connectPanel();
+        const wait = deferred<unknown>();
+        h.get.mockResolvedValueOnce(profile("1")).mockResolvedValueOnce(snapshot("2"))
+            .mockReturnValueOnce(wait.promise).mockResolvedValueOnce(snapshot("2"));
+        const refresh = h.api.reloadPanel(); await vi.advanceTimersByTimeAsync(0);
+        expect(h.access.get().ready).toBe(false); expect(h.store.templates).toEqual([]);
+        expect(h.api.panel.get()).toMatchObject({ phase: "loading", checkedAt: 0 });
+        expect(h.clients[0].cancel).not.toHaveBeenCalled();
+        wait.resolve(profile("2")); await refresh;
+        expect(h.get.mock.calls.map(([p]) => p)).toEqual(["/me", "/snapshot", "/me", "/snapshot", "/me", "/snapshot"]);
+        expect(h.api.panel.get().phase).toBe("ready"); expect(h.access.get().ready).toBe(true);
+        expect(h.store.templates).toHaveLength(1); expect(h.clients[0].cancel).not.toHaveBeenCalled();
+        h.api.disposePanel();
+    });
+
+    it("stops after one retry, keeps access blocked and auth intact, and permits manual recovery", async () => {
+        const h = setup(); await h.api.connectPanel();
+        h.get.mockImplementation(async p => p === "/me" ? profile("1") : snapshot("2"));
+        await h.api.reloadPanel();
+        expect(h.get).toHaveBeenCalledTimes(6);
+        expect(h.access.get()).toMatchObject({ ready: false, checkedAt: 0, projects: [] });
+        expect(h.store.templates).toEqual([]); expect(h.api.panel.get().phase).toBe("offline");
+        await vi.advanceTimersByTimeAsync(180000);
+        expect(h.get).toHaveBeenCalledTimes(6); expect(h.clients[0].cancel).not.toHaveBeenCalled();
+        expect(h.clients[0].logout).not.toHaveBeenCalled();
+        h.get.mockImplementation(async p => p === "/me" ? profile("2") : snapshot("2"));
+        await h.api.reloadPanel();
+        expect(h.get).toHaveBeenCalledTimes(8); expect(h.api.panel.get().phase).toBe("ready");
+        expect(h.access.get().ready).toBe(true); expect(h.clients[0].login).toHaveBeenCalledOnce();
+        h.api.disposePanel();
+    });
+
+    it.each(["/me", "/snapshot"])("discards an invalidated %s response before the actual parser sees it", async route => {
+        const h = setup(); await h.api.connectPanel();
+        const wait = deferred<unknown>();
+        if (route === "/snapshot") h.get.mockResolvedValueOnce(profile("1"));
+        h.get.mockReturnValueOnce(wait.promise);
+        const refresh = h.api.reloadPanel(); await vi.advanceTimersByTimeAsync(0);
+        h.streams[0].emit({ type: "permissions.changed", data: {} });
+        expect(h.access.get().ready).toBe(false);
+        h.get.mockImplementation(async p => p === "/me" ? profile("2") : snapshot("2"));
+        // Deliberately malformed: parsing this obsolete value would terminate the session.
+        wait.resolve(null); await refresh; await vi.advanceTimersByTimeAsync(0);
+        expect(h.api.panel.get().phase).toBe("ready"); expect(h.access.get().ready).toBe(true);
+        expect(h.parsers.parseProfile).not.toHaveBeenCalledWith(null);
+        expect(vi.mocked(h.parsers.parseSnapshot).mock.calls.some(([raw]) => raw === null)).toBe(false);
+        expect(h.clients[0].cancel).not.toHaveBeenCalled(); h.api.disposePanel();
+    });
+
+    it.each([
+        { code: "service_unavailable", status: 503, terminal: false },
+        { code: "unauthorized", status: 401, terminal: true },
+        { code: "session_revoked", status: 0, terminal: true },
+        { code: "refresh_uncertain", status: 0, terminal: true },
+    ])("handles delayed invalidated request errors: $code", async ({ code, status, terminal }) => {
+        const h = setup(); await h.api.connectPanel();
+        const wait = deferred<unknown>(); h.get.mockReturnValueOnce(wait.promise);
+        const refresh = h.api.reloadPanel(); await vi.advanceTimersByTimeAsync(0);
+        h.streams[0].emit({ type: "permissions.changed", data: {} });
+        wait.reject(new PanelError(code, status));
+        await refresh; await vi.advanceTimersByTimeAsync(0);
+        expect(h.api.panel.get().phase).toBe(terminal ? "error" : "ready");
+        expect(h.access.get().ready).toBe(!terminal);
+        expect(h.clients[0].cancel).toHaveBeenCalledTimes(terminal ? 1 : 0);
+        if (terminal) expect(h.store.templates).toEqual([]);
+        h.api.disposePanel();
+    });
+
+    it.each([
+        { accountId: "987654321098765432", permissionsRevision: "2" },
+        { permissionsRevision: null },
+        { permissionsRevision: "1", faq: null },
+    ])("does not classify identity/malformed snapshots as permission races: %j", async patch => {
+        const h = setup(); await h.api.connectPanel();
+        h.get.mockResolvedValueOnce(profile("1")).mockResolvedValueOnce({ ...snapshot("1"), ...patch });
+        await h.api.reloadPanel();
+        expect(h.get).toHaveBeenCalledTimes(4); expect(h.clients[0].cancel).toHaveBeenCalledOnce();
+        expect(h.access.get().ready).toBe(false); expect(h.store.templates).toEqual([]);
+        h.api.disposePanel();
+    });
+});
 
 describe("host permission before panel requests", () => {
     it.each(["required", "restart", "unavailable"])("does not start login or SSE when permission is %s", async result => {

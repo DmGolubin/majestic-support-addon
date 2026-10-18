@@ -1,6 +1,6 @@
 {
   "product": "SupportTemplates",
-  "version": "0.1.0-canary.3",
+  "version": "0.1.0-canary.4",
   "upstreamCommit": "32c90633ce6a95d7e56c95479efbb431bacf1eac",
   "upstreamUrl": "https://github.com/Vendicated/Vencord",
   "rendererPlugins": ["SupportTemplates", "ChatInputButtonAPI", "Settings", "ConcatenatedComponentExtractor"],

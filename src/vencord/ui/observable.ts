@@ -32,8 +32,14 @@ export function createObservable<T extends object>(initial: T) {
         /** Re-renders on every change. Prefer useSelect. */
         use(): T {
             const [, force] = useState(0);
-            useEffect(() => subscribe(() => force(x => x + 1)), []);
-            return value;
+            const current = value;
+            useEffect(() => {
+                const off = subscribe(() => force(x => x + 1));
+                // Loading may finish between render and the passive-effect subscription.
+                if (!Object.is(current, value)) force(x => x + 1);
+                return off;
+            }, []);
+            return current;
         },
         /** Re-renders only when the selected slice changes (by isEqual). */
         useSelect<R>(selector: (v: T) => R, isEqual: (a: R, b: R) => boolean = Object.is): R {

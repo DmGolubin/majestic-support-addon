@@ -26,7 +26,33 @@ describe("text", () => {
     it("splitGreeting leaves text without greeting", () => {
         expect(splitGreeting("Просто текст\n\nещё")).toEqual({ greeting: "", body: "Просто текст\n\nещё" });
     });
+    it.each([
+        "Отключите приветствие в настройках.",
+        "Приветствие можно отключить в настройках.",
+        "Благодаря обновлению ошибка исправлена.",
+        "**Проверьте сообщение «Здравствуйте» в журнале.**",
+    ])("keeps an instructional first paragraph: %s", first => {
+        const text = `${first}\n\nПерезапустите игру.`;
+        expect(splitGreeting(text)).toEqual({ greeting: "", body: text });
+    });
+    it.each(["Здравствуйте!", "__Добрый день!__", "Привет!", "Благодарим Вас за обращение!"])("recognizes an opening salutation: %s", greeting => {
+        expect(splitGreeting(`${greeting}\n\nИнструкция.`)).toEqual({ greeting, body: "Инструкция." });
+    });
     it("stripMarker removes marker line like panel", () => {
         expect(stripMarker("A\n[[greeting:end]]\nB")).toBe("A\nB");
+    });
+    it.each(["\n", "\r\n"])("keeps inline boundary separation with %j", newline => {
+        expect(stripMarker(`Здравствуйте![[greeting:end]]${newline}**Инструкция.**`))
+            .toBe(`Здравствуйте!${newline}**Инструкция.**`);
+        expect(stripMarker(`A${newline}  [[greeting:end]]  ${newline}B`)).toBe(`A${newline}B`);
+    });
+    it("separates an inline boundary without a newline", () => {
+        expect(stripMarker("Здравствуйте! [[greeting:end]] Инструкция.")).toBe("Здравствуйте! Инструкция.");
+        expect(stripMarker("Здравствуйте![[greeting:end]]Инструкция.")).toBe("Здравствуйте! Инструкция.");
+    });
+    it("does not add whitespace at an empty boundary or change explicit greeting splitting", () => {
+        expect(stripMarker("[[greeting:end]]\nТело")).toBe("Тело");
+        expect(stripMarker("Привет![[greeting:end]]")).toBe("Привет!");
+        expect(splitGreeting("Вступление.[[greeting:end]]\nТело")).toEqual({ greeting: "Вступление.", body: "Тело" });
     });
 });

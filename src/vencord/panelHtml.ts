@@ -21,7 +21,7 @@ function decode(text: string): string {
 }
 function outsideTokens(text: string, convert: (part: string) => string): string {
     // Same token grammar as core/tokens.ts; escaping its pipes, underscores or defaults changes
-    // field names/options. Preserve grammar plus greeting/caret markers, escape only ordinary text.
+    // field names/options. Preserve grammar plus greeting/caret markers during text cleanup.
     const tokens = /\{\{\s*([^}|=]+?)\s*(?:=\s*([^}|]*?)\s*)?(\|[^}]*)?\s*\}\}|\[\[greeting:end\]\]|\{\|\}/g;
     const parts: string[] = [];
     let end = 0;
@@ -32,10 +32,11 @@ function outsideTokens(text: string, convert: (part: string) => string): string 
     parts.push(convert(text.slice(end)));
     return parts.join("");
 }
-function plain(text: string, pre = false): string {
+function plain(text: string): string {
     text = decode(text).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
-    return outsideTokens(text, part => (pre ? part : part.replace(/\s+/g, " "))
-        .replace(/([\\`*_~|[\]<>#])/g, "\\$1").replace(/@/g, "@\u200b"));
+    // FAQ text contains Discord Markdown even inside HTML wrappers. Preserve its syntax,
+    // line breaks and indentation; HTML is removed by the inert scanner below, never rendered.
+    return outsideTokens(text, part => part.replace(/@/g, "@\u200b"));
 }
 function attr(attrs: string, name: string): string | null {
     const match = new RegExp("(?:^|\\s)" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'=<>`]+))", "i").exec(attrs);
@@ -55,9 +56,9 @@ const BLOCK = new Set(["p", "div", "section", "article", "header", "footer", "bl
 export function htmlToDiscordText(html: string): string {
     if (typeof html !== "string" || html.length > 1000000) throw new Error("Некорректный HTML FAQ");
     const out: string[] = [], links: (string | null)[] = [], lists: (number | null)[] = [];
-    let i = 0, pre = false, pending = "";
-    // Inline formatting may split a variable across spans. Reassemble text before escaping tokens.
-    const flush = () => { if (pending) out.push(plain(pending, pre)); pending = ""; };
+    let i = 0, pending = "";
+    // Inline formatting may split a variable across spans. Reassemble text before processing tokens.
+    const flush = () => { if (pending) out.push(plain(pending)); pending = ""; };
     const emit = (text: string) => { flush(); out.push(text); };
     while (i < html.length) {
         if (html[i] !== "<") {
@@ -67,6 +68,11 @@ export function htmlToDiscordText(html: string): string {
         }
         if (html.startsWith("<!--", i)) {
             const end = html.indexOf("-->", i + 4); i = end < 0 ? html.length : end + 3; continue;
+        }
+        // Discord autolinks are text, not tags. Do not discard them as unknown HTML elements.
+        const autolink = /^<(https?:\/\/[^<>\s]+)>/i.exec(html.slice(i));
+        if (autolink && link(decode(autolink[1]))) {
+            pending += autolink[0]; i += autolink[0].length; continue;
         }
         const opening = /^<(\/)?([a-z][a-z0-9:-]*)(?=[\s/>])/i.exec(html.slice(i));
         if (!opening) { pending += "<"; i++; continue; }
@@ -95,7 +101,7 @@ export function htmlToDiscordText(html: string): string {
         } else if (name === "img" && !closing) {
             const alt = attr(attrs, "alt"); if (alt) pending += alt;
         } else if (name === "br" || name === "hr") emit("\n");
-        else if (name === "pre") { emit("\n\n"); pre = !closing; }
+        else if (name === "pre") emit("\n\n");
         else if (name === "ul" || name === "ol") {
             if (closing) lists.pop(); else lists.push(name === "ol" ? 0 : null);
             emit("\n");
@@ -110,6 +116,5 @@ export function htmlToDiscordText(html: string): string {
         else if (BLOCK.has(name)) emit("\n\n");
     }
     flush();
-    return outsideTokens(out.join(""), part => part.replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n")
-        .replace(/\n[ \t]+/g, "\n").replace(/\n{3,}/g, "\n\n")).trim();
+    return outsideTokens(out.join(""), part => part.replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n")).trim();
 }

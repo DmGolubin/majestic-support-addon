@@ -5,6 +5,15 @@ import { htmlToDiscordText } from "../src/vencord/panelHtml";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("inert FAQ HTML conversion", () => {
+    it("preserves the reported FAQ paragraphs, numbered steps and literal Markdown", () => {
+        const faq = '**Приветствую! Благодарим Вас за обращение в службу поддержки.**\n\nДля решения Вашей проблемы:\n\n1. Убедитесь, что GTA 5 не имеет модификаций.\nЕсли использовали редукс, reshade, ENB, "замененки", проверка файлов может не удалить их.\n2. Обновите драйвера.\n3. Используйте SSD накопитель.\n4. Запустите лаунчер от имени администратора.\n5. Возможное решение это сменить IP адрес у провайдера или при помощи VPN (используйте разные программы, не только одну)\n\nid#00048394';
+        expect(htmlToDiscordText(faq)).toBe(faq);
+        expect(htmlToDiscordText('<div><span style="white-space: pre-wrap">' + faq + '</span></div>')).toBe(faq);
+    });
+    it("preserves existing escapes, fenced code and autolinks without double escaping", () => {
+        const faq = '**Title**\n\n\\*literal\\*\n\n```txt\n  indented_line\n```\n\n<https://example.com/help>';
+        expect(htmlToDiscordText(faq)).toBe(faq);
+    });
     it("keeps readable paragraphs, breaks, lists, tables, entities and safe links", () => {
         const text = htmlToDiscordText('<p>Hello &amp; welcome</p><p>Next<br>line</p><ul><li>One</li><li>Two</li></ul><ol><li>Step A</li><li>Step B</li></ol><table><tr><td>Key</td><td>Value</td></tr></table><a href="https://example.com/help?a=1&amp;b=2">Help</a>');
         expect(text).toContain("Hello & welcome\n\nNext\nline");
@@ -24,11 +33,11 @@ describe("inert FAQ HTML conversion", () => {
     it.each(["javascript:alert(1)", "data:text/html,test", "file:///secret", "//example.com", "https://user:pass@example.com", "java&#115;cript:alert(1)"])("drops unsafe href %s while retaining its label", href => {
         expect(htmlToDiscordText(`<a href="${href}">Label</a>`)).toBe("Label");
     });
-    it("escapes literal Markdown and neutralizes Discord mentions after entity decoding", () => {
-        const text = htmlToDiscordText('<p>**Bold** @everyone &#64;here &lt;@123&gt; [hidden](javascript:evil)</p>');
-        expect(text).toContain("\\*\\*Bold\\*\\*");
+    it("preserves Markdown and neutralizes Discord mentions after entity decoding", () => {
+        const text = htmlToDiscordText('<p>**Bold** @everyone &#64;here &lt;@123&gt; [Help](https://example.com)</p>');
+        expect(text).toContain("**Bold**");
         expect(text).not.toContain("@everyone"); expect(text).not.toContain("@here"); expect(text).not.toContain("<@123>");
-        expect(text).toContain("@\u200beveryone"); expect(text).toContain("\\[hidden\\]");
+        expect(text).toContain("@\u200beveryone"); expect(text).toContain("[Help](https://example.com)");
     });
     it("handles quoted angle brackets, comments and unfinished dangerous tags conservatively", () => {
         expect(htmlToDiscordText('<p title="a > b">Visible</p><!-- hidden --><script>unfinished')).toBe("Visible");

@@ -42,6 +42,12 @@ describe("panel profile", () => {
 });
 
 describe("panel snapshot", () => {
+    it("preserves FAQ Markdown and paragraphs through the real snapshot conversion", () => {
+        const wire = snapshotWire();
+        const text = "**Приветствую! Благодарим Вас за обращение в службу поддержки.**\n\nДля решения Вашей проблемы:\n\n1. Проверьте файлы.\n2. Обновите драйвера.\n\nid#00048394";
+        wire.faq[0].text = "<div>" + text + "</div>";
+        expect(parse(wire).templates[0].text).toBe(text);
+    });
     it("returns a complete catalog, stable namespaces, personal object identity, folder and command", () => {
         const catalog = parse();
         expect(catalog).toMatchObject({ schemaVersion: 1, accountId: profileWire().accountId, revision: "snapshot-1", permissionsRevision: "permissions-1", serverTime: date, projects: ["mj", "ro"] });

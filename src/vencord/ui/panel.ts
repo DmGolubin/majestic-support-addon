@@ -190,24 +190,49 @@ async function loadLibrary(): Promise<boolean> {
     const revision = syncRevision;
     resyncPending = false;
     const run = async () => {
-        const started = Date.now();
+        let started = Date.now();
         try {
-            const profile = parseProfile(await active.get("/me"));
-            if (own !== epoch) return false;
-            if (profile.connectionId !== active.connectionId || profile.accountId !== UserStore.getCurrentUser()?.id || (accountId && accountId !== profile.accountId)) throw new PanelError("account_mismatch");
-            if (!supportsVersion(profile.minimumPluginVersion)) throw new PanelError("upgrade_required");
-            const nextPermissions = JSON.stringify([profile.permissionsRevision, [...profile.projects].sort(), [...profile.scopes].sort()]);
-            if (permissions && nextPermissions !== permissions) {
-                // Rights already changed: the old library must disappear BEFORE a slow snapshot completes.
-                panelAccess.set({ ready: false, projects: [], checkedAt: 0 });
-                invalidate(); library?.clearPanelCatalog();
-                fingerprint = "";
-                panel.set({ phase: "loading", checkedAt: 0 });
+            let profile: ReturnType<typeof parseProfile>;
+            let catalog: ReturnType<typeof parseSnapshot>;
+            let nextPermissions: string;
+            for (let attempt = 0; ; attempt++) {
+                started = Date.now();
+                const rawProfile = await active.get("/me");
+                if (own !== epoch || revision !== syncRevision || !library) return false;
+                profile = parseProfile(rawProfile);
+                if (profile.connectionId !== active.connectionId || profile.accountId !== UserStore.getCurrentUser()?.id || (accountId && accountId !== profile.accountId)) throw new PanelError("account_mismatch");
+                if (!supportsVersion(profile.minimumPluginVersion)) throw new PanelError("upgrade_required");
+                nextPermissions = JSON.stringify([profile.permissionsRevision, [...profile.projects].sort(), [...profile.scopes].sort()]);
+                if (permissions && nextPermissions !== permissions) {
+                    // Rights already changed: the old library must disappear BEFORE a slow snapshot completes.
+                    panelAccess.set({ ready: false, projects: [], checkedAt: 0 });
+                    invalidate(); library?.clearPanelCatalog();
+                    fingerprint = "";
+                    panel.set({ phase: "loading", checkedAt: 0 });
+                }
+                const rawSnapshot = await active.get("/snapshot");
+                if (own !== epoch || revision !== syncRevision || !library) return false;
+                if (profile.accountId !== UserStore.getCurrentUser()?.id) throw new PanelError("account_mismatch");
+                const snapshot = rawSnapshot as { schemaVersion?: unknown; accountId?: unknown; permissionsRevision?: unknown; } | null;
+                // The two reads are not atomic. A newer rights revision needs a fresh pair,
+                // not session cancellation. Invalid identity/revision metadata still uses strict parsing.
+                if (snapshot && !Array.isArray(snapshot) && snapshot.schemaVersion === 1 && snapshot.accountId === profile.accountId
+                    && typeof snapshot.permissionsRevision === "string" && snapshot.permissionsRevision.trim()
+                    && snapshot.permissionsRevision.length <= 512 && !/[\u0000-\u001f\u007f]/.test(snapshot.permissionsRevision)
+                    && snapshot.permissionsRevision !== profile.permissionsRevision) {
+                    panelAccess.set({ ready: false, projects: [], checkedAt: 0 });
+                    invalidate(); library.clearPanelCatalog(); fingerprint = "";
+                    panel.set({ phase: "loading", checkedAt: 0 });
+                    if (attempt === 0) continue;
+                    // One retry per load. Keep credentials but stop automatic polling until
+                    // an explicit reload or a new external resync/resume trigger.
+                    clearTimeout(timer);
+                    panel.set({ phase: "offline", error: "Права панели изменились во время загрузки. Повторите загрузку библиотеки." });
+                    return false;
+                }
+                catalog = parseSnapshot(rawSnapshot, profile, htmlToDiscordText);
+                break;
             }
-            const catalog = parseSnapshot(await active.get("/snapshot"), profile, htmlToDiscordText);
-            if (own !== epoch || !library) return false;
-            if (revision !== syncRevision) return false;
-            if (profile.accountId !== UserStore.getCurrentUser()?.id) throw new PanelError("account_mismatch");
             const prefs = preferences;
             let savedPreferences: unknown;
             const restorePreferences = !!prefs && !prefs.loaded;
@@ -239,8 +264,13 @@ async function loadLibrary(): Promise<boolean> {
             return true;
         } catch (error) {
             if (own !== epoch) return false;
+            // Superseded reads cannot fail a newer resync, but auth/storage failures
+            // still fail closed: invalidation must never suppress a genuine revocation.
+            const terminal = error instanceof PanelError && (error.status === 401 || error.status === 403
+                || ["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error", "connection_mismatch"].includes(error.code));
+            if (revision !== syncRevision && !terminal) return false;
             panelAccess.set({ ready: false }); invalidate();
-            const transient = error instanceof PanelError && error.code !== "refresh_uncertain" && (error.status === 429 || error.status >= 500 || ["network_error", "timeout", "request_timeout"].includes(error.code));
+            const transient = !terminal && error instanceof PanelError && (error.status === 429 || error.status >= 500 || ["network_error", "timeout", "request_timeout"].includes(error.code));
             if (transient) {
                 failures++;
                 panel.set({ phase: "offline", error: message(error) });

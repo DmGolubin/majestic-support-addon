@@ -10,4 +10,12 @@ describe("compose", () => {
     it("strips panel markers", () => {
         expect(joinPieces(["Привет\n[[greeting:end]]\nA", "Привет\n[[greeting:end]]\nB"])).toBe("Привет\nA\n\nB");
     });
+    it("preserves instructions mentioning greetings in later pieces", () => {
+        const instruction = "Отключите приветствие в настройках.\n\n**Перезапустите игру.**";
+        expect(joinPieces(["Первый ответ.", instruction])).toBe(`Первый ответ.\n\n${instruction}`);
+    });
+    it("preserves the first inline boundary and removes only the explicit greeting in later pieces", () => {
+        expect(joinPieces(["Здравствуйте![[greeting:end]]\n**Первый**", "Вступление.[[greeting:end]]\n**Второй**"]))
+            .toBe("Здравствуйте!\n**Первый**\n\n**Второй**");
+    });
 });
