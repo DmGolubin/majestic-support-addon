@@ -10,11 +10,13 @@ import { PLUGIN_VERSION } from "../buildInfo";
 import { parseProfile, parseSnapshot } from "../core/panelCatalog";
 import { PanelClient, PanelError } from "../core/panelClient";
 import { createPanelEventStream } from "../core/panelEvents";
+import { createPanelPreferencesStorage } from "../core/panelPreferences";
 import { PANEL_ORIGIN } from "../core/panelProtocol";
 import { createPanelTransport } from "../core/panelTransport";
-import { Store } from "../core/state";
+import { StorageLike, Store, STORE_KEY } from "../core/state";
 import { htmlToDiscordText } from "../panelHtml";
 import { createPanelVault } from "../panelVault";
+import { storage } from "../platform";
 import { disableDemo, enableDemo } from "./demo";
 import { confirmedForeign, supersede } from "./flow";
 import { createObservable } from "./observable";
@@ -23,9 +25,10 @@ import { libraryIsFresh, panelAccess, realStore, selectStore, setFreshnessCheck,
 
 type Phase = "idle" | "connecting" | "pending" | "loading" | "ready" | "offline" | "error";
 export const panel = createObservable({ enabled: true, phase: "idle" as Phase, code: "", url: "", error: "", name: "", checkedAt: 0,
-    persistent: false, sync: "idle" as "idle" | "connecting" | "live" | "retrying" });
+    persistent: false, preferencesError: "" as "" | "read" | "write", sync: "idle" as "idle" | "connecting" | "live" | "retrying" });
 let client: PanelClient | null = null;
 let library: Store | null = null;
+let preferences: { storage: StorageLike; loaded: boolean; writable: boolean; } | null = null;
 let epoch = 0;
 let fingerprint = "";
 let permissions = "";
@@ -57,14 +60,19 @@ function invalidate() {
 }
 
 function wipe() {
+    // Let already captured preference writes finish before a later login reads the same account slot.
+    if (library) {
+        library.closePanelPreferences();
+        void trackCleanup(library.flush().catch(() => {}));
+    }
     epoch++; clearTimeout(timer); loading = null; fingerprint = ""; permissions = ""; accountId = null; boundAccountId = null; failures = 0; retryAt = 0;
     stream?.abort(); stream = null; clearTimeout(streamTimer); streamTimer = undefined; streamFailures = 0;
     syncRevision++; resyncPending = false;
     panelAccess.set({ ready: false, accountId: null, projects: [], checkedAt: 0 });
     invalidate(); ui.set({ management: false });
     library?.replacePanelCatalog({ templates: [], personal: [], folders: [] });
-    library = null;
-    panel.set({ phase: "idle", code: "", url: "", error: "", name: "", checkedAt: 0, persistent: false, sync: "idle" });
+    library = null; preferences = null;
+    panel.set({ phase: "idle", code: "", url: "", error: "", name: "", checkedAt: 0, persistent: false, preferencesError: "", sync: "idle" });
 }
 
 function message(error: unknown): string {
@@ -102,7 +110,7 @@ function requestResync(clearCatalog: boolean) {
     syncRevision++; resyncPending = true;
     panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
     if (clearCatalog) {
-        library?.replacePanelCatalog({ templates: [], personal: [], folders: [] }); fingerprint = "";
+        library?.clearPanelCatalog(); fingerprint = "";
     }
     panel.set({ phase: "loading", checkedAt: 0 });
     if (!loading) void loadLibrary();
@@ -191,7 +199,7 @@ async function loadLibrary(): Promise<boolean> {
             if (permissions && nextPermissions !== permissions) {
                 // Rights already changed: the old library must disappear BEFORE a slow snapshot completes.
                 panelAccess.set({ ready: false, projects: [], checkedAt: 0 });
-                invalidate(); library?.replacePanelCatalog({ templates: [], personal: [], folders: [] });
+                invalidate(); library?.clearPanelCatalog();
                 fingerprint = "";
                 panel.set({ phase: "loading", checkedAt: 0 });
             }
@@ -199,10 +207,28 @@ async function loadLibrary(): Promise<boolean> {
             if (own !== epoch || !library) return false;
             if (revision !== syncRevision) return false;
             if (profile.accountId !== UserStore.getCurrentUser()?.id) throw new PanelError("account_mismatch");
+            const prefs = preferences;
+            let savedPreferences: unknown;
+            const restorePreferences = !!prefs && !prefs.loaded;
+            if (restorePreferences) {
+                let readable = false;
+                try {
+                    savedPreferences = await prefs.storage.get(STORE_KEY);
+                    readable = true;
+                } catch {
+                    // Do not overwrite unread preferences with defaults after a storage failure.
+                    if (own === epoch) panel.set({ preferencesError: "read" });
+                }
+                if (own !== epoch || revision !== syncRevision || !library) return false;
+                if (profile.accountId !== UserStore.getCurrentUser()?.id) throw new PanelError("account_mismatch");
+                prefs.loaded = true; prefs.writable = readable;
+            }
             const next = JSON.stringify({ accountId: catalog.accountId, revision: catalog.revision, permissionsRevision: catalog.permissionsRevision,
                 templates: catalog.templates, personal: catalog.personal, folders: catalog.folders });
             if (next !== fingerprint) {
                 invalidate(); library.replacePanelCatalog(catalog); fingerprint = next;
+                if (restorePreferences && savedPreferences !== undefined) library.restorePanelPreferences(savedPreferences);
+                library.savePanelPreferences();
             }
             accountId = profile.accountId; permissions = nextPermissions; failures = 0; retryAt = 0;
             panelAccess.set({ ready: true, accountId: profile.accountId, projects: profile.projects, checkedAt: started });
@@ -252,8 +278,22 @@ async function beginPanel(restore: boolean) {
         if (own !== epoch) return;
         const vault = await createPanelVault(discordId);
         if (own !== epoch) return;
-        library = new Store({ get: async () => undefined, set: async () => {} }, true);
-        library.setPreviewOpen(false);
+        const prefs = { storage: createPanelPreferencesStorage(storage, discordId), loaded: false, writable: false };
+        preferences = prefs;
+        library = new Store({
+            get: key => prefs.storage.get(key),
+            set: async (key, value) => {
+                if (!prefs.writable) return;
+                try {
+                    await prefs.storage.set(key, value);
+                    if (own === epoch) panel.set({ preferencesError: "" });
+                } catch {
+                    if (own === epoch) panel.set({ preferencesError: "write" });
+                    throw new Error("Не удалось сохранить настройки библиотеки панели");
+                }
+            }
+        }, true);
+        library.data.previewOpen = false;
         selectStore(library);
         panel.set({ persistent: !!vault });
         active = new PanelClient(createPanelTransport(), { vault, accountId: discordId }); client = active;
@@ -302,6 +342,13 @@ export async function logoutPanel() {
 export async function reloadPanel() {
     if (client) { if (Date.now() < retryAt) return; clearTimeout(timer); await loadLibrary(); }
     else await connectPanel();
+}
+
+/** Retry the current in-memory preferences without losing them through logout. */
+export async function retryPanelPreferences() {
+    if (!library || !preferences?.loaded || !preferences.writable) return;
+    library.savePanelPreferences();
+    await library.flush().catch(() => {}); // The storage adapter exposes failure in panel state.
 }
 
 /** Only explicit user actions can switch to unrelated local/demo data. */

@@ -6,9 +6,9 @@
 
 import { useRef, useState } from "@webpack/common";
 
-import { cancelPanelLogin, connectPanel, logoutPanel, openPanelPage, panel, reloadPanel } from "./panel";
+import { cancelPanelLogin, connectPanel, logoutPanel, openPanelPage, panel, reloadPanel, retryPanelPreferences } from "./panel";
 
-type Action = "connect" | "cancel" | "reload" | "logout";
+type Action = "connect" | "cancel" | "reload" | "logout" | "save";
 
 export function PanelConnection({ compact = false }: { compact?: boolean; }) {
     const p = panel.use();
@@ -70,7 +70,12 @@ export function PanelConnection({ compact = false }: { compact?: boolean; }) {
             {p.sync === "retrying" && <p className="vc-stx-local-note" role="status">Восстанавливаем связь. Пока проверяем изменения периодически.</p>}
         </>}
         {error && <p className="vc-stx-form-error" role="alert">{error}</p>}
+        {p.preferencesError === "read" && <p className="vc-stx-form-error" role="alert">Не удалось прочитать настройки списка. Изменения в этом сеансе не сохраняются. Для повторного чтения войдите заново.</p>}
+        {p.preferencesError === "write" && <p className="vc-stx-form-error" role="alert">Не удалось сохранить настройки списка. Изменения пока только в памяти — повторите сохранение перед выходом.</p>}
         <div className={compact ? "vc-stx-login-actions" : "vc-stx-lib-actions"}>
+            {p.preferencesError === "write" && <button type="button" className="vc-stx-btn" disabled={busy !== null} onClick={() => run("save", retryPanelPreferences)}>
+                {busy === "save" ? "Сохраняем…" : "Повторить сохранение"}
+            </button>}
             {(phase === "idle" || phase === "error") && <button type="button" className="vc-stx-btn" disabled={busy !== null} onClick={() => run("connect", connectPanel)}>
                 {phase === "error" ? "Повторить вход" : "Войти через панель"}
             </button>}

@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Store } from "../src/core/state";
+import { Store, STORE_KEY } from "../src/core/state";
 import { routeStore } from "../src/core/storeRouter";
+import { createPanelPreferencesStorage } from "../src/core/panelPreferences";
 import { PanelError } from "../src/core/panelClient";
 import { Template } from "../src/core/types";
 
@@ -22,12 +23,26 @@ const template: Template = { id: "faq:majestic:7", source: "faq", project: "mj",
     status: "actual", statusNote: null, color: null, command: null, updatedAt: null, teamUses: 0 };
 
 function harness() {
+    const preferenceData = new Map<string, unknown>();
+    const io = { readError: false, writeError: false, pendingRead: null as Promise<void> | null, pendingWrite: null as Promise<void> | null };
+    const preferenceStorage = {
+        get: vi.fn(async (key: string) => {
+            if (io.pendingRead) await io.pendingRead;
+            if (io.readError) throw new Error("Read failed");
+            return structuredClone(preferenceData.get(key));
+        }),
+        set: vi.fn(async (key: string, value: unknown) => {
+            if (io.pendingWrite) await io.pendingWrite;
+            if (io.writeError) throw new Error("Write failed");
+            preferenceData.set(key, structuredClone(value));
+        })
+    };
     const writes = vi.fn(async () => {});
     const realStore = new Store({ get: async () => undefined, set: writes });
     const routed = routeStore(realStore);
     const access = observable({ enabled: true, ready: false, projects: [] as string[], checkedAt: 0 });
     const ui = observable({ windowOpen: true, management: false, compose: [] as string[], inline: null, menu: null, dialog: null });
-    const state = { discordId: "123", revision: "1", name: "Support", profileId: "123", error: null as unknown,
+    const state = { discordId: "123456789012345678", revision: "1", name: "Support", profileId: "123456789012345678", error: null as unknown,
         templates: [template], pendingLogin: null as Promise<void> | null, pendingGet: null as Promise<unknown> | null,
         pendingLogout: null as Promise<void> | null, nowServer: "time-a", projects: ["mj"], permissions: "1", pendingSnapshot: null as Promise<unknown> | null,
         saved: false, secure: true, pendingVault: null as Promise<void> | null, restoreError: null as unknown };
@@ -69,8 +84,10 @@ function harness() {
         "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: state.discordId }),
             addChangeListener: (fn: () => void) => accountHandlers.add(fn), removeChangeListener: (fn: () => void) => accountHandlers.delete(fn) }, FluxDispatcher: {
             subscribe: (name: string, fn: () => void) => handlers.set(name, fn), unsubscribe: (name: string) => handlers.delete(name) } },
-        "../buildInfo": { PLUGIN_VERSION: "1.0.0" }, "../core/state": { Store },
+        "../buildInfo": { PLUGIN_VERSION: "1.0.0" }, "../core/state": { Store, STORE_KEY },
         "../core/panelCatalog": { parseProfile: (v: unknown) => v, parseSnapshot: (v: unknown) => v },
+        "../core/panelPreferences": { createPanelPreferencesStorage },
+        "../platform": { storage: preferenceStorage },
         "../core/panelClient": { PanelClient: FakeClient, PanelError },
         "../core/panelProtocol": { PANEL_ORIGIN: "https://panel.majestic-rp.tech" },
         "../core/panelEvents": { createPanelEventStream: () => streamReader },
@@ -88,11 +105,127 @@ function harness() {
     runInNewContext(compiled, { module, exports: module.exports, Date, setTimeout, clearTimeout, Math, AbortController, window: { open,
         addEventListener: (name: string, fn: () => void) => windowHandlers.set(name, fn), removeEventListener: (name: string) => windowHandlers.delete(name) },
         require: (name: string) => { if (!(name in deps)) throw new Error("Unexpected import " + name); return deps[name]; } });
-    return { api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers, windowHandlers, accountHandlers, streams, streamReader,
+    return { preferenceData, preferenceStorage, io, api: module.exports, store: routed.store, realStore, state, ui, access, clients, writes, open, handlers, windowHandlers, accountHandlers, streams, streamReader,
         freshness: () => freshness(), generation: () => generation };
 }
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-18T00:00:00Z")); });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+
+describe("account preferences through the real panel controller", () => {
+    it("restores favorites, bindings, ranking and list settings only with a fresh catalog after restart", async () => {
+        const h = harness(); await h.api.connectPanel();
+        h.store.toggleFavorite(template.id); h.store.setBind(template.id, "Ctrl+KeyQ"); h.store.markUsed(template.id);
+        h.store.setTechProject("ro"); h.store.setPreviewOpen(true); h.store.setPrefix("!");
+        await h.store.flush(); h.api.disposePanel();
+        expect(h.store.templates).toEqual([]);
+        h.state.saved = true; h.state.templates = [{ ...template, text: "Fresh answer" }];
+        await h.api.restorePanel();
+        expect(h.store.data.favorites).toEqual([template.id]);
+        expect(h.store.bindFor(template.id)).toBe("Ctrl+KeyQ");
+        expect(h.store.data.recent).toEqual([template.id]); expect(h.store.data.usage[template.id].n).toBe(1);
+        expect(h.store.data.techProject).toBe("ro"); expect(h.store.data.previewOpen).toBe(true); expect(h.store.data.prefix).toBe("!");
+        expect(h.store.templates[0].text).toBe("Fresh answer");
+        await h.store.flush();
+        const saved = JSON.stringify([...h.preferenceData.values()]);
+        expect(saved).not.toContain("Answer"); expect(saved).not.toContain("Fresh answer");
+        expect(saved).not.toContain('"personal"'); expect(saved).not.toContain('"raw"');
+        expect(h.writes).not.toHaveBeenCalled(); h.api.disposePanel();
+    });
+
+    it("keeps preferences separate for two accounts even if their FAQ IDs match", async () => {
+        const h = harness(); await h.api.connectPanel(); h.store.toggleFavorite(template.id); await h.store.flush();
+        await h.api.logoutPanel(); h.state.discordId = h.state.profileId = "987654321098765432";
+        await h.api.connectPanel(); expect(h.store.data.favorites).toEqual([]);
+        h.store.setPrefix("!"); await h.store.flush(); await h.api.logoutPanel();
+        h.state.discordId = h.state.profileId = "123456789012345678"; await h.api.connectPanel();
+        expect(h.store.data.favorites).toEqual([template.id]); expect(h.store.data.prefix).toBe(";");
+        expect(h.preferenceData.size).toBe(2); h.api.disposePanel();
+    });
+
+    it("ignores new settings edits in the retired store after logout or account switch", async () => {
+        const h = harness(); await h.api.connectPanel();
+        h.store.toggleFavorite(template.id); h.store.setBind(template.id, "Ctrl+KeyQ"); await h.store.flush();
+        await h.api.logoutPanel(); h.store.setPrefix("!"); await h.store.flush();
+        h.state.discordId = h.state.profileId = "987654321098765432";
+        h.store.setTechProject("ro"); await h.store.flush();
+        await h.api.connectPanel(); expect(h.store.data.favorites).toEqual([]); await h.api.logoutPanel();
+        h.state.discordId = h.state.profileId = "123456789012345678"; await h.api.connectPanel();
+        expect(h.store.data.favorites).toEqual([template.id]); expect(h.store.bindFor(template.id)).toBe("Ctrl+KeyQ");
+        expect(h.store.data.prefix).toBe(";"); expect(h.store.data.techProject).toBe("mj"); h.api.disposePanel();
+    });
+
+    it("does not erase preferences during a permissions refresh that temporarily hides text", async () => {
+        const h = harness(); await h.api.connectPanel(); h.store.toggleFavorite(template.id); await h.store.flush();
+        const wait = deferred<unknown>(); h.state.pendingSnapshot = wait.promise;
+        h.streams[0].emit({ type: "permissions.changed", data: {} }); await vi.advanceTimersByTimeAsync(0);
+        expect(h.store.templates).toEqual([]); expect(h.access.get().ready).toBe(false);
+        wait.resolve({ accountId: h.state.profileId, revision: "2", templates: [template], personal: [], folders: [] });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(h.store.data.favorites).toEqual([template.id]);
+        expect(h.access.get().ready).toBe(true); h.api.disposePanel();
+    });
+
+    it("permanently drops deleted references after a complete authoritative snapshot", async () => {
+        const h = harness(); await h.api.connectPanel(); h.store.toggleFavorite(template.id);
+        h.store.setBind(template.id, "Ctrl+KeyQ"); h.store.markUsed(template.id); await h.store.flush();
+        h.state.templates = []; h.state.revision = "2"; await h.api.reloadPanel(); await h.store.flush();
+        await h.api.logoutPanel(); h.state.templates = [template]; h.state.revision = "3";
+        await h.api.connectPanel();
+        expect(h.store.data.favorites).toEqual([]); expect(h.store.data.recent).toEqual([]);
+        expect(h.store.data.binds).toEqual({}); expect(h.store.data.usage).toEqual({}); h.api.disposePanel();
+    });
+
+    it("never exposes saved references or text when session restoration is denied", async () => {
+        const h = harness(); await h.api.connectPanel(); h.store.toggleFavorite(template.id); await h.store.flush();
+        h.api.disposePanel(); h.state.restoreError = new PanelError("session_revoked", 401);
+        h.preferenceStorage.get.mockClear(); await h.api.restorePanel();
+        expect(h.store.templates).toEqual([]); expect(h.store.data.favorites).toEqual([]);
+        expect(h.preferenceStorage.get).not.toHaveBeenCalled(); expect(h.access.get().ready).toBe(false);
+    });
+
+    it("does not overwrite saved preferences if reading storage fails", async () => {
+        const h = harness(); await h.api.connectPanel(); h.store.toggleFavorite(template.id); await h.store.flush();
+        h.api.disposePanel(); const before = structuredClone([...h.preferenceData]); h.io.readError = true;
+        await h.api.connectPanel(); h.store.setPrefix("!"); await h.store.flush();
+        expect(h.api.panel.get().phase).toBe("ready"); expect(h.api.panel.get().preferencesError).toBe("read");
+        expect([...h.preferenceData]).toEqual(before);
+        h.io.readError = false; await h.api.logoutPanel(); await h.api.connectPanel();
+        expect(h.store.data.favorites).toEqual([template.id]); expect(h.api.panel.get().preferencesError).toBe("");
+        h.api.disposePanel();
+    });
+
+    it("shows a write failure and retries unsaved edits without logging out", async () => {
+        const log = vi.spyOn(console, "error").mockImplementation(() => {});
+        try {
+            const h = harness(); await h.api.connectPanel(); await h.store.flush(); h.io.writeError = true;
+            h.store.toggleFavorite(template.id); await expect(h.store.flush()).rejects.toThrow();
+            expect(h.api.panel.get().preferencesError).toBe("write");
+            h.io.writeError = false; await h.api.retryPanelPreferences();
+            expect(h.api.panel.get().preferencesError).toBe("");
+            await h.api.logoutPanel(); await h.api.connectPanel();
+            expect(h.store.data.favorites).toEqual([template.id]); h.api.disposePanel();
+        } finally { log.mockRestore(); }
+    });
+
+    it("discards a slow preference read after logout instead of republishing the catalog", async () => {
+        const h = harness(); const wait = deferred<void>(); h.io.pendingRead = wait.promise;
+        const login = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(0);
+        expect(h.preferenceStorage.get).toHaveBeenCalledOnce(); await h.api.logoutPanel();
+        wait.resolve(); await login;
+        expect(h.store.templates).toEqual([]); expect(h.access.get().ready).toBe(false);
+        expect(h.preferenceStorage.set).not.toHaveBeenCalled();
+    });
+
+    it("waits for the last queued preference write before re-opening the same account", async () => {
+        const h = harness(); await h.api.connectPanel(); await h.store.flush();
+        const wait = deferred<void>(); h.io.pendingWrite = wait.promise;
+        h.store.toggleFavorite(template.id); h.api.disposePanel();
+        const reopen = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(0);
+        expect(h.access.get().ready).toBe(false);
+        wait.resolve(); await reopen;
+        expect(h.store.data.favorites).toEqual([template.id]); h.api.disposePanel();
+    });
+});
 
 describe("real panel controller with isolated transport/UI boundaries", () => {
     it("opens confirmation and atomically loads a separate read-only catalog", async () => {
@@ -132,7 +265,7 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
     it("drops late snapshot work on logout", async () => {
         const h = harness(); await h.api.connectPanel();
         const late = deferred<unknown>(); h.state.pendingGet = late.promise;
-        const task = h.api.reloadPanel(); await h.api.logoutPanel(); late.resolve({ accountId: "123" }); await task;
+        const task = h.api.reloadPanel(); await h.api.logoutPanel(); late.resolve({ accountId: "123456789012345678" }); await task;
         expect(h.store.templates).toEqual([]); expect(h.access.get().ready).toBe(false);
     });
     it("enforces newly received rights before a delayed snapshot", async () => {
@@ -145,7 +278,7 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
         await h.api.logoutPanel(); wait.resolve({}); await task;
     });
     it("blocks a different Discord account and erases catalog", async () => {
-        const h = harness(); h.state.discordId = "999"; await h.api.connectPanel();
+        const h = harness(); h.state.discordId = "987654321098765432"; await h.api.connectPanel();
         expect(h.api.panel.get().phase).toBe("error"); expect(h.store.templates).toEqual([]);
         expect(h.clients[0].get).toHaveBeenCalledTimes(1);
     });
@@ -213,7 +346,7 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
         h.streams[0].emit({ type: "library.changed", data: {} }); await vi.advanceTimersByTimeAsync(0);
         h.streams[0].emit({ type: "library.changed", data: {} }); h.streams[0].emit({ type: "library.changed", data: {} });
         h.state.pendingSnapshot = null; h.state.revision = "3"; h.state.templates = [{ ...template, text: "New answer" }];
-        old.resolve({ accountId: "123", revision: "2", templates: [{ ...template, text: "Old answer" }], personal: [], folders: [] });
+        old.resolve({ accountId: "123456789012345678", revision: "2", templates: [{ ...template, text: "Old answer" }], personal: [], folders: [] });
         await vi.advanceTimersByTimeAsync(0);
         expect(h.store.templates[0].text).toBe("New answer"); expect(h.access.get().ready).toBe(true);
         expect(h.clients[0].get.mock.calls.filter(([p]) => p === "/snapshot")).toHaveLength(3);
@@ -265,7 +398,7 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
 
     it("drops the previous account immediately on a UserStore change", async () => {
         const h = harness(); const off = h.api.startPanel(); await vi.advanceTimersByTimeAsync(0); await h.api.connectPanel();
-        h.state.discordId = "999"; for (const listener of h.accountHandlers) listener();
+        h.state.discordId = "987654321098765432"; for (const listener of h.accountHandlers) listener();
         expect(h.store.templates).toEqual([]); expect(h.access.get().ready).toBe(false);
         expect(h.clients.at(-1)!.logout).toHaveBeenCalledOnce(); off(); expect(h.accountHandlers.size).toBe(0);
     });
@@ -279,7 +412,7 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
     it("cancels a pending device login immediately when Discord switches accounts", async () => {
         const h = harness(), wait = deferred<void>(); const off = h.api.startPanel(); await vi.advanceTimersByTimeAsync(0);
         h.state.pendingLogin = wait.promise; const connecting = h.api.connectPanel(); await vi.advanceTimersByTimeAsync(0);
-        const active = h.clients.at(-1)!; h.state.discordId = "999";
+        const active = h.clients.at(-1)!; h.state.discordId = "987654321098765432";
         for (const listener of h.accountHandlers) listener();
         expect(h.api.panel.get().code).toBe(""); expect(active.logout).toHaveBeenCalledOnce();
         wait.resolve(); await connecting; expect(active.get).not.toHaveBeenCalled(); off();

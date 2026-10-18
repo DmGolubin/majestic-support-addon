@@ -4,7 +4,8 @@ import ts from "typescript";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PanelClient, PanelError, PanelTransport } from "../src/core/panelClient";
 import { PANEL_ORIGIN } from "../src/core/panelProtocol";
-import { Store } from "../src/core/state";
+import { createPanelPreferencesStorage } from "../src/core/panelPreferences";
+import { Store, STORE_KEY } from "../src/core/state";
 import { createPanelVault } from "../src/vencord/panelVault";
 
 const account = "123456789012345678";
@@ -62,7 +63,9 @@ function harness() {
     const deps: Record<string, unknown> = {
         "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: account }), addChangeListener() {}, removeChangeListener() {} },
             FluxDispatcher: { subscribe: (n: string, fn: () => void) => events.set(n, fn), unsubscribe: (n: string) => events.delete(n) } },
-        "../buildInfo": { PLUGIN_VERSION: "1.0.0" }, "../core/state": { Store },
+        "../buildInfo": { PLUGIN_VERSION: "1.0.0" }, "../core/state": { Store, STORE_KEY },
+        "../core/panelPreferences": { createPanelPreferencesStorage },
+        "../platform": { storage: { get: async () => undefined, set: async () => {} } },
         "../core/panelClient": { PanelClient, PanelError }, "../core/panelProtocol": { PANEL_ORIGIN },
         "../panelVault": { createPanelVault }, "../core/panelTransport": { createPanelTransport: () => transport },
         "../core/panelCatalog": { parseProfile: (v: unknown) => v, parseSnapshot: (v: unknown) => v },

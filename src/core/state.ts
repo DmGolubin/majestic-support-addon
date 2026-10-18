@@ -93,6 +93,7 @@ export class Store {
     setVersion = 0;
     private subs = new Set<() => void>();
     private lastSave: Promise<void> = Promise.resolve();
+    private panelPreferencesClosed = false;
 
     constructor(private storage: StorageLike, readonly catalogReadOnly = false) { }
 
@@ -113,6 +114,39 @@ export class Store {
         this.subs.forEach(fn => fn());
     }
 
+    /** Hide untrusted/stale text during a rights refresh without treating it as a server deletion. */
+    clearPanelCatalog() {
+        if (!this.catalogReadOnly) throw new Error("Для библиотеки панели нужно отдельное хранилище");
+        this.data = { ...this.data, raw: "", personal: [], folders: [], intentional: [] };
+        this.templates = [];
+        this.setVersion++;
+        this.subs.forEach(fn => fn());
+    }
+
+    /** Restore references only against a freshly validated account catalog. Never restore catalog text. */
+    restorePanelPreferences(saved: unknown) {
+        if (!this.catalogReadOnly) throw new Error("Для библиотеки панели нужно отдельное хранилище");
+        const { data } = sanitize({ ...(isRecord(saved) ? saved : {}), raw: "", personal: [], folders: [] }, this.templates);
+        const ids = new Set(this.templates.map(t => t.id));
+        this.data = { ...this.data,
+            favorites: data.favorites.filter(id => ids.has(id)), recent: data.recent.filter(id => ids.has(id)),
+            usage: Object.fromEntries(Object.entries(data.usage).filter(([id]) => ids.has(id))), binds: data.binds,
+            prefix: data.prefix, previewOpen: data.previewOpen, techProject: data.techProject };
+        this.subs.forEach(fn => fn());
+    }
+
+    /** Persist pruned references after a complete snapshot, never after a temporary catalog clear. */
+    savePanelPreferences() {
+        if (!this.catalogReadOnly) throw new Error("Для библиотеки панели нужно отдельное хранилище");
+        this.changed();
+    }
+
+    /** A routed view can outlive logout; later edits must not write into the retired account. */
+    closePanelPreferences() {
+        if (!this.catalogReadOnly) throw new Error("Для библиотеки панели нужно отдельное хранилище");
+        this.panelPreferencesClosed = true;
+    }
+
     flush() { return this.lastSave; }
 
     subscribe(fn: () => void) {
@@ -121,6 +155,7 @@ export class Store {
     }
 
     private changed() {
+        if (this.panelPreferencesClosed) { this.subs.forEach(fn => fn()); return; }
         const snapshot = structuredClone(this.data);
         this.lastSave = this.lastSave.catch(() => {}).then(() => this.storage.set(STORE_KEY, snapshot));
         this.lastSave.catch(e => console.error("[SupportTemplates]", e));
