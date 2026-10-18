@@ -59,6 +59,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
           node distribution/publish-release.mjs --check
           if ($LASTEXITCODE -ne 0) { throw 'Release verification failed' }
+      - name: Exercise final package installers in TEMP fixtures
+        shell: pwsh
+        run: |
+          $version = (Get-Content distribution/config.json -Raw | ConvertFrom-Json).version
+          $scratch = Join-Path $env:RUNNER_TEMP ('stx-final-packages-' + [guid]::NewGuid().ToString('N'))
+          foreach ($variant in @('standalone', 'vencord')) {
+            $target = Join-Path $scratch $variant
+            Expand-Archive -LiteralPath "artifacts/distribution/$version/SupportTemplates-$variant-$version.zip" -DestinationPath $target
+            $packages = @(Get-ChildItem -LiteralPath $target -Directory)
+            if ($packages.Count -ne 1) { throw 'Unexpected package roots' }
+            $test = 'tests/standaloneInstaller.Tests.ps1'
+            if ($variant -eq 'vencord') { $test = 'tests/vencordDistribution.Tests.ps1' }
+            powershell -NoProfile -ExecutionPolicy Bypass -File $test -PayloadPackageRoot $packages[0].FullName -Only 'built real payload*'
+            if ($LASTEXITCODE -ne 0) { throw "Final $variant installer failed" }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: SupportTemplates-three-variants

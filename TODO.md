@@ -3,7 +3,7 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (2)
+## В работе (1)
 
 ### C06 · Двусторонние личные шаблоны
 
@@ -11,11 +11,7 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
 
-### D09 · Три пакета и общие обновления GitHub
-
-D · Доставка. По запросу владельца: актуальный BetterDiscord, полный Vencord с плагином и standalone; BAT/PowerShell без EXE, канал обновлений GitHub Releases. Публикация и живая приёмка отдельно.
-
-## Реализовано · нужна приёмка (26)
+## Реализовано · нужна приёмка (27)
 
 ### Q13 · Полный цикл Master QA: 20 специализаций
 
@@ -121,9 +117,9 @@ C · Панель. Владелец сообщает сохранение вхо
 
 ### R09 · Зависимости и состав урезанного Vencord
 
-Выпуск. Master QA: проект audit 0; upstream 66 записей / 55 GHSA — tooling/optional debt, не доказанные уязвимости урезанного runtime. R18-01: borrowed node_modules не аттестован против точного lock; release gate. Обновление зависимостей отдельно
+Выпуск. Для трёх пакетов .14 зависимости установлены в отдельном pinned checkout через pnpm11.9.0 --frozen-lockfile, lock hash зафиксирован: прежний borrowed-tree gate для этой сборки снят. Upstream maintenance advisories остаются отдельным долгом; не заявляем их исправление.
 
-Основание: [2026-10-18-release-audit.md](docs/audits/2026-10-18-release-audit.md), [2026-10-18-vencord-dependencies.json](docs/audits/2026-10-18-vencord-dependencies.json), [2026-10-18-standalone-dependencies.md](docs/audits/2026-10-18-standalone-dependencies.md), [README.md](docs/audits/master-qa-2026-10-18/README.md).
+Основание: [2026-10-18-release-audit.md](docs/audits/2026-10-18-release-audit.md), [2026-10-18-vencord-dependencies.json](docs/audits/2026-10-18-vencord-dependencies.json), [2026-10-18-standalone-dependencies.md](docs/audits/2026-10-18-standalone-dependencies.md), [README.md](docs/audits/master-qa-2026-10-18/README.md), [2026-10-19-three-distributions.md](docs/audits/2026-10-19-three-distributions.md).
 
 ### C11 · Сохранение предпочтений библиотеки аккаунта
 
@@ -172,6 +168,12 @@ A · Шаблоны. Редактор упрощён до поля и приве
 C · Панель. Задержка после подтверждения на сайте: начальные /me и /snapshot выполняются параллельно; возврат в Discord возобновляет просроченный опрос с сохранением interval/slow_down/Retry-After. Синтетические тесты проходят. Причина и длительность живой задержки ещё не измерены.
 
 Основание: [2026-10-18-editor-and-login.md](docs/audits/2026-10-18-editor-and-login.md).
+
+### D09 · Три пакета и общие обновления GitHub
+
+D · Доставка. Подготовлены три Windows-пакета .14: BetterDiscord, полный Vencord и отдельный клиент. Общий GitHub updater, BAT/PowerShell, исходники/хеши/Actions. 1584 теста, 12 Node-проверок, финальные TEMP install/status/uninstall прошли. Репозиторий остаётся приватным; публикация отложена владельцем, живая приёмка трёх платформ впереди.
+
+Основание: [2026-10-19-three-distributions.md](docs/audits/2026-10-19-three-distributions.md).
 
 ## Ожидает API (0)
 
