@@ -35,4 +35,11 @@ The deduplication log preserves opaque historical reminder IDs: after 10,000 rec
 - Audio bytes have a separate storage key: slider changes write only the small options record. Independent ordered write queues preserve audio/options errors separately.
 - Graphify AST graph regenerated; generated roadmap views checked.
 
-Delivery evidence follows after packaging.
+## Delivery
+
+- Implementation commit `2c65ee6`; pinned-source standalone build `0.1.0-canary.12` succeeded with 202 source inputs and forbidden-feature checks passed.
+- Artifact: `artifacts/standalone/0.1.0-canary.12-2c65ee6/SupportTemplates-0.1.0-canary.12.zip`.
+- ZIP SHA-256: `6b0b662f26739fa1c951d98b2e38b03fd8e48f74ec28b65eb4255d80d4617148`.
+- `UpdateRenderer -Channel Canary -WhatIf`, actual update and read-only `Status` succeeded. Renderer `.12` is installed over native runtime `.6`, current host `DiscordCanary/app-1.0.1251/resources`.
+- Apply with Ctrl+R after saving any draft. Discord was not stopped. No production API mutation or Discord message was used for acceptance.
+- Installer sources were unchanged; the full fixture suite was not repeated for this renderer release. Its preceding 39 executed fixture groups passed for .11, as recorded in the twenty-review audit.
