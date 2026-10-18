@@ -17,8 +17,8 @@ function Put([string]$path, [string]$text) {
     [IO.File]::WriteAllText($path, $text, $utf8)
 }
 function Hash([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
-function New-Asar([string]$path, [string]$mainText = 'module.exports = {};') {
-    $pkg = $utf8.GetBytes('{"name":"discord","main":"index.js"}')
+function New-Asar([string]$path, [string]$mainText = 'module.exports = {};', [string]$packageText = '{"name":"discord","main":"index.js"}') {
+    $pkg = $utf8.GetBytes($packageText)
     $js = $utf8.GetBytes($mainText)
     $table = @{ files = @{ 'package.json' = @{size=$pkg.Length;offset='0'}; 'index.js' = @{size=$js.Length;offset=[string]$pkg.Length} } } | ConvertTo-Json -Depth 10 -Compress
     $header = $utf8.GetBytes($table)
@@ -74,7 +74,316 @@ function Test([string]$name, [scriptblock]$body) {
     Write-Host "PASS $name"
 }
 
+# Include paths, content and write times: a no-op must not rewrite an identical file or leave staging directories.
+function Tree-State([string]$root, [string[]]$exclude = @()) {
+    (@(Get-ChildItem -LiteralPath $root -Force -Recurse | Sort-Object FullName | ForEach-Object {
+        $relative = $_.FullName.Substring([IO.Path]::GetFullPath($root).TrimEnd('\').Length + 1).Replace('\','/')
+        if ($relative -notin $exclude) {
+            if ($_.PSIsContainer) { "D:$relative" }
+            else { "F:$relative`:$(Hash $_.FullName):$($_.LastWriteTimeUtc.Ticks)" }
+        }
+    })) -join "`n"
+}
+function Renderer-Payload($f, [string]$version) {
+    $banner = "// SupportTemplates $version; based on Vencord $('a' * 40); upstream updater disabled.`n"
+    foreach ($name in @('patcher.js','preload.js')) {
+        # Only the first generated banner may be stripped; this second line is part of native identity.
+        Put "$($f.Package)/payload/runtime/$name" ($banner + "// SupportTemplates native invariant`nmodule.exports = {fixture: true};`n")
+    }
+    Put "$($f.Package)/payload/runtime/renderer.js" ($banner + "globalThis.fixtureVersion = '$version';`nVencordNative.native.getRendererCss().then(css => { globalThis.fixtureCss = css; });`n")
+    Put "$($f.Package)/payload/runtime/renderer.css" ('.fixture::before { content: "' + $version + ' \\ embedded"; }' + "`n.fixture { color: #f37fa3; }`n")
+    Manifest $f $version
+}
+function Renderer-Fixture([switch]$AsarLoader) {
+    $f = Fixture
+    if ($AsarLoader) {
+        New-Asar "$($f.Package)/payload/loader.asar" 'module.exports = {fixtureLoader: true};' '{"name":"support-templates-loader","main":"index.js","version":"0.1.0-canary.6"}'
+    }
+    Renderer-Payload $f '0.1.0-canary.6'
+    Run $f Install | Out-Null
+    $channel = "$($f.Local)/SupportTemplates/channels/canary"
+    $f | Add-Member NoteProperty Channel $channel
+    $f | Add-Member NoteProperty Base "$channel/versions/0.1.0-canary.6"
+    $f | Add-Member NoteProperty Overlay "$channel/renderer-updates/0.1.0-canary.6"
+    $f | Add-Member NoteProperty OriginalRenderer (Hash "$($f.Base)/runtime/renderer.js")
+    Renderer-Payload $f '0.1.0-canary.7'
+    return $f
+}
+function Assert-RendererRecord($f, [string]$version, [string]$previousHash) {
+    $record = Get-Content -LiteralPath "$($f.Overlay)/current.json" -Raw | ConvertFrom-Json
+    Assert ($record.schema -eq 1 -and $record.baseVersion -ceq '0.1.0-canary.6') 'overlay base/schema incorrect'
+    Assert ($record.version -ceq $version) 'overlay release incorrect'
+    Assert ($record.baseManifestHash -ceq (Hash "$($f.Base)/manifest.json")) 'overlay base manifest changed'
+    Assert ($record.originalHash -ceq $f.OriginalRenderer) 'overlay lost original renderer identity'
+    Assert ($record.previousHash -ceq $previousHash) 'overlay previous renderer identity incorrect'
+    Assert ($record.hash -ceq (Hash "$($f.Base)/runtime/renderer.js")) 'overlay does not describe live renderer'
+    foreach ($hash in @($record.originalHash, $record.previousHash, $record.hash)) {
+        Assert ((Hash "$($f.Overlay)/$hash.js") -ceq $hash) 'renderer recovery blob does not match its name'
+    }
+}
+
 try {
+    Test 'renderer update while running embeds CSS and changes only the active renderer in the base runtime' {
+        $f = Renderer-Fixture
+        $resources = Tree-State $f.Resources
+        $base = Tree-State $f.Base @('runtime/renderer.js')
+        $package = Tree-State $f.Package
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        Assert ((Tree-State $f.Resources) -ceq $resources) 'renderer update changed loader, backup or ownership/config sidecars'
+        Assert ((Tree-State $f.Base @('runtime/renderer.js')) -ceq $base) 'renderer update changed base native/CSS/manifest bytes'
+        Assert ((Tree-State $f.Package) -ceq $package) 'renderer update changed its source package'
+        $css = [IO.File]::ReadAllText("$($f.Package)/payload/runtime/renderer.css")
+        $source = [IO.File]::ReadAllText("$($f.Package)/payload/runtime/renderer.js")
+        $expected = $source.Replace('VencordNative.native.getRendererCss()', ('Promise.resolve(' + (ConvertTo-Json -InputObject $css -Compress) + ')'))
+        Assert ([IO.File]::ReadAllText("$($f.Base)/runtime/renderer.js") -ceq $expected) 'renderer did not embed exact escaped release CSS'
+        Assert-RendererRecord $f '0.1.0-canary.7' $f.OriginalRenderer
+        $staged = "$($f.Channel)/versions/0.1.0-canary.7"
+        Assert ((Hash "$staged/manifest.json") -ceq (Hash "$($f.Package)/manifest.json")) 'staged release manifest changed'
+        foreach ($file in Get-ChildItem -LiteralPath "$($f.Package)/payload" -File -Recurse) {
+            $relative = $file.FullName.Substring([IO.Path]::GetFullPath("$($f.Package)/payload").Length + 1)
+            Assert ((Hash (Join-Path $staged $relative)) -ceq (Hash $file.FullName)) "staged release payload changed: $relative"
+        }
+    }
+    Test 'renderer update status is read-only and repeated activation is idempotent' {
+        $f = Renderer-Fixture
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        $before = Tree-State $f.Root
+        $status = Run $f Status @('-TestRunningTarget')
+        Assert ($status -match 'Installed: SupportTemplates 0\.1\.0-canary\.6') 'status lost base runtime version'
+        Assert ($status -match 'Renderer: 0\.1\.0-canary\.7') 'status lost renderer version'
+        Run $f Status | Out-Null
+        Assert ((Tree-State $f.Root) -ceq $before) 'renderer status wrote files'
+        Assert ((Run $f UpdateRenderer @('-TestRunningTarget')) -match 'already installed and verified') 'renderer no-op not reported'
+        Assert ((Tree-State $f.Root) -ceq $before) 'idempotent renderer update wrote files'
+    }
+    Test 'renderer update accepts loader package version changes with identical index.js' {
+        $f = Renderer-Fixture -AsarLoader
+        New-Asar "$($f.Package)/payload/loader.asar" 'module.exports = {fixtureLoader: true};' '{"name":"support-templates-loader","main":"index.js","version":"0.1.0-canary.7"}'
+        Manifest $f '0.1.0-canary.7'
+        $installedLoader = Hash "$($f.Resources)/app.asar"
+        Assert ($installedLoader -cne (Hash "$($f.Package)/payload/loader.asar")) 'loader metadata fixture bytes did not change'
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        Assert ((Hash "$($f.Resources)/app.asar") -ceq $installedLoader) 'renderer update replaced loader'
+        Assert-RendererRecord $f '0.1.0-canary.7' $f.OriginalRenderer
+    }
+    Test 'renderer update rejects native, loader and nonleading banner changes without mutation' {
+        foreach ($kind in @('patcher','preload','second-banner','loader','upstream')) {
+            $f = Renderer-Fixture -AsarLoader
+            switch ($kind) {
+                patcher { Add-Content -LiteralPath "$($f.Package)/payload/runtime/patcher.js" -Value 'module.exports.changed = true;' }
+                preload { Add-Content -LiteralPath "$($f.Package)/payload/runtime/preload.js" -Value 'module.exports.changed = true;' }
+                second-banner {
+                    $path = "$($f.Package)/payload/runtime/patcher.js"
+                    Put $path ([IO.File]::ReadAllText($path).Replace('// SupportTemplates native invariant', '// SupportTemplates native CHANGED'))
+                }
+                loader { New-Asar "$($f.Package)/payload/loader.asar" 'module.exports = {fixtureLoader: false};' '{"name":"support-templates-loader","main":"index.js","version":"0.1.0-canary.7"}' }
+            }
+            Manifest $f '0.1.0-canary.7'
+            if ($kind -eq 'upstream') {
+                $manifest = Get-Content -LiteralPath "$($f.Package)/manifest.json" -Raw | ConvertFrom-Json
+                $manifest.upstreamCommit = 'b' * 40
+                Put "$($f.Package)/manifest.json" ($manifest | ConvertTo-Json -Depth 10)
+            }
+            $before = Tree-State $f.Root
+            $errorText = Run $f UpdateRenderer @('-TestRunningTarget') $false
+            $reason = switch ($kind) {
+                preload { 'preload\.js changed' }
+                loader { 'Loader changed' }
+                upstream { 'Framework changed' }
+                default { 'patcher\.js changed' }
+            }
+            Assert ($errorText -match $reason) "$kind failed for an unrelated reason: $errorText"
+            Assert ((Tree-State $f.Root) -ceq $before) "$kind incompatibility mutated files"
+        }
+    }
+    Test 'renderer update requires exactly one native CSS expression' {
+        foreach ($count in @(0,2)) {
+            $f = Renderer-Fixture
+            Put "$($f.Package)/payload/runtime/renderer.js" ("globalThis.fixture = true;`n" + ('VencordNative.native.getRendererCss();' * $count))
+            Manifest $f '0.1.0-canary.7'
+            $before = Tree-State $f.Root
+            $errorText = Run $f UpdateRenderer @('-TestRunningTarget') $false
+            Assert ($errorText -match 'renderer CSS entry') "CSS expression count failed for an unrelated reason: $errorText"
+            Assert ((Tree-State $f.Root) -ceq $before) "$count CSS expressions mutated files"
+        }
+    }
+    Test 'renderer update sequential releases preserve original and immutable staged packages' {
+        $f = Renderer-Fixture
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        $previous = Hash "$($f.Base)/runtime/renderer.js"
+        $staged = Tree-State "$($f.Channel)/versions/0.1.0-canary.7"
+        $base = Tree-State $f.Base @('runtime/renderer.js')
+        Renderer-Payload $f '0.1.0-canary.8'
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        Assert-RendererRecord $f '0.1.0-canary.8' $previous
+        Assert ((Tree-State "$($f.Channel)/versions/0.1.0-canary.7") -ceq $staged) 'second update mutated staged .7 release'
+        Assert ((Tree-State $f.Base @('runtime/renderer.js')) -ceq $base) 'second update mutated base runtime'
+        Assert ((Run $f Status) -match 'Renderer: 0\.1\.0-canary\.8') 'second renderer version not reported'
+    }
+    Test 'renderer update WhatIf makes no writes before or after an overlay' {
+        $f = Renderer-Fixture
+        $before = Tree-State $f.Root
+        Run $f UpdateRenderer @('-TestRunningTarget','-WhatIf') | Out-Null
+        Assert ((Tree-State $f.Root) -ceq $before) 'initial renderer WhatIf wrote files'
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        Renderer-Payload $f '0.1.0-canary.8'
+        $before = Tree-State $f.Root
+        Run $f UpdateRenderer @('-TestRunningTarget','-WhatIf') | Out-Null
+        Assert ((Tree-State $f.Root) -ceq $before) 'subsequent renderer WhatIf wrote files'
+        Run $f Install @('-WhatIf') | Out-Null
+        Assert ((Tree-State $f.Root) -ceq $before) 'normal install WhatIf restored or changed overlay'
+    }
+    Test 'renderer update refuses tampered live renderer before or after activation' {
+        foreach ($activated in @($false,$true)) {
+            $f = Renderer-Fixture
+            if ($activated) { Run $f UpdateRenderer | Out-Null; Renderer-Payload $f '0.1.0-canary.8' }
+            Put "$($f.Base)/runtime/renderer.js" 'foreign renderer replacement'
+            $before = Tree-State $f.Root
+            Run $f UpdateRenderer @('-TestRunningTarget') $false | Out-Null
+            Run $f Status @() $false | Out-Null
+            if ($activated) { Run $f Install @() $false | Out-Null }
+            Assert ((Tree-State $f.Root) -ceq $before) 'tampered renderer was overwritten or staged over'
+        }
+    }
+    Test 'renderer update interruption reports pending without writes and retry activates safely' {
+        $f = Renderer-Fixture
+        Run $f UpdateRenderer @('-TestRunningTarget','-TestCrashAfterStep','1') $false | Out-Null
+        Assert ((Hash "$($f.Base)/runtime/renderer.js") -ceq $f.OriginalRenderer) 'crash hook replaced renderer before journal-only boundary'
+        Assert (Test-Path -LiteralPath "$($f.Overlay)/current.json") 'interrupted renderer journal missing'
+        $before = Tree-State $f.Root
+        Assert ((Run $f Status) -match 'Pending renderer update') 'interruption not reported as pending'
+        Assert ((Tree-State $f.Root) -ceq $before) 'pending renderer status performed recovery'
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        Assert-RendererRecord $f '0.1.0-canary.7' $f.OriginalRenderer
+        Assert ((Run $f Status) -match 'Renderer: 0\.1\.0-canary\.7') 'retry did not finish activation'
+    }
+    Test 'renderer update full install afterward restores base and installs immutable staged release' {
+        $f = Renderer-Fixture
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        $before = Tree-State $f.Root
+        Run $f Install @('-TestRunningTarget') $false | Out-Null
+        Assert ((Tree-State $f.Root) -ceq $before) 'running full install mutated renderer overlay'
+        Run $f Install | Out-Null
+        Assert ((Hash "$($f.Base)/runtime/renderer.js") -ceq $f.OriginalRenderer) 'full install did not restore original base renderer'
+        Assert (-not (Test-Path -LiteralPath "$($f.Overlay)/current.json")) 'full install retained active overlay record'
+        $config = Get-Content -LiteralPath "$($f.Resources)/support-templates.json" -Raw | ConvertFrom-Json
+        Assert ($config.runtime -like '*\0.1.0-canary.7\runtime') 'full install did not select .7 runtime'
+        Assert ((Hash "$($config.runtime)/renderer.js") -ceq (Hash "$($f.Package)/payload/runtime/renderer.js")) 'full install used transformed renderer in staged release'
+        Run $f Status | Out-Null
+        Run $f Rollback | Out-Null
+        Assert ((Run $f Status) -match 'Installed: SupportTemplates 0\.1\.0-canary\.6') 'rollback after full install failed'
+    }
+    Test 'renderer update stopped repair and rollback restore the base overlay' {
+        foreach ($action in @('Repair','Rollback')) {
+            $f = Fixture
+            Renderer-Payload $f '0.1.0-canary.5'; Run $f Install | Out-Null
+            Renderer-Payload $f '0.1.0-canary.6'; Run $f Install | Out-Null
+            $channel = "$($f.Local)/SupportTemplates/channels/canary"
+            $base = "$channel/versions/0.1.0-canary.6"
+            $original = Hash "$base/runtime/renderer.js"
+            Renderer-Payload $f '0.1.0-canary.7'; Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+            $before = Tree-State $f.Root
+            Run $f $action @('-TestRunningTarget') $false | Out-Null
+            Assert ((Tree-State $f.Root) -ceq $before) "running $action restored overlay"
+            Run $f $action | Out-Null
+            Assert ((Hash "$base/runtime/renderer.js") -ceq $original) "$action did not restore base renderer"
+            Assert (-not (Test-Path -LiteralPath "$channel/renderer-updates/0.1.0-canary.6/current.json")) "$action retained overlay record"
+            Run $f Status | Out-Null
+        }
+    }
+    Test 'renderer update same-version install preserves overlay and altered package rejection does not restore it' {
+        $f = Renderer-Fixture
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        Renderer-Payload $f '0.1.0-canary.6'
+        $before = Tree-State $f.Root
+        Run $f Install | Out-Null
+        Assert ((Tree-State $f.Root) -ceq $before) 'same-version install changed the valid renderer overlay'
+        Assert ((Run $f Status) -match 'Renderer: 0\.1\.0-canary\.7') 'same-version install deactivated overlay'
+        Add-Content -LiteralPath "$($f.Package)/payload/runtime/renderer.js" -Value 'globalThis.alteredPackage = true;'
+        Manifest $f '0.1.0-canary.6'
+        $before = Tree-State $f.Root
+        foreach ($action in @('Install','Repair')) {
+            $errorText = Run $f $action @() $false
+            Assert ($errorText -match 'Same version has different package content') "$action failed for an unrelated reason: $errorText"
+            Assert ((Tree-State $f.Root) -ceq $before) "rejected same-version $action changed overlay"
+        }
+    }
+    Test 'renderer update failed full install transaction preserves active overlay' {
+        foreach ($step in 1..4) {
+            $f = Renderer-Fixture
+            Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+            $base = Tree-State $f.Base
+            $overlay = Tree-State $f.Overlay
+            $owned = @{}
+            foreach ($name in @('app.asar','_app.asar','support-templates.json','support-templates.install.json')) {
+                $owned[$name] = Hash "$($f.Resources)/$name"
+            }
+            $errorText = Run $f Install @('-TestFailAfterStep',"$step") $false
+            Assert ($errorText -match "Simulated write failure after step $step") "install failed for an unrelated reason: $errorText"
+            Assert ((Tree-State $f.Base) -ceq $base) "failed install step $step changed base runtime/active renderer"
+            Assert ((Tree-State $f.Overlay) -ceq $overlay) "failed install step $step changed overlay record/blobs"
+            foreach ($name in $owned.Keys) {
+                Assert ((Hash "$($f.Resources)/$name") -ceq $owned[$name]) "failed install step $step did not restore $name"
+            }
+            Assert ((Run $f Status) -match 'Renderer: 0\.1\.0-canary\.7') "failed install step $step deactivated overlay"
+            if ($step -eq 4) {
+                $before = Tree-State $f.Root
+                Assert ((Run $f Status) -match 'Pending full-install renderer cleanup') 'failed full install lost cleanup intent'
+                Assert ((Run $f UpdateRenderer @('-TestRunningTarget') $false) -match 'Finish the interrupted full installation') 'renderer update ignored unfinished full operation'
+                Assert ((Tree-State $f.Root) -ceq $before) 'status or refused update changed cleanup intent'
+                Renderer-Payload $f '0.1.0-canary.6'
+                Run $f Install | Out-Null
+                Assert (-not (Test-Path -LiteralPath "$($f.Channel)/renderer-cleanup.json")) 'rolled-back cleanup intent was not discarded'
+                Assert ((Tree-State $f.Base) -ceq $base) 'discarding rolled-back intent restored active overlay'
+                Assert ((Tree-State $f.Overlay) -ceq $overlay) 'discarding rolled-back intent changed overlay journal'
+                Renderer-Payload $f '0.1.0-canary.7'
+            }
+            Run $f Install | Out-Null
+            Assert ((Hash "$($f.Base)/runtime/renderer.js") -ceq $f.OriginalRenderer) 'successful retry did not restore base'
+        }
+    }
+    Test 'renderer update uninstall retains overlay cache and reinstalling base restores original renderer' {
+        $f = Renderer-Fixture
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        $base = Tree-State $f.Base
+        $overlay = Tree-State $f.Overlay
+        $originalApp = Hash "$($f.Resources)/_app.asar"
+        Run $f Uninstall | Out-Null
+        Assert ((Hash "$($f.Resources)/app.asar") -ceq $originalApp) 'uninstall did not restore Discord archive'
+        Assert ((Tree-State $f.Base) -ceq $base) 'uninstall modified retained renderer cache'
+        Assert ((Tree-State $f.Overlay) -ceq $overlay) 'uninstall modified retained overlay record/blobs'
+        Renderer-Payload $f '0.1.0-canary.6'
+        Run $f Install | Out-Null
+        Assert ((Hash "$($f.Base)/runtime/renderer.js") -ceq $f.OriginalRenderer) 'reinstall of .6 did not restore original renderer'
+        Assert (-not (Test-Path -LiteralPath "$($f.Overlay)/current.json")) 'reinstall retained stale active overlay'
+        $status = Run $f Status
+        Assert ($status -match 'Installed: SupportTemplates 0\.1\.0-canary\.6') 'reinstall selected wrong runtime'
+        Assert ($status -notmatch 'Renderer: 0\.1\.0-canary\.7') 'reinstall reported stale renderer'
+    }
+    Test 'renderer update committed full-install cleanup resumes read-only status and stopped retry' {
+        $f = Renderer-Fixture
+        Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
+        Run $f Install @('-TestCrashAfterStep','4') $false | Out-Null
+        # All resource writes committed; move the fixture journal aside to model a crash immediately
+        # after normal transaction cleanup and before renderer cleanup. Never touch a real installation.
+        $source = [IO.Path]::GetFullPath("$($f.Resources)/.support-templates-transaction")
+        $saved = [IO.Path]::GetFullPath("$($f.Root)/committed-journal.saved")
+        $boundary = [IO.Path]::GetFullPath($f.Root).TrimEnd('\') + '\'
+        Assert ($source.StartsWith($boundary, [StringComparison]::OrdinalIgnoreCase) -and $saved.StartsWith($boundary, [StringComparison]::OrdinalIgnoreCase)) 'Unsafe committed journal fixture move'
+        Move-Item -LiteralPath $source -Destination $saved
+        $before = Tree-State $f.Root
+        $status = Run $f Status
+        Assert ($status -match 'Installed: SupportTemplates 0\.1\.0-canary\.7' -and $status -match 'Pending full-install renderer cleanup') 'committed cleanup status incorrect'
+        Assert ((Run $f UpdateRenderer @('-TestRunningTarget') $false) -match 'Finish the interrupted full installation') 'update ignored committed cleanup intent'
+        Run $f Install @('-TestRunningTarget') $false | Out-Null
+        Run $f Install @('-WhatIf') | Out-Null
+        Assert ((Tree-State $f.Root) -ceq $before) 'read-only or running operations completed pending cleanup'
+        Run $f Install | Out-Null
+        Assert ((Hash "$($f.Base)/runtime/renderer.js") -ceq $f.OriginalRenderer) 'retry did not restore old base after committed full install'
+        Assert (-not (Test-Path -LiteralPath "$($f.Overlay)/current.json")) 'retry retained old active overlay'
+        Assert (-not (Test-Path -LiteralPath "$($f.Channel)/renderer-cleanup.json")) 'retry retained completed cleanup intent'
+        Assert ((Run $f Status) -notmatch 'Pending') 'retry still reports pending cleanup'
+    }
     Test 'install, idempotence, read-only status, uninstall exact bytes and retained settings' {
         $f = Fixture; $original = Hash "$($f.Resources)/app.asar"
         Run $f Install | Out-Null

@@ -3,7 +3,7 @@
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Install', 'Repair', 'Uninstall', 'Rollback', 'Status')][string]$Action,
+    [ValidateSet('Install', 'Repair', 'Uninstall', 'Rollback', 'Status', 'UpdateRenderer')][string]$Action,
     [ValidateSet('Canary', 'Stable')][string]$Channel = 'Canary',
     # Fixture-only overrides: require a marked, specifically named directory under TEMP.
     [string]$TestRoot,
@@ -23,6 +23,7 @@ $script:Locked = $false
 $script:ChannelName = $Channel.ToLowerInvariant()
 $script:PackageRoot = [IO.Path]::GetFullPath($PSScriptRoot)
 $script:ResourceNames = @('_app.asar', 'support-templates.json', 'app.asar', 'support-templates.install.json')
+. (Join-Path $PSScriptRoot 'RendererUpdate.ps1')
 
 function Require([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw $Message }
@@ -110,6 +111,8 @@ function Read-Package([string]$Base, [switch]$Stored) {
     Valid-Version $manifest.version
     Require ($manifest.files -is [Array] -and $manifest.files.Count -ge 5) 'Manifest files must be a nonempty array'
     $seen = @{}
+    $overlay = $null
+    if ($Stored -and (Full $Base) -ieq (Full (Version-Path $manifest.version))) { $overlay = Read-RendererOverlay $manifest.version }
     foreach ($file in $manifest.files) {
         Require ($file.path -is [string]) 'Manifest path must be a string'
         Valid-Relative $file.path
@@ -121,7 +124,11 @@ function Read-Package([string]$Base, [switch]$Stored) {
         $path = Full (Join-Path $Base $relative)
         Require (Under $path $Base) 'Payload path escapes package'
         Safe-File $path
-        Require ((Get-Item -LiteralPath $path).Length -eq $file.size -and (Hash-File $path) -ceq $file.sha256) "Payload integrity failure: $relative"
+        if ($null -ne $overlay -and $relative -ceq 'runtime/renderer.js') {
+            Require ((Hash-File $path) -cin @($overlay.hash, $overlay.previousHash)) 'Renderer differs from update journal'
+        } else {
+            Require ((Get-Item -LiteralPath $path).Length -eq $file.size -and (Hash-File $path) -ceq $file.sha256) "Payload integrity failure: $relative"
+        }
         $seen[$file.path] = $path
     }
     foreach ($required in @('payload/loader.asar', 'payload/runtime/patcher.js', 'payload/runtime/preload.js', 'payload/runtime/renderer.js', 'payload/runtime/renderer.css')) {
@@ -623,18 +630,32 @@ try {
     }
     $state = Read-State
     if ($Action -eq 'Status') {
+        if ($null -ne (Read-RendererCleanup)) { Write-Output 'Pending full-install renderer cleanup; repeat Install with the target closed.' }
         if ($null -eq $state) { Write-Output "Not installed: $script:ChannelName at $script:Resources" }
         else {
             Write-Output "Installed: SupportTemplates $($state.version), $script:ChannelName at $script:Resources"
             try {
                 $stored = Stored-Package $state.version
                 Require ($stored.LoaderHash -ceq $state.loaderHash -and (Hash-File (Join-Path $stored.Base 'manifest.json')) -ceq $state.manifestHash) 'Runtime cache differs from ownership state'
+                $overlay = Read-RendererOverlay $state.version
+                if ($null -ne $overlay) {
+                    if ((Hash-File $stored.Files['payload/runtime/renderer.js']) -cne $overlay.hash) { Write-Output 'Pending renderer update: retry UpdateRenderer to finish.' }
+                    else { Write-Output "Renderer: $($overlay.version); apply with Ctrl+R." }
+                }
             }
             catch { throw "Installed, but runtime cache is unhealthy: $_. Repair from the matching package or uninstall to restore Discord." }
         }
         return
     }
+    if ($Action -eq 'UpdateRenderer') {
+        Require ($null -eq (Read-RendererCleanup)) 'Finish the interrupted full installation with Discord closed before updating the renderer'
+        Update-Renderer $state; return
+    }
     Check-TargetStopped
+    if ($null -ne (Read-RendererCleanup)) {
+        if (-not $PSCmdlet.ShouldProcess($script:ChannelRoot, 'Complete interrupted full-install renderer cleanup')) { return }
+        Complete-RendererCleanup $state
+    }
     if ($Action -eq 'Rollback') {
         Require ($null -ne $state -and $null -ne $state.previousVersion) 'No previous owned runtime is available for rollback'
         $package = Stored-Package $state.previousVersion
@@ -643,8 +664,17 @@ try {
     else { $package = Read-Package $script:PackageRoot }
     $version = $package.Manifest.version
     $manifestHash = Hash-File (Join-Path $package.Base 'manifest.json')
+    $oldOverlayVersion = $null
+    if ($null -ne $state -and $null -ne (Read-RendererOverlay $state.version)) {
+        Stored-Package $state.version | Out-Null
+        $oldOverlayVersion = $state.version
+    }
     if ($null -ne $state -and $state.version -ceq $version) {
         Require ($state.loaderHash -ceq $package.LoaderHash -and $state.manifestHash -ceq $manifestHash) 'Same version has different package content; use a new version'
+        if ($Action -eq 'Repair' -and $null -ne $oldOverlayVersion) {
+            if (-not $PSCmdlet.ShouldProcess((Version-Path $state.version), 'Restore verified base renderer')) { return }
+            Restore-RendererOverlay $state.version
+        }
         if ($Action -eq 'Repair') {
             $missing = @(Missing-CacheFiles $package)
             if ($missing.Count -gt 0) {
@@ -682,7 +712,13 @@ try {
     $original = [IO.File]::ReadAllBytes($originalPath)
     $config = Json-Bytes (Make-Config $version)
     $newState = [ordered]@{schema=1;product='SupportTemplates';channel=$script:ChannelName;resources=$script:Resources;version=$version;previousVersion=$previous;previousManifestHash=$previousManifestHash;previousLoaderHash=$previousLoaderHash;loaderHash=$package.LoaderHash;manifestHash=$manifestHash;originalHash=(Hash-Bytes $original);originalSize=$original.Length;configHash=(Hash-Bytes $config)}
+    if ($null -ne $oldOverlayVersion -or $null -ne (Read-RendererOverlay $version)) {
+        Atomic-RendererFile (Join-Path $script:ChannelRoot 'renderer-cleanup.json') (Json-Bytes ([ordered]@{schema=1;version=$version;manifestHash=$manifestHash;oldVersion=$oldOverlayVersion}))
+    }
     Transact @{'_app.asar'=$original;'app.asar'=[IO.File]::ReadAllBytes($package.Files['payload/loader.asar']);'support-templates.json'=$config;'support-templates.install.json'=(Json-Bytes $newState)}
+    # Keep the current UI intact if validation or the resource transaction fails.
+    # Successful full installs also clear an overlay retained by a prior uninstall.
+    Complete-RendererCleanup (Read-State)
     Write-Output "$Action complete: SupportTemplates $version ($script:ChannelName). Restart Discord yourself when ready."
 }
 catch {
