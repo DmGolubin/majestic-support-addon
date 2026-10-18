@@ -23,3 +23,12 @@ Owner reports slow connection after confirming login on the website, text-only c
 ## Limits
 
 Live post-confirmation timing and its cause were not measured. Tests establish concurrent requests and recovery of overdue timers, not a measured real-world speedup. Owner confirmation after Ctrl+R remains required for .8 visual acceptance. Existing C06/Q10 live-write/draft checks remain separate.
+
+## Build and activation
+
+- Source commit: `9d12003`; isolated standalone build passed (199 source inputs and forbidden-feature checks).
+- Package: `artifacts/standalone/0.1.0-canary.8-9d12003/SupportTemplates-0.1.0-canary.8/`.
+- ZIP SHA256: `b66771f683ac9d8ab1369907d764c4addd6caf89967413dd185d14ebd3def1cf`.
+- `UpdateRenderer -WhatIf` passed native/loader compatibility checks. Actual UpdateRenderer and Status succeeded while Discord Canary was running: renderer .8, native .6.
+- Before/after hashes of runtime and owned host resources show only `runtime/renderer.js` changed. Active renderer SHA256: `349d0103b7f3676257bb191c27adc3a83a2a340111cd96e0ee89f9ea56768fba`.
+- Save any open draft, then Ctrl+R applies .8. No host process was stopped. Native UI and live timing after reload await owner confirmation.
