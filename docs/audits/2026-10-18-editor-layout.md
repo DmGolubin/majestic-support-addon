@@ -11,4 +11,4 @@ Verification:
 - Close warning button gap measured 8px. Return, deletion cancellation, and discard cancellation work. Both confirmations remain within the dialog on narrow screens. No production API mutations.
 - `graphify update .` completed.
 
-Build and renderer activation evidence follows after installation. Native UI acceptance remains pending.
+Isolated build from `30f6784` passed (199 inputs). Package retained under `artifacts/standalone/0.1.0-canary.10-30f6784/`; ZIP SHA256 `e0f86c861cf74519b3795b875cc668e5df7e0d070fe488e3528edb6dad5df6ab`. UpdateRenderer dry-run, activation and Status succeeded: renderer .10, native .6. Save any draft and Ctrl+R to apply. Native UI acceptance remains pending.
