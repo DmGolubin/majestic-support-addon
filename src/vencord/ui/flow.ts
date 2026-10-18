@@ -11,7 +11,7 @@ import { ProjectId, PROJECTS, Template } from "../core/types";
 import { activeEditor, currentChannel, insertText, readClipboard, toast } from "../platform";
 import { debugEnabled, dlog } from "./debug";
 import { generationNow, rememberComposeTarget, Target, targetNow } from "./op";
-import { activeScope, currentMode, Dialog, Scope, store, ui } from "./uiState";
+import { activeScope, currentMode, Dialog, ensureLibraryFresh, libraryIsFresh, Scope, store, ui } from "./uiState";
 
 type ConfirmArgs = Omit<Extract<Dialog, { kind: "confirm"; }>, "kind" | "resolve">;
 
@@ -27,6 +27,7 @@ export function snapNow(target: Target): Snap {
 
 /** true while the plugin, the channel, its scope and the target editor are unchanged; otherwise the insert must be dropped. */
 export function stillCurrent(s: Snap): boolean {
+    if (!libraryIsFresh()) return false;
     if (s.gen !== generationNow()) { dlog("cancel", { reason: "плагин перезапущен или выключен" }); return false; }
     if (s.setVersion !== store.setVersion) {
         dlog("cancel", { reason: "шаблоны заменены импортом" });
@@ -192,14 +193,16 @@ async function statusGuard(t: Template): Promise<Template | null> {
 }
 
 export async function prepareText(t: Template, target: Target, opts: { noGreeting?: boolean; } = {}): Promise<{ t: Template; text: string; snap: Snap; } | null> {
+    if (store.byId(t.id) !== t) return null;
     const snap = snapNow(target);
+    if ((!libraryIsFresh() && !await ensureLibraryFresh()) || !stillCurrent(snap)) return null;
     const scope = scopeHere();
     if (!scope) return null;
     const g = await guard(t, scope);
-    if (!g || !stillCurrent(snap)) return null;
+    if (!g || store.byId(g.id) !== g || !stillCurrent(snap)) return null;
     const raw = opts.noGreeting ? splitGreeting(g.text).body : stripMarker(g.text);
     const text = await fillFields(g.title, raw, snap);
-    return text === null ? null : { t: g, text, snap };
+    return text === null || (!libraryIsFresh() && !await ensureLibraryFresh()) || store.byId(g.id) !== g || !stillCurrent(snap) ? null : { t: g, text, snap };
 }
 
 /** `via` — where the insert came from, for the debug log only. */
@@ -217,11 +220,13 @@ export async function insertTemplate(t: Template, opts: { noGreeting?: boolean; 
 }
 
 export async function addToCompose(t: Template) {
+    if (store.byId(t.id) !== t) return;
     const snap = snapNow(targetNow());
+    if ((!libraryIsFresh() && !await ensureLibraryFresh()) || !stillCurrent(snap)) return;
     const scope = scopeHere();
     if (!scope) return;
     const g = await guard(t, scope);
-    if (!g || !stillCurrent(snap)) return;
+    if (!g || store.byId(g.id) !== g || !stillCurrent(snap)) return;
     rememberComposeTarget();
     dlog("compose-add", { id: g.id, title: g.title, already: ui.get().compose.includes(g.id) || undefined });
     if (!ui.get().compose.includes(g.id)) ui.set({ compose: [...ui.get().compose, g.id] });

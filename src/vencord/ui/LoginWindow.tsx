@@ -8,10 +8,13 @@ import { useEffect, useRef } from "@webpack/common";
 
 import { cancelDemoLogin, connectDemo, demo, disableDemo, enableDemo, pauseDemo } from "./demo";
 import { captureWindowTarget, windowEditor } from "./op";
+import { panel, useLocalLibrary } from "./panel";
+import { PanelConnection } from "./PanelConnection";
 import { ui, useChatRect } from "./uiState";
 
 export function LoginWindow() {
     const d = demo.use();
+    const p = panel.use();
     const ref = useRef<HTMLDivElement>(null);
     const rect = useChatRect(true, windowEditor);
     const width = Math.min(400, innerWidth - 16);
@@ -37,7 +40,7 @@ export function LoginWindow() {
             }
         }}>
         <div className="vc-stx-lib-title"><b>SupportTemplates</b><button className="vc-stx-btn vc-stx-ghost" onClick={() => ui.set({ windowOpen: false })}>Закрыть</button></div>
-        {loading ? <section key="loading" className="vc-stx-login-scene vc-stx-load-scene" aria-labelledby="vc-stx-load-heading" aria-busy={d.phase === "loading"}>
+        {p.enabled ? <PanelConnection compact /> : loading ? <section key="loading" className="vc-stx-login-scene vc-stx-load-scene" aria-labelledby="vc-stx-load-heading" aria-busy={d.phase === "loading"}>
             <div className="vc-stx-login-progress" role="status"><span className="vc-stx-login-spinner" aria-hidden="true" />Вход подтверждён</div>
             <h2 id="vc-stx-load-heading">{d.phase === "load-error" ? "Не удалось загрузить шаблоны" : "Загружаем шаблоны"}</h2>
             {d.phase === "load-error" ? <p role="alert">Повторяем загрузку…</p> : <div className="vc-stx-load-placeholder" aria-hidden="true"><span /><span /><span /></div>}
@@ -70,6 +73,7 @@ export function LoginWindow() {
             {d.phase === "expired" && <p role="status">Код истёк. Начните вход заново.</p>}
             <div className="vc-stx-login-actions"><button className="vc-stx-btn" onClick={login}>Войти через панель</button></div>
         </section>}
-        <footer className="vc-stx-login-demo"><span>Демо</span>{!waiting && !loading && <button onClick={() => { const editor = windowEditor(); disableDemo(); captureWindowTarget(editor); ui.set({ windowOpen: true }); }}>К локальной библиотеке</button>}</footer>
+        {p.enabled ? (p.phase === "idle" || p.phase === "error") && <footer className="vc-stx-login-demo"><button onClick={() => void useLocalLibrary()}>Локальная библиотека</button></footer>
+            : <footer className="vc-stx-login-demo"><span>Демо</span>{!waiting && !loading && <button onClick={() => { const editor = windowEditor(); disableDemo(); captureWindowTarget(editor); ui.set({ windowOpen: true }); }}>К локальной библиотеке</button>}</footer>}
     </div>;
 }

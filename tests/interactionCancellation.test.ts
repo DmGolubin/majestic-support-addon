@@ -114,7 +114,7 @@ async function harness() {
         "./debug": { costStart: () => 0, costEnd: () => {}, debugEnabled: () => false, dlog: () => {} },
         "./flow": flow, "./keylatch": { latchKey },
         "./op": { generationNow: () => 1, composeEditor: () => ed, composeTargetNow: () => ({ editor: ed, selection: "" }), resetComposeTarget: vi.fn() },
-        "./uiState": { store, ui, activeScope: () => "mj", poolFor: () => store.templates, useStore: () => {}, useChatRect: () => ({ left: 0, width: 500, top: 600 }) },
+        "./uiState": { store, ui, libraryIsFresh: () => true, ensureLibraryFresh: async () => true, activeScope: () => "mj", poolFor: () => store.templates, useStore: () => {}, useChatRect: () => ({ left: 0, width: 500, top: 600 }) },
         "./ProjectIcon": {}, "./svg": {},
     };
     const evaluate = (code: string) => {

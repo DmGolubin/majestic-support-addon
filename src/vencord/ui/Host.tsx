@@ -19,6 +19,7 @@ import { supersede } from "./flow";
 import { Inline } from "./InlinePop";
 import { LoginWindow } from "./LoginWindow";
 import { Management } from "./Management";
+import { panel } from "./panel";
 import { ui, UiState } from "./uiState";
 import { Window } from "./Window";
 
@@ -37,7 +38,9 @@ const RESET: Record<string, () => Partial<UiState>> = {
 };
 
 export function Host() {
-    const login = demo.useSelect(d => d.enabled ? d.phase !== "ready" : !d.localMode);
+    const demoLogin = demo.useSelect(d => d.enabled ? d.phase !== "ready" : !d.localMode);
+    const p = panel.use();
+    const login = p.enabled ? p.phase !== "ready" : demoLogin;
     const management = ui.useSelect(s => s.management);
     const windowOpen = ui.useSelect(s => s.windowOpen);
     const dialog = ui.useSelect(s => s.dialog);

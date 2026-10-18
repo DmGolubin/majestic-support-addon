@@ -94,7 +94,24 @@ export class Store {
     private subs = new Set<() => void>();
     private lastSave: Promise<void> = Promise.resolve();
 
-    constructor(private storage: StorageLike) { }
+    constructor(private storage: StorageLike, readonly catalogReadOnly = false) { }
+
+    private writableCatalog() {
+        if (this.catalogReadOnly) throw new Error("Библиотека панели доступна только для чтения");
+    }
+
+    /** A validated, complete server snapshot. Never merges stale/local records into an account. */
+    replacePanelCatalog(catalog: { templates: Template[]; personal: PersonalTemplate[]; folders: PersonalFolder[]; }) {
+        if (!this.catalogReadOnly) throw new Error("Для библиотеки панели нужно отдельное хранилище");
+        const ids = new Set(catalog.templates.map(t => t.id));
+        this.data = { ...this.data, raw: "", personal: catalog.personal, folders: catalog.folders,
+            favorites: this.data.favorites.filter(id => ids.has(id)), recent: this.data.recent.filter(id => ids.has(id)),
+            usage: Object.fromEntries(Object.entries(this.data.usage).filter(([id]) => ids.has(id))),
+            binds: Object.fromEntries(Object.entries(this.data.binds).filter(([id]) => ids.has(id))), intentional: [] };
+        this.templates = catalog.templates;
+        this.setVersion++;
+        this.subs.forEach(fn => fn());
+    }
 
     flush() { return this.lastSave; }
 
@@ -134,6 +151,7 @@ export class Store {
 
     /** Replaces templates; favorites/usage/binds come from the file. Returns a summary line. */
     importText(text: string): string {
+        this.writableCatalog();
         const r = importBackup(text);
         // "Intentional mention" answers belonged to the old texts: they are not carried over to the new set.
         const own = new Set(this.data.personal.map(t => t.id));
@@ -163,6 +181,7 @@ export class Store {
 
     /** Demo transport catalog: stable IDs and local preferences survive refresh; real storage is never selected here. */
     replaceDemoCatalog(raw: string) {
+        this.writableCatalog();
         const templates = parseRaw(raw).map(t => ({ ...t, source: "faq" as const }));
         this.data.raw = raw;
         this.templates = [...templates, ...this.data.personal];
@@ -178,6 +197,7 @@ export class Store {
     }
 
     async savePersonal(draft: PersonalDraft, id?: string, createId?: string) {
+        this.writableCatalog();
         if (id && !this.data.personal.some(t => t.id === id)) throw new Error("Личный шаблон больше не существует");
         if (createId && (!createId.startsWith("personal:") || this.byId(createId))) throw new Error("Недопустимый ID нового шаблона");
         const t = personalTemplate(id ?? createId ?? "personal:" + crypto.randomUUID(), draft, this.data.folders);
@@ -190,6 +210,7 @@ export class Store {
     }
 
     async deletePersonal(id: string) {
+        this.writableCatalog();
         // Deletion is idempotent, including a retry after a failed disk write.
         if (!id.startsWith("personal:")) throw new Error("Можно удалить только личный шаблон");
         this.data.personal = this.data.personal.filter(t => t.id !== id);
@@ -203,6 +224,7 @@ export class Store {
     }
 
     async saveFolder(name: string, id?: string, createId?: string) {
+        this.writableCatalog();
         name = name.trim();
         if (!name || name.length > 80) throw new Error("Название папки: от 1 до 80 символов");
         if (id && !this.data.folders.some(f => f.id === id)) throw new Error("Папка больше не существует");
@@ -216,6 +238,7 @@ export class Store {
     }
 
     async deleteFolder(id: string) {
+        this.writableCatalog();
         this.data.folders = this.data.folders.filter(f => f.id !== id);
         this.data.personal = this.data.personal.map(t => t.folderId === id ? { ...t, folderId: null, category: "Мои шаблоны" } : t);
         await this.personalChanged();

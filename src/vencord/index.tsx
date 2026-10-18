@@ -25,6 +25,7 @@ import { MJ_ICON } from "./ui/icons";
 import { handleInlineKey, resetInline, startInline } from "./ui/inline";
 import { latchKey, startLatch, swallowLatched } from "./ui/keylatch";
 import { captureWindowTarget, clearTargets, editorNear, nextGeneration } from "./ui/op";
+import { disposePanel, startPanel } from "./ui/panel";
 import { ChatBarIcon } from "./ui/ProjectIcon";
 import { Settings } from "./ui/Settings";
 import { startTicketSound } from "./ui/ticketSound";
@@ -178,6 +179,7 @@ let offChannel: (() => void) | null = null;
 let offInline: (() => void) | null = null;
 let offLatch: (() => void) | null = null;
 let offTicketSound: (() => void) | null = null;
+let offPanel: (() => void) | null = null;
 let lastGuild: string | null = null;
 // Session/catalog invalidation cancels inserts, but must not cancel plugin startup.
 let lifecycle = 0;
@@ -233,6 +235,7 @@ export default definePlugin({
         // Vencord does not await start(): a stop() during the load must not be followed by a late mount.
         if (gen !== lifecycle) return;
         const t1 = performance.now();
+        offPanel = startPanel();
         document.addEventListener("keydown", onKey, true);
         offLatch = startLatch();
         offTicketSound = startTicketSound();
@@ -253,6 +256,8 @@ export default definePlugin({
 
     stop() {
         lifecycle++;
+        offPanel?.(); offPanel = null;
+        disposePanel();
         disposeDemo();
         offTicketSound?.();
         offTicketSound = null;

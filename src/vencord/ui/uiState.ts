@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useEffect, useMemo, useState } from "@webpack/common";
+import { useEffect, useMemo, UserStore, useState } from "@webpack/common";
 
 import { listProject, poolOf, Scope, ServerMode, serverMode } from "../core/guard";
 import { Store } from "../core/state";
@@ -26,6 +26,15 @@ const routed = routeStore(realStore);
 export const { store } = routed;
 export const selectStore = routed.select;
 export const demoAccess = createObservable({ enabled: false, ready: false });
+export const panelAccess = createObservable<{ enabled: boolean; ready: boolean; accountId: string | null; projects: ProjectId[]; checkedAt: number; }>({ enabled: true, ready: false, accountId: null, projects: [], checkedAt: 0 });
+let checkFreshness: () => Promise<boolean> = async () => false;
+export const setFreshnessCheck = (check: () => Promise<boolean>) => { checkFreshness = check; };
+export const ensureLibraryFresh = () => panelAccess.get().enabled ? checkFreshness() : Promise.resolve(true);
+export function libraryIsFresh() {
+    const p = panelAccess.get();
+    const age = Date.now() - p.checkedAt;
+    return !p.enabled || (p.ready && p.accountId === UserStore.getCurrentUser()?.id && age >= 0 && age <= 30000);
+}
 
 export type Dialog =
     | { kind: "confirm"; tone: "danger" | "warn"; label: string; title: string; body: string; ok: string; checkbox?: string; resolve(v: { ok: boolean; checked: boolean; }): void; }
@@ -60,6 +69,8 @@ export const pluginOn = () => currentMode() !== "off";
 export function activeScope(): Scope | null {
     if (demoAccess.get().enabled && !demoAccess.get().ready) return null;
     const m = currentMode();
+    const access = panelAccess.get();
+    if (access.enabled && (!access.ready || access.accountId !== UserStore.getCurrentUser()?.id || ((m === "mj" || m === "ro") && !access.projects.includes(m)))) return null;
     return m === "off" ? null : m;
 }
 

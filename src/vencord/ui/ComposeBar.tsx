@@ -13,7 +13,7 @@ import { confirmedForeign, fillFields, focusTarget, snapNow, stillCurrent } from
 import { composeEditor, composeTargetNow, resetComposeTarget } from "./op";
 import { ProjectIcon } from "./ProjectIcon";
 import { IconClose } from "./svg";
-import { store, ui, useChatRect, useStore } from "./uiState";
+import { ensureLibraryFresh, libraryIsFresh, store, ui, useChatRect, useStore } from "./uiState";
 
 /** Keep the actual records accepted into the reply, not just IDs that may later resolve to new text. */
 function captureComposition(ids: string[]) {
@@ -86,6 +86,7 @@ function ComposeBarView() {
         setInserting(true);
         try {
             const snap = snapNow(composeTargetNow()); // the editor the answer was started in
+            if ((!libraryIsFresh() && !await ensureLibraryFresh()) || !current() || !stillCurrent(snap)) return;
             const items = selection.entries.map(e => e.template!);
             // Every piece must be common, of the channel's project, or a foreign one the user confirmed for it; on Tech ("all") any piece fits.
             const fits = () => {
@@ -97,7 +98,7 @@ function ComposeBarView() {
             };
             if (!fits()) return;
             const text = await fillFields("Ответ", joinPieces(items.map(t => t.text)), snap);
-            if (text === null || !current() || !fits()) return;
+            if (text === null || (!libraryIsFresh() && !await ensureLibraryFresh()) || !current() || !fits()) return;
             if (!stillCurrent(snap)) {
                 if (snap.editor && !snap.editor.isConnected) resetComposeTarget(); // the next click goes to the current editor
                 return;

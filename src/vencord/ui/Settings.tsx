@@ -12,6 +12,8 @@ import { demo } from "./demo";
 import { DemoConnection } from "./DemoConnection";
 import { confirmedForeign, supersede } from "./flow";
 import { nextGeneration } from "./op";
+import { panel, useDemoLibrary, useLocalLibrary } from "./panel";
+import { PanelConnection } from "./PanelConnection";
 import { PersonalLibrary } from "./PersonalLibrary";
 import { IconBell, IconLink, IconSettings, IconTemplates } from "./svg";
 import { TicketSettings } from "./TicketSettings";
@@ -20,6 +22,7 @@ import { store, ui, useStore } from "./uiState";
 export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) {
     useStore();
     const demoState = demo.use();
+    const p = panel.use();
     const [tab, setTab] = useState("personal");
     const [dirty, setDirty] = useState(false);
     const [pending, setPending] = useState<string | null>(null);
@@ -61,9 +64,20 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
                 {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["connection", "Подключение"], ["tickets", "Тикеты"]].map(([id, label]) => <button key={id} className={"vc-stx-btn " + (tab === id ? "" : "vc-stx-ghost")} aria-pressed={tab === id} onClick={() => { if (id === tab) return; if (dirty) setPending(id); else setTab(id); }}>{id === "personal" ? <IconTemplates size={16} /> : id === "general" ? <IconSettings size={16} /> : id === "tickets" ? <IconBell size={16} /> : <IconLink size={16} />}{label}</button>)}
             </nav>
             {pending && <div className="vc-stx-local-note" role="alert">Отменить изменения и сменить раздел? <button className="vc-stx-btn" onClick={() => { setTab(pending); setPending(null); setDirty(false); onDirty?.(false); }}>Отменить изменения</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => setPending(null)}>Остаться</button></div>}
-            {tab === "personal" && (!demoState.enabled || demoState.revision > 0) && <PersonalLibrary onDirty={v => { setDirty(v); onDirty?.(v); }} />}
-            {tab === "personal" && demoState.enabled && demoState.revision === 0 && <p className="vc-stx-local-note">Сначала подключите тестовый аккаунт во вкладке «Подключение».</p>}
-            {tab === "connection" && <DemoConnection />}
+            {tab === "personal" && p.enabled && <section className="vc-stx-setting-section">
+                <div className="vc-stx-lib-title"><h3>Мои шаблоны</h3><a className="vc-stx-btn vc-stx-ghost" href="https://panel.majestic-rp.tech/faq" target="_blank" rel="noreferrer">Редактировать на панели <IconLink /></a></div>
+                {p.phase !== "ready" ? <button className="vc-stx-btn" onClick={() => setTab("connection")}>Подключить панель</button>
+                    : store.data.personal.length ? store.data.personal.map(t => <article key={t.id} className="vc-stx-setting-section" style={{ borderLeft: t.color ? `3px solid ${t.color}` : undefined, paddingLeft: 12 }}>
+                        <h4>{t.title}</h4><span className="vc-stx-muted">{t.category}</span><p style={{ whiteSpace: "pre-wrap" }}>{t.text}</p>
+                    </article>) : <p className="vc-stx-muted">Личных шаблонов пока нет.</p>}
+            </section>}
+            {tab === "personal" && !p.enabled && (!demoState.enabled || demoState.revision > 0) && <PersonalLibrary onDirty={v => { setDirty(v); onDirty?.(v); }} />}
+            {tab === "personal" && !p.enabled && demoState.enabled && demoState.revision === 0 && <p className="vc-stx-local-note">Сначала подключите тестовый аккаунт во вкладке «Подключение».</p>}
+            {tab === "connection" && <><PanelConnection />
+                <details className="vc-stx-settings-details"><summary>Локальная библиотека и демо</summary>
+                    <div className="vc-stx-lib-actions"><button className="vc-stx-btn vc-stx-ghost" onClick={() => void useLocalLibrary()}>Локальная библиотека</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => void useDemoLibrary()}>Деморежим</button></div>
+                    {!p.enabled && demoState.enabled && <DemoConnection />}
+                </details></>}
             {tab === "tickets" && <TicketSettings />}
             {tab === "general" && <>
             <section className="vc-stx-setting-section">
@@ -86,8 +100,8 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
                 <p>{main.length} основных шаблонов <span className="vc-stx-muted">· Majestic {mj} · Россия Онлайн {ro}</span></p>
                 <details className="vc-stx-settings-details"><summary>Импорт из файла</summary>
                     <p className="vc-stx-muted">JSON, TXT или Markdown. Заменит основные шаблоны, их избранное и бинды. Личные шаблоны и папки сохранятся.</p>
-                    {demoState.enabled && <p className="vc-stx-muted">Доступен в локальной библиотеке.</p>}
-                    <button className="vc-stx-btn vc-stx-ghost" disabled={demoState.enabled} onClick={pick}>Выбрать файл</button>
+                    {(demoState.enabled || p.enabled) && <p className="vc-stx-muted">Доступен в локальной библиотеке.</p>}
+                    <button className="vc-stx-btn vc-stx-ghost" disabled={demoState.enabled || p.enabled} onClick={pick}>Выбрать файл</button>
                     {status && <p role="status">{status}</p>}
                 </details>
             </section>

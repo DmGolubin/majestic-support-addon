@@ -1,0 +1,83 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+import { useRef, useState } from "@webpack/common";
+
+import { cancelPanelLogin, connectPanel, logoutPanel, openPanelPage, panel, reloadPanel } from "./panel";
+
+type Action = "connect" | "cancel" | "reload" | "logout";
+
+export function PanelConnection({ compact = false }: { compact?: boolean; }) {
+    const p = panel.use();
+    const phase = p.enabled ? p.phase : "idle";
+    const [busy, setBusy] = useState<Action | null>(null);
+    const [actionError, setActionError] = useState("");
+    const activeAction = useRef<{ kind: Action; } | null>(null);
+    const waiting = phase === "connecting" || phase === "pending" || phase === "loading";
+    const ending = busy === "cancel" || busy === "logout";
+    const labels = {
+        idle: "Подключите аккаунт панели",
+        connecting: "Подключаемся к панели…",
+        pending: "Ожидаем подтверждение входа",
+        loading: "Загружаем библиотеку…",
+        ready: "Библиотека загружена",
+        offline: "Нет связи с панелью",
+        error: "Не удалось подключиться"
+    };
+
+    const run = (action: Action, fn: () => Promise<void>) => {
+        // Cancellation/logout can interrupt a pending connection or refresh.
+        const current = activeAction.current;
+        if (current && (current.kind === "cancel" || current.kind === "logout" || (action !== "cancel" && action !== "logout"))) return;
+        const ownAction = { kind: action };
+        activeAction.current = ownAction;
+        setBusy(action); setActionError("");
+        void (async () => {
+            try { await fn(); } catch {
+                // Controller errors are already translated. Never render/log a thrown response.
+                if (activeAction.current === ownAction) setActionError("Не удалось выполнить действие. Попробуйте снова.");
+            } finally {
+                if (activeAction.current === ownAction) { activeAction.current = null; setBusy(null); }
+            }
+        })();
+    };
+    const reopen = () => {
+        setActionError("");
+        try { openPanelPage(); } catch { setActionError("Не удалось открыть панель. Попробуйте снова."); }
+    };
+    const error = p.error || actionError;
+
+    return <section className={compact ? "vc-stx-login-scene" : "vc-stx-setting-section"} aria-label="Подключение к панели">
+        {compact ? <h2>Вход через панель</h2> : <h3>Аккаунт и синхронизация</h3>}
+        <p className="vc-stx-local-note"><strong>Вход действует до перезапуска Discord.</strong></p>
+        <div className={waiting ? "vc-stx-login-progress" : "vc-stx-connection-state" + (phase === "ready" ? " ready" : "")} role="status">
+            <span className={waiting ? "vc-stx-login-spinner" : undefined} aria-hidden="true" />{labels[phase]}
+        </div>
+        {phase === "idle" && <p className="vc-stx-login-copy">Войдите, чтобы загрузить FAQ и личные шаблоны.</p>}
+        {phase === "pending" && <>
+            <p className="vc-stx-login-copy">Сверьте код на панели и подтвердите вход.</p>
+            {p.code && <div className="vc-stx-login-code"><span>Код подтверждения</span><strong>{p.code}</strong></div>}
+        </>}
+        {phase === "ready" && <p>Аккаунт: <strong>{p.name || "Аккаунт панели"}</strong></p>}
+        {phase === "offline" && <p className="vc-stx-login-copy">Повторите загрузку библиотеки, чтобы продолжить работу.</p>}
+        {error && <p className="vc-stx-form-error" role="alert">{error}</p>}
+        <div className={compact ? "vc-stx-login-actions" : "vc-stx-lib-actions"}>
+            {(phase === "idle" || phase === "error") && <button type="button" className="vc-stx-btn" disabled={busy !== null} onClick={() => run("connect", connectPanel)}>
+                {phase === "error" ? "Повторить вход" : "Войти через панель"}
+            </button>}
+            {phase === "pending" && p.url && <button type="button" className="vc-stx-btn" disabled={ending} onClick={reopen}>Открыть панель повторно</button>}
+            {waiting && <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={ending} onClick={() => run("cancel", cancelPanelLogin)}>
+                {busy === "cancel" ? "Отменяем…" : "Отмена"}
+            </button>}
+            {(phase === "ready" || phase === "offline") && <button type="button" className="vc-stx-btn" disabled={busy !== null} onClick={() => run("reload", reloadPanel)}>
+                {busy === "reload" ? "Обновляем…" : phase === "offline" ? "Повторить загрузку" : "Обновить библиотеку"}
+            </button>}
+            {(phase === "ready" || phase === "offline" || (phase === "error" && p.enabled)) && <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={ending} onClick={() => run("logout", logoutPanel)}>
+                {busy === "logout" ? "Выходим…" : "Выйти"}
+            </button>}
+        </div>
+    </section>;
+}
