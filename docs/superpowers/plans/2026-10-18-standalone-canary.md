@@ -41,8 +41,8 @@ Files: standalone/installer/*; tests/standaloneInstaller*.
 
 Interface: manifest.json schema=1/product=SupportTemplates/version/upstreamCommit/files[{path,sha256,size}]; payload/loader.asar and payload/runtime. resources/support-templates.json holds schema/product/channel/runtime/dataDir. Versioned runtime under LOCALAPPDATA/SupportTemplates/channels/channel/versions/version/runtime.
 
-- [ ] Exercise actual PowerShell against temporary Discord fixtures: success/repeat, foreign loader, tamper, traversal, failure/recovery and exact uninstall restoration.
-- [ ] Implement install/status/repair/uninstall/rollback. Preserve settings on uninstall; never delete unrelated files.
+- [x] Exercise actual PowerShell against temporary Discord fixtures: success/repeat, foreign loader, tamper, traversal, failure/recovery and exact uninstall restoration.
+- [x] Implement install/status/repair/uninstall/rollback. Preserve settings on uninstall; never delete unrelated files.
 
 ### 3. Independent composition/dependency review (agent)
 
@@ -53,8 +53,8 @@ File: docs/audits/2026-10-18-standalone-dependencies.md.
 
 ### 4. Integration and Canary (parent + targeted review)
 
-- [ ] Run tests/types/build/package checks and review installer before real mutation.
-- [ ] Record Stable path/process/hashes; run Canary status and install only after fixture checks pass.
-- [ ] Start Canary; inspect actual startup/registry/UI when tools permit. Do not claim live UI based on bundle tests.
-- [ ] Verify uninstall restoration and repair/reinstall; record exact coverage and remaining API blockers.
-- [ ] Update roadmap/STATUS/TODO and commit only this work. No public upload.
+- [x] Run tests/types/build/package checks and review installer before real mutation.
+- [x] Record Stable path/process/hashes; run Canary status and install only after fixture checks pass.
+- [x] Start Canary; inspect actual startup/registry/UI when tools permit. Do not claim live UI based on bundle tests.
+- [x] Verify uninstall restoration and repair/reinstall; record exact coverage and remaining API blockers.
+- [x] Update roadmap/STATUS/TODO and commit only this work. No public upload.

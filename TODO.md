@@ -3,21 +3,11 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (2)
+## В работе (0)
 
-### I03 · Прототип открытой сборки на основе Vencord
+Нет задач.
 
-Установка и адаптеры. Изолированный runtime собран: SupportTemplates и 3 внутренних модуля, без cloud/updater/autorepatch. 779 тестов проходят. Исправлена проверка канала и перенаправленных путей загрузчика; до Canary закрываем замечания установщика.
-
-Основание: [INSTALLATION-OPTIONS.md](docs/INSTALLATION-OPTIONS.md), [2026-10-18-standalone-canary.md](docs/audits/2026-10-18-standalone-canary.md).
-
-### I04 · Standalone ZIP: установка, repair и удаление
-
-Установка и адаптеры. Четыре замечания закрыты повторным независимым ревью. Собранный ZIP прошёл установку/удаление на TEMP-стенде; install.bat -WhatIf выбирает настоящий Canary 1.0.1219. Финальный прогон аварийных сценариев продолжается, реальная установка ещё не выполнена.
-
-Основание: [INSTALLATION-OPTIONS.md](docs/INSTALLATION-OPTIONS.md), [2026-10-18-standalone-canary.md](docs/audits/2026-10-18-standalone-canary.md).
-
-## Реализовано · нужна приёмка (9)
+## Реализовано · нужна приёмка (11)
 
 ### C04 · Настоящий вход и токены
 
@@ -43,6 +33,18 @@ B · Тикеты. Реализованы звук новой ветки, нас
 
 Основание: [TICKET-HELPER-SPEC.md](docs/TICKET-HELPER-SPEC.md), [2026-10-16-ticket-helper.md](docs/audits/2026-10-16-ticket-helper.md).
 
+### I03 · Прототип открытой сборки на основе Vencord
+
+Установка и адаптеры. Прототип 0.1.0-canary.1 собран из 40d5895 и запущен в Canary 1.0.1251: SupportTemplates и 3 внутренних модуля; native — только SupportTemplates. Без cloud/updater/autorepatch. 781 тест проходит, защищённое хранилище доступно. Настройки проверены; чат и настоящий вход ещё не приняты.
+
+Основание: [INSTALLATION-OPTIONS.md](docs/INSTALLATION-OPTIONS.md), [2026-10-18-standalone-canary.md](docs/audits/2026-10-18-standalone-canary.md).
+
+### I04 · Standalone ZIP: установка, repair и удаление
+
+Установка и адаптеры. BAT install/status/uninstall/repair проверены на реальном Canary 1.0.1219, исходный архив восстановлен точно. После самообновления Discord до 1.0.1251 выполнен repair и проверен запуск. Stable неизменён. ZIP с исходниками сохранён локально; публичная раздача и совместимость Stable ещё не приняты. После обновления Discord пока нужен ручной repair.
+
+Основание: [INSTALLATION-OPTIONS.md](docs/INSTALLATION-OPTIONS.md), [2026-10-18-standalone-canary.md](docs/audits/2026-10-18-standalone-canary.md).
+
 ### A14 · Приёмка исправлений аудита 18 октября
 
 A · Шаблоны. Исправлены гонки inline/compose, IME Tab, очистка демосессии, startup lifecycle, конфликт личного бинда при импорте, сложность импорта и приватность клавиш в debug. 217 тестов всего проходят. Нужна живая проверка Slate, полей, clipboard, составного ответа и stop/start; сборка в Discord в этом блоке не заменялась.
@@ -63,7 +65,7 @@ C · Панель. Desktop Vencord: шифрование safeStorage, атома
 
 ### R09 · Зависимости и состав урезанного Vencord
 
-Выпуск. Проверен фактический bundle: 193 входных файла, единственная npm runtime-зависимость xxhash64 0.1.2; audit для неё без предупреждений. Полный toolchain основы содержит 66 advisory и остаётся отдельной задачей. Живой runtime ещё не принят; отчёт audits/2026-10-18-standalone-dependencies.md.
+Выпуск. Проверен фактический bundle: 193 входных файла, единственная npm runtime-зависимость xxhash64 0.1.2, без audit-предупреждений для неё. Четыре блокирующих замечания загрузчика/установщика исправлены и независимо перепроверены. Полный toolchain основы содержит 66 advisory и остаётся отдельной задачей. Живой запуск Canary подтверждён.
 
 Основание: [2026-10-18-release-audit.md](docs/audits/2026-10-18-release-audit.md), [2026-10-18-vencord-dependencies.json](docs/audits/2026-10-18-vencord-dependencies.json), [2026-10-18-standalone-dependencies.md](docs/audits/2026-10-18-standalone-dependencies.md).
 
