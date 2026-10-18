@@ -15,9 +15,9 @@ C · Панель. Владелец сообщил о неподтверждён
 
 ### Q13 · Полный цикл Master QA: 20 специализаций
 
-Качество и безопасность. Цикл 20 ролей завершён: 22 source-дефекта исправлены; 1464/1464 теста в 65 файлах, core/Vencord types; браузер: 100 циклов и адаптивность. .13 собрана из e8d089b, 10 payload-хешей и 3 TEMP installer-группы прошли. Не установлена. Review: живая приёмка/зависимости, BetterDiscord отсутствует.
+Качество и безопасность. Цикл20ролей:22 source-дефекта исправлены;1464/1464 теста/65файлов, обе проверки типов. .13 установлена полным Install по запросу владельца, Status подтвердил .13, Canary запущен. Ожидается живая приёмка; зависимости/BetterDiscord остаются отдельными ограничениями.
 
-Основание: [README.md](docs/audits/master-qa-2026-10-18/README.md).
+Основание: [README.md](docs/audits/master-qa-2026-10-18/README.md), [2026-10-19-canary-13-install.md](docs/audits/2026-10-19-canary-13-install.md).
 
 ### B07 · Свой звук и аккуратные настройки
 
@@ -147,9 +147,9 @@ A · Шаблоны. Исправлен повторный клик по ико�
 
 ### Q11 · Одинаковые правила версии хоста в установщике и загрузчике
 
-Качество и безопасность. Загрузчик принимает тот же prerelease-формат каталога app, что installer; 44 VM-проверки прошли. Требуется полный native-upgrade и живая проверка
+Качество и безопасность. Prerelease-грамматика загрузчика исправлена,44 VM-проверки прошли. Полная .13 установлена в Canary app-1.0.1251, Status успешен, клиент запущен. Реального host-каталога с prerelease-суффиксом для живой проверки нет.
 
-Основание: [2026-10-18-plugin-review-formatting.md](docs/audits/2026-10-18-plugin-review-formatting.md), [20.md](docs/audits/polish-2026-10-18/20.md), [README.md](docs/audits/master-qa-2026-10-18/README.md).
+Основание: [2026-10-18-plugin-review-formatting.md](docs/audits/2026-10-18-plugin-review-formatting.md), [20.md](docs/audits/polish-2026-10-18/20.md), [README.md](docs/audits/master-qa-2026-10-18/README.md), [2026-10-19-canary-13-install.md](docs/audits/2026-10-19-canary-13-install.md).
 
 ### C12 · Восстановить пустые ссылки в исходных FAQ API
 
