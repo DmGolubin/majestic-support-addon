@@ -183,19 +183,33 @@ function metadata(r: Record<string, unknown>) {
     return { title: string(r.title, 160), updatedAt: timestamp(r.updatedAt) };
 }
 
-function faqText(text: string): string {
-    // Match the legacy HTML converter's mention policy without decoding HTML or normalizing
-    // whitespace. Token defaults/options remain template syntax, as in that converter.
-    const tokens = /\{\{\s*([^}|=]+?)\s*(?:=\s*([^}|]*?)\s*)?(\|[^}]*)?\s*\}\}|\[\[greeting:end\]\]|\{\|\}/g;
+function neutralizeFaqMentions(text: string): string {
     const neutralize = (part: string) => part.replace(/<@(?=[!&]?\d+>)/g, "<@\u200b")
         .replace(/(^|[^\p{L}\p{N}_.+-])@(everyone|here)\b/gu, "$1@\u200b$2");
+    // Leave URL destinations intact, but stop at Markdown delimiters so adjacent mentions
+    // are still protected. Parenthesized path segments are part of the URL.
+    const urls = /https?:\/\/(?:[^\s<>()\[\]`"']|\([^\s<>()]*\))+/gi;
     const parts: string[] = [];
     let end = 0;
-    for (const match of text.matchAll(tokens)) {
+    for (const match of text.matchAll(urls)) {
         parts.push(neutralize(text.slice(end, match.index)), match[0]);
         end = match.index! + match[0].length;
     }
     parts.push(neutralize(text.slice(end)));
+    return parts.join("");
+}
+
+function faqText(text: string): string {
+    // Match the legacy HTML converter's mention policy without decoding HTML or normalizing
+    // whitespace. Token defaults/options remain template syntax, as in that converter.
+    const tokens = /\{\{\s*([^}|=]+?)\s*(?:=\s*([^}|]*?)\s*)?(\|[^}]*)?\s*\}\}|\[\[greeting:end\]\]|\{\|\}/g;
+    const parts: string[] = [];
+    let end = 0;
+    for (const match of text.matchAll(tokens)) {
+        parts.push(neutralizeFaqMentions(text.slice(end, match.index)), match[0]);
+        end = match.index! + match[0].length;
+    }
+    parts.push(neutralizeFaqMentions(text.slice(end)));
     return parts.join("");
 }
 

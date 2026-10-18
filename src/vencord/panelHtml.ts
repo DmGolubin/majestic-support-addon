@@ -32,18 +32,42 @@ function outsideTokens(text: string, convert: (part: string) => string): string 
     parts.push(convert(text.slice(end)));
     return parts.join("");
 }
+// Keep this converter standalone: it is also consumed directly outside the
+// bundled plugin, where core/ has a different relative path.
+function neutralizeFaqMentions(text: string): string {
+    const neutralize = (part: string) => part.replace(/<@(?=[!&]?\d+>)/g, "<@\u200b")
+        .replace(/(^|[^\p{L}\p{N}_.+-])@(everyone|here)\b/gu, "$1@\u200b$2");
+    const urls = /https?:\/\/(?:[^\s<>()\[\]`"']|\([^\s<>()]*\))+/gi;
+    const parts: string[] = [];
+    let end = 0;
+    for (const match of text.matchAll(urls)) {
+        parts.push(neutralize(text.slice(end, match.index)), match[0]);
+        end = match.index! + match[0].length;
+    }
+    parts.push(neutralize(text.slice(end)));
+    return parts.join("");
+}
+
 function plain(text: string): string {
     text = decode(text).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
     // FAQ text contains Discord Markdown even inside HTML wrappers. Preserve its syntax,
     // line breaks and indentation; HTML is removed by the inert scanner below, never rendered.
     // A blanket @ replacement corrupts email addresses and URL handles from the FAQ.
-    return outsideTokens(text, part => part
-        .replace(/<@(?=[!&]?\d+>)/g, "<@\u200b")
-        .replace(/(^|[^\p{L}\p{N}_.+-])@(everyone|here)\b/gu, "$1@\u200b$2"));
+    return outsideTokens(text, neutralizeFaqMentions);
 }
 function attr(attrs: string, name: string): string | null {
-    const match = new RegExp("(?:^|\\s)" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'=<>`]+))", "i").exec(attrs);
-    return match ? decode(match[1] ?? match[2] ?? match[3]) : null;
+    // Consume whole attributes in order, including quoted values of unrelated attributes.
+    // Searching for just the requested name can mistake text inside title/alt for an href.
+    const attributes = /\s*([^\s"'=<>`/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/y;
+    while (attributes.lastIndex < attrs.length) {
+        const match = attributes.exec(attrs);
+        if (!match) return null;
+        if (match[1].toLowerCase() === name) {
+            const value = match[2] ?? match[3] ?? match[4];
+            return value === undefined ? null : decode(value);
+        }
+    }
+    return null;
 }
 function link(value: string | null): string | null {
     if (!value || /[\s<>\\]/.test(value)) return null;

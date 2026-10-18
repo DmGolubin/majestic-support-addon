@@ -55,3 +55,11 @@
     .vc-stx-management > .vc-stx-close-confirm { margin-inline: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { .vc-stx-switch > span, .vc-stx-switch > span::after { transition: none; } }
+/* At high zoom/short windows, let the whole form scroll so confirmations cannot
+   consume the viewport and clip the action buttons. No overlapping sticky footer. */
+@media (max-height: 540px) {
+    .vc-stx-management > .vc-stx-settings:has(.vc-stx-pp-editor) { display: block; overflow: auto; padding-bottom: 14px; }
+    .vc-stx-management .vc-stx-panel-personal:has(.vc-stx-pp-editor) { display: grid; }
+    .vc-stx-management .vc-stx-panel-personal .vc-stx-pp-editor { display: grid; gap: 12px; }
+    .vc-stx-management .vc-stx-pp-editor-body { overflow: visible; }
+}

@@ -17,6 +17,7 @@ export interface ColorPickerProps {
 const COLOR_LABELS: Record<string, string> = {
     red: "Красный", orange: "Оранжевый", amber: "Янтарный", green: "Зелёный",
     teal: "Бирюзовый", blue: "Синий", violet: "Фиолетовый", pink: "Розовый",
+    yellow: "Жёлтый", purple: "Фиолетовый", cyan: "Бирюзовый",
 };
 
 /** Controlled template palette. Native buttons also respect a disabled parent fieldset. */

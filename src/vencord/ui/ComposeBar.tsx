@@ -86,7 +86,11 @@ function ComposeBarView() {
         setInserting(true);
         try {
             const snap = snapNow(composeTargetNow()); // the editor the answer was started in
-            if ((!libraryIsFresh() && !await ensureLibraryFresh()) || !current() || !stillCurrent(snap)) return;
+            if ((!libraryIsFresh() && !await ensureLibraryFresh()) || !current()) return;
+            if (!stillCurrent(snap)) {
+                if (snap.editor && !snap.editor.isConnected) resetComposeTarget();
+                return;
+            }
             const items = selection.entries.map(e => e.template!);
             // Every piece must be common, of the channel's project, or a foreign one the user confirmed for it; on Tech ("all") any piece fits.
             const fits = () => {

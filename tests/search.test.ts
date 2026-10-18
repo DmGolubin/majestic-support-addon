@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { importBackup } from "../src/core/importer";
-import { search, swapLayout } from "../src/core/search";
+import { search, subseqSpan, swapLayout } from "../src/core/search";
+import { hard } from "../src/core/text";
 
 const all = importBackup(readFileSync(new URL("./fixtures/config-0.5.1.json", import.meta.url), "utf8")).templates;
 const mj = all.filter(t => t.project === "mj");
@@ -34,6 +35,42 @@ describe("search", () => {
         expect(r.fuzzy).toBe(true);
         expect(r.hits[0].level).toBe(1);
     });
+    it.each(["рздел", "разел", "раздл"])("finds a later compact fuzzy match for %s", q => {
+        const title = "Направление в технический раздел форума";
+        const r = search(mj, q);
+        expect(subseqSpan(q, hard(title))).toBe(6);
+        expect(r.fuzzy).toBe(true);
+        expect(r.hits.find(h => h.t.title === title)?.level).toBe(1);
+    });
+    it.each([
+        ["стример", "Вопросы по Media"],
+        ["стим", "Запускается версия Steam"],
+        ["steamapi", "Запускается версия Steam"],
+    ])("finds current fixture titles via alias %s", (q, title) => {
+        const r = search(mj, q);
+        expect(r.fuzzy).toBe(false);
+        expect(r.hits.find(h => h.t.title === title)?.level).toBe(3);
+    });
+    it.each([
+        ["стример", "Вопросы по медиа"],
+        ["steamapi", "Запускается версия стим"],
+    ])("retains legacy title aliases for %s", (q, title) => {
+        const t = { ...mj[0], title, text: "" };
+        expect(search([t], q).hits).toEqual([{ t, level: 3, line: null }]);
+    });
+    it("keeps strict body matches ahead of fuzzy fallback", () => {
+        const t = { ...mj[0], id: "strict-body", title: "Ответ", text: "рздел" };
+        const r = search([...mj, t], "рздел");
+        expect(r.fuzzy).toBe(false);
+        expect(r.hits).toEqual([{ t, level: 2, line: "рздел" }]);
+    });
+    it("keeps the fuzzy span, minimum length and single-token thresholds", () => {
+        const t = { ...mj[0], title: "a---b---c--d", text: "" };
+        expect(search([t], "abcd").hits).toHaveLength(1); // span 12 = 4 * 3
+        expect(search([{ ...t, title: "a---b---c---d" }], "abcd").hits).toHaveLength(0);
+        expect(search([t], "abc").hits).toHaveLength(0);
+        expect(search([t], "ab cd").hits).toHaveLength(0);
+    });
     it("wrong keyboard layout", () => {
         expect(swapLayout("cjtl")).toBe("соед");
         const r = search(mj, "cjtl");
@@ -43,6 +80,21 @@ describe("search", () => {
     it("exact command → level 5", () => {
         const t = { ...mj[0], command: "nv" };
         expect(search([t], "nv").hits[0].level).toBe(5);
+    });
+});
+
+describe("shortest subsequence span", () => {
+    it.each([
+        ["abcd", "a----b----c----d abxcd", 5],
+        ["aab", "a---aab", 3],
+        ["aab", "ab", -1],
+        ["aab", "axb", -1],
+        ["abcd", "abc", -1],
+        ["abcd", "dcba", -1],
+        ["a", "ba", 1],
+        ["", "abc", -1],
+    ])("%s in %s has span %s", (needle, hay, span) => {
+        expect(subseqSpan(needle, hay)).toBe(span);
     });
 });
 

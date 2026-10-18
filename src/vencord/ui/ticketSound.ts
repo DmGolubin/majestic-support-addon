@@ -17,14 +17,31 @@ let audio: AudioContext | null = null;
 let lifecycle = 0;
 let running = false;
 let writes: Promise<void> = Promise.resolve();
+let persistenceError = "";
+let playbackError = "";
+let writeRevision = 0;
+
+function publishError() {
+    ticketSoundState.set({ error: [persistenceError, playbackError].filter(Boolean).join(" ") });
+}
 
 export function setTicketSound(patch: Partial<TicketSoundOptions>) {
     if (!ticketSoundState.get().loaded) return;
     const options = readTicketSound({ ...ticketSoundState.get().options, ...patch });
     if (patch.enabled !== undefined || patch.channelIds !== undefined) gate = new TicketSoundGate(Date.now());
-    ticketSoundState.set({ options, error: "" });
+    ticketSoundState.set({ options });
+    const revision = ++writeRevision;
+    const gen = lifecycle;
     writes = writes.catch(() => {}).then(() => storage.set(KEY, options));
-    writes.catch(() => ticketSoundState.set({ error: "Не удалось сохранить настройки. Повторите изменение." }));
+    void writes.then(() => {
+        if (gen !== lifecycle || revision !== writeRevision) return;
+        persistenceError = "";
+        publishError();
+    }, () => {
+        if (gen !== lifecycle || revision !== writeRevision) return;
+        persistenceError = "Не удалось сохранить настройки. Повторите изменение.";
+        publishError();
+    });
 }
 
 async function beep(test = false) {
@@ -35,7 +52,8 @@ async function beep(test = false) {
         const ctx = audio ??= new AudioContext();
         // Do not queue automatic sounds for a later user gesture: they would be stale.
         if (ctx.state === "suspended" && !test) {
-            ticketSoundState.set({ error: "Звук заблокирован. Нажмите «Проверить звук» в настройках тикетов." });
+            playbackError = "Звук заблокирован. Нажмите «Проверить звук» в настройках тикетов.";
+            publishError();
             return;
         }
         if (test) await ctx.resume();
@@ -56,9 +74,12 @@ async function beep(test = false) {
             osc.start(start);
             osc.stop(start + 0.2);
         }
-        ticketSoundState.set({ error: "" });
+        playbackError = "";
+        publishError();
     } catch {
-        ticketSoundState.set({ error: "Не удалось воспроизвести звук. Проверьте устройство вывода Discord." });
+        if (!running || gen !== lifecycle) return;
+        playbackError = "Не удалось воспроизвести звук. Проверьте устройство вывода Discord.";
+        publishError();
     }
 }
 
@@ -90,11 +111,16 @@ export function startTicketSound() {
     const gen = ++lifecycle;
     running = true;
     gate = new TicketSoundGate(Date.now());
+    persistenceError = playbackError = "";
     ticketSoundState.set({ loaded: false, error: "" });
     void writes.catch(() => {}).then(() => storage.get(KEY)).then(value => {
         if (running && gen === lifecycle) ticketSoundState.set({ options: readTicketSound(value), loaded: true });
     }, () => {
-        if (running && gen === lifecycle) ticketSoundState.set({ options: defaultTicketSound(), loaded: true, error: "Не удалось прочитать настройки звука." });
+        if (running && gen === lifecycle) {
+            persistenceError = "Не удалось прочитать настройки звука.";
+            ticketSoundState.set({ options: defaultTicketSound(), loaded: true });
+            publishError();
+        }
     });
     FluxDispatcher.subscribe("THREAD_CREATE", onThread);
     return () => {

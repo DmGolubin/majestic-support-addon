@@ -50,16 +50,26 @@ function strict(t: Template, toks: string[]): Hit | null {
     return null;
 }
 
-/** Length of the stretch of hay holding needle as a subsequence; -1 if none. */
+/** Shortest stretch of hay holding needle as a subsequence; -1 if none. */
 export function subseqSpan(needle: string, hay: string) {
-    let i = 0, start = -1;
+    if (!needle.length || needle.length > hay.length) return -1;
+    // Latest start for each matched prefix. Walk backwards so one character
+    // cannot satisfy multiple positions when the needle has repeated letters.
+    const starts = new Array<number>(needle.length).fill(-1);
+    let best = Infinity;
     for (let p = 0; p < hay.length; p++) {
-        if (hay[p] === needle[i]) {
-            if (i === 0) start = p;
-            if (++i === needle.length) return p - start + 1;
+        for (let i = needle.length - 1; i >= 0; i--) {
+            if (hay[p] !== needle[i]) continue;
+            const start = i === 0 ? p : starts[i - 1];
+            if (start < 0) continue;
+            starts[i] = start;
+            if (i === needle.length - 1) {
+                best = Math.min(best, p - start + 1);
+                if (best === needle.length) return best;
+            }
         }
     }
-    return -1;
+    return best === Infinity ? -1 : best;
 }
 
 function fuzzy(t: Template, toks: string[]): Hit | null {

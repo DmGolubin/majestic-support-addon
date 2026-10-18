@@ -37,11 +37,19 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
     const p = panel.use();
     const [tab, setTab] = useState("personal");
     const [dirty, setDirty] = useState(false);
+    const personalDirty = useRef(false);
     const busyRef = useRef(false);
     const [busy, setBusy] = useState(false);
     const [pending, setPending] = useState<string | null>(null);
     const [prefix, setPrefix] = useState(store.data.prefix);
+    const prefixRef = useRef(prefix);
     const [prefixError, setPrefixError] = useState("");
+    const reportDirty = () => {
+        const next = personalDirty.current || prefixRef.current !== store.data.prefix;
+        setDirty(next);
+        if (!next) setPending(null);
+        onDirty?.(next);
+    };
     const changeTab = (id: string) => {
         if (busyRef.current || id === tab) return;
         if (dirty) setPending(id); else setTab(id);
@@ -55,9 +63,14 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
         </nav>
         {pending && <div className="vc-stx-local-note" role="alert">Есть несохранённые изменения.
             <div className="vc-stx-lib-actions"><button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => { if (!busyRef.current) setPending(null); }}>Остаться</button>
-                <button className="vc-stx-btn" disabled={busy} onClick={() => { if (busyRef.current) return; discardPanelDraft(); setTab(pending); setPending(null); setDirty(false); onDirty?.(false); }}>Перейти без сохранения</button></div>
+                <button className="vc-stx-btn" disabled={busy} onClick={() => {
+                    if (busyRef.current) return;
+                    prefixRef.current = store.data.prefix;
+                    setPrefix(prefixRef.current); setPrefixError(""); personalDirty.current = false;
+                    discardPanelDraft(); setTab(pending); setPending(null); reportDirty();
+                }}>Перейти без сохранения</button></div>
         </div>}
-        {tab === "personal" && <PanelPersonalLibrary onDirty={v => { setDirty(v); if (!v) setPending(null); onDirty?.(v); }} onBusy={v => { busyRef.current = v; setBusy(v); onBusy?.(v); }} />}
+        {tab === "personal" && <PanelPersonalLibrary onDirty={v => { personalDirty.current = v; reportDirty(); }} onBusy={v => { busyRef.current = v; setBusy(v); onBusy?.(v); }} />}
         {tab === "tickets" && <TicketSettings />}
         {tab === "general" && <div className="vc-stx-settings-sections">
             <PanelConnection />
@@ -70,10 +83,10 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
                 <form className="vc-stx-prefix-control" onSubmit={e => {
                     e.preventDefault();
                     if (!validPrefix(prefix)) { setPrefixError("Введите один знак: например ; или !"); return; }
-                    store.setPrefix(prefix); setPrefixError("");
+                    store.setPrefix(prefix); setPrefixError(""); reportDirty();
                 }}>
                     <label htmlFor="stx-prefix-input"><strong>Префикс команды</strong><span>Например, {store.data.prefix}снр</span></label>
-                    <div><input id="stx-prefix-input" aria-label="Префикс команды" maxLength={1} value={prefix} disabled={p.phase !== "ready"} onChange={e => setPrefix(e.currentTarget.value)} /><button className="vc-stx-btn vc-stx-ghost" disabled={p.phase !== "ready" || prefix === store.data.prefix}>Сохранить</button></div>
+                    <div><input id="stx-prefix-input" aria-label="Префикс команды" maxLength={1} value={prefix} disabled={p.phase !== "ready"} onChange={e => { prefixRef.current = e.currentTarget.value; setPrefix(prefixRef.current); reportDirty(); }} /><button className="vc-stx-btn vc-stx-ghost" disabled={p.phase !== "ready" || prefix === store.data.prefix}>Сохранить</button></div>
                 </form>
                 {prefixError && <p role="alert" className="vc-stx-form-error">{prefixError}</p>}
             </section>

@@ -14,18 +14,21 @@ import { generationNow, rememberComposeTarget, Target, targetNow } from "./op";
 import { activeScope, currentMode, Dialog, ensureLibraryFresh, libraryIsFresh, Scope, store, ui } from "./uiState";
 
 type ConfirmArgs = Omit<Extract<Dialog, { kind: "confirm"; }>, "kind" | "resolve">;
+const supersededDialogs = new WeakSet<Dialog>();
+let dialogSequence = 0;
+let preparationSequence = 0;
 
 /**
  * What an insert was prepared for, captured at the start of the flow (before dialogs take focus):
- * the channel and its server's scope (mj / ro / all), the target editor, the selection, the plugin generation.
+ * the channel and its server's scope (mj / ro / all), the target editor and draft, the selection, the plugin generation.
  */
-export interface Snap { channelId: string | null; scope: Scope | null; gen: number; setVersion: number; editor: HTMLElement | null; selection: string; }
+export interface Snap { channelId: string | null; scope: Scope | null; gen: number; setVersion: number; editor: HTMLElement | null; draftText: string | null; selection: string; }
 
 export function snapNow(target: Target): Snap {
-    return { channelId: currentChannel().id, scope: activeScope(), gen: generationNow(), setVersion: store.setVersion, editor: target.editor, selection: target.selection };
+    return { channelId: currentChannel().id, scope: activeScope(), gen: generationNow(), setVersion: store.setVersion, editor: target.editor, draftText: target.editor?.textContent ?? null, selection: target.selection };
 }
 
-/** true while the plugin, the channel, its scope and the target editor are unchanged; otherwise the insert must be dropped. */
+/** true while the plugin, channel, scope, target editor and draft are unchanged; otherwise drop the insert. */
 export function stillCurrent(s: Snap): boolean {
     if (!libraryIsFresh()) return false;
     if (s.gen !== generationNow()) { dlog("cancel", { reason: "плагин перезапущен или выключен" }); return false; }
@@ -37,6 +40,12 @@ export function stillCurrent(s: Snap): boolean {
     if (s.editor && !s.editor.isConnected) {
         dlog("cancel", { reason: "поле ввода, из которого начата вставка, закрылось" });
         toast("Поле ввода закрылось — вставка отменена", "failure");
+        return false;
+    }
+    // Dialogs may own focus while preparing the answer; only a changed draft invalidates it here.
+    if (s.editor && s.editor.textContent !== s.draftText) {
+        dlog("cancel", { reason: "черновик изменился" });
+        toast("Черновик изменился — выберите шаблон снова", "message");
         return false;
     }
     if (s.scope !== null && currentChannel().id === s.channelId && activeScope() === s.scope) return true;
@@ -57,6 +66,7 @@ export const confirmedForeign = new Set<string>();
 export function supersede() {
     const d = ui.get().dialog;
     if (!d) return;
+    supersededDialogs.add(d);
     dlog("dialog-supersede", { kind: d.kind });
     if (d.kind === "fields") d.resolve(null);
     else if (d.kind === "confirm") d.resolve({ ok: false, checked: false });
@@ -71,12 +81,16 @@ function answerOf(kind: Dialog["kind"], v: unknown): string {
 }
 
 /** Opens a dialog whose resolve clears it only while it is still the current one. */
-function open<T>(make: (resolve: (v: T) => void) => Dialog): Promise<T> {
+function open<T>(make: (resolve: (v: T) => void) => Dialog, onAnswer?: (v: T) => void): Promise<T> {
     supersede();
+    ++dialogSequence;
     return new Promise<T>(resolve => {
         const dialog: Dialog = make(v => {
             if (debugEnabled()) dlog("dialog-close", { kind: dialog.kind, result: answerOf(dialog.kind, v), current: ui.get().dialog === dialog });
-            if (ui.get().dialog === dialog) ui.set({ dialog: null });
+            if (ui.get().dialog === dialog) {
+                ui.set({ dialog: null });
+                if (!supersededDialogs.has(dialog)) onAnswer?.(v);
+            }
             resolve(v);
         });
         if (debugEnabled()) dlog("dialog-open", { kind: dialog.kind, title: "title" in dialog ? dialog.title : undefined });
@@ -84,18 +98,18 @@ function open<T>(make: (resolve: (v: T) => void) => Dialog): Promise<T> {
     });
 }
 
-export function confirm(args: ConfirmArgs): Promise<{ ok: boolean; checked: boolean; }> {
-    return open(resolve => ({ kind: "confirm", ...args, resolve }));
+export function confirm(args: ConfirmArgs, onCancel?: () => void): Promise<{ ok: boolean; checked: boolean; }> {
+    return open<{ ok: boolean; checked: boolean; }>(resolve => ({ kind: "confirm", ...args, resolve }), r => { if (!r.ok) onCancel?.(); });
 }
 
 /** Fills panel tokens; asks the user for fields. null = cancelled. */
-export async function fillFields(title: string, text: string, snap: Snap): Promise<string | null> {
+export async function fillFields(title: string, text: string, snap: Snap, onCancel?: () => void): Promise<string | null> {
     const fields = fieldsOf(text);
     let values: Record<string, string> = Object.create(null);
     if (fields.length) {
         const initial: Record<string, string> = Object.create(null); // a field named __proto__ is a field like any other
         for (const f of fields) initial[f.name] = f.def || f.options[0] || "";
-        const got = await open<Record<string, string> | null>(resolve => ({ kind: "fields", title, fields, initial, resolve }));
+        const got = await open<Record<string, string> | null>(resolve => ({ kind: "fields", title, fields, initial, resolve }), v => { if (v === null) onCancel?.(); });
         if (!got) { dlog("cancel", { reason: "отмена в диалоге полей", title }); return null; }
         values = got;
     }
@@ -126,13 +140,13 @@ function scopeHere(): Scope | null {
  * Guard + warnings. Returns the template to use (maybe a mirror) or null when cancelled.
  * On Tech ("all") any template is fine (the switch only filters the list): no mirror, no foreign/marker warnings — only the status check.
  */
-async function guard(t: Template, scope: Scope): Promise<Template | null> {
+async function guard(t: Template, scope: Scope, onCancel?: () => void): Promise<Template | null> {
     if (scope !== "all") {
-        const g = await projectGuard(t, scope);
+        const g = await projectGuard(t, scope, onCancel);
         if (!g) return null;
         t = g;
     }
-    return statusGuard(t);
+    return statusGuard(t, onCancel);
 }
 
 /** "Intentional mention" answer key: tied to the text, so an edited / re-imported template is checked again. */
@@ -143,7 +157,7 @@ function intentKey(t: Template): string {
 }
 
 /** Mirror / foreign / other-project markers for a project's server. */
-async function projectGuard(t: Template, project: ProjectId): Promise<Template | null> {
+async function projectGuard(t: Template, project: ProjectId, onCancel?: () => void): Promise<Template | null> {
     const d = decide(t, project, store.templates);
     if (d.kind === "mirror") {
         dlog("guard", { result: "зеркало", from: t.id, to: d.t.id, project });
@@ -155,7 +169,7 @@ async function projectGuard(t: Template, project: ProjectId): Promise<Template |
             title: t.title,
             body: `Это шаблон ${PROJECTS[t.project!].name}, а канал — ${PROJECTS[project].name}. Пары для ${PROJECTS[project].short} нет.`,
             ok: `Да, вставить шаблон ${PROJECTS[t.project!].short}`,
-        });
+        }, onCancel);
         if (!r.ok) { dlog("cancel", { reason: "отмена в диалоге: шаблон другого проекта", id: t.id }); return null; }
         confirmedForeign.add(`${project}:${t.id}`);
         return t; // confirmed as the other project's: naming that project is expected, no second warning
@@ -171,7 +185,7 @@ async function projectGuard(t: Template, project: ProjectId): Promise<Template |
                 title: t.title,
                 body: `В тексте есть: ${found.join(", ")}. Канал — ${PROJECTS[project].name}.`,
                 ok: "Вставить", checkbox: "Это намеренно, больше не спрашивать",
-            });
+            }, onCancel);
             if (!r.ok) { dlog("cancel", { reason: "отмена в диалоге: упоминается другой проект", id: t.id, markers: found.join(", ") }); return null; }
             if (r.checked) store.markIntentional(intentKey(t));
         }
@@ -179,30 +193,45 @@ async function projectGuard(t: Template, project: ProjectId): Promise<Template |
     return t;
 }
 
-async function statusGuard(t: Template): Promise<Template | null> {
+async function statusGuard(t: Template, onCancel?: () => void): Promise<Template | null> {
     if (t.status !== "actual") {
         const r = await confirm({
             tone: "danger", label: t.status === "outdated" ? "Шаблон помечен «Устарело»" : "Шаблон на проверке",
             title: t.title,
             body: (t.statusNote ? `Комментарий: «${t.statusNote}». ` : "") + "Проверьте текст, прежде чем отправлять игроку.",
             ok: "Вставить всё равно",
-        });
+        }, onCancel);
         if (!r.ok) { dlog("cancel", { reason: "отмена в диалоге: статус " + t.status, id: t.id }); return null; }
     }
     return t;
 }
 
 export async function prepareText(t: Template, target: Target, opts: { noGreeting?: boolean; } = {}): Promise<{ t: Template; text: string; snap: Snap; } | null> {
+    const operation = ++preparationSequence;
     if (store.byId(t.id) !== t) return null;
     const snap = snapNow(target);
+    let cancelledDialog: number | null = null;
+    const onCancel = () => { cancelledDialog = dialogSequence; };
+    // Restore only a user's cancellation. Supersession and newer operations must never steal focus.
+    const restoreCancelledFocus = () => {
+        const state = ui.get();
+        if (cancelledDialog === null || cancelledDialog !== dialogSequence || operation !== preparationSequence
+            || state.dialog || state.management || state.windowOpen || !snap.editor?.isConnected
+            || snap.gen !== generationNow() || snap.channelId !== currentChannel().id
+            || snap.scope === null || snap.scope !== activeScope()) return;
+        const focused = document.activeElement;
+        if (focused === document.body || focused?.closest(".vc-stx-dialog")) snap.editor.focus();
+    };
     if ((!libraryIsFresh() && !await ensureLibraryFresh()) || !stillCurrent(snap)) return null;
     const scope = scopeHere();
     if (!scope) return null;
-    const g = await guard(t, scope);
-    if (!g || store.byId(g.id) !== g || !stillCurrent(snap)) return null;
+    const g = await guard(t, scope, onCancel);
+    if (!g) { restoreCancelledFocus(); return null; }
+    if (store.byId(g.id) !== g || !stillCurrent(snap)) return null;
     const raw = opts.noGreeting ? splitGreeting(g.text).body : stripMarker(g.text);
-    const text = await fillFields(g.title, raw, snap);
-    return text === null || (!libraryIsFresh() && !await ensureLibraryFresh()) || store.byId(g.id) !== g || !stillCurrent(snap) ? null : { t: g, text, snap };
+    const text = await fillFields(g.title, raw, snap, onCancel);
+    if (text === null) { restoreCancelledFocus(); return null; }
+    return (!libraryIsFresh() && !await ensureLibraryFresh()) || store.byId(g.id) !== g || !stillCurrent(snap) ? null : { t: g, text, snap };
 }
 
 /** `via` — where the insert came from, for the debug log only. */

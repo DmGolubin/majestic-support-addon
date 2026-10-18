@@ -6,6 +6,7 @@
 
 // Same token grammar as the panel's Templates page: {{name}}, {{name=default}}, {{name|a|b}}, {|}.
 const TOKEN = /\{\{\s*([^}|=]+?)\s*(?:=\s*([^}|]*?)\s*)?(\|[^}]*)?\s*\}\}/g;
+const INSERT_TOKEN = new RegExp(`${TOKEN.source}|\\{\\|\\}`, "g");
 const DATE_TIME = /^(date|time)(?:([+-])(\d+)([mhdw]))?$/i;
 const BUILTIN = new Set(["clipboard", "selection", "url", "title"]);
 const UNIT_MS: Record<string, number> = { m: 6e4, h: 36e5, d: 864e5, w: 6048e5 };
@@ -33,7 +34,7 @@ export function fieldsOf(text: string): FieldSpec[] {
 }
 
 export function fill(text: string, values: Record<string, string>, env: Env): { text: string; caret: number | null; } {
-    let out = text.replace(TOKEN, (_all, rawName: string, def: string | undefined, opts: string | undefined) => {
+    const resolve = (rawName: string, def: string | undefined, opts: string | undefined): string => {
         const name = rawName.trim();
         const dt = DATE_TIME.exec(name);
         if (dt) {
@@ -47,8 +48,19 @@ export function fill(text: string, values: Record<string, string>, env: Env): { 
         if (def) return def.trim();
         if (opts) return opts.slice(1).split("|").map(s => s.trim()).filter(Boolean)[0] ?? "";
         return "";
+    };
+    let caret: number | null = null;
+    let delta = 0;
+    // Match only source syntax: replacement values (including clipboard) stay literal.
+    const out = text.replace(INSERT_TOKEN, (all, rawName: string | undefined, def: string | undefined, opts: string | undefined, offset: number) => {
+        if (rawName === undefined) {
+            caret ??= offset + delta;
+            delta -= all.length;
+            return "";
+        }
+        const value = resolve(rawName, def, opts);
+        delta += value.length - all.length;
+        return value;
     });
-    const i = out.indexOf("{|}");
-    out = out.replace(/\{\|\}/g, "");
-    return { text: out, caret: i >= 0 ? i : null };
+    return { text: out, caret };
 }

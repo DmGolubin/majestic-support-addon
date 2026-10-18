@@ -97,11 +97,15 @@ const onSelection = () => { if (ui.get().inline || focusedEditor()) schedule(); 
 export function startInline() {
     document.addEventListener("input", schedule, true);
     document.addEventListener("selectionchange", onSelection);
+    document.addEventListener("focusin", schedule, true);
+    document.addEventListener("focusout", schedule, true);
     return () => {
         idle = null;
         cancelAnimationFrame(raf);
         document.removeEventListener("input", schedule, true);
         document.removeEventListener("selectionchange", onSelection);
+        document.removeEventListener("focusin", schedule, true);
+        document.removeEventListener("focusout", schedule, true);
         close();
     };
 }
@@ -205,6 +209,13 @@ export function handleInlineKey(e: KeyboardEvent): boolean {
     if (accepting && (isEnter || isTab)) { dlog("key", { h: "inline-accepting-swallow", key: e.code }, "acc-swallow:" + e.code); return true; } // swallow repeats/double taps during accept
     const st = ui.get().inline;
     if (!st) return false;
+    const editor = focusedEditor();
+    const before = editor && textBeforeCaret(editor);
+    const trigger = before == null ? null : findTrigger(before.split("\n").pop() ?? "", store.data.prefix);
+    if (!editor || !activeScope() || ui.get().management || trigger?.query !== st.query || trigger.length !== st.length) {
+        close();
+        return false;
+    }
     if (e.key === "Escape") { publish(null); return true; }
     const plain = !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey;
     const n = st.items.length;

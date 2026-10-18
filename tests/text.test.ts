@@ -26,6 +26,20 @@ describe("text", () => {
     it("splitGreeting leaves text without greeting", () => {
         expect(splitGreeting("Просто текст\n\nещё")).toEqual({ greeting: "", body: "Просто текст\n\nещё" });
     });
+    it.each(["\n", "\r\n"])("preserves body indentation after greeting boundaries with %j", newline => {
+        const body = `    first line${newline}\tsecond line`;
+        const text = `Здравствуйте!${newline}[[greeting:end]]${newline}${body}`;
+        expect(splitGreeting(text)).toEqual({ greeting: "Здравствуйте!", body });
+        expect(stripMarker(text)).toBe(`Здравствуйте!${newline}${body}`);
+        expect(splitGreeting(`Здравствуйте![[greeting:end]]${newline} \t${newline}${body}`).body).toBe(body);
+        expect(splitGreeting(`Здравствуйте!${newline} \t${newline}${body}`).body).toBe(body);
+    });
+    it("keeps inline greeting boundary spacing semantics", () => {
+        expect(splitGreeting("Здравствуйте! [[greeting:end]]   Инструкция."))
+            .toEqual({ greeting: "Здравствуйте!", body: "Инструкция." });
+        expect(splitGreeting("Здравствуйте![[greeting:end]]Инструкция."))
+            .toEqual({ greeting: "Здравствуйте!", body: "Инструкция." });
+    });
     it.each([
         "Отключите приветствие в настройках.",
         "Приветствие можно отключить в настройках.",

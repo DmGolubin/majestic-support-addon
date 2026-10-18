@@ -415,6 +415,8 @@ export function preparePanelWrite(input: PanelMutation): () => Promise<{ refresh
     const active = client, own = epoch, generation = panelPersonal.get().generation;
     const owner = boundAccountId;
     let confirmed = false, conflicted = false;
+    // Also validates delayed/replayed responses against the palette at first dispatch.
+    let submittedColors: string[] | null = null;
     const guard = () => {
         if (!active || client !== active || own !== epoch || generation !== panelPersonal.get().generation
             || !owner || owner !== UserStore.getCurrentUser()?.id) throw new PanelError("cancelled");
@@ -430,6 +432,14 @@ export function preparePanelWrite(input: PanelMutation): () => Promise<{ refresh
         if ((body?.shared || (existing && "shared" in existing && existing.shared)) && catalog.projects.length !== 2) throw new PanelError("forbidden", 403);
         const project = body?.project === "majestic" ? "mj" : body?.project === "russia-online" ? "ro" : undefined;
         if (project && !catalog.projects.includes(project)) throw new PanelError("forbidden", 403);
+    };
+    const validateDraft = () => {
+        // Once dispatch is possible, only the server can resolve an uncertain action.
+        // Changed dependencies must not replace its captured body or create UUID.
+        if (submittedColors !== null) return;
+        const catalog = panelPersonal.get().catalog!;
+        const body = request.body as Record<string, unknown> | undefined;
+        const project = body?.project === "majestic" ? "mj" : body?.project === "russia-online" ? "ro" : undefined;
         if (body?.color && !catalog.colors.includes(body.color as string)) throw new PanelError("invalid_request");
         if (body?.folderId) {
             const folder = catalog.folderRecords.find(f => f.id === body.folderId);
@@ -437,6 +447,7 @@ export function preparePanelWrite(input: PanelMutation): () => Promise<{ refresh
         }
     };
     guard();
+    validateDraft();
     return async () => {
         guard();
         if (conflicted) throw new PanelError("version_conflict", 412);
@@ -449,6 +460,8 @@ export function preparePanelWrite(input: PanelMutation): () => Promise<{ refresh
                 const raw = await active!.mutate(request, () => {
                     guard();
                     if (!libraryIsFresh()) throw new PanelError("stale_library");
+                    validateDraft();
+                    submittedColors ??= [...panelPersonal.get().catalog!.colors];
                 });
                 guard();
                 const result = raw as Record<string, unknown> | null;
@@ -458,7 +471,7 @@ export function preparePanelWrite(input: PanelMutation): () => Promise<{ refresh
                         if (!result || result.success !== true) throw new Error();
                     } else {
                         const record = scope === "folders:write" ? parseFolderRecord(result?.folder, catalog.projects)
-                            : parsePersonalRecord(result?.template, catalog.projects, catalog.colors);
+                            : parsePersonalRecord(result?.template, catalog.projects, submittedColors!);
                         if (request.method === "PATCH" && record.id !== request.path.split("/")[2]) throw new Error();
                     }
                 } catch { throw new PanelError("invalid_response"); }

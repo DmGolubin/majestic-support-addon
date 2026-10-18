@@ -61,6 +61,17 @@ describe("panel snapshot", () => {
         Object.assign(wire.faq[0], { format: "text", text: "@everyone @here <@123> <@!123> <@&123> help@example.org {{name=@here}}" });
         expect(parse(wire).templates[0].text).toBe("@\u200beveryone @\u200bhere <@\u200b123> <@\u200b!123> <@\u200b&123> help@example.org {{name=@here}}");
     });
+    it.each(["text", "html"])("preserves URL destinations while protecting adjacent mentions in %s FAQ", format => {
+        const wire = snapshotWire();
+        const links = "[@here](https://example.org/@here/help)@everyone <https://example.org/@everyone> "
+            + "[Help](<https://example.org/?user=@here&group=@everyone>) "
+            + "https://example.org/(@here)/@everyone HTTP://example.org/@here";
+        Object.assign(wire.faq[0], { format, text: links + " @here <@123> {{name=@here}}" });
+        expect(parse(wire).templates[0].text).toBe(
+            links.replace("[@here]", "[@\u200bhere]").replace(")@everyone", ")@\u200beveryone")
+            + " @\u200bhere <@\u200b123> {{name=@here}}"
+        );
+    });
     it("converts only HTML in a mixed-format snapshot", () => {
         const wire = snapshotWire();
         wire.faq.push({ ...wire.faq[0], id: "russia-online:1", projects: ["russia-online"], format: "text", text: "**text**" });

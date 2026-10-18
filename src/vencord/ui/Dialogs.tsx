@@ -14,7 +14,7 @@ import { Dialog, store, ui } from "./uiState";
 
 function Frame({ children, onEscape }: { children: React.ReactNode; onEscape(): void; }) {
     useEffect(() => {
-        const h = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onEscape(); } };
+        const h = (e: KeyboardEvent) => { if (e.key === "Escape" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); e.stopPropagation(); onEscape(); } };
         document.addEventListener("keydown", h, true);
         return () => document.removeEventListener("keydown", h, true);
     }, []);
@@ -80,6 +80,7 @@ function Bind({ d }: { d: Extract<Dialog, { kind: "bind"; }>; }) {
     const close = () => { dlog("dialog-close", { kind: "bind", id: d.templateId }); ui.set({ dialog: null }); };
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
+            if (e.isComposing || e.keyCode === 229) return;
             e.preventDefault();
             e.stopPropagation();
             if (e.key === "Escape") return close();

@@ -20,6 +20,12 @@ describe("inert FAQ HTML conversion", () => {
         expect(htmlToDiscordText("@everyone @here <@123> <@!123> <@&123>"))
             .toBe("@\u200beveryone @\u200bhere <@\u200b123> <@\u200b!123> <@\u200b&123>");
     });
+    it("preserves mention-like URL components after decoding HTML entities", () => {
+        expect(htmlToDiscordText('<p>[Help](https://example.org/&#64;here?group=&#64;everyone)&#64;here '
+            + '&lt;https://example.org/@everyone&gt; <a href="https://example.org/@here">@everyone</a></p>'))
+            .toBe("[Help](https://example.org/@here?group=@everyone)@\u200bhere "
+                + "<https://example.org/@everyone> @\u200beveryone <https://example.org/@here>");
+    });
     it("preserves the real API greeting marker, Markdown, trailing space and Windows paths", () => {
         const text = "**Приветствую!**\n[[greeting:end]]\n\n1. Проверьте файлы. \n`C:\\Users\\%username%\\Documents`\n\nid#00048394";
         expect(htmlToDiscordText(text)).toBe(text);
@@ -42,6 +48,19 @@ describe("inert FAQ HTML conversion", () => {
     });
     it.each(["javascript:alert(1)", "data:text/html,test", "file:///secret", "//example.com", "https://user:pass@example.com", "java&#115;cript:alert(1)"])("drops unsafe href %s while retaining its label", href => {
         expect(htmlToDiscordText(`<a href="${href}">Label</a>`)).toBe("Label");
+    });
+    it.each([
+        `title="See href='https://wrong.example/'" href="https://right.example/"`,
+        `title="See href='javascript:void(0)'" href="https://right.example/"`,
+        `title='See href="https://wrong.example/"' HREF='https://right.example/'`,
+        `hidden title="See href='https://wrong.example/'" href=https://right.example/`,
+    ])("reads real attributes rather than href text inside another value: %s", attrs => {
+        expect(htmlToDiscordText(`<a ${attrs}>Help</a>`)).toBe("Help <https://right.example/>");
+    });
+    it("does not use a quoted fake href when the actual link is absent or unsafe", () => {
+        expect(htmlToDiscordText(`<a title="See href='https://wrong.example/'">Help</a>`)).toBe("Help");
+        expect(htmlToDiscordText(`<a title="See href='https://wrong.example/'" href="javascript:void(0)">Help</a>`)).toBe("Help");
+        expect(htmlToDiscordText(`<img title="See alt='Wrong'" alt="Right &amp; useful">`)).toBe("Right & useful");
     });
     it("preserves Markdown and neutralizes Discord mentions after entity decoding", () => {
         const text = htmlToDiscordText('<p>**Bold** @everyone &#64;here &lt;@123&gt; [Help](https://example.com)</p>');

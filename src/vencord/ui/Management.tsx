@@ -21,6 +21,7 @@ export function Management() {
         const previous = document.activeElement as HTMLElement;
         root.current?.focus();
         const key = (e: KeyboardEvent) => {
+            if (e.isComposing || e.keyCode === 229) return;
             if (e.key === "Escape" && (e.target as HTMLElement)?.closest("[data-stx-select-open]")) return;
             if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
             if (e.key === "Tab") {

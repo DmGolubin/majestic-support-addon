@@ -33,8 +33,18 @@ export function Select({ value, onChange, children, "aria-label": label }: {
         const rect = button.current?.getBoundingClientRect();
         const bounds = root.current?.closest(".vc-stx-settings, .vc-stx-win")?.getBoundingClientRect();
         if (rect) {
-            const below = Math.min(innerHeight, bounds?.bottom ?? innerHeight) - rect.bottom;
-            const above = rect.top - Math.max(0, bounds?.top ?? 0);
+            let top = Math.max(0, bounds?.top ?? 0);
+            let bottom = Math.min(innerHeight, bounds?.bottom ?? innerHeight);
+            // The editor body can scroll independently of settings. Every enclosing
+            // scrollport clips this absolute popup; visible wrappers must not limit it.
+            for (let ancestor = root.current?.parentElement; ancestor; ancestor = ancestor.parentElement) {
+                if (!["auto", "scroll", "hidden", "clip"].includes(getComputedStyle(ancestor).overflowY)) continue;
+                const clipTop = ancestor.getBoundingClientRect().top + ancestor.clientTop;
+                top = Math.max(top, clipTop);
+                bottom = Math.min(bottom, clipTop + ancestor.clientHeight);
+            }
+            const below = bottom - rect.bottom;
+            const above = rect.top - top;
             const upward = below < Math.min(200, options.length * 38 + 8) && above > below;
             setUp(upward);
             setMaxHeight(Math.max(0, Math.min(200, (upward ? above : below) - 8)));

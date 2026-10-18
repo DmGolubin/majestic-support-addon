@@ -130,7 +130,7 @@ describe("personal write controller", () => {
             name: "Support", projects: ["majestic", "russia-online"], permissionsRevision: "p1", minimumPluginVersion: "1.0.0", serverTime: date,
             scopes: ["profile:read", "faq:read", "personal:read", "folders:read", "sync:read", ...(writeAccess ? ["personal:write", "folders:write"] : [])] };
         const row = { id: "7", version: "opaque-seven", title: "Original", text: "**Answer**\r\n[[greeting:end]]", format: "text",
-            projects: ["majestic"], shared: false, command: null, color: "amber", folderId: null, updatedAt: date };
+            projects: ["majestic"], shared: false, command: null, color: "amber" as string | null, folderId: null, updatedAt: date };
         const folder = { id: "8", version: "folder-eight", title: "Folder", project: "russia-online", position: 3, updatedAt: date };
         const snapshot = { schemaVersion: 1, accountId: profile.accountId, revision: "r1", permissionsRevision: "p1", serverTime: date,
             projects: profile.projects, faq: [], personal: [row], folders: [folder], trash: [], limits: { colors: ["amber"] }, colorLabels: {} };
@@ -165,6 +165,75 @@ describe("personal write controller", () => {
         expect(h.api.panelPersonal.get().catalog.personalRecords).toHaveLength(1);
         await action();
         expect(h.mutate.mock.calls.map(([sent]) => JSON.stringify(sent))).toEqual([captured, captured]); h.api.disposePanel();
+    });
+    it.each(["after-response", "sse-before-response"].flatMap(ordering => ["folder", "palette"].map(dependency => ({ ordering, dependency }))))(
+        "keeps a successful create confirmed when its $dependency changes $ordering", async ({ ordering, dependency }) => {
+        const h = setup(); h.folder.project = "majestic"; await h.api.connectPanel();
+        const request = create(); Object.assign(request.body!, { folderId: "8", color: "amber" });
+        const action = h.api.preparePanelWrite(request), wait = deferred<unknown>();
+        h.mutate.mockReturnValueOnce(wait.promise);
+        const saving = action(); await vi.advanceTimersByTimeAsync(0);
+        const reply = { template: { ...structuredClone(h.row), folderId: "8" } };
+        if (dependency === "folder") h.snapshot.folders = [];
+        else { h.snapshot.limits.colors = []; h.row.color = null; }
+        if (ordering === "sse-before-response") {
+            h.streams[0].emit({ type: "library.changed", data: {} });
+            await vi.advanceTimersByTimeAsync(0);
+            expect(h.api.panelPersonal.get().catalog[dependency === "folder" ? "folderRecords" : "colors"]).toEqual([]);
+        }
+        wait.resolve(reply);
+        await expect(saving).resolves.toEqual({ refreshed: true });
+        expect(h.api.panelPersonal.get().catalog[dependency === "folder" ? "folderRecords" : "colors"]).toEqual([]);
+        await expect(action()).resolves.toEqual({ refreshed: true });
+        expect(h.mutate).toHaveBeenCalledTimes(1); h.api.disposePanel();
+    });
+    it("replays an uncertain create with the same JSON and UUID after folder and palette removal", async () => {
+        const h = setup(); h.folder.project = "majestic"; await h.api.connectPanel();
+        const request = create(); Object.assign(request.body!, { folderId: "8", color: "amber" });
+        const action = h.api.preparePanelWrite(request), captured = JSON.stringify(request);
+        const reply = { template: { ...structuredClone(h.row), folderId: "8" } };
+        h.mutate.mockRejectedValueOnce(new PanelError("network_error")).mockResolvedValueOnce(reply);
+        await expect(action()).rejects.toMatchObject({ code: "network_error" });
+        h.snapshot.folders = []; h.snapshot.limits.colors = []; h.row.color = null;
+        h.streams[0].emit({ type: "library.changed", data: {} }); await vi.advanceTimersByTimeAsync(0);
+        await expect(action()).resolves.toEqual({ refreshed: true });
+        expect(h.mutate.mock.calls.map(([sent]) => JSON.stringify(sent))).toEqual([captured, captured]);
+        await action(); expect(h.mutate).toHaveBeenCalledTimes(2); h.api.disposePanel();
+    });
+    it.each(["folder", "color"])("still validates a removed %s before the first dispatch", async dependency => {
+        const h = setup(); h.folder.project = "majestic"; await h.api.connectPanel();
+        const request = create(); Object.assign(request.body!, { folderId: "8", color: "amber" });
+        const action = h.api.preparePanelWrite(request);
+        if (dependency === "folder") h.snapshot.folders = [];
+        else { h.snapshot.limits.colors = []; h.row.color = null; }
+        await h.api.reloadPanel();
+        await expect(action()).rejects.toMatchObject({ code: "invalid_request" });
+        expect(h.mutate).not.toHaveBeenCalled(); h.api.disposePanel();
+    });
+    it.each(["confirmed", "uncertain"])("still fences scopes, projects and session on a %s retry", async outcome => {
+        const h = setup(); await h.api.connectPanel(); const request = create();
+        const action = h.api.preparePanelWrite(request);
+        if (outcome === "uncertain") {
+            h.mutate.mockRejectedValueOnce(new PanelError("network_error"));
+            await expect(action()).rejects.toMatchObject({ code: "network_error" });
+        } else await action();
+        const state = h.api.panelPersonal.get();
+        h.api.panelPersonal.set({ scopes: [] });
+        await expect(action()).rejects.toMatchObject({ code: "insufficient_scope", status: 403 });
+        h.api.panelPersonal.set({ scopes: state.scopes, catalog: { ...state.catalog, projects: ["ro"] } });
+        await expect(action()).rejects.toMatchObject({ code: "forbidden", status: 403 });
+        h.api.panelPersonal.set({ catalog: state.catalog });
+        h.streams[0].emit({ type: "session.revoked", data: {} });
+        await expect(action()).rejects.toMatchObject({ code: "cancelled" });
+        expect(h.mutate).toHaveBeenCalledTimes(1); h.api.disposePanel();
+    });
+    it("rejects a late success when write scope is revoked while awaiting the response", async () => {
+        const h = setup(); await h.api.connectPanel(); const action = h.api.preparePanelWrite(create());
+        const wait = deferred<unknown>(); h.mutate.mockReturnValueOnce(wait.promise);
+        const saving = action(); await vi.advanceTimersByTimeAsync(0);
+        h.api.panelPersonal.set({ scopes: [] }); wait.resolve({ template: structuredClone(h.row) });
+        await expect(saving).rejects.toMatchObject({ code: "insufficient_scope", status: 403 });
+        expect(h.mutate).toHaveBeenCalledTimes(1); h.api.disposePanel();
     });
     it("412 refreshes the server record, preserves request inputs, and permanently blocks that action", async () => {
         const h = setup(); await h.api.connectPanel(); const request = patch(), action = h.api.preparePanelWrite(request);

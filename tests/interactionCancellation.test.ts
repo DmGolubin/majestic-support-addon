@@ -85,6 +85,7 @@ async function harness() {
     const insertText = vi.fn(() => true);
     const toast = vi.fn();
     const latchKey = vi.fn();
+    const resetComposeTarget = vi.fn();
     const snapNow = () => ({ scope: "mj", setVersion: store.setVersion, editor: ed });
     const flow = {
         prepareText: vi.fn(async (template: any, _target: any, _options: any) => ({ t: template, text: template.text, snap: snapNow() })),
@@ -113,7 +114,7 @@ async function harness() {
         "../platform": { insertText, toast },
         "./debug": { costStart: () => 0, costEnd: () => {}, debugEnabled: () => false, dlog: () => {} },
         "./flow": flow, "./keylatch": { latchKey },
-        "./op": { generationNow: () => 1, composeEditor: () => ed, composeTargetNow: () => ({ editor: ed, selection: "" }), resetComposeTarget: vi.fn() },
+        "./op": { generationNow: () => 1, composeEditor: () => ed, composeTargetNow: () => ({ editor: ed, selection: "" }), resetComposeTarget },
         "./uiState": { store, ui, libraryIsFresh: () => true, ensureLibraryFresh: async () => true, activeScope: () => "mj", poolFor: () => store.templates, useStore: () => {}, useChatRect: () => ({ left: 0, width: 500, top: 600 }) },
         "./ProjectIcon": {}, "./svg": {},
     };
@@ -140,13 +141,25 @@ async function harness() {
     render(); // Host keeps the component mounted even with an empty reply.
     const openInline = () => ui.set({ inline: { query: "old", length: 4, sel: 0, items: [t], note: "" } });
     const collect = () => { ui.set({ compose: [id] }); return render(); };
-    return { store, id, t, ui, document, ed, makeEditor, setCaret, flow, inline, insertText, toast, latchKey, openInline, collect, render, unmount: () => cleanups.splice(0).forEach(fn => fn()), selection: () => selection };
+    return { store, id, t, ui, document, ed, makeEditor, setCaret, flow, inline, insertText, toast, latchKey, resetComposeTarget, openInline, collect, render, unmount: () => cleanups.splice(0).forEach(fn => fn()), selection: () => selection };
 }
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("inline cancellation", () => {
+    it.each(["ArrowDown", "ArrowUp", "Enter", "Tab"])("does not consume %s after focus leaves its editor", async key => {
+        const h = await harness(); h.openInline();
+        h.document.activeElement = { closest: () => null };
+        expect(h.inline.handleInlineKey({ key, code: key })).toBe(false);
+        expect(h.ui.get().inline).toBeNull();
+        expect(h.flow.prepareText).not.toHaveBeenCalled();
+    });
+    it("does not consume a key from a stale trigger before the next animation frame", async () => {
+        const h = await harness(); h.openInline(); h.ed.textContent = "plain text"; h.setCaret(h.ed);
+        expect(h.inline.handleInlineKey({ key: "Enter", code: "Enter" })).toBe(false);
+        expect(h.ui.get().inline).toBeNull();
+    });
     it("replaces an unchanged trigger once", async () => {
         const h = await harness(); h.openInline();
         const pending = h.inline.acceptInline(0, false);
@@ -231,6 +244,16 @@ describe("inline cancellation", () => {
 });
 
 describe("compose cancellation", () => {
+    it("releases a disconnected target before preparation while retaining the collected reply", async () => {
+        const h = await harness(); const b = h.collect();
+        h.ed.isConnected = false;
+        await b.props.onClick();
+        expect(h.resetComposeTarget).toHaveBeenCalledTimes(1);
+        expect(h.flow.fillFields).not.toHaveBeenCalled();
+        expect(h.insertText).not.toHaveBeenCalled();
+        expect(h.ui.get().compose).toEqual([h.id]);
+        expect(h.render().props.disabled).toBe(false);
+    });
     it("locks synchronously across double clicks and rerenders, then inserts once", async () => {
         const h = await harness(); const first = h.collect();
         const ready = deferred<string>(); h.flow.fillFields.mockImplementationOnce(() => ready.promise);

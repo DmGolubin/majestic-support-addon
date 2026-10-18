@@ -111,10 +111,10 @@ export function ContextMenu() {
         // While the menu is open it owns the keyboard: the window's Enter / Ctrl+D / Shift+Enter (which act on the
         // keyboard selection, not on this row) and typing into the search never run behind it.
         const key = (e: KeyboardEvent) => {
+            if (e.isComposing || e.keyCode === 229) return;
             if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") return;
             e.preventDefault();
             e.stopPropagation();
-            if (e.isComposing) return;
             // Never act on a menu the user cannot see (not placed yet): only Escape works then.
             if (ref.current?.style.visibility === "hidden" && e.key !== "Escape") return;
             const n = itemsRef.current.length;

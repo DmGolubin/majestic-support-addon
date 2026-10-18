@@ -19,15 +19,17 @@ export const titleKey = (s: string) => soft(s).replace(/[^\p{L}\p{N}]+/gu, "");
 const MARKER = /[^\S\r\n]*\[\[greeting:end\]\][^\S\r\n]*\r?\n?/;
 // Only a salutation at the paragraph's start (optionally emphasized), never a mention inside instructions.
 const GREETING_HINT = /^[^\S\r\n]*(?:\*{1,3}|_{1,3})?(?:здравствуйте|здравствуй|приветствую|приветствуем|привет|добрый (?:день|вечер)|доброе утро|благодар(?:им|ю)(?: вас)? за обращение)(?=$|[\s!.,:;?*_])/iu;
+// Remove separator lines, preserving indentation on the first body line.
+const trimBlankLines = (text: string) => text.replace(/^(?:[^\S\r\n]*\r?\n)+/, "");
 
 export function splitGreeting(text: string): { greeting: string; body: string; } {
     const m = MARKER.exec(text);
-    if (m) return { greeting: text.slice(0, m.index).trimEnd(), body: text.slice(m.index + m[0].length).trimStart() };
+    if (m) return { greeting: text.slice(0, m.index).trimEnd(), body: trimBlankLines(text.slice(m.index + m[0].length)) };
     // Local templates have no marker: the first paragraph is the greeting if it looks like one.
     const i = text.search(/\n[^\S\n]*\n/);
     if (i > 0) {
         const first = text.slice(0, i);
-        if (first.length <= 300 && GREETING_HINT.test(first)) return { greeting: first.trimEnd(), body: text.slice(i).trimStart() };
+        if (first.length <= 300 && GREETING_HINT.test(first)) return { greeting: first.trimEnd(), body: trimBlankLines(text.slice(i)) };
     }
     return { greeting: "", body: text };
 }

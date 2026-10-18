@@ -95,14 +95,25 @@ export function pickTechProject(p: ProjectId) {
 /** The Tech choice, re-rendering only when it changes (the chat-bar button uses it). */
 export function useTechProject(): ProjectId {
     const [p, setP] = useState(store.data.techProject);
-    useEffect(() => store.subscribe(() => setP(store.data.techProject)), []);
+    useEffect(() => {
+        const update = () => setP(store.data.techProject);
+        const off = store.subscribe(update);
+        update(); // Catch a change between render and the passive-effect subscription.
+        return off;
+    }, []);
     return p;
 }
 
 /** Re-render on any Store change; returns a version number. */
 export function useStore() {
     const [v, setV] = useState(0);
-    useEffect(() => store.subscribe(() => setV(x => x + 1)), []);
+    useEffect(() => {
+        const update = () => setV(x => x + 1);
+        const off = store.subscribe(update);
+        // Consumers read store data during render; refresh once after subscribing to catch missed changes.
+        update();
+        return off;
+    }, []);
     return v;
 }
 

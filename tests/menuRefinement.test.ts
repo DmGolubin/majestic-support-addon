@@ -121,17 +121,24 @@ function windowHarness(width = 800, pinned = true) {
     });
     return { render, state, store, ui, pool, input, listeners, categoryButton, insertTemplate, addToCompose };
 }
-function selectHarness(props: any, bounds = { top: 100, bottom: 600 }, buttonRect = { top: 500, bottom: 530 }) {
+function selectHarness(props: any, bounds = { top: 100, bottom: 600 }, buttonRect = { top: 500, bottom: 530 },
+    ancestors: { top: number; bottom: number; overflowY: string; clientTop?: number; clientHeight?: number; }[] = [], viewportHeight = 800) {
     const h = hooks(), focus = vi.fn(), scroll = vi.fn();
+    const container = { getBoundingClientRect: () => bounds, overflowY: "visible", parentElement: null };
+    const parentElement = ancestors.reduceRight<any>((parent, ancestor) => ({
+        ...ancestor, getBoundingClientRect: () => ancestor, parentElement: parent,
+        clientTop: ancestor.clientTop ?? 0, clientHeight: ancestor.clientHeight ?? ancestor.bottom - ancestor.top,
+    }), container);
     const exports = load(selectCode, { "@webpack/common": h.api, "./svg": { IconChevron: "IconChevron" } }, {
-        crypto: { randomUUID: () => "test" }, innerHeight: 800,
+        crypto: { randomUUID: () => "test" }, innerHeight: viewportHeight,
+        getComputedStyle: (element: any) => ({ overflowY: element.overflowY }),
     });
     let tree: VNode;
     const render = () => tree = h.render(() => exports.Select(props), tree => {
         for (const n of nodes(tree)) if (n.props.ref) n.props.ref.current = n.props.role === "combobox"
             ? { focus, getBoundingClientRect: () => buttonRect }
             : n.props.role === "listbox" ? { children: nodes(n).filter(o => o.props.role === "option").map(() => ({ scrollIntoView: scroll })) }
-                : { closest: () => ({ getBoundingClientRect: () => bounds }), contains: (target: any) => target === dropdown };
+                : { closest: () => container, parentElement, contains: (target: any) => target === dropdown };
     });
     const button = () => nodes(tree).find(n => n.props.role === "combobox")!;
     const press = (name: string, patch = {}) => { const e = key(name, dropdown, patch); button().props.onKeyDown(e); render(); return e; };
@@ -211,6 +218,18 @@ describe("template menu refinement", () => {
         expect(h.state).toMatchObject({ management: true, windowOpen: false });
     });
 
+    it.each(["button", "a"])("leaves focused preview %s activation to its own handler", tag => {
+        const h = windowHarness(), parent = byClass(h.render(), "vc-stx-win");
+        const target = { closest: (selector: string) => selector.split(",").map(s => s.trim()).includes(tag) ? {} : null };
+        for (const name of ["Enter", " ", "ArrowDown", "ArrowLeft"]) {
+            const event = key(name, target);
+            parent.props.onKeyDown(event);
+            expect(event.defaultPrevented).toBe(false);
+        }
+        expect(h.insertTemplate).not.toHaveBeenCalled();
+        expect(h.addToCompose).not.toHaveBeenCalled();
+    });
+
     it("retains search Enter/Shift+Enter and Escape while ignoring composition", () => {
         const h = windowHarness(), parent = byClass(h.render(), "vc-stx-win");
         parent.props.onKeyDown(key("Enter", h.input, { nativeEvent: { isComposing: true } }));
@@ -250,6 +269,47 @@ describe("template menu refinement", () => {
 
 describe("Select keyboard visibility", () => {
     const options = Array.from({ length: 30 }, (_, i) => ({ type: "option", props: { value: String(i), children: `Category ${i}` } }));
+    it("fits the folder popup inside the nested editor scrollport on open and End/Home", () => {
+        const h = selectHarness({ value: "0", onChange: vi.fn(), children: options.slice(0, 12), "aria-label": "Folder" },
+            { top: 100, bottom: 500 }, { top: 320, bottom: 350 },
+            [{ top: 217.3, bottom: 435, overflowY: "auto", clientTop: 2, clientHeight: 210.7 }], 550);
+        h.button().props.onClick(); h.render();
+        for (const name of [null, "End", "Home"]) {
+            if (name) h.press(name);
+            const height = nodes(h.tree()).find(n => n.props.role === "listbox")!.props.style.maxHeight;
+            expect(h.tree().props.className).toContain("vc-stx-select-up");
+            expect(height).toBeCloseTo(92.7);
+            expect(320 - 4 - height).toBeGreaterThanOrEqual(219.3);
+        }
+        expect(h.button().props["aria-activedescendant"]).toBe("stx-select-test-0");
+    });
+    it.each(["auto", "scroll", "hidden", "clip"])("intersects outer %s clipping with the nearest scrollport", overflowY => {
+        const h = selectHarness({ value: "0", onChange: vi.fn(), children: options, "aria-label": "Folder" },
+            { top: 100, bottom: 700 }, { top: 240, bottom: 270 }, [
+                { top: 120, bottom: 600, overflowY: "auto" },
+                { top: 200, bottom: 420, overflowY, clientTop: 2, clientHeight: 210 },
+            ]);
+        h.press("Enter");
+        expect(h.tree().props.className).not.toContain("vc-stx-select-up");
+        expect(nodes(h.tree()).find(n => n.props.role === "listbox")!.props.style.maxHeight).toBe(134);
+    });
+    it("ignores the visible editor body in short windows and uses the settings scroller", () => {
+        const h = selectHarness({ value: "0", onChange: vi.fn(), children: options, "aria-label": "Folder" },
+            { top: 100, bottom: 500 }, { top: 320, bottom: 350 }, [
+                { top: 300, bottom: 360, overflowY: "visible" },
+                { top: 100, bottom: 500, overflowY: "auto", clientTop: 2, clientHeight: 396 },
+            ], 540);
+        h.press("Enter");
+        expect(h.tree().props.className).toContain("vc-stx-select-up");
+        expect(nodes(h.tree()).find(n => n.props.role === "listbox")!.props.style.maxHeight).toBe(200);
+    });
+    it("retains main-menu bounds and the viewport limit without a nested scroller", () => {
+        const h = selectHarness({ value: "0", onChange: vi.fn(), children: options, "aria-label": "Category" },
+            { top: 100, bottom: 700 }, { top: 150, bottom: 180 }, [], 320);
+        h.press("Enter");
+        expect(h.tree().props.className).not.toContain("vc-stx-select-up");
+        expect(nodes(h.tree()).find(n => n.props.role === "listbox")!.props.style.maxHeight).toBe(132);
+    });
     it("keeps Home/End and wrapped arrow navigation visible and bounds the popup to its container", () => {
         const onChange = vi.fn();
         const h = selectHarness({ value: "0", onChange, children: options, "aria-label": "Category" }, { top: 400, bottom: 600 });

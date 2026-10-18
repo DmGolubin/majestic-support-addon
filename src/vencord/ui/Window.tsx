@@ -366,8 +366,8 @@ function WindowView() {
         if (e.key === "Escape" && (e.target as HTMLElement).closest(".vc-stx-select")) {
             e.preventDefault(); e.stopPropagation(); return;
         }
-        // Header controls own activation/navigation; plain Tab reaches every control.
-        if (e.key !== "Escape" && (e.target as HTMLElement).closest(".vc-stx-select, [data-stx-menu-control]")) return;
+        // Header and preview controls own their native activation/navigation.
+        if (e.key !== "Escape" && (e.target as HTMLElement).closest(".vc-stx-select, [data-stx-menu-control], button, a")) return;
         const input = inputRef.current;
         const atEnd = !!input && input.selectionStart === input.value.length;
         const atStart = !!input && input.selectionEnd === 0;

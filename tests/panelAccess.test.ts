@@ -38,6 +38,7 @@ describe("panel access gates from actual adapter functions", () => {
         const ensure = vi.fn(async () => { if (at === "changed snapshot") { fresh = true; store.setVersion++; return true; } return false; });
         const fillFields = vi.fn(async () => { fresh = false; return "Filled answer"; });
         const api = functions("../src/vencord/ui/flow.ts", ["snapNow", "stillCurrent", "scopeHere", "prepareText"], {
+            preparationSequence: 0, dialogSequence: 0,
             store, currentChannel: () => ({ id: "channel" }), activeScope: () => "mj", currentMode: () => "mj",
             generationNow: () => 1, libraryIsFresh: () => fresh, ensureLibraryFresh: ensure,
             dlog: vi.fn(), toast: vi.fn(), guard: async (t: unknown) => t, stripMarker: (s: string) => s, fillFields
@@ -50,6 +51,7 @@ describe("panel access gates from actual adapter functions", () => {
         const old = { id: "faq:7", text: "Old answer" };
         const guard = vi.fn();
         const api = functions("../src/vencord/ui/flow.ts", ["prepareText", "addToCompose"], {
+            preparationSequence: 0, dialogSequence: 0,
             store: { byId: () => ({ ...old, text: "New answer" }) }, guard
         });
         expect(await api.prepareText(old, { editor: null, selection: "" })).toBeNull();
