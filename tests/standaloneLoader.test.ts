@@ -1,0 +1,70 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { runInNewContext } from "node:vm";
+import { describe, expect, it, vi } from "vitest";
+
+const source = readFileSync(new URL("../standalone/runtime/loader.cjs", import.meta.url), "utf8");
+function run(config: unknown, args: string[] = [], missingRuntime = false, redirected = "", patcherThrows = false) {
+    const root = "C:\\Users\\Test\\AppData\\Local";
+    const env: Record<string, string> = { LOCALAPPDATA: root };
+    const loaded: string[] = [], app = { setAppPath: vi.fn() };
+    const req = Object.assign((name: string) => {
+        if (name === "fs") return { readFileSync: () => JSON.stringify(config), existsSync: (p: string) => !(missingRuntime && /runtime\\(patcher|preload)\.js$/.test(p)),
+            lstatSync: (p: string) => ({ isSymbolicLink: () => p === redirected }), realpathSync: (p: string) => p };
+        if (name === "path") return path.win32;
+        if (name === "electron") return { app };
+        if (name.endsWith("_app.asar\\package.json")) return { main: "bundle.js" };
+        loaded.push(name);
+        if (patcherThrows && name.endsWith("patcher.js")) throw new Error("Partial runtime initialization");
+    }, { main: { filename: "app.asar\\index.js" } });
+    runInNewContext(source, { require: req, __dirname: root + "\\DiscordCanary\\app-1.0.1\\resources\\app.asar",
+        process: { env, argv: args }, console: { error: vi.fn() } });
+    return { env, loaded, app };
+}
+const config = () => ({ schema: 1, product: "SupportTemplates", channel: "canary",
+    runtime: "C:\\Users\\Test\\AppData\\Local\\SupportTemplates\\channels\\canary\\versions\\0.1.0-canary.1\\runtime",
+    dataDir: "C:\\Users\\Test\\AppData\\Local\\SupportTemplates\\channels\\canary\\data" });
+
+describe("standalone loader", () => {
+    it("loads the isolated runtime and data path", () => {
+        const c = config(), r = run(c);
+        expect(r.loaded).toEqual([c.runtime + "\\patcher.js"]);
+        expect(r.env.SUPPORT_TEMPLATES_DATA_DIR).toBe(c.dataDir);
+        expect(r.env.DISABLE_UPDATER_AUTO_PATCHING).toBe("1");
+    });
+    it.each([null, { ...config(), channel: "unknown" }, { ...config(), runtime: "C:\\arbitrary\\runtime" },
+        { ...config(), runtime: config().runtime + "\\..\\..\\..\\evil\\runtime" },
+        { ...config(), dataDir: "C:\\shared\\Vencord" }])("falls back before initialization for invalid config", c => {
+        const r = run(c);
+        expect(r.loaded).toHaveLength(1);
+        expect(r.loaded[0]).toMatch(/_app\.asar\\bundle\.js$/);
+        expect(r.env.SUPPORT_TEMPLATES_DATA_DIR).toBeUndefined();
+    });
+    it("keeps vanilla mode available and uses original app path", () => {
+        const r = run(config(), ["--vanilla"]);
+        expect(r.app.setAppPath).toHaveBeenCalledWith(expect.stringMatching(/_app\.asar$/));
+        expect(r.loaded[0]).toMatch(/_app\.asar\\bundle\.js$/);
+    });
+    it("starts original Discord if the installed runtime disappeared", () => {
+        expect(run(config(), [], true).loaded[0]).toMatch(/_app\.asar\\bundle\.js$/);
+    });
+    it("rejects a self-consistent Stable config in a Canary installation", () => {
+        const c = config();
+        const r = run({ ...c, channel: "stable", runtime: c.runtime.replace("channels\\canary", "channels\\stable"),
+            dataDir: c.dataDir.replace("channels\\canary", "channels\\stable") });
+        expect(r.loaded).toEqual([expect.stringMatching(/_app\.asar\\bundle\.js$/)]);
+        expect(r.env.SUPPORT_TEMPLATES_DATA_DIR).toBeUndefined();
+    });
+    it.each([config().dataDir, config().runtime, path.win32.dirname(config().runtime), config().runtime + "\\patcher.js"])(
+        "rejects junctions and symbolic links at launch: %s", location => {
+            expect(run(config(), [], false, location).loaded).toEqual([expect.stringMatching(/_app\.asar\\bundle\.js$/)]);
+        });
+    it("does not start a second Discord bootstrap after partial runtime initialization", () => {
+        expect(() => run(config(), [], false, "", true)).toThrow("Partial runtime initialization");
+    });
+    it.each(["resources", "resources\\_app.asar"])("aborts instead of falling back through redirected %s", tail => {
+        const redirected = "C:\\Users\\Test\\AppData\\Local\\DiscordCanary\\app-1.0.1\\" + tail;
+        expect(() => run(config(), [], false, redirected)).toThrow("Redirected location");
+        expect(() => run(config(), ["--vanilla"], false, redirected)).toThrow("Redirected location");
+    });
+});

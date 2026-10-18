@@ -1,13 +1,18 @@
 # SupportTemplates
 
-Шаблоны ответов поддержки Majestic RP и Россия Онлайн в Discord — Vencord и BetterDiscord, в стиле
-панели Majestic, с защитой от шаблона чужого проекта и (позже) входом через аккаунт панели.
+Шаблоны ответов поддержки Majestic RP и Россия Онлайн в Discord, в стиле панели Majestic.
+Есть Vencord-адаптер и изолированный standalone-прототип; новый BetterDiscord-адаптер остаётся в плане.
+Реальный вход через панель реализуется по API-контракту, его приёмка зависит от выданного сервером доступа.
 
 ## Актуальный план
 
 [Roadmap и правила ведения](docs/roadmap/README.md) · [STATUS](docs/STATUS.md) · [TODO](TODO.md). Сайт: `pnpm roadmap:serve`, затем http://127.0.0.1:47834/roadmap/. Задачи хранятся в одном `docs/roadmap/data.json`; STATUS/TODO генерируются из него.
 
 ## Где что
+
+### Отдельная сборка и BAT
+
+[Инструкция прототипа](standalone/README.md) · [проверки Canary](docs/audits/2026-10-18-standalone-canary.md). Сборка: `pnpm build:standalone`; проверки установщика на временных файловых стендах Windows: `pnpm test:installer`. По умолчанию установщик выбирает Canary. Рабочий Stable в этой проверке не изменяется. GitHub updater и публичный выпуск ещё не готовы.
 
 ### Личные шаблоны и настройки
 

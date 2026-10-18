@@ -548,22 +548,24 @@
     {
       "id": "I03",
       "area": "Установка и адаптеры",
-      "status": "planned",
+      "status": "active",
       "title": "Прототип открытой сборки на основе Vencord",
-      "detail": "По уточнению владельца выбран урезанный open-source форк Vencord с одним SupportTemplates. Нужны аудит зависимостей, изоляция настроек/обновлений, сборка, отключение и восстановление; отдельные Vencord/BD версии сохраняются.",
+      "detail": "Изолированный runtime собран: SupportTemplates и 3 внутренних модуля, без cloud/updater/autorepatch. 779 тестов проходят. Исправлена проверка канала и перенаправленных путей загрузчика; до Canary закрываем замечания установщика.",
       "evidence": [
-        "INSTALLATION-OPTIONS.md"
+        "INSTALLATION-OPTIONS.md",
+        "audits/2026-10-18-standalone-canary.md"
       ],
       "updated": "2026-10-18"
     },
     {
       "id": "I04",
       "area": "Установка и адаптеры",
-      "status": "planned",
+      "status": "active",
       "title": "Standalone ZIP: установка, repair и удаление",
-      "detail": "ZIP + открытый .bat, вызывающий локальный PowerShell: установка выбранной сборки на основе Vencord, repair/uninstall, проверки версий, резервные копии, откат и чужие загрузчики. Реализации пока нет.",
+      "detail": "Четыре замечания закрыты повторным независимым ревью. Собранный ZIP прошёл установку/удаление на TEMP-стенде; install.bat -WhatIf выбирает настоящий Canary 1.0.1219. Финальный прогон аварийных сценариев продолжается, реальная установка ещё не выполнена.",
       "evidence": [
-        "INSTALLATION-OPTIONS.md"
+        "INSTALLATION-OPTIONS.md",
+        "audits/2026-10-18-standalone-canary.md"
       ],
       "updated": "2026-10-18"
     },
@@ -639,12 +641,13 @@
     {
       "id": "R09",
       "area": "Выпуск",
-      "status": "planned",
+      "status": "review",
       "title": "Зависимости и состав урезанного Vencord",
-      "detail": "В основе 32c90633 — 66 advisory: 5 low, 26 moderate, 35 high. Разделить build/runtime, обновить или исключить ненужное в изолированном форке, повторить audit и проверить конечный bundle. У самого плагина audit чистый. Рабочая установка Vencord не менялась.",
+      "detail": "Проверен фактический bundle: 193 входных файла, единственная npm runtime-зависимость xxhash64 0.1.2; audit для неё без предупреждений. Полный toolchain основы содержит 66 advisory и остаётся отдельной задачей. Живой runtime ещё не принят; отчёт audits/2026-10-18-standalone-dependencies.md.",
       "evidence": [
         "audits/2026-10-18-release-audit.md",
-        "audits/2026-10-18-vencord-dependencies.json"
+        "audits/2026-10-18-vencord-dependencies.json",
+        "audits/2026-10-18-standalone-dependencies.md"
       ],
       "updated": "2026-10-18"
     },
