@@ -30,8 +30,10 @@ function clearLibrary() {
     if (!library) return;
     const { prefix, previewOpen, techProject } = library.data;
     const empty = new Store({ get: async () => undefined, set: async () => {} });
-    library.data = { ...empty.data, prefix, previewOpen, techProject };
-    library.replaceDemoCatalog("");
+    empty.data = { ...empty.data, prefix, previewOpen, techProject };
+    // Pending writes belong to the retired Store and cannot republish into the new session.
+    library = empty;
+    selectStore(library);
 }
 
 function resetSession(keepWindow = false) {

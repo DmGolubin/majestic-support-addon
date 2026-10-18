@@ -90,7 +90,8 @@ describe("personal library", () => {
         const log = vi.spyOn(console, "error").mockImplementation(() => {});
         const s = new Store({ ...storage, set: vi.fn().mockRejectedValueOnce(new Error("disk")).mockImplementation(storage.set) });
         await expect(s.savePersonal(draft(), undefined, "personal:test")).rejects.toThrow("disk");
-        await s.savePersonal(draft(), "personal:test");
+        expect(s.byId("personal:test")).toBeUndefined();
+        await s.savePersonal(draft(), undefined, "personal:test");
         expect(s.data.personal).toHaveLength(1);
         log.mockRestore();
     });
@@ -101,7 +102,8 @@ describe("personal library", () => {
         const s = new Store({ ...storage, set: write });
         write.mockRejectedValueOnce(new Error("disk"));
         await expect(s.saveFolder("GPU", undefined, "folder:retry")).rejects.toThrow("disk");
-        await s.saveFolder("GPU", "folder:retry");
+        expect(s.data.folders).toEqual([]);
+        await s.saveFolder("GPU", undefined, "folder:retry");
         expect(s.data.folders).toHaveLength(1);
         const id = await s.savePersonal(draft());
         write.mockRejectedValueOnce(new Error("disk"));

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useRef, useState } from "@webpack/common";
+import { useLayoutEffect, useRef, useState } from "@webpack/common";
 
 import { PERSONAL_COLORS, PersonalDraft, PersonalTemplate } from "../core/personal";
 import { insertToken } from "../core/tokenEditor";
@@ -13,14 +13,22 @@ import { demo } from "./demo";
 import { Select } from "./Select";
 import { IconFolder, IconPlus } from "./svg";
 import { TokenToolbar } from "./TokenToolbar";
-import { store, useStore } from "./uiState";
+import { getStoreSelection, useStore } from "./uiState";
 
 const COLOR_NAMES = ["Красный", "Оранжевый", "Жёлтый", "Зелёный", "Бирюзовый", "Синий", "Фиолетовый", "Розовый"];
 const blank = (): PersonalDraft => ({ title: "", text: "", project: "mj", color: null, command: null, folderId: null });
 
-/** Same fields as the panel; only the local prototype is connected at this stage. */
-export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }) {
+interface LibraryProps { onDirty?(dirty: boolean): void; onBusy?(busy: boolean): void; }
+
+/** Local drafts belong to one selection, even when routing away and back to the same Store. */
+export function PersonalLibrary(props: LibraryProps) {
     useStore();
+    const selection = getStoreSelection();
+    return <PersonalLibraryEditor key={selection.generation} selection={selection} {...props} />;
+}
+
+function PersonalLibraryEditor({ selection, onDirty, onBusy }: LibraryProps & { selection: ReturnType<typeof getStoreSelection>; }) {
+    const { store } = selection;
     const isDemo = demo.useSelect(d => d.enabled);
     const [editing, setEditing] = useState<{ id?: string; draft: PersonalDraft; } | null>(null);
     const [dirty, setDirty] = useState(false);
@@ -36,22 +44,46 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
     const bodyRef = useRef<HTMLTextAreaElement>(null);
     const newId = useRef("");
     const newFolderId = useRef("");
-    const mark = (v: boolean) => { setDirty(v); onDirty?.(v); };
+    const busyRef = useRef(false);
+    const mounted = useRef(false);
+    const callbacks = useRef({ onDirty, onBusy });
+    callbacks.current = { onDirty, onBusy };
+    // Invalidate during the unmount commit, before promises or a replacement editor can report state.
+    useLayoutEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+            callbacks.current.onDirty?.(false);
+            callbacks.current.onBusy?.(false);
+        };
+    }, []);
+    const current = () => mounted.current && getStoreSelection() === selection;
+    const available = () => current() && !busyRef.current;
+    const mark = (v: boolean) => { setDirty(v); callbacks.current.onDirty?.(v); };
     const begin = (t?: PersonalTemplate, copy = false) => {
+        if (!available()) return;
         newId.current = "personal:" + crypto.randomUUID();
         setEditing(t ? { id: copy ? undefined : t.id, draft: { ...t, title: copy ? t.title + " (копия)" : t.title, command: copy ? null : t.command } } : { draft: { ...blank(), folderId: folder !== "all" && folder !== "none" ? folder : null } });
-        setError(""); setNotice(""); mark(false);
+        setError(""); setNotice(""); mark(copy);
     };
-    const close = () => { setEditing(null); setDiscard(false); mark(false); };
+    const resetEditor = () => { setEditing(null); setDiscard(false); setError(""); mark(false); };
+    const close = () => { if (available()) resetEditor(); };
     const change = (patch: Partial<PersonalDraft>) => {
-        if (!editing) return;
+        if (!editing || !available()) return;
         setEditing({ ...editing, draft: { ...editing.draft, ...patch } }); mark(true);
     };
-    const run = async (action: () => Promise<void>) => {
-        if (busy) return;
-        setBusy(true); setError("");
-        try { await action(); } catch (e) { setError(String((e as Error).message) + ". Проверьте данные и повторите сохранение."); }
-        finally { setBusy(false); }
+    const run = async <T,>(action: () => Promise<T>, success: (result: T) => void) => {
+        if (!available()) return;
+        busyRef.current = true;
+        setBusy(true); callbacks.current.onBusy?.(true); setError("");
+        try {
+            const result = await action();
+            if (current()) success(result);
+        } catch (e) {
+            if (current()) setError(String((e as Error).message) + ". Проверьте данные и повторите сохранение.");
+        } finally {
+            if (current()) { busyRef.current = false; setBusy(false); callbacks.current.onBusy?.(false); }
+        }
     };
     const range = useRef({ start: 0, end: 0 });
     const captureRange = () => {
@@ -60,7 +92,7 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
     };
     const addToken = (token: string) => {
         const el = bodyRef.current;
-        if (!el || !editing) return false;
+        if (!el || !editing || !available()) return false;
         try {
             const next = insertToken(editing.draft.text, range.current.start, range.current.end, token);
             change({ text: next.text }); setError("");
@@ -78,12 +110,11 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
             {!editing && <button className="vc-stx-btn" disabled={!!folderEdit || busy} onClick={() => begin()}><IconPlus />Добавить шаблон</button>}</div>
         {error && <p role="alert" className="vc-stx-form-error">{error}</p>}
         {notice && <p role="status">{notice}</p>}
-        {editing ? <form className="vc-stx-personal-form" onSubmit={e => { e.preventDefault(); void run(async () => {
-            // Keep the ID even if persistence fails: retry must update, not create a duplicate.
-            const id = editing.id ?? newId.current;
-            const exists = store.data.personal.some(t => t.id === id);
-            await store.savePersonal(editing.draft, exists ? id : undefined, exists ? undefined : id);
-            setNotice("Шаблон сохранён"); close();
+        {editing ? <form className="vc-stx-personal-form" onSubmit={e => { e.preventDefault(); void run(() => {
+            // Failed creates stay absent; keep their create ID across retries. Edits must remain edits.
+            return store.savePersonal(editing.draft, editing.id, editing.id ? undefined : newId.current);
+        }, () => {
+            setNotice("Шаблон сохранён"); resetEditor();
         }); }}>
             <h4>{editing.id ? "Редактирование шаблона" : "Новый шаблон"}</h4>
             <fieldset disabled={busy}>
@@ -103,8 +134,8 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
                 <label>Команда (необязательно)<input maxLength={40} placeholder="Например: drivers" value={editing.draft.command ?? ""} onChange={e => change({ command: e.currentTarget.value || null })} /></label>
                 <p className="vc-stx-muted">Вызов в чате: {store.data.prefix}{editing.draft.command || "drivers"}</p>
             </fieldset>
-            {discard && <div className="vc-stx-local-note" role="alert">Отменить несохранённые изменения? <button type="button" className="vc-stx-btn vc-stx-ghost" onClick={close}>Отменить изменения</button><button type="button" className="vc-stx-btn vc-stx-ghost" onClick={() => setDiscard(false)}>Продолжить редактирование</button></div>}
-            <div className="vc-stx-lib-actions vc-stx-editor-actions"><button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => dirty ? setDiscard(true) : close()}>Назад</button><button type="submit" className="vc-stx-btn" disabled={busy}>{busy ? "Сохранение…" : "Сохранить"}</button></div>
+            {discard && <div className="vc-stx-local-note" role="alert">Отменить несохранённые изменения? <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={close}>Отменить изменения</button><button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => { if (available()) setDiscard(false); }}>Продолжить редактирование</button></div>}
+            <div className="vc-stx-lib-actions vc-stx-editor-actions"><button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => { if (available()) { if (dirty) setDiscard(true); else close(); } }}>Назад</button><button type="submit" className="vc-stx-btn" disabled={busy}>{busy ? "Сохранение…" : "Сохранить"}</button></div>
         </form> : <>
             <div className="vc-stx-library-layout"><aside className="vc-stx-folder-nav" aria-label="Папки шаблонов">
                 <span className="vc-stx-folder-heading"><IconFolder /> Папки</span>
@@ -112,14 +143,14 @@ export function PersonalLibrary({ onDirty }: { onDirty?(dirty: boolean): void; }
             </aside><div className="vc-stx-library-content">
             <div className="vc-stx-form-grid"><label>Поиск<input value={query} onChange={e => setQuery(e.currentTarget.value)} placeholder="Название, текст или команда" /></label><label>Проект<Select aria-label="Проект" value={project} onChange={e => setProject(e.currentTarget.value)}><option value="all">Все проекты</option><option value="mj">Majestic и общие</option><option value="ro">Россия Онлайн и общие</option></Select></label></div>
             <div className="vc-stx-folder-bar">
-                <button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => { newFolderId.current = "folder:" + crypto.randomUUID(); setFolderEdit({ name: "" }); mark(true); }}>Создать папку</button>
-                {store.data.folders.some(f => f.id === folder) && <><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => { setFolderEdit({ id: folder, name: store.data.folders.find(f => f.id === folder)!.name }); mark(true); }}>Переименовать</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => setRemove({ kind: "folder", id: folder, name: store.data.folders.find(f => f.id === folder)!.name })}>Удалить папку</button></>}
+                <button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => { if (!available()) return; setError(""); newFolderId.current = "folder:" + crypto.randomUUID(); setFolderEdit({ name: "" }); mark(true); }}>Создать папку</button>
+                {store.data.folders.some(f => f.id === folder) && <><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => { if (!available()) return; setError(""); setFolderEdit({ id: folder, name: store.data.folders.find(f => f.id === folder)!.name }); mark(true); }}>Переименовать</button><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => { if (available()) setRemove({ kind: "folder", id: folder, name: store.data.folders.find(f => f.id === folder)!.name }); }}>Удалить папку</button></>}
             </div>
-            {folderEdit && <form className="vc-stx-folder-bar" onSubmit={e => { e.preventDefault(); void run(async () => { const candidate = folderEdit.id ?? newFolderId.current; const exists = store.data.folders.some(f => f.id === candidate); const id = await store.saveFolder(folderEdit.name, exists ? candidate : undefined, exists ? undefined : candidate); setFolder(id); setFolderEdit(null); mark(false); }); }}><label>Название папки<input autoFocus required maxLength={80} value={folderEdit.name} onChange={e => setFolderEdit({ ...folderEdit, name: e.currentTarget.value })} /></label><button className="vc-stx-btn" disabled={busy}>Сохранить папку</button><button type="button" className="vc-stx-btn vc-stx-ghost" onClick={() => { setFolderEdit(null); mark(false); }}>Отмена</button></form>}
-            {remove && <div className="vc-stx-local-note" role="alert"><p>Удалить {remove.kind === "folder" ? "папку" : "шаблон"} «{remove.name}»? {remove.kind === "folder" && "Шаблоны останутся в разделе «Без папки»."}</p><button className="vc-stx-btn" disabled={busy} onClick={() => void run(async () => { if (remove.kind === "folder") { await store.deleteFolder(remove.id); setFolder("all"); } else await store.deletePersonal(remove.id); setRemove(null); })}>Удалить</button> <button className="vc-stx-btn vc-stx-ghost" onClick={() => setRemove(null)}>Отмена</button></div>}
+            {folderEdit && <form className="vc-stx-folder-bar" onSubmit={e => { e.preventDefault(); void run(() => store.saveFolder(folderEdit.name, folderEdit.id, folderEdit.id ? undefined : newFolderId.current), id => { setFolder(id); setFolderEdit(null); mark(false); }); }}><label>Название папки<input autoFocus required maxLength={80} disabled={busy} value={folderEdit.name} onChange={e => { if (available()) setFolderEdit({ ...folderEdit, name: e.currentTarget.value }); }} /></label><button className="vc-stx-btn" disabled={busy}>Сохранить папку</button><button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => { if (!available()) return; setFolderEdit(null); setError(""); mark(false); }}>Отмена</button></form>}
+            {remove && <div className="vc-stx-local-note" role="alert"><p>Удалить {remove.kind === "folder" ? "папку" : "шаблон"} «{remove.name}»? {remove.kind === "folder" && "Шаблоны останутся в разделе «Без папки»."}</p><button className="vc-stx-btn" disabled={busy} onClick={() => void run(() => remove.kind === "folder" ? store.deleteFolder(remove.id) : store.deletePersonal(remove.id), () => { if (remove.kind === "folder") setFolder("all"); setRemove(null); })}>Удалить</button> <button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => { if (available()) setRemove(null); }}>Отмена</button></div>}
             <p className="vc-stx-muted">Шаблоны · {list.length}</p>
             {!list.length && <div className="vc-stx-library-empty"><h4>{store.data.personal.length ? "Нет совпадений" : "Здесь будут ваши ответы"}</h4><p>{store.data.personal.length ? "Измените поиск или фильтр папок." : "Нажмите «Добавить шаблон», чтобы создать первый ответ."}</p></div>}
-            {list.map(t => <article key={t.id} className="vc-stx-personal-card" style={{ borderLeftColor: t.color ?? undefined }}><h4>{t.title}</h4><p className="vc-stx-muted">{t.project === "mj" ? "Majestic" : t.project === "ro" ? "Россия Онлайн" : "Общий"} · {store.data.folders.find(f => f.id === t.folderId)?.name ?? "Без папки"}{t.command && ` · ${store.data.prefix}${t.command}`}</p><pre>{t.text}</pre><div className="vc-stx-lib-actions"><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => begin(t)}>Редактировать</button><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => begin(t, true)}>Создать копию</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => setRemove({ kind: "template", id: t.id, name: t.title })}>Удалить</button></div></article>)}
+            {list.map(t => <article key={t.id} className="vc-stx-personal-card" style={{ borderLeftColor: t.color ?? undefined }}><h4>{t.title}</h4><p className="vc-stx-muted">{t.project === "mj" ? "Majestic" : t.project === "ro" ? "Россия Онлайн" : "Общий"} · {store.data.folders.find(f => f.id === t.folderId)?.name ?? "Без папки"}{t.command && ` · ${store.data.prefix}${t.command}`}</p><pre>{t.text}</pre><div className="vc-stx-lib-actions"><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => begin(t)}>Редактировать</button><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => begin(t, true)}>Создать копию</button><button className="vc-stx-btn vc-stx-ghost" disabled={!!folderEdit || busy} onClick={() => { if (available()) setRemove({ kind: "template", id: t.id, name: t.title }); }}>Удалить</button></div></article>)}
             </div></div>
         </>}
     </section>;

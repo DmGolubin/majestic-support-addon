@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useState } from "@webpack/common";
+import { useRef, useState } from "@webpack/common";
 
 import { PREFIXES, validPrefix } from "../core/trigger";
 import { toast } from "../platform";
@@ -17,14 +17,16 @@ import { PanelConnection } from "./PanelConnection";
 import { PersonalLibrary } from "./PersonalLibrary";
 import { IconBell, IconLink, IconSettings, IconTemplates } from "./svg";
 import { TicketSettings } from "./TicketSettings";
-import { store, ui, useStore } from "./uiState";
+import { getStoreSelection, store, ui, useStore } from "./uiState";
 
-export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) {
+export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; onBusy?(busy: boolean): void; } = {}) {
     useStore();
     const demoState = demo.use();
     const p = panel.use();
     const [tab, setTab] = useState("personal");
     const [dirty, setDirty] = useState(false);
+    const busyRef = useRef(false);
+    const [busy, setBusy] = useState(false);
     const [pending, setPending] = useState<string | null>(null);
     const [prefix, setPrefix] = useState(store.data.prefix);
     const [prefixError, setPrefixError] = useState("");
@@ -34,6 +36,7 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
     const ro = main.filter(t => t.project === "ro").length;
 
     const pick = () => {
+        const targetStore = getStoreSelection();
         const inp = document.createElement("input");
         inp.type = "file";
         inp.accept = ".json,.txt,.md";
@@ -41,7 +44,10 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
             const file = inp.files?.[0];
             if (!file) return;
             try {
-                const msg = store.importText(await file.text());
+                const text = await file.text();
+                if (getStoreSelection() !== targetStore) return;
+                const msg = await targetStore.store.importTextAsync(text);
+                if (getStoreSelection() !== targetStore) return;
                 // The set was replaced: nothing in progress may keep pointing at old templates or old confirmations.
                 nextGeneration(); // pending inserts prepared from the old set are dropped at their next check
                 supersede();
@@ -50,6 +56,7 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
                 setStatus(msg);
                 toast("Импорт выполнен", "success");
             } catch (e: any) {
+                if (getStoreSelection() !== targetStore) return;
                 console.error("[SupportTemplates] import failed", e);
                 setStatus("Ошибка: " + e.message);
                 toast("Импорт не удался", "failure");
@@ -61,9 +68,9 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
     return (
         <div className="vc-stx-settings">
             <nav className="vc-stx-settings-nav" aria-label="Разделы настроек">
-                {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["connection", "Подключение"], ["tickets", "Тикеты"]].map(([id, label]) => <button key={id} className={"vc-stx-btn " + (tab === id ? "" : "vc-stx-ghost")} aria-pressed={tab === id} onClick={() => { if (id === tab) return; if (dirty) setPending(id); else setTab(id); }}>{id === "personal" ? <IconTemplates size={16} /> : id === "general" ? <IconSettings size={16} /> : id === "tickets" ? <IconBell size={16} /> : <IconLink size={16} />}{label}</button>)}
+                {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["connection", "Подключение"], ["tickets", "Тикеты"]].map(([id, label]) => <button key={id} className={"vc-stx-btn " + (tab === id ? "" : "vc-stx-ghost")} aria-pressed={tab === id} disabled={busy} onClick={() => { if (busyRef.current || id === tab) return; if (dirty) setPending(id); else setTab(id); }}>{id === "personal" ? <IconTemplates size={16} /> : id === "general" ? <IconSettings size={16} /> : id === "tickets" ? <IconBell size={16} /> : <IconLink size={16} />}{label}</button>)}
             </nav>
-            {pending && <div className="vc-stx-local-note" role="alert">Отменить изменения и сменить раздел? <button className="vc-stx-btn" onClick={() => { setTab(pending); setPending(null); setDirty(false); onDirty?.(false); }}>Отменить изменения</button><button className="vc-stx-btn vc-stx-ghost" onClick={() => setPending(null)}>Остаться</button></div>}
+            {pending && <div className="vc-stx-local-note" role="alert">Отменить изменения и сменить раздел? <button className="vc-stx-btn" disabled={busy} onClick={() => { if (busyRef.current) return; setTab(pending); setPending(null); setDirty(false); onDirty?.(false); }}>Отменить изменения</button><button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => { if (!busyRef.current) setPending(null); }}>Остаться</button></div>}
             {tab === "personal" && p.enabled && <section className="vc-stx-setting-section">
                 <div className="vc-stx-lib-title"><h3>Мои шаблоны</h3><a className="vc-stx-btn vc-stx-ghost" href="https://panel.majestic-rp.tech/faq" target="_blank" rel="noreferrer">Редактировать на панели <IconLink /></a></div>
                 {p.phase !== "ready" ? <button className="vc-stx-btn" onClick={() => setTab("connection")}>Подключить панель</button>
@@ -71,7 +78,7 @@ export function Settings({ onDirty }: { onDirty?(dirty: boolean): void; } = {}) 
                         <h4>{t.title}</h4><span className="vc-stx-muted">{t.category}</span><p style={{ whiteSpace: "pre-wrap" }}>{t.text}</p>
                     </article>) : <p className="vc-stx-muted">Личных шаблонов пока нет.</p>}
             </section>}
-            {tab === "personal" && !p.enabled && (!demoState.enabled || demoState.revision > 0) && <PersonalLibrary onDirty={v => { setDirty(v); onDirty?.(v); }} />}
+            {tab === "personal" && !p.enabled && (!demoState.enabled || demoState.revision > 0) && <PersonalLibrary onDirty={v => { setDirty(v); if (!v) setPending(null); onDirty?.(v); }} onBusy={v => { busyRef.current = v; setBusy(v); onBusy?.(v); }} />}
             {tab === "personal" && !p.enabled && demoState.enabled && demoState.revision === 0 && <p className="vc-stx-local-note">Сначала подключите тестовый аккаунт во вкладке «Подключение».</p>}
             {tab === "connection" && <><PanelConnection />
                 <details className="vc-stx-settings-details"><summary>Локальная библиотека и демо</summary>

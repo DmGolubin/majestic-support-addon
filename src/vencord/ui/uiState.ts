@@ -25,6 +25,7 @@ export const realStore = new Store({
 const routed = routeStore(realStore);
 export const { store } = routed;
 export const selectStore = routed.select;
+export const getStoreSelection = routed.getSelection;
 export const demoAccess = createObservable({ enabled: false, ready: false });
 export const panelAccess = createObservable<{ enabled: boolean; ready: boolean; accountId: string | null; projects: ProjectId[]; checkedAt: number; }>({ enabled: true, ready: false, accountId: null, projects: [], checkedAt: 0 });
 let checkFreshness: () => Promise<boolean> = async () => false;

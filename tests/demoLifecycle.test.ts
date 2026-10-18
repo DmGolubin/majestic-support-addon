@@ -126,6 +126,19 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("demo session and plugin lifecycle", () => {
+    it.each(["template", "folder"])("cannot republish a pending %s into a retired demo session", async kind => {
+        const h = await harness();
+        h.demo.enableDemo();
+        const saving = kind === "template"
+            ? h.router.store.savePersonal(draft, undefined, "personal:retired")
+            : h.router.store.saveFolder("Retired folder", undefined, "folder:retired");
+        h.demo.disposeDemo();
+        await saving;
+        expect(h.router.store.data.personal).toEqual([]);
+        expect(h.router.store.data.folders).toEqual([]);
+        expect(h.router.store.templates).toEqual([]);
+        h.expectLocalUntouched();
+    });
     it.each(["revoked", "expired", "denied"])("clears records and management on %s, then reconnects cleanly", async phase => {
         const h = await harness();
         await h.seedSession();

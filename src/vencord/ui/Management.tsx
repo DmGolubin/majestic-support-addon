@@ -12,8 +12,10 @@ import { ui } from "./uiState";
 export function Management() {
     const root = useRef<HTMLDivElement>(null);
     const dirty = useRef(false);
+    const busyRef = useRef(false);
+    const [busy, setBusy] = useState(false);
     const [confirm, setConfirm] = useState(false);
-    const close = () => dirty.current ? setConfirm(true) : ui.set({ management: false });
+    const close = () => { if (!busyRef.current) { if (dirty.current) setConfirm(true); else ui.set({ management: false }); } };
     useEffect(() => {
         const previous = document.activeElement as HTMLElement;
         root.current?.focus();
@@ -32,9 +34,9 @@ export function Management() {
     }, []);
     return <div className="vc-stx-management-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) close(); }}>
         <div ref={root} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Шаблоны и настройки" className="vc-stx-management">
-            <header><b>SupportTemplates</b><button className="vc-stx-btn vc-stx-ghost" onClick={close}>Закрыть</button></header>
-            {confirm && <div className="vc-stx-local-note" role="alert">Есть несохранённые изменения. <button className="vc-stx-btn vc-stx-ghost" onClick={() => setConfirm(false)}>Вернуться</button><button className="vc-stx-btn" onClick={() => ui.set({ management: false })}>Закрыть без сохранения</button></div>}
-            <Settings onDirty={v => { dirty.current = v; }} />
+            <header><b>SupportTemplates</b><button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={close}>Закрыть</button></header>
+            {confirm && <div className="vc-stx-local-note" role="alert">Есть несохранённые изменения. <button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => { if (!busyRef.current) setConfirm(false); }}>Вернуться</button><button className="vc-stx-btn" disabled={busy} onClick={() => { if (!busyRef.current) ui.set({ management: false }); }}>Закрыть без сохранения</button></div>}
+            <Settings onDirty={v => { dirty.current = v; if (!v) setConfirm(false); }} onBusy={v => { busyRef.current = v; setBusy(v); }} />
         </div>
     </div>;
 }

@@ -9,6 +9,7 @@ import { Store } from "./state";
 /** A stable facade: components stay subscribed while demo storage is isolated from real storage. */
 export function routeStore(initial: Store) {
     let active = initial;
+    let selection = { store: active, generation: 0 };
     const subscribers = new Set<() => void>();
     const notify = () => subscribers.forEach(fn => fn());
     let off = active.subscribe(notify);
@@ -20,5 +21,10 @@ export function routeStore(initial: Store) {
         },
         set(_target, key, value) { return Reflect.set(active, key, value); },
     });
-    return { store, select(next: Store) { if (active === next) return; off(); active = next; off = active.subscribe(notify); notify(); } };
+    return { store, getSelection: () => selection, select(next: Store) {
+        if (active === next) return;
+        off(); active = next;
+        selection = { store: active, generation: selection.generation + 1 };
+        off = active.subscribe(notify); notify();
+    } };
 }

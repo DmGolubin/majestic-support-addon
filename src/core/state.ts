@@ -93,6 +93,8 @@ export class Store {
     setVersion = 0;
     private subs = new Set<() => void>();
     private lastSave: Promise<void> = Promise.resolve();
+    private lastImport: Promise<unknown> = Promise.resolve();
+    private pendingPersonal = 0;
     private panelPreferencesClosed = false;
 
     constructor(private storage: StorageLike, readonly catalogReadOnly = false) { }
@@ -156,8 +158,10 @@ export class Store {
 
     private changed() {
         if (this.panelPreferencesClosed) { this.subs.forEach(fn => fn()); return; }
-        const snapshot = structuredClone(this.data);
-        this.lastSave = this.lastSave.catch(() => {}).then(() => this.storage.set(STORE_KEY, snapshot));
+        // Account preferences must survive a later logout/catalog clear. Local writes instead
+        // read the committed catalog when their turn arrives, after earlier personal transactions.
+        const snapshot = this.catalogReadOnly ? structuredClone(this.data) : undefined;
+        this.lastSave = this.lastSave.catch(() => {}).then(() => this.storage.set(STORE_KEY, snapshot ?? structuredClone(this.data)));
         this.lastSave.catch(e => console.error("[SupportTemplates]", e));
         this.subs.forEach(fn => fn());
     }
@@ -187,6 +191,7 @@ export class Store {
     /** Replaces templates; favorites/usage/binds come from the file. Returns a summary line. */
     importText(text: string): string {
         this.writableCatalog();
+        if (this.pendingPersonal) throw new Error("Дождитесь сохранения личных шаблонов перед импортом");
         const r = importBackup(text);
         // "Intentional mention" answers belonged to the old texts: they are not carried over to the new set.
         const own = new Set(this.data.personal.map(t => t.id));
@@ -210,6 +215,24 @@ export class Store {
             + (r.droppedBinds + mergedBinds.dropped ? ` · клавиш не принято: ${r.droppedBinds + mergedBinds.dropped} (запрещённые или повторы)` : "");
     }
 
+    /** UI imports wait for pending edits before resolving references and shortcut conflicts. */
+    async importTextAsync(text: string): Promise<string> {
+        this.writableCatalog();
+        // Reserve import order immediately; waiting on changing write tails alone can reverse two imports.
+        const importing = this.lastImport.catch(() => {}).then(async () => {
+            let pending: Promise<void>;
+            do {
+                pending = this.lastSave;
+                await pending.catch(() => {});
+            } while (pending !== this.lastSave);
+            const summary = this.importText(text);
+            await this.lastSave;
+            return summary;
+        });
+        this.lastImport = importing;
+        return importing;
+    }
+
     byId(id: string) {
         return this.templates.find(t => t.id === id);
     }
@@ -224,59 +247,70 @@ export class Store {
         this.changed();
     }
 
-    private personalChanged() {
-        this.templates = [...this.templates.filter(t => !t.id.startsWith("personal:")), ...this.data.personal];
-        this.setVersion++;
-        this.changed();
-        return this.lastSave;
+    /** Serialize with all writes. A failed draft never enters shared memory or a later snapshot. */
+    private commitPersonal(prepare: () => (data: Persisted) => Persisted): Promise<void> {
+        this.pendingPersonal++;
+        const saving = this.lastSave.catch(() => {}).then(async () => {
+            const apply = prepare();
+            await this.storage.set(STORE_KEY, structuredClone(apply(this.data)));
+            // Preferences may have changed while IO was pending; retain those changes.
+            this.data = apply(this.data);
+            this.templates = [...this.templates.filter(t => !t.id.startsWith("personal:")), ...this.data.personal];
+            this.setVersion++;
+            this.subs.forEach(fn => fn());
+        }).finally(() => { this.pendingPersonal--; });
+        this.lastSave = saving;
+        saving.catch(e => console.error("[SupportTemplates]", e));
+        return saving;
     }
 
     async savePersonal(draft: PersonalDraft, id?: string, createId?: string) {
         this.writableCatalog();
-        if (id && !this.data.personal.some(t => t.id === id)) throw new Error("Личный шаблон больше не существует");
-        if (createId && (!createId.startsWith("personal:") || this.byId(createId))) throw new Error("Недопустимый ID нового шаблона");
-        const t = personalTemplate(id ?? createId ?? "personal:" + crypto.randomUUID(), draft, this.data.folders);
-        if (t.command && this.templates.some(x => x.id !== t.id && x.command?.toLowerCase() === t.command && (x.project === null || t.project === null || x.project === t.project))) {
-            throw new Error("Эта команда уже используется в выбранном проекте");
-        }
-        this.data.personal = [...this.data.personal.filter(x => x.id !== t.id), t];
-        await this.personalChanged();
-        return t.id;
+        const templateId = id ?? createId ?? "personal:" + crypto.randomUUID();
+        const captured = { ...draft };
+        await this.commitPersonal(() => {
+            if (id && !this.data.personal.some(t => t.id === id)) throw new Error("Личный шаблон больше не существует");
+            if (createId && (!createId.startsWith("personal:") || this.byId(createId))) throw new Error("Недопустимый ID нового шаблона");
+            const t = personalTemplate(templateId, captured, this.data.folders);
+            if (t.command && this.templates.some(x => x.id !== t.id && x.command?.toLowerCase() === t.command && (x.project === null || t.project === null || x.project === t.project))) {
+                throw new Error("Эта команда уже используется в выбранном проекте");
+            }
+            return data => ({ ...data, personal: [...data.personal.filter(x => x.id !== t.id), t] });
+        });
+        return templateId;
     }
 
     async deletePersonal(id: string) {
         this.writableCatalog();
         // Deletion is idempotent, including a retry after a failed disk write.
         if (!id.startsWith("personal:")) throw new Error("Можно удалить только личный шаблон");
-        this.data.personal = this.data.personal.filter(t => t.id !== id);
-        this.data.favorites = this.data.favorites.filter(x => x !== id);
-        this.data.recent = this.data.recent.filter(x => x !== id);
-        const { [id]: _bind, ...binds } = this.data.binds;
-        const { [id]: _usage, ...usage } = this.data.usage;
-        this.data.binds = binds;
-        this.data.usage = usage;
-        await this.personalChanged();
+        await this.commitPersonal(() => data => {
+            const { [id]: _bind, ...binds } = data.binds;
+            const { [id]: _usage, ...usage } = data.usage;
+            return { ...data, personal: data.personal.filter(t => t.id !== id),
+                favorites: data.favorites.filter(x => x !== id), recent: data.recent.filter(x => x !== id), binds, usage };
+        });
     }
 
     async saveFolder(name: string, id?: string, createId?: string) {
         this.writableCatalog();
         name = name.trim();
         if (!name || name.length > 80) throw new Error("Название папки: от 1 до 80 символов");
-        if (id && !this.data.folders.some(f => f.id === id)) throw new Error("Папка больше не существует");
-        if (this.data.folders.some(f => f.id !== id && f.name.toLowerCase() === name.toLowerCase())) throw new Error("Такая папка уже есть");
-        if (createId && (!createId.startsWith("folder:") || this.data.folders.some(f => f.id === createId))) throw new Error("Недопустимый ID папки");
         const folderId = id ?? createId ?? "folder:" + crypto.randomUUID();
-        this.data.folders = [...this.data.folders.filter(f => f.id !== folderId), { id: folderId, name }];
-        this.data.personal = this.data.personal.map(t => t.folderId === folderId ? { ...t, category: name } : t);
-        await this.personalChanged();
+        await this.commitPersonal(() => {
+            if (id && !this.data.folders.some(f => f.id === id)) throw new Error("Папка больше не существует");
+            if (this.data.folders.some(f => f.id !== id && f.name.toLowerCase() === name.toLowerCase())) throw new Error("Такая папка уже есть");
+            if (createId && (!createId.startsWith("folder:") || this.data.folders.some(f => f.id === createId))) throw new Error("Недопустимый ID папки");
+            return data => ({ ...data, folders: [...data.folders.filter(f => f.id !== folderId), { id: folderId, name }],
+                personal: data.personal.map(t => t.folderId === folderId ? { ...t, category: name } : t) });
+        });
         return folderId;
     }
 
     async deleteFolder(id: string) {
         this.writableCatalog();
-        this.data.folders = this.data.folders.filter(f => f.id !== id);
-        this.data.personal = this.data.personal.map(t => t.folderId === id ? { ...t, folderId: null, category: "Мои шаблоны" } : t);
-        await this.personalChanged();
+        await this.commitPersonal(() => data => ({ ...data, folders: data.folders.filter(f => f.id !== id),
+            personal: data.personal.map(t => t.folderId === id ? { ...t, folderId: null, category: "Мои шаблоны" } : t) }));
     }
 
     ctx(): RankCtx {
