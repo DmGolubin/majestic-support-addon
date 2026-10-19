@@ -133,6 +133,32 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
 }
 
 describe("BetterDiscord final bundle in React/DOM", () => {
+    it("continues stop through a throwing toolbar cleanup and settings listener", async () => {
+        const f = fixture();
+        await React.act(async () => { await f.plugin.start(); await f.frame(); });
+        const off = f.plugin.offButtons;
+        f.plugin.offButtons = () => { off(); throw Error('toolbar teardown failure'); };
+        const updated = vi.fn();
+        f.plugin.settingsListeners.add(() => { throw Error('settings listener failure'); });
+        f.plugin.settingsListeners.add(updated);
+        const updaterStop = vi.fn(); f.plugin.updater = { stop: updaterStop };
+        await React.act(async () => { f.plugin.stop(); await f.plugin.retiring; });
+        expect(f.document.getElementById('vc-stx-host')).toBeNull();
+        expect(f.document.querySelector('.stx-bd-button-mount')).toBeNull();
+        expect(f.document.head.querySelector('style')).toBeNull();
+        expect([...f.flux.values()].reduce((n, set) => n + set.size, 0)).toBe(0);
+        expect(f.changes.size).toBe(0);
+        expect(updaterStop).toHaveBeenCalledOnce(); expect(updated).toHaveBeenCalled();
+        f.plugin.settingsListeners.clear();
+    });
+    it("rolls back style setup that throws after adding its DOM node", async () => {
+        const f = fixture(); const add = f.host.DOM.addStyle;
+        f.host.DOM.addStyle = (...args: any[]) => { add(...args); throw Error('style setup failure'); };
+        await React.act(async () => { await f.plugin.start(); await f.frame(); });
+        expect(f.document.head.querySelector('style')).toBeNull();
+        expect(f.document.getElementById('vc-stx-host')).toBeNull();
+        expect(f.plugin.runtimeActive).toBe(false);
+    });
     it("restores encrypted login, loads FAQ and inserts a clicked template into the captured composer", async () => {
         const f = fixture({ restrictedHost: true, supportedBridge: true, signedIn: true });
         const accountId = "123456789012345678", connectionId = "11111111-1111-4111-8111-111111111111";

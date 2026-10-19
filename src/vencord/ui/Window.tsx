@@ -195,7 +195,13 @@ function WindowView() {
     }, [query, scope, listed, view, cat, version]);
     const { cats, res, secs, favs, items } = data;
 
-    visibleItems = data.positional ? items : favs;
+    const shortcuts = data.positional ? items : favs;
+    useLayoutEffect(() => {
+        // Publish only committed rows, before keyboard input can use them. An
+        // abandoned render must not replace the live window's shortcut list.
+        visibleItems = shortcuts;
+        return () => { if (visibleItems === shortcuts) visibleItems = []; };
+    }, [shortcuts]);
     const selIdx = Math.min(sel, Math.max(0, items.length - 1));
     const current = items[selIdx];
     itemsRef.current = items;

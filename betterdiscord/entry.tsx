@@ -11,6 +11,11 @@ import { PLUGIN_DISTRIBUTION, PLUGIN_VERSION } from "./shims/buildInfo";
 import { distributionDisplay } from "../src/vencord/buildDisplay";
 import css from "stx:css";
 
+/** Cleanup must progress even if a host bridge or an observer throws. */
+function cleanupStep(action: () => void) {
+    try { action(); } catch (error) { console.error("[SupportTemplates] Cleanup failed", error); }
+}
+
 export default class SupportTemplates {
     private generation = 0;
     private active = false;
@@ -81,8 +86,8 @@ export default class SupportTemplates {
         if (document.getElementById("vc-stx-host")) throw new Error("Another SupportTemplates runtime is active");
         this.runtimeActive = true;
         const own = ++this.runtimeGeneration;
-        api().DOM.addStyle(NAME, css);
         try {
+            api().DOM.addStyle(NAME, css);
             await upstream.start();
             if (!this.runtimeActive || own !== this.runtimeGeneration) return;
             this.offButtons = mountChatButtons(upstream.chatBarButton.render);
@@ -93,21 +98,22 @@ export default class SupportTemplates {
         if (!this.runtimeActive) return;
         this.runtimeActive = false;
         ++this.runtimeGeneration;
-        this.offButtons?.(); this.offButtons = undefined;
-        try { upstream.stop(); }
-        finally {
-            api().DOM.removeStyle(NAME);
-            this.retiring = closePanelVault();
-            for (const changed of this.settingsListeners) changed();
-        }
+        const offButtons = this.offButtons; this.offButtons = undefined;
+        cleanupStep(() => offButtons?.());
+        cleanupStep(() => upstream.stop());
+        cleanupStep(() => api().DOM.removeStyle(NAME));
+        this.retiring = Promise.resolve().then(() => closePanelVault()).catch(error => {
+            console.error("[SupportTemplates] Vault cleanup failed", error);
+        });
+        for (const changed of this.settingsListeners) cleanupStep(changed);
     }
     stop() {
         this.active = false; ++this.generation;
-        (this.delegate ?? this).stopBundledRuntime();
         const previous = this.updater; this.updater = undefined;
         const delegate = this.delegate; this.delegate = null;
-        this.retiring = Promise.allSettled([this.retiring, this.starting, delegate?.retiring, previous?.stop()]);
-        for (const changed of this.settingsListeners) changed();
+        cleanupStep(() => (delegate ?? this).stopBundledRuntime());
+        this.retiring = Promise.allSettled([this.retiring, this.starting, delegate?.retiring, Promise.resolve().then(() => previous?.stop())]);
+        for (const changed of this.settingsListeners) cleanupStep(changed);
     }
     getSettingsPanel() {
         const owner = this;

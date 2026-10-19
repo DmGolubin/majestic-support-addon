@@ -196,10 +196,51 @@ let offChannel: (() => void) | null = null;
 let offInline: (() => void) | null = null;
 let offLatch: (() => void) | null = null;
 let offTicketSound: (() => void) | null = null;
-let offPanel: (() => void) | null = null;
 let lastGuild: string | null = null;
 // Session/catalog invalidation cancels inserts, but must not cancel plugin startup.
 let lifecycle = 0;
+let runtimeReady = false;
+let stopping = false;
+
+/** Detach ownership first: a throwing/re-entrant host cleanup cannot strand later phases. */
+function stopRuntime() {
+    if (stopping) return;
+    stopping = true;
+    lifecycle++;
+    runtimeReady = false;
+    const soundOff = offTicketSound, channelOff = offChannel, inlineOff = offInline, latchOff = offLatch;
+    const previousRoot = root, previousHost = host;
+    offTicketSound = offChannel = offInline = offLatch = null;
+    root = host = null;
+    lastGuild = null;
+    const steps: [string, () => void][] = [
+        ["insert generation", nextGeneration],
+        // Panel owns its subscriptions, including partially registered/failed removals.
+        ["panel", disposePanel],
+        ["demo", disposeDemo],
+        ["ticket sound", () => soundOff?.()],
+        ["editor targets", clearTargets],
+        ["menu guards", resetMenuGuards],
+        ["keyboard", () => document.removeEventListener("keydown", onKey, true)],
+        ["channel events", () => channelOff?.()],
+        ["inline events", () => inlineOff?.()],
+        ["key latch", () => latchOff?.()],
+        ["pending dialogs", supersede],
+        ["inline state", resetInline],
+        ["React root", () => previousRoot?.unmount()],
+        ["host element", () => previousHost?.remove()],
+        ["fonts", unloadFonts],
+        ["UI state", () => ui.set({ management: false, windowOpen: false, dialog: null, inline: null, menu: null, compose: [] })],
+        ["debug", () => setDebugEnabled(false)],
+        ["notices", disposePlatformNotices],
+    ];
+    try {
+        for (const [name, cleanup] of steps) {
+            try { cleanup(); }
+            catch (error) { console.error(`[SupportTemplates] cleanup: ${name}`, error); }
+        }
+    } finally { stopping = false; }
+}
 
 /** Channel switch: cancel pending dialogs and drop everything tied to the old channel. */
 function channelChanged(guildId: string | null) {
@@ -243,63 +284,44 @@ export default definePlugin({
     chatBarButton: { icon: Icon, render: Button },
 
     async start() {
+        if (runtimeReady || stopping) return;
         // Only the plugin's own start: the await of realStore.load (IndexedDB; Discord keeps working meanwhile)
         // and the synchronous mount after it. Discord/Vencord boot before start() is not included.
         const t0 = performance.now();
         const gen = ++lifecycle;
-        nextGeneration();
-        try { await realStore.load(); }
-        catch {
+        try {
+            nextGeneration();
+            try { await realStore.load(); }
+            catch {
+                if (gen !== lifecycle) return;
+                toast("Локальные настройки не прочитаны. Повторите чтение в настройках шаблонов.", "failure");
+            }
+            // Vencord does not await start(): a stop() during the load must not be followed by a late mount.
             if (gen !== lifecycle) return;
-            toast("Локальные настройки не прочитаны. Повторите чтение в настройках шаблонов.", "failure");
+            const t1 = performance.now();
+            startPanel();
+            document.addEventListener("keydown", onKey, true);
+            offLatch = startLatch();
+            offTicketSound = startTicketSound();
+            lastGuild = currentGuildId();
+            loadFonts();
+            host = document.createElement("div");
+            host.id = "vc-stx-host";
+            document.body.append(host);
+            root = createRoot(host);
+            root.render(<Host />);
+            offInline = startInline();
+            offChannel = onChannelChange(channelChanged);
+            setDebugVerbose(!!settings.store.debugVerbose);
+            setDebugEnabled(!!settings.store.debug);
+            const t2 = performance.now();
+            setLoadTime({ total: t2 - t0, storeLoad: t1 - t0, mount: t2 - t1, readyAt: t2 });
+            runtimeReady = true;
+        } catch (error) {
+            if (gen === lifecycle) stopRuntime();
+            throw error;
         }
-        // Vencord does not await start(): a stop() during the load must not be followed by a late mount.
-        if (gen !== lifecycle) return;
-        const t1 = performance.now();
-        offPanel = startPanel();
-        document.addEventListener("keydown", onKey, true);
-        offLatch = startLatch();
-        offTicketSound = startTicketSound();
-        lastGuild = currentGuildId();
-        loadFonts();
-        host = document.createElement("div");
-        host.id = "vc-stx-host";
-        document.body.append(host);
-        root = createRoot(host);
-        root.render(<Host />);
-        offInline = startInline();
-        offChannel = onChannelChange(channelChanged);
-        setDebugVerbose(!!settings.store.debugVerbose);
-        setDebugEnabled(!!settings.store.debug);
-        const t2 = performance.now();
-        setLoadTime({ total: t2 - t0, storeLoad: t1 - t0, mount: t2 - t1, readyAt: t2 });
     },
 
-    stop() {
-        lifecycle++;
-        offPanel?.(); offPanel = null;
-        disposePanel();
-        disposeDemo();
-        offTicketSound?.();
-        offTicketSound = null;
-        nextGeneration(); // inserts waiting for a dialog / timer are dropped at their next check
-        clearTargets();
-        resetMenuGuards();
-        document.removeEventListener("keydown", onKey, true);
-        offChannel?.();
-        offChannel = null;
-        offInline?.();
-        offInline = null;
-        offLatch?.();
-        offLatch = null;
-        supersede(); // resolve a pending dialog so its flow ends instead of hanging
-        resetInline();
-        root?.unmount();
-        host?.remove();
-        root = host = null;
-        unloadFonts();
-        ui.set({ management: false, windowOpen: false, dialog: null, inline: null, menu: null, compose: [] });
-        setDebugEnabled(false);
-        disposePlatformNotices();
-    },
+    stop: stopRuntime,
 });

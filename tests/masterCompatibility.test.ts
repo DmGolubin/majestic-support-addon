@@ -183,8 +183,8 @@ describe("Role05 Discord compatibility regressions", () => {
         const h = harness();
         const mainEditor = { isConnected: true, textContent: "Main draft", focus: vi.fn() };
         h.document.querySelector.mockReturnValue(mainEditor);
-        let state: any = { windowOpen: false };
-        const ui = { get: () => state, set: (patch: any) => { state = { ...state, ...patch }; } };
+        const { createObservable } = load("../src/vencord/ui/observable.ts", { "@webpack/common": {} });
+        const ui = createObservable({ windowOpen: false, compose: [], dialog: null, menu: null, management: false });
         const op = load("../src/vencord/ui/op.ts", { "../platform": h.platform, "./uiState": { ui } }, {
             window: { getSelection: () => "" },
         });
@@ -215,7 +215,12 @@ describe("Role05 Discord compatibility regressions", () => {
             "../platform": h.platform, "./op": op, "./debug": { debugEnabled: () => false, dlog: vi.fn() },
             "./uiState": { ui, store, activeScope: () => "mj", currentMode: () => "mj", libraryIsFresh: () => true },
         }, { document: h.document });
-        await flow.insertTemplate(template);
+        const inserting = flow.insertTemplate(template);
+        // Closing the picker releases its global reference immediately; the real
+        // async flow must still use the target it captured before that cleanup.
+        expect(ui.get().windowOpen).toBe(false);
+        expect(op.windowEditor()).toBeNull();
+        await inserting;
         expect((mode === "sidebar" ? sidebarEditor : mainEditor).focus).toHaveBeenCalledOnce();
         if (mode === "sidebar") expect(mainEditor.focus).not.toHaveBeenCalled();
         expect(h.insert).toHaveBeenCalledExactlyOnceWith("Prepared reply");

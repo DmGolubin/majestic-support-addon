@@ -30,8 +30,8 @@ export const panel = createObservable({ enabled: true, phase: "idle" as Phase, c
     persistent: false, preferencesError: "" as "" | "read" | "write", sync: "idle" as "idle" | "connecting" | "live" | "retrying" });
 export const panelPersonal = createObservable({ catalog: null as PanelCatalog | null, connectionId: "", scopes: [] as string[], generation: 0, busy: false });
 function clearPersonal() {
-    stopTicketReminders();
-    panelPersonal.set({ catalog: null, connectionId: "", scopes: [], generation: panelPersonal.get().generation + 1, busy: false });
+    try { stopTicketReminders(); }
+    finally { panelPersonal.set({ catalog: null, connectionId: "", scopes: [], generation: panelPersonal.get().generation + 1, busy: false }); }
 }
 let client: PanelClient | null = null;
 let library: Store | null = null;
@@ -61,26 +61,38 @@ async function finishCleanups() {
     while (cleanups.size) await Promise.all([...cleanups].map(task => task.catch(() => {})));
 }
 
+function cleanupPanelStep(name: string, cleanup: () => void) {
+    try { cleanup(); }
+    catch (error) { console.error(`[SupportTemplates] panel cleanup: ${name}`, error); }
+}
+
 function invalidate() {
     nextGeneration(); supersede(); confirmedForeign.clear();
     ui.set({ inline: null, menu: null, dialog: null, compose: [] });
 }
 
 function wipe() {
-    clearPersonal();
+    // Invalidate and detach resources before callbacks/host APIs can throw or re-enter.
+    const previousLibrary = library, previousStream = stream, previousTimer = timer, previousStreamTimer = streamTimer;
+    library = null; preferences = null; stream = null; timer = streamTimer = undefined;
+    epoch++; loading = null; fingerprint = ""; permissions = ""; accountId = null; boundAccountId = null; failures = 0; retryAt = 0;
+    streamFailures = 0; syncRevision++; resyncPending = false;
+    cleanupPanelStep("library timer", () => clearTimeout(previousTimer));
+    cleanupPanelStep("stream timer", () => clearTimeout(previousStreamTimer));
+    cleanupPanelStep("event stream", () => previousStream?.abort());
+    cleanupPanelStep("personal state", clearPersonal);
     // Let already captured preference writes finish before a later login reads the same account slot.
-    if (library) {
-        library.closePanelPreferences();
-        void trackCleanup(library.flush().catch(() => {}));
+    if (previousLibrary) {
+        cleanupPanelStep("close preferences", () => previousLibrary.closePanelPreferences());
+        cleanupPanelStep("flush preferences", () => { void trackCleanup(previousLibrary.flush().catch(() => {})); });
     }
-    epoch++; clearTimeout(timer); loading = null; fingerprint = ""; permissions = ""; accountId = null; boundAccountId = null; failures = 0; retryAt = 0;
-    stream?.abort(); stream = null; clearTimeout(streamTimer); streamTimer = undefined; streamFailures = 0;
-    syncRevision++; resyncPending = false;
-    panelAccess.set({ ready: false, accountId: null, projects: [], checkedAt: 0 });
-    invalidate(); ui.set({ management: false });
-    library?.replacePanelCatalog({ templates: [], personal: [], folders: [] });
-    library = null; preferences = null;
-    panel.set({ phase: "idle", code: "", url: "", error: "", name: "", checkedAt: 0, persistent: false, preferencesError: "", sync: "idle" });
+    cleanupPanelStep("access", () => panelAccess.set({ ready: false, accountId: null, projects: [], checkedAt: 0 }));
+    cleanupPanelStep("insert generation", nextGeneration);
+    cleanupPanelStep("pending dialogs", supersede);
+    cleanupPanelStep("foreign confirmations", () => confirmedForeign.clear());
+    cleanupPanelStep("UI", () => ui.set({ inline: null, menu: null, dialog: null, compose: [], management: false }));
+    cleanupPanelStep("catalog", () => previousLibrary?.replacePanelCatalog({ templates: [], personal: [], folders: [] }));
+    cleanupPanelStep("connection state", () => panel.set({ phase: "idle", code: "", url: "", error: "", name: "", checkedAt: 0, persistent: false, preferencesError: "", sync: "idle" }));
 }
 
 function message(error: unknown): string {
@@ -573,15 +585,54 @@ export async function useDemoLibrary() {
 }
 
 export function disposePanel() {
-    const previous = client; client = null; previous?.dispose(); wipe();
-    setFreshnessCheck(async () => false);
+    const previous = client, off = offPanelEvents;
+    client = null; offPanelEvents = null;
+    cleanupPanelStep("subscriptions", () => off ? off() : retryPanelUnsubscribes());
+    cleanupPanelStep("client", () => previous?.dispose());
+    cleanupPanelStep("session", wipe);
+    cleanupPanelStep("freshness", () => setFreshnessCheck(async () => false));
+}
+
+let offPanelEvents: (() => void) | null = null;
+// Only failed removals survive teardown. Their callbacks are inert; later stop/start may retry.
+const pendingPanelUnsubscribes = new Set<() => void>();
+function retryPanelUnsubscribes() {
+    for (const remove of [...pendingPanelUnsubscribes]) {
+        if (!pendingPanelUnsubscribes.delete(remove)) continue; // A reentrant cleanup may have drained it.
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try { remove(); break; }
+            catch (error) {
+                if (attempt === 1) {
+                    pendingPanelUnsubscribes.add(remove);
+                    console.error("[SupportTemplates] panel unsubscribe failed after two attempts", error);
+                }
+            }
+        }
+    }
 }
 
 /** Discord logout must immediately remove the other account's templates from the UI. */
 export function startPanel() {
-    const disconnected = () => { if (panel.get().enabled) void logoutPanel(); };
+    if (offPanelEvents) return offPanelEvents;
+    retryPanelUnsubscribes();
+    // Do not accumulate another generation of subscriptions while the host still refuses removal.
+    if (pendingPanelUnsubscribes.size) throw new Error("SupportTemplates: panel subscriptions could not be released");
+    let live = true;
+    const removals = new Set<() => void>();
+    const off = () => {
+        live = false;
+        if (offPanelEvents === off) offPanelEvents = null;
+        for (const remove of removals) pendingPanelUnsubscribes.add(remove);
+        removals.clear();
+        retryPanelUnsubscribes();
+    };
+    const listen = (add: () => void, remove: () => void) => {
+        removals.add(remove); // Host subscriptions may throw AFTER attaching the callback.
+        add();
+    };
+    const disconnected = () => { if (live && panel.get().enabled) void logoutPanel(); };
     const resume = () => {
-        if (!panel.get().enabled) return;
+        if (!live || !panel.get().enabled) return;
         if (boundAccountId && boundAccountId !== UserStore.getCurrentUser()?.id) { void logoutPanel(); return; }
         if (cleanups.size) return;
         if (client) {
@@ -596,23 +647,22 @@ export function startPanel() {
         }
         else if (panel.get().phase === "idle" && UserStore.getCurrentUser()?.id) void restorePanel();
     };
-    FluxDispatcher.subscribe("LOGOUT", disconnected);
-    FluxDispatcher.subscribe("CONNECTION_OPEN", resume);
     const changedAccount = () => {
-        if (boundAccountId && boundAccountId !== UserStore.getCurrentUser()?.id) disconnected();
+        if (live && boundAccountId && boundAccountId !== UserStore.getCurrentUser()?.id) disconnected();
     };
-    UserStore.addChangeListener(changedAccount);
-    window.addEventListener("online", resume);
-    window.addEventListener("focus", resume);
-    const visible = () => { if (document.visibilityState === "visible") resume(); };
-    document.addEventListener("visibilitychange", visible);
-    resume();
-    return () => {
-        FluxDispatcher.unsubscribe("LOGOUT", disconnected);
-        FluxDispatcher.unsubscribe("CONNECTION_OPEN", resume);
-        UserStore.removeChangeListener(changedAccount);
-        window.removeEventListener("online", resume);
-        window.removeEventListener("focus", resume);
-        document.removeEventListener("visibilitychange", visible);
-    };
+    const visible = () => { if (live && document.visibilityState === "visible") resume(); };
+    offPanelEvents = off;
+    try {
+        listen(() => FluxDispatcher.subscribe("LOGOUT", disconnected), () => FluxDispatcher.unsubscribe("LOGOUT", disconnected));
+        listen(() => FluxDispatcher.subscribe("CONNECTION_OPEN", resume), () => FluxDispatcher.unsubscribe("CONNECTION_OPEN", resume));
+        listen(() => UserStore.addChangeListener(changedAccount), () => UserStore.removeChangeListener(changedAccount));
+        listen(() => window.addEventListener("online", resume), () => window.removeEventListener("online", resume));
+        listen(() => window.addEventListener("focus", resume), () => window.removeEventListener("focus", resume));
+        listen(() => document.addEventListener("visibilitychange", visible), () => document.removeEventListener("visibilitychange", visible));
+        resume();
+        return off;
+    } catch (error) {
+        disposePanel();
+        throw error; // Cleanup diagnostics must never replace the original startup error.
+    }
 }
