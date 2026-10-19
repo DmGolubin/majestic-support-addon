@@ -3,11 +3,7 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (2)
-
-### Q19 · Закрыть блокер QuickCSS и подготовить три сборки .24
-
-Качество MVP. Локальная сборка Monaco0.57.0/DOMPurify3.4.17 заменяет CDN и встроенную старую копию. Frozen dependency install/audit успешны; проверяются Chromium/Electron, сохранение/подсказки/очистка, затем все три пакета. Реальная установка и публикация не входят в текущий запрос.
+## В работе (1)
 
 ### C06 · Двусторонние личные шаблоны
 
@@ -15,11 +11,17 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (33)
+## Реализовано · нужна приёмка (34)
+
+### Q19 · Закрыть блокер QuickCSS и подготовить три сборки .24
+
+Качество MVP. Блокер QuickCSS закрыт: Monaco 0.57.0 + DOMPurify 3.4.17 встроены без CDN, сохранён изолированный preload. Все три .24 собраны из 4332557. Прошли 1869 тестов, 4 финальные проверки защиты, обе проверки типов, Node12, пакеты72, BD10/28/136, Chromium90, Electron36 и 2 TEMP-группы финальных установщиков. Готово к живому тестированию; настоящие Discord/API, длительный прогон и публикация не выполнялись. В кеше остался тестовый ZIP Electron: автоудаление отклонено политикой.
+
+Основание: [2026-10-19-quickcss24.md](docs/audits/2026-10-19-quickcss24.md), [2026-10-19-quickcss24-results.json](docs/audits/2026-10-19-quickcss24-results.json), [1.0.1-canary.24.md](docs/releases/1.0.1-canary.24.md).
 
 ### Q18 · Полный аудит собственного кода и всех трёх сборок
 
-Качество MVP. Полный аудит 210 рабочих/служебных и 7 архивных файлов завершён: 27 исправлений продукта/доставки и 8 QA. Все три .23 собраны из a5216a2. Прошли 1865 тестов, обе проверки типов, UI192, 80 выполненных TEMP-групп установщиков/обновления, 65 проверок архивов, BD отладка/сбои и 180с/200 циклов. Остаются приёмка в реальных Discord/API и upstream gate полной версии Vencord; массовый выпуск не одобрен.
+Качество MVP. Полный аудит 210 рабочих/служебных и 7 архивных файлов завершён: 27 исправлений продукта/доставки и 8 QA. Все три .23 собраны из a5216a2. Прошли 1865 тестов, обе проверки типов, UI192, 80 выполненных TEMP-групп установщиков/обновления, 65 проверок архивов, BD отладка/сбои и 180с/200 циклов. Блокер QuickCSS полной версии устранён последующей .24 в Q19. Остаются приёмка в реальных Discord/API и отдельный upstream dev/build долг; массовый выпуск не одобрен.
 
 Основание: [2026-10-19-full-code23.md](docs/audits/2026-10-19-full-code23.md), [2026-10-19-full-code23-results.json](docs/audits/2026-10-19-full-code23-results.json), [1.0.1-canary.23.md](docs/releases/1.0.1-canary.23.md).
 
@@ -157,9 +159,9 @@ C · Панель. Владелец сообщает сохранение вхо
 
 ### R09 · Зависимости и состав урезанного Vencord
 
-Выпуск. Блокер внешнего Monaco/DOMPurify в полной .23 подтверждён; исправление и новые три пакета ведутся в Q19. Прочие upstream dev/build advisories остаются классифицированным долгом.
+Выпуск. Q19 устранил блокер QuickCSS полной .24: исполняемый пакет содержит Monaco 0.57.0/DOMPurify 3.4.17, без CDN; Chromium и native Electron проверки прошли. Прочие upstream dev/build advisories остаются классифицированным долгом, живая приёмка ещё нужна.
 
-Основание: [2026-10-18-release-audit.md](docs/audits/2026-10-18-release-audit.md), [2026-10-18-vencord-dependencies.json](docs/audits/2026-10-18-vencord-dependencies.json), [2026-10-18-standalone-dependencies.md](docs/audits/2026-10-18-standalone-dependencies.md), [README.md](docs/audits/master-qa-2026-10-18/README.md), [2026-10-19-three-distributions.md](docs/audits/2026-10-19-three-distributions.md), [2026-10-19-full-code23.md](docs/audits/2026-10-19-full-code23.md).
+Основание: [2026-10-18-release-audit.md](docs/audits/2026-10-18-release-audit.md), [2026-10-18-vencord-dependencies.json](docs/audits/2026-10-18-vencord-dependencies.json), [2026-10-18-standalone-dependencies.md](docs/audits/2026-10-18-standalone-dependencies.md), [README.md](docs/audits/master-qa-2026-10-18/README.md), [2026-10-19-three-distributions.md](docs/audits/2026-10-19-three-distributions.md), [2026-10-19-full-code23.md](docs/audits/2026-10-19-full-code23.md), [2026-10-19-quickcss24.md](docs/audits/2026-10-19-quickcss24.md).
 
 ### C11 · Сохранение предпочтений библиотеки аккаунта
 
