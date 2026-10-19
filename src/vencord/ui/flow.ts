@@ -140,13 +140,13 @@ function scopeHere(): Scope | null {
  * Guard + warnings. Returns the template to use (maybe a mirror) or null when cancelled.
  * On Tech ("all") any template is fine (the switch only filters the list): no mirror, no foreign/marker warnings — only the status check.
  */
-async function guard(t: Template, scope: Scope, onCancel?: () => void): Promise<Template | null> {
+async function guard(t: Template, scope: Scope, onCancel?: () => void, current: () => boolean = () => true): Promise<Template | null> {
     if (scope !== "all") {
         const g = await projectGuard(t, scope, onCancel);
         if (!g) return null;
         t = g;
     }
-    return statusGuard(t, onCancel);
+    return current() ? statusGuard(t, onCancel) : null;
 }
 
 /** "Intentional mention" answer key: tied to the text, so an edited / re-imported template is checked again. */
@@ -210,6 +210,8 @@ export async function prepareText(t: Template, target: Target, opts: { noGreetin
     const operation = ++preparationSequence;
     if (store.byId(t.id) !== t) return null;
     const snap = snapNow(target);
+    // A later choice supersedes preparation even if neither operation has changed the draft yet.
+    const current = () => operation === preparationSequence && stillCurrent(snap);
     let cancelledDialog: number | null = null;
     const onCancel = () => { cancelledDialog = dialogSequence; };
     // Restore only a user's cancellation. Supersession and newer operations must never steal focus.
@@ -222,16 +224,16 @@ export async function prepareText(t: Template, target: Target, opts: { noGreetin
         const focused = document.activeElement;
         if (focused === document.body || focused?.closest(".vc-stx-dialog")) snap.editor.focus();
     };
-    if ((!libraryIsFresh() && !await ensureLibraryFresh()) || !stillCurrent(snap)) return null;
+    if ((!libraryIsFresh() && !await ensureLibraryFresh()) || !current()) return null;
     const scope = scopeHere();
     if (!scope) return null;
-    const g = await guard(t, scope, onCancel);
+    const g = await guard(t, scope, onCancel, current);
     if (!g) { restoreCancelledFocus(); return null; }
-    if (store.byId(g.id) !== g || !stillCurrent(snap)) return null;
+    if (store.byId(g.id) !== g || !current()) return null;
     const raw = opts.noGreeting ? splitGreeting(g.text).body : stripMarker(g.text);
     const text = await fillFields(g.title, raw, snap, onCancel);
     if (text === null) { restoreCancelledFocus(); return null; }
-    return (!libraryIsFresh() && !await ensureLibraryFresh()) || store.byId(g.id) !== g || !stillCurrent(snap) ? null : { t: g, text, snap };
+    return (!libraryIsFresh() && !await ensureLibraryFresh()) || store.byId(g.id) !== g || !current() ? null : { t: g, text, snap };
 }
 
 /** `via` — where the insert came from, for the debug log only. */

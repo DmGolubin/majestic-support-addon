@@ -23,10 +23,17 @@ export function useStateFromStores(stores: any[], read: () => any, deps: any[] =
         const changed = () => { if (live) force((n: number) => n + 1); };
         const attached: any[] = [];
         try {
-            for (const store of stores) { store.addChangeListener(changed); attached.push(store); }
+            for (const store of stores) { attached.push(store); store.addChangeListener(changed); }
             changed(); // cover a store change between render and effect
         } catch { /* The shared UI error boundary reports a failed read. */ }
-        return () => { live = false; for (const store of attached) { try { store.removeChangeListener(changed); } catch {} } };
+        return () => {
+            live = false;
+            for (const store of attached) {
+                // Host bridges can throw before or after completing the removal.
+                try { store.removeChangeListener(changed); }
+                catch { try { store.removeChangeListener(changed); } catch {} }
+            }
+        };
     }, [...stores, ...deps]);
     return current.current();
 }

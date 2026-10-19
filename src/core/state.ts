@@ -5,7 +5,7 @@
  */
 
 import { ServerBinding } from "./guard";
-import { importBackup, parseRaw } from "./importer";
+import { importBackup, parseRaw, readUsage } from "./importer";
 import { bindProblem, cleanBinds } from "./keys";
 import { PersonalDraft, PersonalFolder, PersonalTemplate, personalTemplate, readFolders, readPersonal } from "./personal";
 import { RankCtx } from "./rank";
@@ -39,7 +39,7 @@ export const STORE_KEY = "SupportTemplates_v2";
 /** Key used by the Vencord spike (raw/usage/pinned/tabs). */
 export const LEGACY_KEY = "SupportTemplates_data";
 
-const strings = (v: unknown): string[] => Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+const strings = (v: unknown): string[] => Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string"))] : [];
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
 /**
@@ -66,8 +66,11 @@ export function sanitize(saved: Record<string, unknown>, templates: Template[]):
     const usage: Record<string, Usage> = {};
     if (isRecord(saved.usage)) {
         for (const [id, u] of Object.entries(saved.usage)) {
-            const n = isRecord(u) ? Math.floor(Number(u.n)) : NaN;
-            if (n > 0) usage[id] = { n, last: Number((u as any).last) || 0 };
+            const clean = readUsage(u);
+            if (clean) usage[id] = clean;
+            if (!clean || !isRecord(u) || clean.n !== u.n || clean.last !== u.last) {
+                if (!fixed.includes("usage")) fixed.push("usage");
+            }
         }
     } else if ("usage" in saved) fixed.push("usage");
     d.usage = usage;
@@ -199,7 +202,7 @@ export class Store {
                 // Keep the damaged original next to the repaired one, then save the repaired data.
                 console.warn("[SupportTemplates] saved data repaired:", fixed.join(", "));
                 await this.storage.set(STORE_KEY + "_damaged", saved).catch(() => { });
-                this.storage.set(STORE_KEY, this.data).catch(e => console.error("[SupportTemplates]", e));
+                this.changed(); // Repair participates in flush and cannot finish after a newer preference write.
             }
         } else {
             const legacy = await this.storage.get(LEGACY_KEY) as { raw?: string; } | undefined;

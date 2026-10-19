@@ -53,10 +53,16 @@ export async function prepareUpdates(isStartup: () => boolean, onEvent: (event: 
     const runtimeRoot = join(root, "runtime");
     const adapter = cacheAdapter(runtimeRoot, isStartup);
     const previous = await cachedRuntime(runtimeRoot).catch(() => null);
-    const updater = createUpdater({ config, variant: "betterdiscord", currentVersion: previous?.version ?? config.version,
+    const makeUpdater = (currentVersion: string) => createUpdater({ config, variant: "betterdiscord", currentVersion,
         baseVersion: config.version, stagingDir: join(root, "staging"), maxAssetBytes: MAX_PLUGIN, adapter, onEvent });
+    const updater = makeUpdater(previous?.version ?? config.version);
     try {
-        await updater.applyPending({ phase: "startup" });
+        try { await updater.applyPending({ phase: "startup" }); }
+        catch {
+            // A corrupt pending receipt must not permanently disable checks. The
+            // engine's next check quarantines it and can download a fresh asset.
+            try { onEvent({ type: "error" }); } catch { /* Observers cannot break recovery. */ }
+        }
         if (!isStartup()) { await updater.stop(); return null; }
         const cached = await cachedRuntime(runtimeRoot).catch(() => null);
         // No network code is evaluated before manifest, size, hash and repository checks.
@@ -64,5 +70,12 @@ export async function prepareUpdates(isStartup: () => boolean, onEvent: (event: 
         if (Plugin && (typeof Plugin !== "function" || Plugin.prototype.getVersion?.() !== cached!.version
             || !["startBundledRuntime", "stopBundledRuntime", "getSettingsPanel", "getBundledSettings"].every(name => typeof Plugin.prototype[name] === "function"))) throw new Error("Incompatible cached runtime");
         return { updater, Plugin };
-    } catch (error) { await updater.stop(); throw error; }
+    } catch {
+        await updater.stop();
+        if (!isStartup()) return null;
+        try { onEvent({ type: "error" }); } catch { /* Observers cannot break recovery. */ }
+        // Verified bytes can still have an incompatible runtime contract. Keep
+        // repair checks alive, using the bundled runtime that will actually run.
+        return { updater: makeUpdater(config.version), Plugin: null };
+    }
 }

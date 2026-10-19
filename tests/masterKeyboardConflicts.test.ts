@@ -53,6 +53,19 @@ function harness() {
 }
 
 describe("Role15 keyboard conflict regressions — actual onKey", () => {
+    it.each([{ isComposing: true }, { keyCode: 229 }, { getModifierState: (key: string) => key === "AltGraph" }])(
+        "does not treat text composition as a window, favorite or custom shortcut: %j", flags => {
+            const h = harness(); h.favorites.push(h.template); h.binds["Ctrl+KeyK"] = h.template;
+            for (const e of [event("KeyT", { ctrlKey: true, altKey: true, ...flags }),
+                event("Digit1", { altKey: true, ...flags }), event("KeyK", { ctrlKey: true, ...flags })]) {
+                e.target = target("chat"); h.onKey(e);
+                expect(e.preventDefault).not.toHaveBeenCalled(); expect(e.stopPropagation).not.toHaveBeenCalled();
+            }
+            expect(h.toggle).not.toHaveBeenCalled(); expect(h.insert).not.toHaveBeenCalled();
+            expect(h.inline).not.toHaveBeenCalled(); expect(h.latch).not.toHaveBeenCalled();
+        },
+    );
+
     it.each([false, true])("leaves missing Alt slots unclaimed (windowOpen=%s), including repeats", open => {
         const h = harness(); h.state.windowOpen = open;
         for (const repeat of [false, true]) {

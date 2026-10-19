@@ -63,7 +63,7 @@ function pluginFor(platform: any, op: any, ui: any) {
         "./platform": platform, "./ui/op": op, "./ui/uiState": { ui },
     };
     const lifecycle = { resetMenuGuards: vi.fn(), setDebugEnabled: vi.fn(), disposeDemo: vi.fn(), supersede: vi.fn(), unloadFonts: vi.fn(), resetInline: vi.fn(), disposePanel: vi.fn(), startDiagnostics: vi.fn(), stopDiagnostics: vi.fn() };
-    for (const name of ["ContextMenu", "debug", "diagnostics", "demo", "flow", "fonts", "Host", "icons", "inline", "keylatch", "panel", "ProjectIcon", "Settings", "ticketSound", "Window"]) dependencies[`./ui/${name}`] = lifecycle;
+    for (const name of ["ContextMenu", "debug", "diagnostics", "demo", "flow", "fonts", "Host", "icons", "inline", "keylatch", "panel", "ProjectIcon", "NativeServiceSettings", "ticketSound", "Window"]) dependencies[`./ui/${name}`] = lifecycle;
     return load("../src/vencord/index.tsx", dependencies, { document: { removeEventListener: vi.fn() } });
 }
 

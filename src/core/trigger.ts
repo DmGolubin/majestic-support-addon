@@ -16,5 +16,6 @@ export function findTrigger(before: string, prefix: string): { query: string; le
     const s = before.replace(/\uFEFF/g, "");
     const p = esc(prefix);
     const m = new RegExp(`(?:^|\\s)${p}([^\\s${p}]{1,40})$`, "u").exec(s);
-    return m ? { query: m[1], length: m[1].length + prefix.length } : null;
+    // The query ignores Slate's zero-width characters, but DOM selection consumes the original UTF-16 range.
+    return m ? { query: m[1], length: before.length - before.lastIndexOf(prefix) } : null;
 }

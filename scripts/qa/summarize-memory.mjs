@@ -4,9 +4,17 @@ const read = name => JSON.parse(fs.readFileSync(`${dir}/${name}`, 'utf8'));
 const soak = read('soak-results.json');
 const mib = bytes => Number((bytes / 1048576).toFixed(3));
 const processSamples = fs.readFileSync(`${dir}/canary-processes.jsonl`, 'utf8').trim().split(/\r?\n/).map(line=>JSON.parse(line.replace(/^\uFEFF/,'')));
-const totals = processSamples.map(s=>({seconds:s.elapsedSeconds,private:s.processes.reduce((n,p)=>n+p.privateBytes,0),cpu:s.processes.reduce((n,p)=>n+p.cpuSeconds,0),handles:s.processes.reduce((n,p)=>n+p.handles,0),pids:s.processes.map(p=>p.pid).join(',')}));
+if (processSamples.length < 2 || processSamples.some((s, i) => !Number.isFinite(s.elapsedSeconds) || s.elapsedSeconds < 0
+    || (i > 0 && s.elapsedSeconds <= processSamples[i - 1].elapsedSeconds)
+    || !Number.isInteger(s.logicalProcessors) || s.logicalProcessors <= 0 || s.logicalProcessors !== processSamples[0].logicalProcessors
+    || !Array.isArray(s.processes) || !s.processes.length || (s.errors !== undefined && (!Array.isArray(s.errors) || s.errors.length))
+    || s.processes.some(p => !Number.isInteger(p.pid) || p.pid <= 0 || ['privateBytes','cpuSeconds','handles'].some(k => !Number.isFinite(p[k]) || p[k] < 0)))) {
+    throw Error('Incomplete or mixed process samples: require one increasing timeline with readable processes');
+}
+const totals = processSamples.map(s=>({seconds:s.elapsedSeconds,private:s.processes.reduce((n,p)=>n+p.privateBytes,0),cpu:s.processes.reduce((n,p)=>n+p.cpuSeconds,0),handles:s.processes.reduce((n,p)=>n+p.handles,0),pids:s.processes.map(p=>p.pid).sort((a,b)=>a-b).join(',')}));
 const first=totals[0],last=totals.at(-1),seconds=last.seconds-first.seconds;
 const stablePids=totals.every(x=>x.pids===first.pids);
+if (stablePids && totals.some((s, i) => i > 0 && s.cpu < totals[i - 1].cpu)) throw Error('Process CPU counters reset; this is not one stable process lifetime');
 const result={
   publishedBundle:read('provenance.json'),browser:soak.browser,durationSeconds:soak.durationSeconds??null,
   cycles:soak.samples.filter(x=>['warmup','cycles'].includes(x.label)).map(x=>({cycle:x.cycle,label:x.label,heapMiB:mib(x.heap.usedSize),...x.dom,observers:x.app.instrument.activeMutationObservers,flux:x.app.host.fluxListeners})),

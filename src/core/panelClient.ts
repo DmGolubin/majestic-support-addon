@@ -580,7 +580,12 @@ export class PanelClient {
             const finish = () => { cleanup(); resolve(); };
             const wake = () => { if (this.#now() >= due) finish(); };
             const abort = () => { cleanup(); reject(new PanelError("cancelled")); };
-            const timer = setTimeout(finish, Math.min(ms, 2_147_483_647));
+            const poll = () => {
+                const remaining = due - this.#now();
+                if (remaining > 0) timer = setTimeout(poll, Math.min(remaining, 2_147_483_647));
+                else finish();
+            };
+            let timer = setTimeout(poll, Math.min(ms, 2_147_483_647));
             session.wakePoll = wake;
             signal.addEventListener("abort", abort, { once: true });
         });

@@ -28,7 +28,7 @@ import { latchKey, startLatch, swallowLatched } from "./ui/keylatch";
 import { captureWindowTarget, clearTargets, editorNear, nextGeneration } from "./ui/op";
 import { disposePanel, startPanel } from "./ui/panel";
 import { ChatBarIcon } from "./ui/ProjectIcon";
-import { Settings } from "./ui/Settings";
+import { NativeServiceSettings } from "./ui/NativeServiceSettings";
 import { startTicketSound } from "./ui/ticketSound";
 import { activeScope, pluginOn, poolFor, realStore, store, ui, UiState, useTechProject } from "./ui/uiState";
 import { visibleItems } from "./ui/Window";
@@ -117,6 +117,8 @@ function onKey(e: KeyboardEvent) {
 function handleKey(e: KeyboardEvent) {
     if (swallowLatched(e)) return; // held key after an insert: never repeat it, never leak it to Discord
     if (e.defaultPrevented) return; // an earlier listener already owns this event
+    // IME confirmation and AltGr are text input, even when they carry shortcut modifiers.
+    if (e.isComposing || e.keyCode === 229 || e.getModifierState?.("AltGraph")) return;
     const s = ui.get();
     if (s.management || (e.target as HTMLElement)?.closest?.(".vc-stx-settings")) return;
     if (s.dialog) {
@@ -260,7 +262,7 @@ function channelChanged(guildId: string | null) {
 }
 
 const settings = definePluginSettings({
-    panel: { type: OptionType.COMPONENT, component: () => <Settings /> },
+    panel: { type: OptionType.COMPONENT, component: () => <NativeServiceSettings /> },
     // Vencord's own settings store: a UI preference, kept out of the templates data (and its backups).
     debug: {
         type: OptionType.BOOLEAN,

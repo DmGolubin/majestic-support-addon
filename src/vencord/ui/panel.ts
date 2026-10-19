@@ -50,6 +50,7 @@ let syncRevision = 0;
 let resyncPending = false;
 let resyncQueued = false;
 let stream: AbortController | null = null;
+let streamStartedAt = 0;
 let streamTimer: ReturnType<typeof setTimeout> | undefined;
 let streamFailures = 0;
 const readEvents = createPanelEventStream();
@@ -158,6 +159,7 @@ function startEvents() {
     const active = client, own = epoch;
     if (!active?.connectionId || stream || streamTimer) return;
     const controller = new AbortController(); stream = controller;
+    streamStartedAt = Date.now();
     panel.set({ sync: "connecting" });
     journal.record("stream.start");
     void (async () => {
@@ -684,7 +686,9 @@ export function startPanel() {
             invalidateTicketReminders();
             if (!libraryIsFresh()) {
                 // The contract has no heartbeat. Replace a possibly half-open connection after sleep.
-                stream?.abort(); stream = null;
+                // A burst of resume events must not replace the stream just opened while reads are pending.
+                const streamAge = Date.now() - streamStartedAt;
+                if (stream && (streamAge < 0 || streamAge > 30000)) { stream.abort(); stream = null; }
                 void loadLibrary();
             }
             startEvents(); // An existing Retry-After timer is still respected.

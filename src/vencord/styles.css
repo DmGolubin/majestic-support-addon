@@ -1,4 +1,4 @@
-#vc-stx-host {
+#vc-stx-host, .vc-stx-native-settings {
     --stx-bg: hsl(216 16% 6%);
     --stx-card: hsl(218 17% 9%);
     --stx-hover: hsl(215 16% 13%);
@@ -20,7 +20,8 @@
     color: var(--stx-tx);
 }
 
-#vc-stx-host *, #vc-stx-host *::before, #vc-stx-host *::after { box-sizing: border-box; }
+#vc-stx-host *, #vc-stx-host *::before, #vc-stx-host *::after,
+.vc-stx-native-settings *, .vc-stx-native-settings *::before, .vc-stx-native-settings *::after { box-sizing: border-box; }
 
 .vc-stx-root { position: fixed; inset: 0; pointer-events: none; z-index: 1000; }
 .vc-stx-root > * { pointer-events: auto; }

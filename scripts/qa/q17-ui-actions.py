@@ -9,9 +9,27 @@ out = fixture / 'editor-actions.json'
 if out.exists():
     raise RuntimeError('Do not overwrite prior runs')
 results = []
+blocked_requests = []
+
+
+def local_only(route):
+    if route.request.url.startswith(('file:', 'data:', 'blob:')):
+        route.continue_()
+    else:
+        blocked_requests.append(route.request.resource_type)
+        route.abort()
+
+
+def reject_websocket(route):
+    blocked_requests.append('websocket')
+    route.close()
+
+
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True, timeout=60000)
-    page = browser.new_page()
+    page = browser.new_page(offline=True, service_workers='block')
+    page.route('**/*', local_only)
+    page.route_web_socket('**/*', reject_websocket)
     page.set_default_timeout(7000)
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
@@ -55,7 +73,8 @@ with sync_playwright() as p:
         page.screenshot(path=str(fixture / f'draft-close-{width}x{height}.png'))
         page.get_by_role('button', name='Вернуться', exact=True).click()
         results[-1]['returnFocus'] = page.evaluate('document.activeElement.matches(".vc-stx-management > header button")')
-    out.write_text(json.dumps({'results': results, 'errors': errors, 'limit': 'Source fixture, not Discord; write failure mocked; textarea resize geometry simulated'}, ensure_ascii=False, indent=2), encoding='utf-8')
+        results[-1]['pass'] = results[-1]['pass'] and results[-1]['returnFocus']
+    out.write_text(json.dumps({'results': results, 'errors': errors, 'blockedRequests': blocked_requests, 'limit': 'Source fixture, not Discord; write failure mocked; textarea resize geometry simulated'}, ensure_ascii=False, indent=2), encoding='utf-8')
     browser.close()
-print(json.dumps({'passed': all(r['pass'] and r['returnFocus'] for r in results) and not errors, 'report': str(out)}))
-sys.exit(0 if all(r['pass'] and r['returnFocus'] for r in results) and not errors else 1)
+print(json.dumps({'passed': bool(results) and all(r['pass'] for r in results) and not errors and not blocked_requests, 'report': str(out)}))
+sys.exit(0 if results and all(r['pass'] for r in results) and not errors and not blocked_requests else 1)

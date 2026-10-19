@@ -17,9 +17,16 @@ const normalized = (value: string) => process.platform === "win32" ? resolve(val
 /** Adapt BD's WHATWG stream to the shared bounded, redirect-validated receiver. */
 export function hostTransport(netFetch: (url: string, init: any) => Promise<Response>) {
     return async (url: string, { signal }: { signal: AbortSignal }) => {
+        assert(!signal.aborted, "ABORTED");
         const response = await netFetch(url, { method: "GET", signal, credentials: "omit", redirect: "manual", maxRedirects: 0,
             rejectUnauthorized: true, timeout: null,
             headers: { "User-Agent": "SupportTemplates-Updater/1", Accept: "application/json, application/octet-stream", "Accept-Encoding": "identity" } });
+        // The shared receiver may already have stopped awaiting this bridge. It
+        // cannot dispose a body that arrives after cancellation; we still own it.
+        if (signal.aborted) {
+            await response.body?.cancel().catch(() => {});
+            throw new Error("ABORTED");
+        }
         if (response.redirected || response.url && response.url !== url) {
             await response.body?.cancel().catch(() => {});
             throw new Error("UNEXPECTED_REDIRECT");

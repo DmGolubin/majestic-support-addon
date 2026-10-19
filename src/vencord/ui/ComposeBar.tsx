@@ -10,6 +10,7 @@ import { joinPieces } from "../core/compose";
 import { insertText, toast } from "../platform";
 import { costEnd, costStart, dlog } from "./debug";
 import { confirmedForeign, fillFields, focusTarget, snapNow, stillCurrent } from "./flow";
+import { latchButtonKey } from "./keylatch";
 import { composeEditor, composeTargetNow, resetComposeTarget } from "./op";
 import { ProjectIcon } from "./ProjectIcon";
 import { IconClose } from "./svg";
@@ -141,7 +142,7 @@ function ComposeBarView() {
             ))}
             <span style={{ flex: 1 }} />
             <button className="vc-stx-btn vc-stx-ghost" onClick={() => ui.set({ compose: [] })}>Очистить</button>
-            <button className="vc-stx-btn" disabled={inserting} onClick={insertAll}>Вставить всё</button>
+            <button className="vc-stx-btn" disabled={inserting} onKeyDown={latchButtonKey} onClick={insertAll}>Вставить всё</button>
         </div>
     );
 }

@@ -68,7 +68,7 @@ interface Runtime {
 }
 type EngineOptions = ReminderOptions;
 const cleanups: (() => void)[] = [];
-afterEach(() => { for (const stop of cleanups.splice(0)) stop(); });
+afterEach(() => { for (const stop of cleanups.splice(0)) stop(); vi.useRealTimers(); });
 
 function harness() {
     const client = fakeClient();
@@ -112,6 +112,7 @@ function harness() {
     const exports = {} as Runtime;
     runInNewContext(code, {
         exports,
+        Date,
         require: (id: string) => { if (!(id in dependencies)) throw new Error(`Unexpected import: ${id}`); return dependencies[id]; },
     });
     cleanups.push(exports.stopTicketReminders);
@@ -213,7 +214,8 @@ describe("ticket reminder adapter", () => {
     });
 
     it.each([new PanelError("network_error"), new PanelError("server_error", 500)])(
-        "other settings read errors stay offline and allow an explicit retry ($code)", async error => {
+        "other settings read errors stay offline and retry after backoff ($code)", async error => {
+            vi.useFakeTimers({ toFake: ["Date"] });
             const h = harness();
             await h.ready();
             const engine = h.running()[0];
@@ -225,6 +227,9 @@ describe("ticket reminder adapter", () => {
             expect(engine.options.current()).toMatchObject({ enabled: false });
             expect(h.binding.onAuthError).not.toHaveBeenCalled();
             await expect(engine.options.play(() => true)).resolves.toBe(false);
+            await h.refreshTicketReminders();
+            expect(h.client.get).toHaveBeenCalledTimes(2);
+            vi.setSystemTime(Date.now() + 10000);
             await h.refreshTicketReminders();
             expect(h.client.get).toHaveBeenCalledTimes(3);
             expect(h.state()).toMatchObject({ phase: "ready", error: "" });

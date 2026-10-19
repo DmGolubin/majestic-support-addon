@@ -44,6 +44,7 @@ export function poolOf(templates: Template[], scope: Scope | null, techProject: 
 export function findMirror(t: Template, pool: Template[], project: ProjectId): Template | null {
     if (!t.project || t.project === project) return null;
     const k = titleKey(t.title);
+    if (!k) return null; // Unrelated emoji/punctuation titles must not become the same mirror identity.
     return pool.find(x => x.project === project && titleKey(x.title) === k) ?? null;
 }
 

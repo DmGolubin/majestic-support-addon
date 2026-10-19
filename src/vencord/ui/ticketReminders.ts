@@ -23,16 +23,27 @@ let revision = 0;
 let settingsRead: Promise<void> | null = null;
 let settingsRevision = 0;
 let settingsRetryAt = 0;
+let settingsFailures = 0;
 
-function deferSettings(error: unknown) {
-    if (!(error instanceof PanelError)) return;
-    const delay = Number.isFinite(error.retryAfterMs) && error.retryAfterMs! > 0 ? error.retryAfterMs! : error.status === 429 ? 60000 : 0;
-    if (delay) settingsRetryAt = Math.max(settingsRetryAt, Date.now() + delay);
+function deferSettings(error: unknown, failedRead = false) {
+    const failure = error instanceof PanelError ? error : null;
+    const retryAfter = failure?.retryAfterMs;
+    const serverDelay = typeof retryAfter === "number" && Number.isFinite(retryAfter) && retryAfter > 0
+        ? retryAfter : failure?.status === 429 ? 60000 : 0;
+    // A write conflict/uncertain write needs an immediate confirming GET; never
+    // replay the PATCH. Only a server delay or a failed read postpones that GET.
+    if (!failedRead && !serverDelay) return;
+    // Repeated library syncs and retry clicks share one backoff, including failures
+    // without an HTTP response. A malformed settings response is not an empty record.
+    settingsFailures = Math.min(settingsFailures + 1, 5);
+    const delay = Math.max(serverDelay, Math.min(120000, 10000 * 2 ** (settingsFailures - 1)));
+    settingsRetryAt = Math.max(settingsRetryAt, Date.now() + delay);
 }
 
 export function stopTicketReminders() {
     revision++; settingsRevision++;
     settingsRetryAt = 0;
+    settingsFailures = 0;
     controller?.stop(); controller = null; binding = null; settingsRead = null;
     ticketRemindersState.set({ phase: "idle", settings: null, busy: false, error: "", deliveryError: "" });
 }
@@ -97,12 +108,13 @@ export async function refreshTicketReminders(): Promise<void> {
             const settings = parseNotificationSettings(await get(b, "/notification-settings"));
             if (!current(b, own) || readRevision !== settingsRevision) return;
             if (settings.projects.some(p => !b.projects.includes(p.project))) throw new Error("Invalid projects");
+            settingsFailures = 0;
             ticketRemindersState.set({ phase: "ready", settings, error: "" });
             controller?.start();
             controller?.invalidate();
         } catch (error) {
             if (!current(b, own)) return;
-            deferSettings(error);
+            deferSettings(error, true);
             if (readRevision !== settingsRevision) return;
             controller?.stop();
             ticketRemindersState.set({ phase: error instanceof PanelError && error.status === 403 ? "permission" : "offline", error: error instanceof PanelError && error.status === 403
@@ -127,6 +139,7 @@ export async function setDiscordReminders(enabled: boolean): Promise<void> {
         const settings = parseNotificationSettings(raw);
         if (!current(b, own)) return;
         if (settings.discordEnabled !== enabled || settings.projects.some(p => !b.projects.includes(p.project))) throw new PanelError("invalid_response");
+        settingsFailures = 0;
         ticketRemindersState.set({ settings, phase: "ready", error: "" });
     } catch (error) {
         if (!current(b, own)) return;

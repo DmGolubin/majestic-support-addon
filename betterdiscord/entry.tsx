@@ -115,7 +115,7 @@ export default class SupportTemplates {
         this.retiring = Promise.allSettled([this.retiring, this.starting, delegate?.retiring, Promise.resolve().then(() => previous?.stop())]);
         for (const changed of this.settingsListeners) cleanupStep(changed);
     }
-    getSettingsPanel() {
+    getSettingsPanel(includeHeader = true) {
         const owner = this;
         function Panel() {
             const [, refresh] = useState(0);
@@ -127,9 +127,9 @@ export default class SupportTemplates {
             const runtime = owner.delegate ?? owner;
             const definitions = upstream.settings.definitions;
             return <div className="vc-stx-root stx-bd-settings">
-                <header><strong title={`Версия: ${runtime.getVersion()}`}>SupportTemplates · {distributionDisplay(PLUGIN_DISTRIBUTION, runtime.getVersion())}</strong>
+                {includeHeader && <header><strong title={`Версия: ${runtime.getVersion()}`}>SupportTemplates · {distributionDisplay(PLUGIN_DISTRIBUTION, runtime.getVersion())}</strong>
                     <p>Ctrl+Alt+T — открыть шаблоны. Alt+1…9 — избранное. Текст вставляется без отправки.</p>
-                    <small>{owner.updateStatus}</small></header>
+                    <small>{owner.updateStatus}</small></header>}
                 {owner.delegate
                     ? owner.delegate.getBundledSettings()
                     : <ErrorBoundary onError={() => api().UI.showToast("Не удалось открыть настройки шаблонов", { type: "error" })}>
@@ -144,5 +144,5 @@ export default class SupportTemplates {
         }
         return React.createElement(Panel);
     }
-    getBundledSettings() { return this.getSettingsPanel(); }
+    getBundledSettings() { return this.getSettingsPanel(false); }
 }

@@ -67,9 +67,14 @@ function parseRawUnchecked(raw: string): Template[] {
     if (src.startsWith("[")) {
         try {
             const arr = JSON.parse(src) as any[];
-            return arr
-                .map(x => mk(String(x.group ?? "").trim(), String(x.title ?? x.name ?? "").trim(), String(x.text ?? x.content ?? "").trim()))
-                .filter(t => t.title && t.text);
+            return arr.flatMap(x => {
+                if (!x || typeof x !== "object" || Array.isArray(x)) return [];
+                try {
+                    // Match 0.5.1's falsy fallbacks: its exported raw JSON and reference keys depend on them.
+                    const t = mk(String(x.group || "").trim(), String(x.title || x.name || "").trim(), String(x.text || x.content || "").trim());
+                    return t.title && t.text ? [t] : [];
+                } catch { return []; } // One damaged row must not discard the surrounding valid records.
+            });
         } catch { /* not JSON — parse as text */ }
     }
 
@@ -106,6 +111,15 @@ export interface ImportResult {
     dupes: number;
 }
 
+/** Legacy numeric strings are supported; objects and nonfinite values cannot poison an import or saved state. */
+export function readUsage(value: unknown): Usage | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const u = value as Record<string, unknown>;
+    const number = (v: unknown) => typeof v === "number" || typeof v === "string" ? Number(v) : NaN;
+    const n = Math.floor(number(u.n)), last = number(u.last);
+    return Number.isFinite(n) && n > 0 ? { n, last: Number.isFinite(last) && last >= 0 ? last : 0 } : null;
+}
+
 /** Accepts the 0.5.1 config/backup JSON ({raw, usage, pinned, binds}), a JSON array or plain text. */
 export function importBackup(text: string): ImportResult {
     let obj: any = null;
@@ -126,8 +140,9 @@ export function importBackup(text: string): ImportResult {
     const usage: Record<string, Usage> = {};
     if (isObj && obj.usage && typeof obj.usage === "object") {
         for (const [k, v] of Object.entries<any>(obj.usage)) {
-            const n = Math.floor(Number(v?.n));
-            if (ids.has(toId(k)) && n > 0) usage[toId(k)] = { n, last: Number(v?.last) || 0 };
+            if (!ids.has(toId(k))) continue;
+            const u = readUsage(v);
+            if (u) usage[toId(k)] = u;
         }
     }
 

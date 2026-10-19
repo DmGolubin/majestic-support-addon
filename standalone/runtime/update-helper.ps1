@@ -76,11 +76,26 @@ function Get-InstalledUpdateState([string]$LocalRoot, [string]$Channel) {
     return $highest
 }
 function Write-UpdateReceipt($Request, [string]$Cache) {
-    # Share the engine lock when acknowledging a successful native installation.
+    # Publish the same durable owner record as the engine. An abrupt helper exit
+    # must leave a provably dead owner that storage.cjs can recover, not a directory.
     $lock = Join-Path $Cache '.lock'
     Safe-UpdatePath $lock
     if (Test-Path -LiteralPath $lock) { return }
-    try { New-Item -ItemType Directory -Path $lock -ErrorAction Stop | Out-Null } catch { return }
+    $nonce = [guid]::NewGuid().ToString()
+    $ownerPath = Join-Path $Cache ('.owner-' + $nonce + '.tmp')
+    Safe-UpdatePath $ownerPath
+    $ownerBytes = (New-Object Text.UTF8Encoding($false)).GetBytes((@{schema=1;pid=$PID;nonce=$nonce} | ConvertTo-Json -Compress))
+    $ownerFile = New-Object IO.FileStream($ownerPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    try { $ownerFile.Write($ownerBytes, 0, $ownerBytes.Length); $ownerFile.Flush($true) } finally { $ownerFile.Dispose() }
+    try {
+        # File.Move is exclusive and atomic on this volume, including against
+        # an engine simultaneously publishing its lock with fs.link().
+        [IO.File]::Move($ownerPath, $lock)
+    } catch {
+        [IO.File]::Delete($ownerPath)
+        if (Test-Path -LiteralPath $lock) { return }
+        throw
+    }
     try {
         $receipt = Join-Path $Cache 'applied.json'
         Safe-UpdatePath $receipt
@@ -100,7 +115,7 @@ function Write-UpdateReceipt($Request, [string]$Cache) {
                 [IO.File]::Delete($pendingPath)
             }
         }
-    } finally { [IO.Directory]::Delete($lock) }
+    } finally { [IO.File]::Delete($lock) }
 }
 function Expand-VerifiedUpdate($Request, [string]$Destination) {
     Safe-UpdatePath $Request.assetPath

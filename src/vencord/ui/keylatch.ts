@@ -17,6 +17,12 @@ export function latchKey(code: string) {
     dlog("latch", { code });
 }
 
+/** Native insertion buttons move focus to chat on click; hold their activation key until release. */
+export function latchButtonKey(e: React.KeyboardEvent<HTMLButtonElement>) {
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (e.key === "Enter" || e.key === " ") latchKey(e.nativeEvent.code);
+}
+
 /** The latched key code, for the debug panel. */
 export const latchedCode = () => latched;
 

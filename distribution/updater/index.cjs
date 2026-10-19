@@ -47,17 +47,20 @@ function createUpdater(options) {
     async function pending() {
         const record = await disk.readJson(pendingPath);
         if (!record) return null;
-        v.assert(record.schema === 1 && record.variant === variant && /^[a-f0-9-]{36}$/.test(record.id), 'INVALID_RECORD');
+        v.assert(record.schema === 1 && record.variant === variant && typeof record.id === 'string' && /^[a-f0-9-]{36}$/.test(record.id), 'INVALID_RECORD');
         const asset = v.validateManifest(record.manifest, policy);
         v.assert(asset, 'VARIANT_MISMATCH');
         const assetPath = path.join(root, record.id, asset.name);
         await disk.verify(assetPath, asset);
         return { assetPath, manifest: record.manifest, asset, version: record.manifest.version, variant, channel };
     }
-    async function apply(phase) {
+    async function apply(phase, token) {
+        v.assert(token === generation, 'ABORTED');
         const context = await pending();
+        v.assert(token === generation, 'ABORTED');
         if (!context) return result('idle');
         const effective = await effectiveVersion();
+        v.assert(token === generation, 'ABORTED');
         if (v.compareVersions(context.version, effective) <= 0) {
             await fs.unlink(pendingPath);
             return result('up-to-date', { version: effective });
@@ -70,6 +73,9 @@ function createUpdater(options) {
             // The gate may wait for other processes; do not rely on the earlier hash.
             await disk.verify(context.assetPath, context.asset);
         }
+        // stop() invalidates queued applies and gates still waiting for a safe
+        // native lifecycle point. Once apply starts, finish its receipt normally.
+        v.assert(token === generation, 'ABORTED');
         const applied = await adapter.apply(context);
         if (applied?.applied !== true) return result('pending', { version: context.version });
         // Informational receipt only; actual selected runtime remains authoritative
@@ -132,7 +138,7 @@ function createUpdater(options) {
             await fs.rm(work, { recursive: true, force: true });
         }
     }
-    async function checkInternal(signal) {
+    async function checkInternal(signal, token) {
         try {
             let old;
             try { old = await pending(); }
@@ -160,7 +166,7 @@ function createUpdater(options) {
             const release = await discover(signal);
             if (!release || v.compareVersions(release.tag_name.slice(1), effective) <= 0) return result('up-to-date', { version: effective });
             if (old && v.compareVersions(old.version, release.tag_name.slice(1)) >= 0) {
-                return old.asset.kind === 'renderer' ? apply('runtime') : result('pending-restart', { version: old.version });
+                return old.asset.kind === 'renderer' ? apply('runtime', token) : result('pending-restart', { version: old.version });
             }
             const metadata = releaseAsset(release, name);
             v.assert(metadata.size <= 1024 * 1024, 'MANIFEST_TOO_LARGE');
@@ -173,7 +179,7 @@ function createUpdater(options) {
             v.assert(released.size === asset.size, 'SIZE_MISMATCH');
             if (released.digest != null) v.assert(released.digest === `sha256:${asset.sha256}`, 'HASH_MISMATCH');
             const staged = await stage(manifest, asset, released.browser_download_url, release.tag_name, signal);
-            return asset.kind === 'renderer' ? apply('runtime') : staged;
+            return asset.kind === 'renderer' ? apply('runtime', token) : staged;
         } catch (error) {
             if (error.code === 'HTTP_STATUS' && [403, 404, 429].includes(error.status)) return result('unavailable', { httpStatus: error.status });
             throw error;
@@ -185,7 +191,7 @@ function createUpdater(options) {
         return serialized(async () => {
             v.assert(token === generation, 'ABORTED');
             const controller = new AbortController(); active = controller;
-            try { return await checkInternal(controller.signal); }
+            try { return await checkInternal(controller.signal, token); }
             finally { if (active === controller) active = null; }
         });
     }
@@ -204,7 +210,8 @@ function createUpdater(options) {
         async stop() { running = false; generation++; clearTimeout(timer); timer = null; active?.abort(); await queue; },
         applyPending({ phase = 'runtime' } = {}) {
             v.assert(['runtime', 'startup', 'app-closed'].includes(phase), 'INVALID_PHASE');
-            return repo ? serialized(() => apply(phase)) : Promise.resolve(result('disabled'));
+            const token = generation;
+            return repo ? serialized(() => apply(phase, token)) : Promise.resolve(result('disabled'));
         },
         getPending() { return repo ? serialized(pending) : Promise.resolve(null); }
     });

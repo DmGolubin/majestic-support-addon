@@ -7,15 +7,14 @@ import { execFileSync } from 'node:child_process';
 import { createLoaderAsar } from './asar.mjs';
 import { writeTar, writeZip } from './archive.mjs';
 import { PIN, sha, files, readPackage, version } from './runtime/package.cjs';
+import { readConfig } from '../config.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');
 const base = path.resolve(process.env.VENCORD_DIR ?? path.join(root, '../Vencord'));
 const outputRoot = path.resolve(process.env.DISTRIBUTION_OUTPUT_DIR ?? path.join(root, 'artifacts/distribution'));
-const config = JSON.parse(fs.readFileSync(path.join(root, 'distribution/config.json'), 'utf8'));
+const config = readConfig();
 version(config.version);
-if (config.schema !== 1 || !['stable', 'canary'].includes(config.channel)) throw Error('Invalid shared configuration');
-if (config.releaseRepository !== null && !/^[\w.-]+\/[\w.-]+$/.test(config.releaseRepository)) throw Error('Invalid release repository');
 const run = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: 'pipe', maxBuffer: 32 * 1024 * 1024 });
 if (run('git', ['rev-parse', 'HEAD'], base).toString().trim() !== PIN) throw Error('VENCORD_DIR must be at the exact pinned commit');
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'support-templates-vencord-build-'));
@@ -55,6 +54,7 @@ fs.writeFileSync(path.join(source, 'vencord-full-build.json'), JSON.stringify(re
 copyTree(here, path.join(source, 'distribution/vencord'));
 copyTree(path.join(root, 'distribution/updater'), path.join(source, 'distribution/updater'));
 fs.copyFileSync(path.join(root, 'distribution/config.json'), path.join(source, 'distribution/config.json'));
+fs.copyFileSync(path.join(root, 'distribution/config.mjs'), path.join(source, 'distribution/config.mjs'));
 fs.copyFileSync(path.join(here, 'rebuild.mjs'), path.join(source, 'rebuild.mjs'));
 if (!fs.existsSync(path.join(source, 'distribution/updater/index.cjs'))) throw Error('Shared updater implementation is not ready');
 fs.symlinkSync(path.join(base, 'node_modules'), path.join(source, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');

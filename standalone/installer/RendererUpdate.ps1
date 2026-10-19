@@ -110,8 +110,26 @@ function Update-Renderer($State) {
     if ($package.LoaderHash -cne $base.LoaderHash) {
         Require ((Loader-Identity $package.Files['payload/loader.asar']) -ceq (Loader-Identity $base.Files['payload/loader.asar'])) 'Loader changed; full installation with Discord closed is required'
     }
+    $baseHelper = $base.Files['payload/runtime/update-helper.ps1']
+    $nextHelper = $package.Files['payload/runtime/update-helper.ps1']
+    Require (($null -eq $baseHelper -and $null -eq $nextHelper) -or ($null -ne $baseHelper -and $null -ne $nextHelper -and (Hash-File $baseHelper) -ceq (Hash-File $nextHelper))) 'Update helper changed; full installation required'
+    $updatePolicies = @()
+    foreach ($candidate in @($base, $package)) {
+        $file = $candidate.Files['payload/runtime/update-config.json']
+        if ($null -eq $file) { $updatePolicies += $null; continue }
+        $config = Read-Json $file
+        Require ($config.version -ceq $candidate.Manifest.version) 'Updater config version differs from package'
+        # The running native updater retains its base version. Every other policy
+        # value must agree; changing channels/repositories requires a full install.
+        $policy = [ordered]@{}
+        foreach ($property in @($config.PSObject.Properties | Sort-Object Name)) {
+            if ($property.Name -cne 'version') { $policy[$property.Name] = $property.Value }
+        }
+        $updatePolicies += ($policy | ConvertTo-Json -Depth 40 -Compress)
+    }
+    Require ($updatePolicies[0] -ceq $updatePolicies[1]) 'Updater policy changed; full installation required'
     # Fail closed on future native/assets additions even if patcher/preload happen to match.
-    $allowed = @('payload/loader.asar','payload/runtime/patcher.js','payload/runtime/patcher.js.map','payload/runtime/preload.js','payload/runtime/preload.js.map','payload/runtime/renderer.js','payload/runtime/renderer.js.map','payload/runtime/renderer.js.LEGAL.txt','payload/runtime/renderer.css','payload/runtime/renderer.css.map')
+    $allowed = @('payload/loader.asar','payload/runtime/patcher.js','payload/runtime/patcher.js.map','payload/runtime/preload.js','payload/runtime/preload.js.map','payload/runtime/renderer.js','payload/runtime/renderer.js.map','payload/runtime/renderer.js.LEGAL.txt','payload/runtime/renderer.css','payload/runtime/renderer.css.map','payload/runtime/update-helper.ps1','payload/runtime/update-config.json')
     foreach ($item in @($base.Manifest.files) + @($package.Manifest.files)) { Require ($item.path -cin $allowed) 'Unknown payload layout; full installation required' }
     if (-not $script:Fixture) {
         foreach ($process in @(Get-Process -Name $script:ExeName -ErrorAction SilentlyContinue)) {

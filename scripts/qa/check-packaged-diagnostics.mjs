@@ -15,24 +15,40 @@ const require = createRequire(path.join(root, 'betterdiscord/package.json'));
 const { build } = require('esbuild');
 const release = path.resolve(process.argv[2]);
 const resultFile = path.resolve(process.argv[3]);
+if (fs.existsSync(resultFile)) throw Error('Refusing to overwrite prior package evidence');
 const releaseManifest = JSON.parse(fs.readFileSync(path.join(release, 'support-templates-update.json')));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const results = [];
 const normalize = value => value.replaceAll('\r\n', '\n');
+function memberPath(base, name) {
+    if (typeof name !== 'string' || !name || /[\\:\u0000-\u001f\u007f]/.test(name)
+        || name.split('/').some(part => !part || part === '.' || part === '..')) throw Error('Unsafe package member path');
+    const resolved = path.resolve(base, name);
+    if (!resolved.startsWith(path.resolve(base) + path.sep)) throw Error('Package member escapes its directory');
+    return resolved;
+}
 
 for (const variant of ['vencord', 'standalone']) {
     const assertions = [];
     const check = (name, condition) => { assert.ok(condition, `${variant}: ${name}`); assertions.push(name); };
     const asset = releaseManifest.assets.find(a => a.variant === variant);
-    const archive = path.join(release, asset.name);
+    const archive = memberPath(release, asset.name);
     check('release archive hash', sha(fs.readFileSync(archive)) === asset.sha256);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'support-templates-package-qa-'));
+    try {
+    const entries = execFileSync('tar', ['-tf', archive], {encoding: 'utf8'}).trim().split(/\r?\n/)
+        .map(name => name.replace(/^(\.\/)+/, '').replace(/\/$/, ''));
+    for (const entry of entries) memberPath(dir, entry);
+    const roots = new Set(entries.map(entry => entry.split('/')[0]));
+    check('single archive root', roots.size === 1);
+    const types = execFileSync('tar', ['-tvf', archive], {encoding: 'utf8'}).trim().split(/\r?\n/);
+    check('archive has only regular files and directories', types.every(line => /^[d-]/.test(line)));
     execFileSync('tar', ['-xf', archive, '-C', dir]);
-    const pkg = path.join(dir, fs.readdirSync(dir)[0]);
+    const pkg = memberPath(dir, [...roots][0]);
     const manifest = JSON.parse(fs.readFileSync(path.join(pkg, 'manifest.json')));
     check('version matches release manifest', manifest.version === releaseManifest.version);
     for (const item of manifest.files) {
-        const bytes = fs.readFileSync(path.join(pkg, item.path));
+        const bytes = fs.readFileSync(memberPath(pkg, item.path));
         assert.equal(bytes.length, item.size); assert.equal(sha(bytes), item.sha256);
     }
     check('all payload hashes', manifest.files.length > 0);
@@ -129,6 +145,11 @@ for (const variant of ['vencord', 'standalone']) {
     results.push({variant, archive: asset.name, sha256: asset.sha256, version: manifest.version, pluginCommit: manifest.pluginCommit,
         payloadFiles: manifest.files.length, rendererPluginSources: pluginSources.length, assertions,
         limitation: 'Packaged source-map modules executed with host/state mocks; no Discord host or live panel API.'});
+    } finally {
+        // Only the exact temporary directory created for this archive may be removed.
+        if (path.dirname(path.resolve(dir)) !== path.resolve(os.tmpdir())) throw Error('Unexpected package QA temporary directory');
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
 }
 fs.writeFileSync(resultFile, JSON.stringify({status: 'pass', results}, null, 2));
 console.log(`PASS ${results.reduce((n, r) => n + r.assertions.length, 0)} packaged diagnostic checks`);

@@ -1,4 +1,4 @@
-export function copyToClipboard(text: string) {
-    try { require("electron").clipboard.writeText(text); }
-    catch { void navigator.clipboard.writeText(text).catch(() => {}); }
+export async function copyToClipboard(text: string) {
+    try { await require("electron").clipboard.writeText(text); }
+    catch { await navigator.clipboard.writeText(text); }
 }

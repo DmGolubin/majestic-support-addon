@@ -89,7 +89,7 @@ async function harness() {
         "./ui/Host": { Host: () => null }, "./ui/icons": { MJ_ICON: "" },
         "./ui/inline": { startInline: () => vi.fn(), resetInline: vi.fn(), handleInlineKey: vi.fn() },
         "./ui/keylatch": { startLatch: () => vi.fn(), latchKey: vi.fn(), swallowLatched: vi.fn() },
-        "./ui/op": op, "./ui/panel": { startPanel: () => vi.fn(), disposePanel: vi.fn() }, "./ui/ProjectIcon": {}, "./ui/Settings": {},
+        "./ui/op": op, "./ui/panel": { startPanel: () => vi.fn(), disposePanel: vi.fn() }, "./ui/ProjectIcon": {}, "./ui/NativeServiceSettings": {},
         "./ui/ticketSound": { startTicketSound: () => vi.fn() }, "./ui/uiState": state, "./ui/Window": {},
     }, { document, performance: { now: () => 0 }, React: { createElement: () => ({}) } });
     const plugin = pluginModule.default;

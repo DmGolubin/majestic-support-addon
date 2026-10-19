@@ -14,6 +14,20 @@ output = fixture / 'regression.json'
 if output.exists():
     raise RuntimeError('Refusing to overwrite evidence; prepare a fresh fixture')
 checks, errors = [], []
+blocked_requests = []
+
+
+def local_only(route):
+    if route.request.url.startswith(('file:', 'data:', 'blob:')):
+        route.continue_()
+    else:
+        blocked_requests.append(route.request.resource_type)
+        route.abort()
+
+
+def reject_websocket(route):
+    blocked_requests.append('websocket')
+    route.close()
 
 
 def check(name, ok, detail=None):
@@ -51,11 +65,12 @@ def fresh(page, distribution='betterdiscord'):
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True, timeout=60000)
-    page = browser.new_page(viewport={'width': 1200, 'height': 900})
+    page = browser.new_page(viewport={'width': 1200, 'height': 900}, offline=True, service_workers='block')
     page.set_default_timeout(7000)
     page.on('pageerror', lambda e: errors.append(str(e)))
     # The fixture is strictly offline; unexpected network requests cannot reach a service.
-    page.route('https://**/*', lambda route: route.abort())
+    page.route('**/*', local_only)
+    page.route_web_socket('**/*', reject_websocket)
     try:
         fresh(page)
         page.evaluate("previewUi.set({management:false});document.getElementById('chat-draft').focus()")
@@ -271,6 +286,7 @@ with sync_playwright() as p:
         page.screenshot(path=str(fixture / 'failure.png'))
     finally:
         check('no uncaught browser errors', not errors, errors)
+        check('no unexpected network requests', not blocked_requests, blocked_requests)
         output.write_text(json.dumps({'scope': 'Real source React UI; mocked Discord, API, insertion and diagnostics; no installed distribution exercised', 'scaleMethod': 'CSS viewport = physical viewport / effective scale (not deviceScaleFactor-only zoom)', 'checks': checks}, ensure_ascii=False, indent=2), encoding='utf-8')
         browser.close()
 print(json.dumps({'passed': sum(c['pass'] for c in checks), 'failed': sum(not c['pass'] for c in checks), 'results': str(output)}))

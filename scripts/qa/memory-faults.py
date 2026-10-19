@@ -16,18 +16,22 @@ try:
         run.stop(page)
         snap(page, cdp, 'fault-start-before')
         page.evaluate('''()=>{const bus=BdApi.Webpack.getModule(()=>true), subscribe=bus.subscribe;
-          window.injectMountFailure=()=>{let seen=0;bus.subscribe=function(type,fn){subscribe.call(this,type,fn);if(type==='CHANNEL_SELECT'&&++seen===2){bus.subscribe=subscribe;throw Error('Injected mount failure')}}};}''')
+          window.injectedMountFailures=0;
+          window.injectMountFailure=()=>{let seen=0;bus.subscribe=function(type,fn){subscribe.call(this,type,fn);if(type==='CHANNEL_SELECT'&&++seen===2){injectedMountFailures++;bus.subscribe=subscribe;throw Error('Injected mount failure')}}};}''')
         for _ in range(10):
             page.evaluate('async()=>{injectMountFailure();await instance.start();await instance.retiring;await testFrame()}')
+        check(result, 'all-startup-faults-exercised', page.evaluate('injectedMountFailures') == 10)
         cleanup_assertions(result, snap(page, cdp, 'fault-start-after-10'))
         page.context.close()
 
         page, cdp = run.fresh()
         error = page.evaluate('''()=>{const bus=BdApi.Webpack.getModule(()=>true), unsubscribe=bus.unsubscribe;
-          bus.unsubscribe=function(type,fn){if(type==='LOGOUT'){bus.unsubscribe=unsubscribe;throw Error('Injected unsubscribe failure')}return unsubscribe.call(this,type,fn)};
+          window.injectedStopFailures=0;
+          bus.unsubscribe=function(type,fn){if(type==='LOGOUT'){injectedStopFailures++;bus.unsubscribe=unsubscribe;throw Error('Injected unsubscribe failure')}return unsubscribe.call(this,type,fn)};
           try{instance.stop();return null}catch(e){return e.message}}''')
         page.evaluate('async()=>{await instance.retiring;await testFrame()}')
         check(result, 'transient-stop-does-not-throw', error is None, error)
+        check(result, 'transient-stop-fault-exercised', page.evaluate('injectedStopFailures') == 1)
         cleanup_assertions(result, snap(page, cdp, 'transient-stop'))
         page.context.close()
 

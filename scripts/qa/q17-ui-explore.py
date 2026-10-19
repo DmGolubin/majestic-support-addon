@@ -9,9 +9,27 @@ out = fixture / (sys.argv[2] if len(sys.argv) > 2 else 'exploration.json')
 if out.exists():
     raise RuntimeError('Preserve previous evidence: use a new fixture')
 results = {}
+blocked_requests = []
+
+
+def local_only(route):
+    if route.request.url.startswith(('file:', 'data:', 'blob:')):
+        route.continue_()
+    else:
+        blocked_requests.append(route.request.resource_type)
+        route.abort()
+
+
+def reject_websocket(route):
+    blocked_requests.append('websocket')
+    route.close()
+
+
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
-    page = browser.new_page(viewport={'width': 1200, 'height': 900})
+    page = browser.new_page(viewport={'width': 1200, 'height': 900}, offline=True, service_workers='block')
+    page.route('**/*', local_only)
+    page.route_web_socket('**/*', reject_websocket)
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
     page.goto((fixture / 'index.html').as_uri())
@@ -53,6 +71,8 @@ with sync_playwright() as p:
     results['serviceOverflow'] = page.locator('#service').evaluate('e=>({width:e.clientWidth,scroll:e.scrollWidth})')
     page.screenshot(path=str(fixture / f'{out.stem}-service.png'))
     results['errors'] = errors
+    results['blockedRequests'] = blocked_requests
     out.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps(results, ensure_ascii=True, indent=2))
     browser.close()
+sys.exit(1 if errors or blocked_requests else 0)

@@ -129,6 +129,31 @@ function harness() {
 }
 
 describe("reminder settings rate limits", () => {
+    it.each([
+        new PanelError("network_error"), new PanelError("transport_error"),
+        new PanelError("http_error", 503), new Error("Malformed settings"),
+    ])("backs off repeated settings failures without revoking the session: %s", async error => {
+        const h = harness(); await h.ready(); h.client.get.mockClear();
+        h.client.get.mockRejectedValue(error);
+        await h.refreshTicketReminders();
+        for (let i = 0; i < 100; i++) {
+            h.syncTicketReminders({ ...h.binding }); await h.refreshTicketReminders();
+        }
+        expect(h.client.get).toHaveBeenCalledOnce();
+        expect(h.state().phase).toBe("offline");
+        expect(h.binding.onAuthError).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(9999);
+        await h.refreshTicketReminders(); expect(h.client.get).toHaveBeenCalledOnce();
+        await vi.advanceTimersByTimeAsync(1);
+        await h.refreshTicketReminders(); expect(h.client.get).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(19999);
+        await h.refreshTicketReminders(); expect(h.client.get).toHaveBeenCalledTimes(2);
+        h.client.get.mockResolvedValue(settings());
+        await vi.advanceTimersByTimeAsync(1);
+        await h.refreshTicketReminders();
+        expect(h.state().phase).toBe("ready");
+    });
+
     it.each([120000, undefined])("bounds reads after 429 Retry-After=%s despite repeated library sync/reloads", async retryAfter => {
         const h = harness(); await h.ready(); h.client.get.mockClear();
         h.client.get.mockRejectedValueOnce(new PanelError("rate_limited", 429, retryAfter));

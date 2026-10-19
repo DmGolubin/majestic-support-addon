@@ -68,7 +68,12 @@ window.BdApi = {
             const body = JSON.parse(options.body ?? '{}');
             if (body.grant_type === 'refresh_token') {
                 resources.refreshAttempts++;
-                if (!current || body.refresh_token !== current.refresh || consumedRefresh.has(body.refresh_token)) {
+                if (consumedRefresh.has(body.refresh_token)) {
+                    current = null;
+                    resources.rejectedRefresh++;
+                    return Response.json({ code: 'session_revoked', error: 'invalid_grant' }, { status: 401 });
+                }
+                if (!current || body.refresh_token !== current.refresh) {
                     resources.rejectedRefresh++; return Response.json({error: 'invalid_grant'}, {status: 400});
                 }
                 consumedRefresh.add(body.refresh_token); resources.refreshSuccess++;

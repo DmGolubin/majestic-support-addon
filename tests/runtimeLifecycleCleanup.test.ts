@@ -57,7 +57,7 @@ function harness() {
             const off = panelOff; panelOff = null;
             try { off?.(); } finally { step("panel"); }
         } },
-        "./ui/ProjectIcon": {}, "./ui/Settings": {}, "./ui/ticketSound": { startTicketSound: acquire("sound") },
+        "./ui/ProjectIcon": {}, "./ui/NativeServiceSettings": {}, "./ui/ticketSound": { startTicketSound: acquire("sound") },
         "./ui/uiState": { realStore: { load }, ui }, "./ui/Window": {},
     };
     const exports: any = {};
