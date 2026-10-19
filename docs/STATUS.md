@@ -21,11 +21,7 @@
 - Контракт Дмитрия: порог личного напоминания берётся из Telegram и меняется там; плагин меняет только discordEnabled. Системные 20/30 не меняются.
 - Рабочая библиотека — аккаунт панели. Импорт, локальная библиотека и демопереключатель подлежат удалению из обычного интерфейса (A18); старые локальные данные не удаляем молча. Q01 про импорт снят с плана.
 
-## В работе (2)
-
-### Q18 · Полный аудит собственного кода и всех трёх сборок
-
-Качество MVP. Проверены 210 рабочих/служебных файлов и 7 архивных. Исправлены 27 дефектов продукта/доставки и 8 QA, включая блокирующий DPAPI. Окончательный полный Vitest: 1865/1865 без пропусков; обе проверки типов, UI192, реальные Windows crypto/heartbeat успешны. Пересборка .23 и остаток TEMP-приёмки установщиков. Full Vencord удерживается из-за upstream Monaco/DOMPurify.
+## В работе (1)
 
 ### C06 · Двусторонние личные шаблоны
 
@@ -33,7 +29,13 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (32)
+## Реализовано · нужна приёмка (33)
+
+### Q18 · Полный аудит собственного кода и всех трёх сборок
+
+Качество MVP. Полный аудит 210 рабочих/служебных и 7 архивных файлов завершён: 27 исправлений продукта/доставки и 8 QA. Все три .23 собраны из a5216a2. Прошли 1865 тестов, обе проверки типов, UI192, 80 выполненных TEMP-групп установщиков/обновления, 65 проверок архивов, BD отладка/сбои и 180с/200 циклов. Остаются приёмка в реальных Discord/API и upstream gate полной версии Vencord; массовый выпуск не одобрен.
+
+Основание: [2026-10-19-full-code23.md](audits/2026-10-19-full-code23.md), [2026-10-19-full-code23-results.json](audits/2026-10-19-full-code23-results.json), [1.0.1-canary.23.md](releases/1.0.1-canary.23.md).
 
 ### Q17 · UI/UX трёх вариантов и устойчивость API без новых функций
 
@@ -169,9 +171,9 @@ C · Панель. Владелец сообщает сохранение вхо
 
 ### R09 · Зависимости и состав урезанного Vencord
 
-Выпуск. Для трёх пакетов .14 зависимости установлены в отдельном pinned checkout через pnpm11.9.0 --frozen-lockfile, lock hash зафиксирован: прежний borrowed-tree gate для этой сборки снят. Upstream maintenance advisories остаются отдельным долгом; не заявляем их исправление.
+Выпуск. Три .23 собраны из pinned Vencord 32c9063 через frozen lockfile, состав и SHA-256 записаны. В full Vencord QuickCSS подтверждена внешняя Monaco0.50.0/DOMPurify3.0.5 с опубликованными уязвимостями: массовый выпуск этой версии удерживается до исправления зависимости и проверки совместимости. В BD/standalone этого пути нет. Upstream dev/build advisories отдельно классифицированы; их исправление не заявляется.
 
-Основание: [2026-10-18-release-audit.md](audits/2026-10-18-release-audit.md), [2026-10-18-vencord-dependencies.json](audits/2026-10-18-vencord-dependencies.json), [2026-10-18-standalone-dependencies.md](audits/2026-10-18-standalone-dependencies.md), [README.md](audits/master-qa-2026-10-18/README.md), [2026-10-19-three-distributions.md](audits/2026-10-19-three-distributions.md).
+Основание: [2026-10-18-release-audit.md](audits/2026-10-18-release-audit.md), [2026-10-18-vencord-dependencies.json](audits/2026-10-18-vencord-dependencies.json), [2026-10-18-standalone-dependencies.md](audits/2026-10-18-standalone-dependencies.md), [README.md](audits/master-qa-2026-10-18/README.md), [2026-10-19-three-distributions.md](audits/2026-10-19-three-distributions.md), [2026-10-19-full-code23.md](audits/2026-10-19-full-code23.md).
 
 ### C11 · Сохранение предпочтений библиотеки аккаунта
 

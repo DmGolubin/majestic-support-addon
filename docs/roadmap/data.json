@@ -18,11 +18,15 @@
     {
       "id": "Q18",
       "area": "Качество MVP",
-      "status": "active",
+      "status": "review",
       "title": "Полный аудит собственного кода и всех трёх сборок",
-      "detail": "Проверены 210 рабочих/служебных файлов и 7 архивных. Исправлены 27 дефектов продукта/доставки и 8 QA, включая блокирующий DPAPI. Окончательный полный Vitest: 1865/1865 без пропусков; обе проверки типов, UI192, реальные Windows crypto/heartbeat успешны. Пересборка .23 и остаток TEMP-приёмки установщиков. Full Vencord удерживается из-за upstream Monaco/DOMPurify.",
+      "detail": "Полный аудит 210 рабочих/служебных и 7 архивных файлов завершён: 27 исправлений продукта/доставки и 8 QA. Все три .23 собраны из a5216a2. Прошли 1865 тестов, обе проверки типов, UI192, 80 выполненных TEMP-групп установщиков/обновления, 65 проверок архивов, BD отладка/сбои и 180с/200 циклов. Остаются приёмка в реальных Discord/API и upstream gate полной версии Vencord; массовый выпуск не одобрен.",
       "updated": "2026-10-19",
-      "evidence": []
+      "evidence": [
+        "audits/2026-10-19-full-code23.md",
+        "audits/2026-10-19-full-code23-results.json",
+        "releases/1.0.1-canary.23.md"
+      ]
     },
     {
       "id": "Q17",
@@ -833,13 +837,14 @@
       "area": "Выпуск",
       "status": "review",
       "title": "Зависимости и состав урезанного Vencord",
-      "detail": "Для трёх пакетов .14 зависимости установлены в отдельном pinned checkout через pnpm11.9.0 --frozen-lockfile, lock hash зафиксирован: прежний borrowed-tree gate для этой сборки снят. Upstream maintenance advisories остаются отдельным долгом; не заявляем их исправление.",
+      "detail": "Три .23 собраны из pinned Vencord 32c9063 через frozen lockfile, состав и SHA-256 записаны. В full Vencord QuickCSS подтверждена внешняя Monaco0.50.0/DOMPurify3.0.5 с опубликованными уязвимостями: массовый выпуск этой версии удерживается до исправления зависимости и проверки совместимости. В BD/standalone этого пути нет. Upstream dev/build advisories отдельно классифицированы; их исправление не заявляется.",
       "evidence": [
         "audits/2026-10-18-release-audit.md",
         "audits/2026-10-18-vencord-dependencies.json",
         "audits/2026-10-18-standalone-dependencies.md",
         "audits/master-qa-2026-10-18/README.md",
-        "audits/2026-10-19-three-distributions.md"
+        "audits/2026-10-19-three-distributions.md",
+        "audits/2026-10-19-full-code23.md"
       ],
       "updated": "2026-10-19"
     },

@@ -2,247 +2,11 @@
   "schema": 1,
   "task": "Q18",
   "version": "1.0.1-canary.23",
-  "status": "Final source verification complete; rebuilt package/installer acceptance pending",
+  "status": "Own-code audit and local verification complete; all three final .23 packages built. Real-client acceptance remains. Full Vencord mass release held for upstream QuickCSS/DOMPurify dependency.",
   "inventory": {
-    "sourceCommit": "1b1349303cebba6b61f899d4ba88dbf77df1d120",
+    "sourceCommit": "a5216a241dc84cec45c43ddb2b25227c226479ed",
     "limitation": "Static inventory of tracked and nonignored untracked own files. Symbols are review navigation, not test/function coverage. Vendor dependencies and generated artifacts are separate boundaries.",
     "files": [
-      {
-        "file": "tests/q18Dpapi.test.ts",
-        "category": "tests",
-        "sha256": "bcb7f23ec33cbe080d3e97fee8269930fb97495a16c40b6711320b810367b0b0",
-        "lines": 138,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "delay",
-            "line": 7
-          },
-          {
-            "name": "<callback>",
-            "line": 7
-          },
-          {
-            "name": "controlled",
-            "line": 9
-          },
-          {
-            "name": "<callback>",
-            "line": 11
-          },
-          {
-            "name": "<callback>",
-            "line": 12
-          },
-          {
-            "name": "<callback>",
-            "line": 17
-          },
-          {
-            "name": "complete",
-            "line": 21
-          },
-          {
-            "name": "<callback>",
-            "line": 23
-          },
-          {
-            "name": "<callback>",
-            "line": 24
-          },
-          {
-            "name": "<callback>",
-            "line": 41
-          },
-          {
-            "name": "<callback>",
-            "line": 51
-          },
-          {
-            "name": "<callback>",
-            "line": 59
-          },
-          {
-            "name": "<callback>",
-            "line": 62
-          },
-          {
-            "name": "<callback>",
-            "line": 64
-          },
-          {
-            "name": "<callback>",
-            "line": 80
-          },
-          {
-            "name": "<callback>",
-            "line": 82
-          },
-          {
-            "name": "<callback>",
-            "line": 83
-          },
-          {
-            "name": "<callback>",
-            "line": 89
-          },
-          {
-            "name": "<callback>",
-            "line": 89
-          },
-          {
-            "name": "<callback>",
-            "line": 89
-          },
-          {
-            "name": "<callback>",
-            "line": 98
-          },
-          {
-            "name": "<callback>",
-            "line": 100
-          },
-          {
-            "name": "<callback>",
-            "line": 102
-          },
-          {
-            "name": "<callback>",
-            "line": 115
-          },
-          {
-            "name": "<callback>",
-            "line": 124
-          },
-          {
-            "name": "execFile",
-            "line": 128
-          },
-          {
-            "name": "<callback>",
-            "line": 131
-          }
-        ],
-        "reviewedBy": [
-          "dpapi-review.json"
-        ]
-      },
-      {
-        "file": "tests/q18DpapiVault.test.ts",
-        "category": "tests",
-        "sha256": "de3e9e81f7e660a392a6e4a1cf78081b51c7f9ed8b98e481f23f0353a70a5ab8",
-        "lines": 132,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "temporary",
-            "line": 11
-          },
-          {
-            "name": "<callback>",
-            "line": 12
-          },
-          {
-            "name": "deferred",
-            "line": 19
-          },
-          {
-            "name": "<callback>",
-            "line": 19
-          },
-          {
-            "name": "cipher",
-            "line": 20
-          },
-          {
-            "name": "isEncryptionAvailable",
-            "line": 23
-          },
-          {
-            "name": "encryptString",
-            "line": 24
-          },
-          {
-            "name": "decryptString",
-            "line": 26
-          },
-          {
-            "name": "<callback>",
-            "line": 31
-          },
-          {
-            "name": "<callback>",
-            "line": 32
-          },
-          {
-            "name": "<callback>",
-            "line": 35
-          },
-          {
-            "name": "<callback>",
-            "line": 36
-          },
-          {
-            "name": "<callback>",
-            "line": 46
-          },
-          {
-            "name": "<callback>",
-            "line": 48
-          },
-          {
-            "name": "<callback>",
-            "line": 54
-          },
-          {
-            "name": "<callback>",
-            "line": 72
-          },
-          {
-            "name": "<callback>",
-            "line": 74
-          },
-          {
-            "name": "<callback>",
-            "line": 75
-          },
-          {
-            "name": "<callback>",
-            "line": 89
-          },
-          {
-            "name": "<callback>",
-            "line": 92
-          },
-          {
-            "name": "end",
-            "line": 95
-          },
-          {
-            "name": "spawnSync",
-            "line": 98
-          },
-          {
-            "name": "<callback>",
-            "line": 102
-          },
-          {
-            "name": "<callback>",
-            "line": 104
-          },
-          {
-            "name": "<callback>",
-            "line": 113
-          },
-          {
-            "name": "<callback>",
-            "line": 119
-          }
-        ],
-        "reviewedBy": [
-          "dpapi-review.json"
-        ]
-      },
       {
         "file": ".github/workflows/distributions.yml",
         "category": "product-or-build",
@@ -25686,6 +25450,242 @@
         "reviewedBy": []
       },
       {
+        "file": "tests/q18Dpapi.test.ts",
+        "category": "tests",
+        "sha256": "bcb7f23ec33cbe080d3e97fee8269930fb97495a16c40b6711320b810367b0b0",
+        "lines": 138,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "delay",
+            "line": 7
+          },
+          {
+            "name": "<callback>",
+            "line": 7
+          },
+          {
+            "name": "controlled",
+            "line": 9
+          },
+          {
+            "name": "<callback>",
+            "line": 11
+          },
+          {
+            "name": "<callback>",
+            "line": 12
+          },
+          {
+            "name": "<callback>",
+            "line": 17
+          },
+          {
+            "name": "complete",
+            "line": 21
+          },
+          {
+            "name": "<callback>",
+            "line": 23
+          },
+          {
+            "name": "<callback>",
+            "line": 24
+          },
+          {
+            "name": "<callback>",
+            "line": 41
+          },
+          {
+            "name": "<callback>",
+            "line": 51
+          },
+          {
+            "name": "<callback>",
+            "line": 59
+          },
+          {
+            "name": "<callback>",
+            "line": 62
+          },
+          {
+            "name": "<callback>",
+            "line": 64
+          },
+          {
+            "name": "<callback>",
+            "line": 80
+          },
+          {
+            "name": "<callback>",
+            "line": 82
+          },
+          {
+            "name": "<callback>",
+            "line": 83
+          },
+          {
+            "name": "<callback>",
+            "line": 89
+          },
+          {
+            "name": "<callback>",
+            "line": 89
+          },
+          {
+            "name": "<callback>",
+            "line": 89
+          },
+          {
+            "name": "<callback>",
+            "line": 98
+          },
+          {
+            "name": "<callback>",
+            "line": 100
+          },
+          {
+            "name": "<callback>",
+            "line": 102
+          },
+          {
+            "name": "<callback>",
+            "line": 115
+          },
+          {
+            "name": "<callback>",
+            "line": 124
+          },
+          {
+            "name": "execFile",
+            "line": 128
+          },
+          {
+            "name": "<callback>",
+            "line": 131
+          }
+        ],
+        "reviewedBy": [
+          "dpapi-review.json"
+        ]
+      },
+      {
+        "file": "tests/q18DpapiVault.test.ts",
+        "category": "tests",
+        "sha256": "de3e9e81f7e660a392a6e4a1cf78081b51c7f9ed8b98e481f23f0353a70a5ab8",
+        "lines": 132,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "temporary",
+            "line": 11
+          },
+          {
+            "name": "<callback>",
+            "line": 12
+          },
+          {
+            "name": "deferred",
+            "line": 19
+          },
+          {
+            "name": "<callback>",
+            "line": 19
+          },
+          {
+            "name": "cipher",
+            "line": 20
+          },
+          {
+            "name": "isEncryptionAvailable",
+            "line": 23
+          },
+          {
+            "name": "encryptString",
+            "line": 24
+          },
+          {
+            "name": "decryptString",
+            "line": 26
+          },
+          {
+            "name": "<callback>",
+            "line": 31
+          },
+          {
+            "name": "<callback>",
+            "line": 32
+          },
+          {
+            "name": "<callback>",
+            "line": 35
+          },
+          {
+            "name": "<callback>",
+            "line": 36
+          },
+          {
+            "name": "<callback>",
+            "line": 46
+          },
+          {
+            "name": "<callback>",
+            "line": 48
+          },
+          {
+            "name": "<callback>",
+            "line": 54
+          },
+          {
+            "name": "<callback>",
+            "line": 72
+          },
+          {
+            "name": "<callback>",
+            "line": 74
+          },
+          {
+            "name": "<callback>",
+            "line": 75
+          },
+          {
+            "name": "<callback>",
+            "line": 89
+          },
+          {
+            "name": "<callback>",
+            "line": 92
+          },
+          {
+            "name": "end",
+            "line": 95
+          },
+          {
+            "name": "spawnSync",
+            "line": 98
+          },
+          {
+            "name": "<callback>",
+            "line": 102
+          },
+          {
+            "name": "<callback>",
+            "line": 104
+          },
+          {
+            "name": "<callback>",
+            "line": 113
+          },
+          {
+            "name": "<callback>",
+            "line": 119
+          }
+        ],
+        "reviewedBy": [
+          "dpapi-review.json"
+        ]
+      },
+      {
         "file": "tests/q18PanelClient.test.ts",
         "category": "tests",
         "sha256": "d04eaea8f7610bc4b5e8191f6efb78adfd61d55ba83025cce8c6b38bef58d660",
@@ -40679,7 +40679,7 @@
     "Real Discord acceptance for all three distributions is pending.",
     "Full Vencord release is held for the confirmed vulnerable external DOMPurify component; exploitability in QuickCSS not demonstrated.",
     "Archived reference code is reviewed for migration/packaging and is not shipped.",
-    "Raw prior failures are preserved under scripts/qa/runs/q18; unit consolidation explicitly records the focused rerun."
+    "Raw earlier failures are preserved under scripts/qa/runs/q18; the final unit result is a single full successful run, while priorUnitValidation is historical."
   ],
   "priorUnitValidation": {
     "method": "Full suite followed by focused rerun after adjusting only Windows helper test timeout from 5s to 20s (child has a 15s timeout); production source unchanged.",
@@ -41328,6 +41328,4592 @@
     "Parent aligned memory-host refresh reuse with 401/session_revoked and revoked replacement access.",
     "Parent fixed historical test Settings import, Windows subprocess test timeout and EPIPE mock TypeScript typing.",
     "Parent checked new native-service fixtures, including preexisting host lifetime, CSS at320/720px and network isolation.",
-    "Full original installer logs include one explicit missing-payload skip each; final positive package cases are run separately."
-  ]
+    "Full original installer logs include one explicit missing-payload skip each; final positive package cases are run separately.",
+    "Final raw reviewer reports retain their original scoped/pending status; this parent integration report records final typechecks, full unit run, package checks and separate real-payload fixtures."
+  ],
+  "build": {
+    "schema": 1,
+    "commit": "a5216a241dc84cec45c43ddb2b25227c226479ed",
+    "version": "1.0.1-canary.23",
+    "dependencies": {
+      "upstreamCommit": "32c90633ce6a95d7e56c95479efbb431bacf1eac",
+      "packageManager": "pnpm@11.9.0",
+      "lockSha256": "b970cd78650c55a68d1edd7f6e40f730b53eda809ad209b5b7da56fbc0edd38a",
+      "node": "v24.12.0",
+      "method": "isolated-checkout-frozen-lockfile"
+    },
+    "assets": [
+      {
+        "variant": "standalone",
+        "platform": "win32",
+        "kind": "native",
+        "name": "SupportTemplates-standalone-1.0.1-canary.23.zip",
+        "size": 2122298,
+        "sha256": "ed9fe625ebf225dd200f6d560138c8c4df3ae4939ce366710a45219ea17a89cd"
+      },
+      {
+        "variant": "vencord",
+        "platform": "win32",
+        "kind": "native",
+        "name": "SupportTemplates-vencord-1.0.1-canary.23.zip",
+        "size": 16936319,
+        "sha256": "3bb46c2fd70783d36c0085e614b65c1ee5103c17e889e76e12db07b264a3d170"
+      },
+      {
+        "variant": "betterdiscord",
+        "platform": "win32",
+        "kind": "renderer",
+        "name": "SupportTemplates.plugin.js",
+        "size": 772868,
+        "sha256": "488c358571ed723fe8a3404b68701cb82e5c15dc8e42358f61b2e397f257d2a7"
+      }
+    ]
+  },
+  "packagedVerification": {
+    "status": "pass",
+    "results": [
+      {
+        "variant": "vencord",
+        "archive": "SupportTemplates-vencord-1.0.1-canary.23.zip",
+        "sha256": "3bb46c2fd70783d36c0085e614b65c1ee5103c17e889e76e12db07b264a3d170",
+        "version": "1.0.1-canary.23",
+        "pluginCommit": "a5216a241dc84cec45c43ddb2b25227c226479ed",
+        "payloadFiles": 35,
+        "rendererPluginSources": 282,
+        "assertions": [
+          "release archive hash",
+          "single archive root",
+          "archive has only regular files and directories",
+          "version matches release manifest",
+          "all payload hashes",
+          "BAT installer, no EXE",
+          "packaged source matches core/diagnosticJournal.ts",
+          "packaged source matches core/panelTransport.ts",
+          "packaged source matches core/panelClient.ts",
+          "packaged source matches core/panelEvents.ts",
+          "packaged source matches core/panelProtocol.ts",
+          "packaged source matches core/panelReminders.ts",
+          "packaged source matches ui/diagnostics.ts",
+          "packaged source matches ui/DiagnosticControls.tsx",
+          "packaged source matches ui/Settings.tsx",
+          "packaged source matches ui/panel.ts",
+          "packaged source matches ui/ticketReminders.ts",
+          "packaged source matches ui/Management.tsx",
+          "packaged source matches ui/Window.tsx",
+          "packaged source matches ui/LoginWindow.tsx",
+          "correct distribution identity",
+          "ordinary Vencord plugins retained",
+          "upstream preservation evidence",
+          "diagnostic persistence and request events in renderer",
+          "renderer/native/preload syntax",
+          "default recording off",
+          "JSON download",
+          "request failure records status and reason",
+          "no token or response body in export",
+          "recording and request history survive restart",
+          "bounded flood",
+          "disable and clear",
+          "no observers/listeners/timers after stop"
+        ],
+        "limitation": "Packaged source-map modules executed with host/state mocks; no Discord host or live panel API."
+      },
+      {
+        "variant": "standalone",
+        "archive": "SupportTemplates-standalone-1.0.1-canary.23.zip",
+        "sha256": "ed9fe625ebf225dd200f6d560138c8c4df3ae4939ce366710a45219ea17a89cd",
+        "version": "1.0.1-canary.23",
+        "pluginCommit": "a5216a241dc84cec45c43ddb2b25227c226479ed",
+        "payloadFiles": 12,
+        "rendererPluginSources": 2,
+        "assertions": [
+          "release archive hash",
+          "single archive root",
+          "archive has only regular files and directories",
+          "version matches release manifest",
+          "all payload hashes",
+          "BAT installer, no EXE",
+          "packaged source matches core/diagnosticJournal.ts",
+          "packaged source matches core/panelTransport.ts",
+          "packaged source matches core/panelClient.ts",
+          "packaged source matches core/panelEvents.ts",
+          "packaged source matches core/panelProtocol.ts",
+          "packaged source matches core/panelReminders.ts",
+          "packaged source matches ui/diagnostics.ts",
+          "packaged source matches ui/DiagnosticControls.tsx",
+          "packaged source matches ui/Settings.tsx",
+          "packaged source matches ui/panel.ts",
+          "packaged source matches ui/ticketReminders.ts",
+          "packaged source matches ui/Management.tsx",
+          "packaged source matches ui/Window.tsx",
+          "packaged source matches ui/LoginWindow.tsx",
+          "correct distribution identity",
+          "only essential upstream APIs",
+          "diagnostic persistence and request events in renderer",
+          "renderer/native/preload syntax",
+          "default recording off",
+          "JSON download",
+          "request failure records status and reason",
+          "no token or response body in export",
+          "recording and request history survive restart",
+          "bounded flood",
+          "disable and clear",
+          "no observers/listeners/timers after stop"
+        ],
+        "limitation": "Packaged source-map modules executed with host/state mocks; no Discord host or live panel API."
+      }
+    ]
+  },
+  "finalBundleDependencyEvidence": {
+    "version": "1.0.1-canary.23",
+    "buildCommit": "a5216a241dc84cec45c43ddb2b25227c226479ed",
+    "method": "Read ZIP members directly without extraction/execution; enumerate all JS source maps and QuickCSS Monaco URLs. Advisory matches are checked against installed versions reported in the audit; source map absence is not a complete proof of dependency safety. Embedded file-loader base64 HTML is decoded and inspected without execution.",
+    "archives": [
+      {
+        "variant": "standalone",
+        "sha256": "ed9fe625ebf225dd200f6d560138c8c4df3ae4939ce366710a45219ea17a89cd",
+        "maps": [
+          {
+            "member": "SupportTemplates-1.0.1-canary.23/payload/runtime/patcher.js.map",
+            "sources": 22,
+            "advisoryModuleMatches": [],
+            "advisoryInstalledVersionMatches": []
+          },
+          {
+            "member": "SupportTemplates-1.0.1-canary.23/payload/runtime/preload.js.map",
+            "sources": 3,
+            "advisoryModuleMatches": [],
+            "advisoryInstalledVersionMatches": []
+          },
+          {
+            "member": "SupportTemplates-1.0.1-canary.23/payload/runtime/renderer.js.map",
+            "sources": 166,
+            "advisoryModuleMatches": [],
+            "advisoryInstalledVersionMatches": []
+          }
+        ],
+        "monaco": []
+      },
+      {
+        "variant": "vencord",
+        "sha256": "3bb46c2fd70783d36c0085e614b65c1ee5103c17e889e76e12db07b264a3d170",
+        "maps": [
+          {
+            "member": "SupportTemplates-vencord-1.0.1-canary.23/payload/runtime/patcher.js.map",
+            "sources": 36,
+            "advisoryModuleMatches": [],
+            "advisoryInstalledVersionMatches": []
+          },
+          {
+            "member": "SupportTemplates-vencord-1.0.1-canary.23/payload/runtime/preload.js.map",
+            "sources": 3,
+            "advisoryModuleMatches": [],
+            "advisoryInstalledVersionMatches": []
+          },
+          {
+            "member": "SupportTemplates-vencord-1.0.1-canary.23/payload/runtime/renderer.js.map",
+            "sources": 554,
+            "advisoryModuleMatches": [
+              "../../../support-templates-release-deps-f4Ll30/Vencord/node_modules/.pnpm/nanoid@5.1.16/node_modules/nanoid/index.browser.js",
+              "../../../support-templates-release-deps-f4Ll30/Vencord/node_modules/.pnpm/nanoid@5.1.16/node_modules/nanoid/url-alphabet/index.js"
+            ],
+            "advisoryInstalledVersionMatches": []
+          },
+          {
+            "member": "SupportTemplates-vencord-1.0.1-canary.23/payload/runtime/vencordDesktopMain.js.map",
+            "sources": 31,
+            "advisoryModuleMatches": [],
+            "advisoryInstalledVersionMatches": []
+          },
+          {
+            "member": "SupportTemplates-vencord-1.0.1-canary.23/payload/runtime/vencordDesktopPreload.js.map",
+            "sources": 3,
+            "advisoryModuleMatches": [],
+            "advisoryInstalledVersionMatches": []
+          },
+          {
+            "member": "SupportTemplates-vencord-1.0.1-canary.23/payload/runtime/vencordDesktopRenderer.js.map",
+            "sources": 557,
+            "advisoryModuleMatches": [
+              "../../../support-templates-release-deps-f4Ll30/Vencord/node_modules/.pnpm/nanoid@5.1.16/node_modules/nanoid/index.browser.js",
+              "../../../support-templates-release-deps-f4Ll30/Vencord/node_modules/.pnpm/nanoid@5.1.16/node_modules/nanoid/url-alphabet/index.js"
+            ],
+            "advisoryInstalledVersionMatches": []
+          }
+        ],
+        "monaco": [
+          {
+            "member": "SupportTemplates-vencord-1.0.1-canary.23/payload/runtime/patcher.js.map",
+            "source": "file-uri:file://monacoWin.html?minify&base64",
+            "method": "Decode the embedded HTML base64 string from sourcesContent without executing it",
+            "urls": [
+              "https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs",
+              "https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/editor/editor.main.css",
+              "https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js"
+            ]
+          },
+          {
+            "member": "SupportTemplates-vencord-1.0.1-canary.23/payload/runtime/vencordDesktopMain.js.map",
+            "source": "file-uri:file://monacoWin.html?minify&base64",
+            "method": "Decode the embedded HTML base64 string from sourcesContent without executing it",
+            "urls": [
+              "https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs",
+              "https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/editor/editor.main.css",
+              "https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js"
+            ]
+          }
+        ]
+      }
+    ],
+    "betterdiscord": {
+      "sha256": "488c358571ed723fe8a3404b68701cb82e5c15dc8e42358f61b2e397f257d2a7",
+      "monacoQuickCssMarkersPresent": false
+    },
+    "correction": "Earlier ad-hoc scans looked only for plain URLs in generated JS; Monaco HTML is base64-encoded. This scan decodes file-loader sources and asserts both known full-Vencord Monaco paths are detected. Earlier absence results are superseded; archive hashes and source map package matches are unchanged."
+  },
+  "uiVerification": [
+    {
+      "report": "ui-final-02/regression.json",
+      "checks": 163,
+      "passed": true,
+      "results": [
+        {
+          "name": "picker Escape restores chat focus",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "picker close button restores chat focus",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "dirty Escape focuses safe return action",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "return restores draft field focus and value",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "Escape cancels dirty confirmation without closing settings",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "explicit discard leaves saved prefix unchanged",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "settings permits chat text selection",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "chat Escape leaves settings and draft intact",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "Tab reaches settings without inserting",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "Shift Tab returns to search",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "Alt Down opens category filter",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "category Enter selects without inserting",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "category Escape closes only dropdown",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "Enter and Shift Enter dispatch distinct actions once",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "held Shift previews",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "released Shift hides transient preview",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "no-results state visible",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "first Escape clears search",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "picker permits chat selection without closing",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "pointer resize grows width and height",
+          "pass": true,
+          "detail": [
+            {
+              "x": 816,
+              "y": 338,
+              "width": 360,
+              "height": 500
+            },
+            {
+              "x": 716,
+              "y": 258,
+              "width": 460,
+              "height": 580
+            }
+          ]
+        },
+        {
+          "name": "Shift arrow resize uses 40px step without preview",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "resize persists across reopen",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "Escape cancels in-progress resize",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "betterdiscord 1200x900 100% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 100% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 100% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 100% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 150,
+            "y": 90,
+            "width": 900,
+            "height": 720
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 100% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 676,
+            "y": 258,
+            "width": 500,
+            "height": 580
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 125% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 125% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 125% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 125% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 30,
+            "y": 20,
+            "width": 900,
+            "height": 680
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 125% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 436,
+            "y": 78,
+            "width": 500,
+            "height": 580
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 150% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 758,
+            "scroll": 758
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 150% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 758,
+            "scroll": 758
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 150% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 758,
+            "scroll": 758
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 150% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 20,
+            "y": 20,
+            "width": 760,
+            "height": 560
+          }
+        },
+        {
+          "name": "betterdiscord 1200x900 150% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 276,
+            "y": 8,
+            "width": 500,
+            "height": 530
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 100% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 598,
+            "scroll": 598
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 100% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 598,
+            "scroll": 598
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 100% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 598,
+            "scroll": 598
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 100% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 20,
+            "y": 20,
+            "width": 600,
+            "height": 440
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 100% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 116,
+            "y": 8,
+            "width": 500,
+            "height": 410
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 125% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 494,
+            "scroll": 494
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 125% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 494,
+            "scroll": 494
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 125% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 494,
+            "scroll": 494
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 125% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 496,
+            "height": 368
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 125% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 496,
+            "height": 314
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 150% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 150% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 150% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 150% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 411,
+            "height": 304
+          }
+        },
+        {
+          "name": "betterdiscord 640x480 150% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 411,
+            "height": 280
+          }
+        },
+        {
+          "name": "vencord 1200x900 100% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "vencord 1200x900 100% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "vencord 1200x900 100% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "vencord 1200x900 100% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 150,
+            "y": 90,
+            "width": 900,
+            "height": 720
+          }
+        },
+        {
+          "name": "vencord 1200x900 100% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 676,
+            "y": 258,
+            "width": 500,
+            "height": 580
+          }
+        },
+        {
+          "name": "vencord 1200x900 125% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "vencord 1200x900 125% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "vencord 1200x900 125% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "vencord 1200x900 125% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 30,
+            "y": 20,
+            "width": 900,
+            "height": 680
+          }
+        },
+        {
+          "name": "vencord 1200x900 125% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 436,
+            "y": 78,
+            "width": 500,
+            "height": 580
+          }
+        },
+        {
+          "name": "vencord 1200x900 150% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 758,
+            "scroll": 758
+          }
+        },
+        {
+          "name": "vencord 1200x900 150% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 758,
+            "scroll": 758
+          }
+        },
+        {
+          "name": "vencord 1200x900 150% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 758,
+            "scroll": 758
+          }
+        },
+        {
+          "name": "vencord 1200x900 150% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 20,
+            "y": 20,
+            "width": 760,
+            "height": 560
+          }
+        },
+        {
+          "name": "vencord 1200x900 150% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 276,
+            "y": 8,
+            "width": 500,
+            "height": 530
+          }
+        },
+        {
+          "name": "vencord 640x480 100% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 598,
+            "scroll": 598
+          }
+        },
+        {
+          "name": "vencord 640x480 100% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 598,
+            "scroll": 598
+          }
+        },
+        {
+          "name": "vencord 640x480 100% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 598,
+            "scroll": 598
+          }
+        },
+        {
+          "name": "vencord 640x480 100% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 20,
+            "y": 20,
+            "width": 600,
+            "height": 440
+          }
+        },
+        {
+          "name": "vencord 640x480 100% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 116,
+            "y": 8,
+            "width": 500,
+            "height": 410
+          }
+        },
+        {
+          "name": "vencord 640x480 125% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 494,
+            "scroll": 494
+          }
+        },
+        {
+          "name": "vencord 640x480 125% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 494,
+            "scroll": 494
+          }
+        },
+        {
+          "name": "vencord 640x480 125% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 494,
+            "scroll": 494
+          }
+        },
+        {
+          "name": "vencord 640x480 125% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 496,
+            "height": 368
+          }
+        },
+        {
+          "name": "vencord 640x480 125% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 496,
+            "height": 314
+          }
+        },
+        {
+          "name": "vencord 640x480 150% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "vencord 640x480 150% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "vencord 640x480 150% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "vencord 640x480 150% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 411,
+            "height": 304
+          }
+        },
+        {
+          "name": "vencord 640x480 150% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 411,
+            "height": 280
+          }
+        },
+        {
+          "name": "standalone 1200x900 100% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "standalone 1200x900 100% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "standalone 1200x900 100% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "standalone 1200x900 100% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 150,
+            "y": 90,
+            "width": 900,
+            "height": 720
+          }
+        },
+        {
+          "name": "standalone 1200x900 100% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 676,
+            "y": 258,
+            "width": 500,
+            "height": 580
+          }
+        },
+        {
+          "name": "standalone 1200x900 125% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "standalone 1200x900 125% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "standalone 1200x900 125% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 898,
+            "scroll": 898
+          }
+        },
+        {
+          "name": "standalone 1200x900 125% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 30,
+            "y": 20,
+            "width": 900,
+            "height": 680
+          }
+        },
+        {
+          "name": "standalone 1200x900 125% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 436,
+            "y": 78,
+            "width": 500,
+            "height": 580
+          }
+        },
+        {
+          "name": "standalone 1200x900 150% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 758,
+            "scroll": 758
+          }
+        },
+        {
+          "name": "standalone 1200x900 150% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 758,
+            "scroll": 758
+          }
+        },
+        {
+          "name": "standalone 1200x900 150% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 758,
+            "scroll": 758
+          }
+        },
+        {
+          "name": "standalone 1200x900 150% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 20,
+            "y": 20,
+            "width": 760,
+            "height": 560
+          }
+        },
+        {
+          "name": "standalone 1200x900 150% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 276,
+            "y": 8,
+            "width": 500,
+            "height": 530
+          }
+        },
+        {
+          "name": "standalone 640x480 100% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 598,
+            "scroll": 598
+          }
+        },
+        {
+          "name": "standalone 640x480 100% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 598,
+            "scroll": 598
+          }
+        },
+        {
+          "name": "standalone 640x480 100% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 598,
+            "scroll": 598
+          }
+        },
+        {
+          "name": "standalone 640x480 100% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 20,
+            "y": 20,
+            "width": 600,
+            "height": 440
+          }
+        },
+        {
+          "name": "standalone 640x480 100% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 116,
+            "y": 8,
+            "width": 500,
+            "height": 410
+          }
+        },
+        {
+          "name": "standalone 640x480 125% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 494,
+            "scroll": 494
+          }
+        },
+        {
+          "name": "standalone 640x480 125% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 494,
+            "scroll": 494
+          }
+        },
+        {
+          "name": "standalone 640x480 125% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 494,
+            "scroll": 494
+          }
+        },
+        {
+          "name": "standalone 640x480 125% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 496,
+            "height": 368
+          }
+        },
+        {
+          "name": "standalone 640x480 125% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 496,
+            "height": 314
+          }
+        },
+        {
+          "name": "standalone 640x480 150% Мои шаблоны fits",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "standalone 640x480 150% Настройки fits",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "standalone 640x480 150% Тикеты fits",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "standalone 640x480 150% fixed dimensions across tabs and identity",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 411,
+            "height": 304
+          }
+        },
+        {
+          "name": "standalone 640x480 150% picker clamps",
+          "pass": true,
+          "detail": {
+            "x": 8,
+            "y": 8,
+            "width": 411,
+            "height": 280
+          }
+        },
+        {
+          "name": "long template and folder names do not widen settings",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "long dropdown option stays in viewport",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "personal draft survives window close cancellation",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "small editor save action reachable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "failed mocked save keeps draft",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "uncertain write survives close cancellation",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "long error wraps without horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 409,
+            "scroll": 409
+          }
+        },
+        {
+          "name": "login idle fits small viewport",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login idle Tab focuses action",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login connecting fits small viewport",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login connecting Tab focuses action",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login pending fits small viewport",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login pending Tab focuses action",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login loading fits small viewport",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login loading Tab focuses action",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login offline fits small viewport",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login offline Tab focuses action",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login error fits small viewport",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login error Tab focuses action",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "login composing Escape is ignored",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "personal empty state",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "picker empty library state",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "BD service 600px idle no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 600,
+            "scroll": 600
+          }
+        },
+        {
+          "name": "BD service 600px loading no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 600,
+            "scroll": 600
+          }
+        },
+        {
+          "name": "BD service 600px error no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 600,
+            "scroll": 600
+          }
+        },
+        {
+          "name": "BD service 600px ready no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 600,
+            "scroll": 600
+          }
+        },
+        {
+          "name": "BD service 480px idle no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 480,
+            "scroll": 480
+          }
+        },
+        {
+          "name": "BD service 480px loading no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 480,
+            "scroll": 480
+          }
+        },
+        {
+          "name": "BD service 480px error no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 480,
+            "scroll": 480
+          }
+        },
+        {
+          "name": "BD service 480px ready no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 480,
+            "scroll": 480
+          }
+        },
+        {
+          "name": "BD service 384px idle no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 384,
+            "scroll": 384
+          }
+        },
+        {
+          "name": "BD service 384px loading no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 384,
+            "scroll": 384
+          }
+        },
+        {
+          "name": "BD service 384px error no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 384,
+            "scroll": 384
+          }
+        },
+        {
+          "name": "BD service 384px ready no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 384,
+            "scroll": 384
+          }
+        },
+        {
+          "name": "BD service 320px idle no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 320,
+            "scroll": 320
+          }
+        },
+        {
+          "name": "BD service 320px loading no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 320,
+            "scroll": 320
+          }
+        },
+        {
+          "name": "BD service 320px error no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 320,
+            "scroll": 320
+          }
+        },
+        {
+          "name": "BD service 320px ready no horizontal overflow",
+          "pass": true,
+          "detail": {
+            "width": 320,
+            "scroll": 320
+          }
+        },
+        {
+          "name": "BD DiagnosticControls recording state updates",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "DiagnosticControls reports mocked download success",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "DiagnosticControls reports mocked download failure",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "DiagnosticControls clear cancellation",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "DiagnosticControls explicit clear",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "diagnostic buttons keep at least 8px separation",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "BD service queues opening until native modal unmount",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "BD service unmount opens shared settings",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "BD inactive service disables entry",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "BD inactive DiagnosticControls disables recording but permits export",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "no uncaught browser errors",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "no unexpected network requests",
+          "pass": true,
+          "detail": []
+        }
+      ]
+    },
+    {
+      "report": "ui-final-02/editor-actions.json",
+      "checks": 2,
+      "passed": true,
+      "results": [
+        {
+          "body": {
+            "x": 23,
+            "y": -1402.703125,
+            "width": 381,
+            "height": 1631,
+            "top": -1402.703125,
+            "right": 404,
+            "bottom": 228.296875,
+            "left": 23
+          },
+          "footer": {
+            "x": 23,
+            "y": 240.296875,
+            "width": 381,
+            "height": 57,
+            "top": 240.296875,
+            "right": 404,
+            "bottom": 297.296875,
+            "left": 23
+          },
+          "textarea": {
+            "x": 27,
+            "y": -1219.203125,
+            "width": 369,
+            "height": 550,
+            "top": -1219.203125,
+            "right": 396,
+            "bottom": -669.203125,
+            "left": 27
+          },
+          "bodyOverflow": "visible",
+          "actions": [
+            {
+              "label": "Отмена",
+              "rect": {
+                "x": 160.578125,
+                "y": 253.296875,
+                "width": 70.390625,
+                "height": 32,
+                "top": 253.296875,
+                "right": 230.96875,
+                "bottom": 285.296875,
+                "left": 160.578125
+              }
+            },
+            {
+              "label": "Повторить сохранение",
+              "rect": {
+                "x": 238.96875,
+                "y": 253.296875,
+                "width": 165.03125,
+                "height": 32,
+                "top": 253.296875,
+                "right": 404,
+                "bottom": 285.296875,
+                "left": 238.96875
+              }
+            }
+          ],
+          "noBodyFooterOverlap": true,
+          "actionsVisible": true,
+          "viewport": [
+            427,
+            320
+          ],
+          "retainedDraft": true,
+          "pass": true,
+          "returnFocus": true
+        },
+        {
+          "body": {
+            "x": 175,
+            "y": 379.296875,
+            "width": 850,
+            "height": 372.703125,
+            "top": 379.296875,
+            "right": 1025,
+            "bottom": 752,
+            "left": 175
+          },
+          "footer": {
+            "x": 175,
+            "y": 752,
+            "width": 850,
+            "height": 57,
+            "top": 752,
+            "right": 1025,
+            "bottom": 809,
+            "left": 175
+          },
+          "textarea": {
+            "x": 179,
+            "y": 562.796875,
+            "width": 838,
+            "height": 550,
+            "top": 562.796875,
+            "right": 1017,
+            "bottom": 1112.796875,
+            "left": 179
+          },
+          "bodyOverflow": "auto",
+          "actions": [
+            {
+              "label": "Отмена",
+              "rect": {
+                "x": 781.578125,
+                "y": 765,
+                "width": 70.390625,
+                "height": 32,
+                "top": 765,
+                "right": 851.96875,
+                "bottom": 797,
+                "left": 781.578125
+              }
+            },
+            {
+              "label": "Повторить сохранение",
+              "rect": {
+                "x": 859.96875,
+                "y": 765,
+                "width": 165.03125,
+                "height": 32,
+                "top": 765,
+                "right": 1025,
+                "bottom": 797,
+                "left": 859.96875
+              }
+            }
+          ],
+          "noBodyFooterOverlap": true,
+          "actionsVisible": true,
+          "viewport": [
+            1200,
+            900
+          ],
+          "retainedDraft": true,
+          "pass": true,
+          "returnFocus": true
+        }
+      ]
+    },
+    {
+      "report": "native-service-final/native-service-results.json",
+      "checks": 27,
+      "passed": true,
+      "results": [
+        {
+          "name": "vencord-320-no-editor",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "vencord-320-embedded-styled-no-overflow",
+          "pass": true,
+          "detail": {
+            "position": "static",
+            "pointer": "auto",
+            "color": "hsl(216 10% 91%)",
+            "overflow": false,
+            "width": 288
+          }
+        },
+        {
+          "name": "vencord-320-identity",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "vencord-320-diagnostics",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "vencord-320-deferred",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "vencord-320-handoff-on-close",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "vencord-720-no-editor",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "vencord-720-embedded-styled-no-overflow",
+          "pass": true,
+          "detail": {
+            "position": "static",
+            "pointer": "auto",
+            "color": "hsl(216 10% 91%)",
+            "overflow": false,
+            "width": 600
+          }
+        },
+        {
+          "name": "vencord-720-identity",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "vencord-720-diagnostics",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "vencord-720-deferred",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "vencord-720-handoff-on-close",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "standalone-320-no-editor",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "standalone-320-embedded-styled-no-overflow",
+          "pass": true,
+          "detail": {
+            "position": "static",
+            "pointer": "auto",
+            "color": "hsl(216 10% 91%)",
+            "overflow": false,
+            "width": 288
+          }
+        },
+        {
+          "name": "standalone-320-identity",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "standalone-320-diagnostics",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "standalone-320-deferred",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "standalone-320-handoff-on-close",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "standalone-720-no-editor",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "standalone-720-embedded-styled-no-overflow",
+          "pass": true,
+          "detail": {
+            "position": "static",
+            "pointer": "auto",
+            "color": "hsl(216 10% 91%)",
+            "overflow": false,
+            "width": 600
+          }
+        },
+        {
+          "name": "standalone-720-identity",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "standalone-720-diagnostics",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "standalone-720-deferred",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "standalone-720-handoff-on-close",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "stop-cancels-queued-handoff",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "no-browser-errors",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "no-external-network",
+          "pass": true,
+          "detail": []
+        }
+      ]
+    }
+  ],
+  "installerVerification": {
+    "executedPassedGroups": 80,
+    "rows": [
+      {
+        "report": "ps-auto-update.log",
+        "sha256": "9dbaf2d8201c8c2d3576336009a595a17e5ae9324b947e7514bfea1328a5da7b",
+        "executedPassedGroups": 11,
+        "groups": [
+          "PASS numeric prerelease comparison and build metadata",
+          "PASS full ZIP extraction accepts the top directory entry",
+          "PASS corrupted ZIP rejected before extraction",
+          "PASS reject unsafe entry SupportTemplates-0.1.0-canary.15/../escape",
+          "PASS reject unsafe entry SupportTemplates-0.1.0-canary.15/NUL.txt",
+          "PASS reject unsafe entry SupportTemplates-0.1.0-canary.15/manifest.json",
+          "PASS reject unsafe entry Other-root/file",
+          "PASS reject ZIP symlink",
+          "PASS hidden helper installs verified package and acknowledges shared pending only after success",
+          "PASS manual newer installation while helper was waiting cannot be downgraded",
+          "PASS receipt never removes a newer concurrently staged pending record"
+        ],
+        "skips": [],
+        "rawSummary": "Passed 11 standalone automatic updater fixture tests. No real host mutation."
+      },
+      {
+        "report": "ps-renderer.log",
+        "sha256": "72aa5e7fc7641bd77ef74a568271174246a5b7a85f8bcc6eb6f324b32e1c99e7",
+        "executedPassedGroups": 4,
+        "groups": [
+          "PASS q18Delivery current helper/config payload permits a compatible renderer-only update",
+          "PASS q18Delivery rejects changed helper without any mutation",
+          "PASS q18Delivery rejects changed updater policy without any mutation",
+          "PASS q18Delivery rejects config version inconsistent with its package without mutation"
+        ],
+        "skips": [],
+        "rawSummary": "4 q18Delivery renderer fixture groups passed."
+      },
+      {
+        "report": "ps-standalone.log",
+        "sha256": "f91e450ecde84db019b883529aba79491b97d0bf22b56003093d36d4f8b16cac",
+        "executedPassedGroups": 39,
+        "groups": [
+          "PASS renderer update while running embeds CSS and changes only the active renderer in the base runtime",
+          "PASS renderer update status is read-only and repeated activation is idempotent",
+          "PASS renderer update accepts loader package version changes with identical index.js",
+          "PASS renderer update rejects native, loader and nonleading banner changes without mutation",
+          "PASS renderer update requires exactly one native CSS expression",
+          "PASS renderer update sequential releases preserve original and immutable staged packages",
+          "PASS renderer update WhatIf makes no writes before or after an overlay",
+          "PASS renderer update refuses tampered live renderer before or after activation",
+          "PASS renderer update interruption reports pending without writes and retry activates safely",
+          "PASS renderer update full install afterward restores base and installs immutable staged release",
+          "PASS renderer update stopped repair and rollback restore the base overlay",
+          "PASS renderer update same-version install preserves overlay and altered package rejection does not restore it",
+          "PASS renderer update failed full install transaction preserves active overlay",
+          "PASS renderer update uninstall retains overlay cache and reinstalling base restores original renderer",
+          "PASS renderer update committed full-install cleanup resumes read-only status and stopped retry",
+          "PASS install, idempotence, read-only status, uninstall exact bytes and retained settings",
+          "PASS WhatIf performs no writes",
+          "PASS manifest missing, extra, size, hash and traversal rejection",
+          "PASS running target denial before mutation; other channel allowed",
+          "PASS foreign mods, unknown ASAR and sidecars rejected",
+          "PASS installed loader, backup, config and runtime tamper fail closed",
+          "PASS write failures roll back at every install step",
+          "PASS real Windows sharing violation leaves the original recoverable",
+          "PASS interrupted install and uninstall recover on next mutation; status stays read-only",
+          "PASS rollback previous runtime and loader",
+          "PASS failed uninstall restores the installed state at every step",
+          "PASS interrupted runtime upgrade recovers the previous version",
+          "PASS pending recovery refuses foreign modification before writing any target",
+          "PASS regression malformed journal cannot delete the only original archive",
+          "PASS regression journal original identity cannot change between snapshots",
+          "PASS regression missing runtime can be repaired or uninstalled independently",
+          "PASS regression uninstall restores all owned versions and leaves the other channel alone",
+          "PASS regression repair restores missing runtime while patching a new app version",
+          "PASS batch wrappers preserve success and failure exit codes",
+          "PASS latest numeric app version and repair after Discord update",
+          "PASS Stable is explicit and isolated in TEMP",
+          "PASS test-root escape denied",
+          "PASS junction payload refused when junction creation is available",
+          "PASS junction resources and runtime store refused when available"
+        ],
+        "skips": [
+          "SKIP real payload: supply -PayloadPackageRoot to test a built package"
+        ],
+        "rawSummary": "40 installer fixture groups passed on PowerShell 5.1.26100.9711."
+      },
+      {
+        "report": "ps-vencord.log",
+        "sha256": "78a35ff1761f1eddb8e73c46ebae669c0930626441e013778b15df139b593835",
+        "executedPassedGroups": 24,
+        "groups": [
+          "PASS install, idempotence, read-only status, uninstall exact bytes and retained settings",
+          "PASS WhatIf performs no writes",
+          "PASS manifest missing, extra, size, hash and traversal rejection",
+          "PASS running target denial before mutation; other channel allowed",
+          "PASS foreign mods, unknown ASAR and sidecars rejected",
+          "PASS installed loader, backup, config and runtime tamper fail closed",
+          "PASS write failures roll back at every install step",
+          "PASS real Windows sharing violation leaves the original recoverable",
+          "PASS interrupted install and uninstall recover on next mutation; status stays read-only",
+          "PASS rollback previous runtime and loader",
+          "PASS failed uninstall restores the installed state at every step",
+          "PASS interrupted runtime upgrade recovers the previous version",
+          "PASS pending recovery refuses foreign modification before writing any target",
+          "PASS regression malformed journal cannot delete the only original archive",
+          "PASS regression journal original identity cannot change between snapshots",
+          "PASS regression missing runtime can be repaired or uninstalled independently",
+          "PASS regression uninstall restores all owned versions and leaves the other channel alone",
+          "PASS regression repair restores missing runtime while patching a new app version",
+          "PASS batch wrappers preserve success and failure exit codes",
+          "PASS latest numeric app version and repair after Discord update",
+          "PASS Stable is explicit and isolated in TEMP",
+          "PASS test-root escape denied",
+          "PASS junction payload refused when junction creation is available",
+          "PASS junction resources and runtime store refused when available"
+        ],
+        "skips": [
+          "SKIP real payload: supply -PayloadPackageRoot to test a built package"
+        ],
+        "rawSummary": "25 installer fixture groups passed on PowerShell 5.1.26100.9711."
+      },
+      {
+        "report": "ps-standalone-real-final.log",
+        "sha256": "f1160e9836c9f631a497c4f8effbe0170ff72fffa3124bb030f6909ea0ac6d01",
+        "executedPassedGroups": 1,
+        "groups": [
+          "PASS built real payload installs only into a TEMP Discord fixture"
+        ],
+        "skips": [],
+        "rawSummary": "1 installer fixture groups passed on PowerShell 5.1.26100.9711."
+      },
+      {
+        "report": "ps-vencord-real-final.log",
+        "sha256": "f1160e9836c9f631a497c4f8effbe0170ff72fffa3124bb030f6909ea0ac6d01",
+        "executedPassedGroups": 1,
+        "groups": [
+          "PASS built real payload installs only into a TEMP Discord fixture"
+        ],
+        "skips": [],
+        "rawSummary": "1 installer fixture groups passed on PowerShell 5.1.26100.9711."
+      }
+    ],
+    "scope": "Synthetic Windows TEMP Discord fixtures and final local .23 payloads; no real Discord installation. Two originally double-counted missing-payload skips excluded. Positive real-payload cases executed separately after the skip reporter fix."
+  },
+  "betterdiscordFinalVerification": {
+    "fixture": {
+      "report": "memory-final/fixture/fixture-results.json",
+      "status": "pass",
+      "assertions": [
+        {
+          "name": "unique-token-pairs",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "real-900s-lifetime",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "single-use-refresh-revokes-session",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "replacement-access-revoked-after-reuse",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "old-access-invalidated",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "new-access-valid",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "network-loss-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "network-recovery",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "no-external-requests",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "no-errors",
+          "pass": true,
+          "detail": null
+        }
+      ],
+      "provenance": {
+        "bundlePath": "C:\\Users\\oblako\\AppData\\Local\\Temp\\support-templates-three-packages-fOvQq1\\betterdiscord\\SupportTemplates.plugin.js",
+        "capturedAt": "2026-10-19T20:24:30.312Z",
+        "pluginSha256": "488c358571ed723fe8a3404b68701cb82e5c15dc8e42358f61b2e397f257d2a7",
+        "sourceHead": "a5216a241dc84cec45c43ddb2b25227c226479ed",
+        "sourceDirty": false,
+        "buildSourceCommit": "a5216a241dc8",
+        "buildEvidenceMatchesBundle": true,
+        "worktreeMatchesBuildInputs": true,
+        "changedBuildInputs": [],
+        "sourceInputsSha256": "0b29d0c24652812408ee30d2afc71d4dff43cf97e95a91d1789a7163a717f363",
+        "version": "1.0.1-canary.23",
+        "exactPublishedBundle": false,
+        "mocks": [
+          "Discord stores/event bus",
+          "strict synthetic OAuth and API",
+          "unsupported native persistence/updater bridge"
+        ],
+        "real": [
+          "React production",
+          "supplied BetterDiscord bundle",
+          "UI components and lifecycle",
+          "panel client, SSE parser and real-time timers"
+        ],
+        "limitation": "Browser fixture, not real Discord/BD; native protected storage and updater are not exercised."
+      },
+      "errors": [],
+      "externalRequests": []
+    },
+    "diagnostics": {
+      "report": "memory-final/diagnostics/diagnostics-results.json",
+      "status": "pass",
+      "assertions": [
+        {
+          "name": "host-has-no-editor-or-tabs",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "recording-enabled",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "transition-instruction",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "management-after-native-close",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "revocation-cause-in-export",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "http-status-in-export",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "network-failure-in-export",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "no-secrets-or-template-content",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "bounded-history",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "bounded-persistence",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "recording-survives-reload",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "cause-survives-reload",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "explicit-clear-removes-history",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "no-unhandled-errors",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "no-external-requests",
+          "pass": true,
+          "detail": []
+        }
+      ],
+      "provenance": {
+        "bundlePath": "C:\\Users\\oblako\\AppData\\Local\\Temp\\support-templates-three-packages-fOvQq1\\betterdiscord\\SupportTemplates.plugin.js",
+        "capturedAt": "2026-10-19T20:24:30.312Z",
+        "pluginSha256": "488c358571ed723fe8a3404b68701cb82e5c15dc8e42358f61b2e397f257d2a7",
+        "sourceHead": "a5216a241dc84cec45c43ddb2b25227c226479ed",
+        "sourceDirty": false,
+        "buildSourceCommit": "a5216a241dc8",
+        "buildEvidenceMatchesBundle": true,
+        "worktreeMatchesBuildInputs": true,
+        "changedBuildInputs": [],
+        "sourceInputsSha256": "0b29d0c24652812408ee30d2afc71d4dff43cf97e95a91d1789a7163a717f363",
+        "version": "1.0.1-canary.23",
+        "exactPublishedBundle": false,
+        "mocks": [
+          "Discord stores/event bus",
+          "strict synthetic OAuth and API",
+          "unsupported native persistence/updater bridge"
+        ],
+        "real": [
+          "React production",
+          "supplied BetterDiscord bundle",
+          "UI components and lifecycle",
+          "panel client, SSE parser and real-time timers"
+        ],
+        "limitation": "Browser fixture, not real Discord/BD; native protected storage and updater are not exercised."
+      },
+      "errors": [],
+      "externalRequests": []
+    },
+    "faults": {
+      "report": "memory-final/faults/fault-results.json",
+      "status": "pass",
+      "assertions": [
+        {
+          "name": "all-startup-faults-exercised",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "transient-stop-does-not-throw",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "transient-stop-fault-exercised",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "permanent-stop-bounded-retries",
+          "pass": true,
+          "detail": 4
+        },
+        {
+          "name": "permanent-cleanup-blocks-remount",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "permanent-cleanup-no-duplicate-subscriptions",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "repaired-host-can-restart",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "close-releases-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "close-releases-targets",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "unrelated-dom-zero-plugin-raf",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "restart-dom-bounded",
+          "pass": true,
+          "detail": {
+            "documents": 1,
+            "nodes": 19,
+            "jsEventListeners": 2
+          }
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "restart-dom-bounded",
+          "pass": true,
+          "detail": {
+            "documents": 1,
+            "nodes": 19,
+            "jsEventListeners": 2
+          }
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "restart-dom-bounded",
+          "pass": true,
+          "detail": {
+            "documents": 1,
+            "nodes": 19,
+            "jsEventListeners": 2
+          }
+        },
+        {
+          "name": "bd-settings-subscription-released",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "bd-settings-subscription-released",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "bd-settings-subscription-released",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "bd-settings-subscription-released",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "no-unhandled-errors",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "no-external-requests",
+          "pass": true,
+          "detail": []
+        }
+      ],
+      "provenance": {
+        "bundlePath": "C:\\Users\\oblako\\AppData\\Local\\Temp\\support-templates-three-packages-fOvQq1\\betterdiscord\\SupportTemplates.plugin.js",
+        "capturedAt": "2026-10-19T20:24:30.312Z",
+        "pluginSha256": "488c358571ed723fe8a3404b68701cb82e5c15dc8e42358f61b2e397f257d2a7",
+        "sourceHead": "a5216a241dc84cec45c43ddb2b25227c226479ed",
+        "sourceDirty": false,
+        "buildSourceCommit": "a5216a241dc8",
+        "buildEvidenceMatchesBundle": true,
+        "worktreeMatchesBuildInputs": true,
+        "changedBuildInputs": [],
+        "sourceInputsSha256": "0b29d0c24652812408ee30d2afc71d4dff43cf97e95a91d1789a7163a717f363",
+        "version": "1.0.1-canary.23",
+        "exactPublishedBundle": false,
+        "mocks": [
+          "Discord stores/event bus",
+          "strict synthetic OAuth and API",
+          "unsupported native persistence/updater bridge"
+        ],
+        "real": [
+          "React production",
+          "supplied BetterDiscord bundle",
+          "UI components and lifecycle",
+          "panel client, SSE parser and real-time timers"
+        ],
+        "limitation": "Browser fixture, not real Discord/BD; native protected storage and updater are not exercised."
+      },
+      "errors": [],
+      "externalRequests": [],
+      "restartCycles": 30,
+      "nativeSettingsMountCycles": 100
+    },
+    "smoke": {
+      "report": "memory-final/smoke/soak-results.json",
+      "status": "pass",
+      "assertions": [
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4674296
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4844012
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4915104
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4910608
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "idle-cpu-closed",
+          "pass": true,
+          "detail": {
+            "mode": "closed",
+            "seconds": 15.167386999997689,
+            "taskSeconds": 0.0062320000000006814,
+            "mainThreadPercent": 0.041088158428354414
+          }
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4914468
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "idle-cpu-closed",
+          "pass": true,
+          "detail": {
+            "mode": "closed",
+            "seconds": 15.188324000002467,
+            "taskSeconds": 0.001006999999999536,
+            "mainThreadPercent": 0.006630092958244586
+          }
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4913972
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4963820
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "idle-cpu-closed",
+          "pass": true,
+          "detail": {
+            "mode": "closed",
+            "seconds": 15.111109000001306,
+            "taskSeconds": 0.0012900000000000134,
+            "mainThreadPercent": 0.008536765898518116
+          }
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4963860
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4978720
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 5061220
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "idle-cpu-picker",
+          "pass": true,
+          "detail": {
+            "mode": "picker",
+            "seconds": 15.194884000000457,
+            "taskSeconds": 0.016386000000000678,
+            "mainThreadPercent": 0.10783892789178376
+          }
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "idle-cpu-picker",
+          "pass": true,
+          "detail": {
+            "mode": "picker",
+            "seconds": 15.20001400000183,
+            "taskSeconds": 0.0132879999999993,
+            "mainThreadPercent": 0.0874209721122474
+          }
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "idle-cpu-picker",
+          "pass": true,
+          "detail": {
+            "mode": "picker",
+            "seconds": 15.182339999999385,
+            "taskSeconds": 0.01361499999999971,
+            "mainThreadPercent": 0.08967655842248469
+          }
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "idle-cpu-picker",
+          "pass": true,
+          "detail": {
+            "mode": "picker",
+            "seconds": 15.167594000002282,
+            "taskSeconds": 0.02710100000000004,
+            "mainThreadPercent": 0.17867698726637835
+          }
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "real-duration",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "cycle-count",
+          "pass": true,
+          "detail": 200
+        },
+        {
+          "name": "network-recovered",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "ready-at-end",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "single-device-login",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "no-api-after-stop",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "no-page-errors",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "no-external-requests",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "checkpoint-gaps-at-most-60s",
+          "pass": true,
+          "detail": 16.020010000000184
+        }
+      ],
+      "provenance": {
+        "bundlePath": "C:\\Users\\oblako\\AppData\\Local\\Temp\\support-templates-three-packages-fOvQq1\\betterdiscord\\SupportTemplates.plugin.js",
+        "capturedAt": "2026-10-19T20:24:30.312Z",
+        "pluginSha256": "488c358571ed723fe8a3404b68701cb82e5c15dc8e42358f61b2e397f257d2a7",
+        "sourceHead": "a5216a241dc84cec45c43ddb2b25227c226479ed",
+        "sourceDirty": false,
+        "buildSourceCommit": "a5216a241dc8",
+        "buildEvidenceMatchesBundle": true,
+        "worktreeMatchesBuildInputs": true,
+        "changedBuildInputs": [],
+        "sourceInputsSha256": "0b29d0c24652812408ee30d2afc71d4dff43cf97e95a91d1789a7163a717f363",
+        "version": "1.0.1-canary.23",
+        "exactPublishedBundle": false,
+        "mocks": [
+          "Discord stores/event bus",
+          "strict synthetic OAuth and API",
+          "unsupported native persistence/updater bridge"
+        ],
+        "real": [
+          "React production",
+          "supplied BetterDiscord bundle",
+          "UI components and lifecycle",
+          "panel client, SSE parser and real-time timers"
+        ],
+        "limitation": "Browser fixture, not real Discord/BD; native protected storage and updater are not exercised."
+      },
+      "errors": [],
+      "externalRequests": [],
+      "mode": "smoke",
+      "realSoakSeconds": 180.06571389999954,
+      "completedCycles": 200,
+      "warmupCyclesExcluded": 10,
+      "coverage": {
+        "oauth900s": "not exercised in smoke",
+        "nativeProtectedStorage": false,
+        "realDiscord": false
+      },
+      "events": [
+        {
+          "type": "network-loss",
+          "elapsed": 63.24486270000125
+        },
+        {
+          "type": "network-restored",
+          "elapsed": 66.4013844000001
+        },
+        {
+          "type": "network-recovered-ready",
+          "elapsed": 69.82907619999969,
+          "recoverySeconds": 3.427691799999593
+        }
+      ],
+      "idleSummary": {
+        "closed": {
+          "seconds": 45.46682000000146,
+          "taskSeconds": 0.00852900000000023,
+          "mainThreadPercent": 0.01875873439136486,
+          "maxIntervalPercent": 0.041088158428354414
+        },
+        "picker": {
+          "seconds": 62.84499700000379,
+          "taskSeconds": 0.07272700000000043,
+          "mainThreadPercent": 0.11572440682906876,
+          "maxIntervalPercent": 0.17867698726637835
+        },
+        "settings": {
+          "seconds": 0,
+          "taskSeconds": 0,
+          "mainThreadPercent": null,
+          "maxIntervalPercent": null
+        }
+      },
+      "limits": {
+        "heapGrowthMiB": 2,
+        "domGrowth": 10,
+        "listenerGrowth": 5,
+        "idleMainThreadPercent": 1
+      },
+      "baseline": {
+        "label": "warmup-closed",
+        "cycle": 0,
+        "elapsed": 6.1199615000005,
+        "wallTime": 1792441545.043052,
+        "beforeGC": {
+          "Timestamp": 30938.848972,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 1126,
+          "LayoutObjects": 4123,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 4579,
+          "Resources": 5,
+          "ContextLifecycleStateObservers": 43,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 3,
+          "LayoutCount": 86,
+          "RecalcStyleCount": 225,
+          "LayoutDuration": 0.217532,
+          "RecalcStyleDuration": 0.047693,
+          "DevToolsCommandDuration": 0.026298,
+          "ScriptDuration": 0.17004,
+          "V8CompileDuration": 8.4e-05,
+          "TaskDuration": 0.695906,
+          "TaskOtherDuration": 0.234259,
+          "ThreadTime": 0.748746,
+          "ProcessTime": 1.29271,
+          "JSHeapUsedSize": 7802500,
+          "JSHeapTotalSize": 11706368,
+          "FirstMeaningfulPaint": 30935.123963,
+          "DomContentLoaded": 30934.635937,
+          "NavigationStart": 30934.405765
+        },
+        "afterGC": {
+          "Timestamp": 30938.883346,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 328,
+          "LayoutObjects": 11,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 129,
+          "Resources": 4,
+          "ContextLifecycleStateObservers": 3,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 3,
+          "LayoutCount": 86,
+          "RecalcStyleCount": 225,
+          "LayoutDuration": 0.217532,
+          "RecalcStyleDuration": 0.047693,
+          "DevToolsCommandDuration": 0.029152,
+          "ScriptDuration": 0.17004,
+          "V8CompileDuration": 8.4e-05,
+          "TaskDuration": 0.720773,
+          "TaskOtherDuration": 0.256272,
+          "ThreadTime": 0.771575,
+          "ProcessTime": 1.346358,
+          "JSHeapUsedSize": 4672876,
+          "JSHeapTotalSize": 5414912,
+          "FirstMeaningfulPaint": 30935.123963,
+          "DomContentLoaded": 30934.635937,
+          "NavigationStart": 30934.405765
+        },
+        "heap": {
+          "usedSize": 4672876,
+          "totalSize": 5414912,
+          "embedderHeapUsedSize": 1457072,
+          "backingStorageSize": 1761522
+        },
+        "dom": {
+          "documents": 1,
+          "nodes": 129,
+          "jsEventListeners": 328
+        },
+        "app": {
+          "host": {
+            "fluxListeners": 5,
+            "storeListeners": 1,
+            "savedKeys": 1,
+            "streams": 1,
+            "toasts": 0,
+            "openedStreams": 1,
+            "closedStreams": 0,
+            "peakStreams": 1,
+            "deviceGrants": 1,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 0,
+            "networkTransitions": 0,
+            "deniedDestinations": 0,
+            "apiCalls": {
+              "/oauth/device_authorization": 1,
+              "/oauth/token": 1,
+              "/me": 1,
+              "/snapshot": 1,
+              "/sync/events": 1
+            }
+          },
+          "fixture": {
+            "offline": false,
+            "generation": 1,
+            "rotations": [
+              {
+                "generation": 1,
+                "reason": "device",
+                "issuedAt": 1792441542267,
+                "expiresAt": 1792442442267
+              }
+            ],
+            "consumedRefresh": 0,
+            "activeTokenAgeSeconds": 2.773,
+            "streams": 1,
+            "toasts": 0,
+            "openedStreams": 1,
+            "closedStreams": 0,
+            "peakStreams": 1,
+            "deviceGrants": 1,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 0,
+            "networkTransitions": 0,
+            "deniedDestinations": 0
+          },
+          "instrument": {
+            "version": 2,
+            "callbacks": {
+              "plugin:MutationObserver": 84,
+              "plugin:animation": 44,
+              "plugin:ResizeObserver": 11,
+              "plugin:interval": 4,
+              "plugin:timeout": 1
+            },
+            "observers": [
+              {
+                "kind": "MutationObserver",
+                "owner": "plugin",
+                "active": true
+              },
+              {
+                "kind": "MutationObserver",
+                "owner": "playwright",
+                "active": true
+              }
+            ],
+            "activeObserversByOwner": {
+              "plugin:MutationObserver": 1,
+              "playwright:MutationObserver": 1
+            },
+            "activeMutationObservers": 2,
+            "activeResizeObservers": 0,
+            "pendingFrames": 0,
+            "framesByOwner": [],
+            "timers": [
+              {
+                "kind": "timeout",
+                "delay": 62199,
+                "owner": "plugin"
+              },
+              {
+                "kind": "interval",
+                "delay": 15000,
+                "owner": "fixture"
+              },
+              {
+                "kind": "timeout",
+                "delay": 899989,
+                "owner": "fixture"
+              }
+            ],
+            "note": "Legacy counts included Playwright observers and collected objects; v2 prunes WeakRefs and separates construction owners."
+          },
+          "phase": "ready",
+          "refs": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          },
+          "elements": 19,
+          "fonts": 4,
+          "roots": 1,
+          "mounts": 1,
+          "windows": 0,
+          "settingsListeners": 0,
+          "resourceEntries": 3
+        }
+      },
+      "finalClosed": {
+        "label": "cycles-closed",
+        "cycle": 200,
+        "elapsed": 123.1752880999993,
+        "wallTime": 1792441662.0983777,
+        "beforeGC": {
+          "Timestamp": 31055.910701,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 440,
+          "LayoutObjects": 375,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 849,
+          "Resources": 4,
+          "ContextLifecycleStateObservers": 9,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 3,
+          "LayoutCount": 1686,
+          "RecalcStyleCount": 4251,
+          "LayoutDuration": 4.125992,
+          "RecalcStyleDuration": 0.93684,
+          "DevToolsCommandDuration": 0.051182,
+          "ScriptDuration": 2.012579,
+          "V8CompileDuration": 8.4e-05,
+          "TaskDuration": 11.326477,
+          "TaskOtherDuration": 4.1998,
+          "ThreadTime": 11.474957,
+          "ProcessTime": 20.807296,
+          "JSHeapUsedSize": 5299268,
+          "JSHeapTotalSize": 10133504,
+          "FirstMeaningfulPaint": 30935.123963,
+          "DomContentLoaded": 30934.635937,
+          "NavigationStart": 30934.405765
+        },
+        "afterGC": {
+          "Timestamp": 31055.93879,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 328,
+          "LayoutObjects": 11,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 129,
+          "Resources": 4,
+          "ContextLifecycleStateObservers": 3,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 3,
+          "LayoutCount": 1686,
+          "RecalcStyleCount": 4251,
+          "LayoutDuration": 4.125992,
+          "RecalcStyleDuration": 0.93684,
+          "DevToolsCommandDuration": 0.052012,
+          "ScriptDuration": 2.012579,
+          "V8CompileDuration": 8.4e-05,
+          "TaskDuration": 11.3446,
+          "TaskOtherDuration": 4.217093,
+          "ThreadTime": 11.492194,
+          "ProcessTime": 20.852059,
+          "JSHeapUsedSize": 5061220,
+          "JSHeapTotalSize": 6201344,
+          "FirstMeaningfulPaint": 30935.123963,
+          "DomContentLoaded": 30934.635937,
+          "NavigationStart": 30934.405765
+        },
+        "heap": {
+          "usedSize": 5061220,
+          "totalSize": 6201344,
+          "embedderHeapUsedSize": 1113512,
+          "backingStorageSize": 1761394
+        },
+        "dom": {
+          "documents": 1,
+          "nodes": 129,
+          "jsEventListeners": 328
+        },
+        "app": {
+          "host": {
+            "fluxListeners": 5,
+            "storeListeners": 1,
+            "savedKeys": 1,
+            "streams": 1,
+            "toasts": 0,
+            "openedStreams": 2,
+            "closedStreams": 1,
+            "peakStreams": 1,
+            "deviceGrants": 1,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 3,
+            "networkTransitions": 2,
+            "deniedDestinations": 0,
+            "apiCalls": {
+              "/oauth/device_authorization": 1,
+              "/oauth/token": 1,
+              "/me": 3,
+              "/snapshot": 3,
+              "/sync/events": 4
+            }
+          },
+          "fixture": {
+            "offline": false,
+            "generation": 1,
+            "rotations": [
+              {
+                "generation": 1,
+                "reason": "device",
+                "issuedAt": 1792441542267,
+                "expiresAt": 1792442442267
+              }
+            ],
+            "consumedRefresh": 0,
+            "activeTokenAgeSeconds": 119.829,
+            "streams": 1,
+            "toasts": 0,
+            "openedStreams": 2,
+            "closedStreams": 1,
+            "peakStreams": 1,
+            "deviceGrants": 1,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 3,
+            "networkTransitions": 2,
+            "deniedDestinations": 0
+          },
+          "instrument": {
+            "version": 2,
+            "callbacks": {
+              "plugin:MutationObserver": 1684,
+              "plugin:animation": 841,
+              "plugin:ResizeObserver": 208,
+              "plugin:interval": 4,
+              "plugin:timeout": 6,
+              "fixture:interval": 7
+            },
+            "observers": [
+              {
+                "kind": "MutationObserver",
+                "owner": "plugin",
+                "active": true
+              },
+              {
+                "kind": "MutationObserver",
+                "owner": "playwright",
+                "active": true
+              }
+            ],
+            "activeObserversByOwner": {
+              "plugin:MutationObserver": 1,
+              "playwright:MutationObserver": 1
+            },
+            "activeMutationObservers": 2,
+            "activeResizeObservers": 0,
+            "pendingFrames": 0,
+            "framesByOwner": [],
+            "timers": [
+              {
+                "kind": "interval",
+                "delay": 15000,
+                "owner": "fixture"
+              },
+              {
+                "kind": "timeout",
+                "delay": 827390,
+                "owner": "fixture"
+              },
+              {
+                "kind": "timeout",
+                "delay": 63580,
+                "owner": "plugin"
+              }
+            ],
+            "note": "Legacy counts included Playwright observers and collected objects; v2 prunes WeakRefs and separates construction owners."
+          },
+          "phase": "ready",
+          "refs": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          },
+          "elements": 19,
+          "fonts": 4,
+          "roots": 1,
+          "mounts": 1,
+          "windows": 0,
+          "settingsListeners": 0,
+          "resourceEntries": 3
+        },
+        "soakElapsed": 117.05499910000071,
+        "phase": "actions",
+        "idleMode": "closed",
+        "activityRevision": 46
+      },
+      "peakClosedHeapGrowthMiB": 0.37035369873046875,
+      "stopped": {
+        "label": "stopped-quiescent",
+        "cycle": 200,
+        "elapsed": 189.33588190000228,
+        "wallTime": 1792441728.2589717,
+        "beforeGC": {
+          "Timestamp": 31122.081282,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 233,
+          "LayoutObjects": 6,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 533,
+          "Resources": 4,
+          "ContextLifecycleStateObservers": 2,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 2,
+          "LayoutCount": 1689,
+          "RecalcStyleCount": 4264,
+          "LayoutDuration": 4.150928,
+          "RecalcStyleDuration": 0.938529,
+          "DevToolsCommandDuration": 0.059198,
+          "ScriptDuration": 2.038924,
+          "V8CompileDuration": 8.4e-05,
+          "TaskDuration": 11.566571,
+          "TaskOtherDuration": 4.378908,
+          "ThreadTime": 11.731271,
+          "ProcessTime": 21.410716,
+          "JSHeapUsedSize": 4271692,
+          "JSHeapTotalSize": 5025792,
+          "FirstMeaningfulPaint": 30935.123963,
+          "DomContentLoaded": 30934.635937,
+          "NavigationStart": 30934.405765
+        },
+        "afterGC": {
+          "Timestamp": 31122.099318,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 233,
+          "LayoutObjects": 6,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 533,
+          "Resources": 4,
+          "ContextLifecycleStateObservers": 2,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 2,
+          "LayoutCount": 1689,
+          "RecalcStyleCount": 4264,
+          "LayoutDuration": 4.150928,
+          "RecalcStyleDuration": 0.938529,
+          "DevToolsCommandDuration": 0.059891,
+          "ScriptDuration": 2.038924,
+          "V8CompileDuration": 8.4e-05,
+          "TaskDuration": 11.575413,
+          "TaskOtherDuration": 4.387057,
+          "ThreadTime": 11.739619,
+          "ProcessTime": 21.445812,
+          "JSHeapUsedSize": 4278068,
+          "JSHeapTotalSize": 5025792,
+          "FirstMeaningfulPaint": 30935.123963,
+          "DomContentLoaded": 30934.635937,
+          "NavigationStart": 30934.405765
+        },
+        "heap": {
+          "usedSize": 4278068,
+          "totalSize": 5025792,
+          "embedderHeapUsedSize": 665792,
+          "backingStorageSize": 1613576
+        },
+        "dom": {
+          "documents": 1,
+          "nodes": 533,
+          "jsEventListeners": 233
+        },
+        "app": {
+          "host": {
+            "fluxListeners": 0,
+            "storeListeners": 0,
+            "savedKeys": 1,
+            "streams": 0,
+            "toasts": 0,
+            "openedStreams": 2,
+            "closedStreams": 2,
+            "peakStreams": 1,
+            "deviceGrants": 1,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 3,
+            "networkTransitions": 2,
+            "deniedDestinations": 0,
+            "apiCalls": {
+              "/oauth/device_authorization": 1,
+              "/oauth/token": 1,
+              "/me": 4,
+              "/snapshot": 4,
+              "/sync/events": 4
+            }
+          },
+          "fixture": {
+            "offline": false,
+            "generation": 1,
+            "rotations": [
+              {
+                "generation": 1,
+                "reason": "device",
+                "issuedAt": 1792441542267,
+                "expiresAt": 1792442442267
+              }
+            ],
+            "consumedRefresh": 0,
+            "activeTokenAgeSeconds": 185.99,
+            "streams": 0,
+            "toasts": 0,
+            "openedStreams": 2,
+            "closedStreams": 2,
+            "peakStreams": 1,
+            "deviceGrants": 1,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 3,
+            "networkTransitions": 2,
+            "deniedDestinations": 0
+          },
+          "instrument": {
+            "version": 2,
+            "callbacks": {
+              "plugin:MutationObserver": 1686,
+              "plugin:animation": 844,
+              "plugin:ResizeObserver": 209,
+              "plugin:interval": 256,
+              "plugin:timeout": 7,
+              "fixture:interval": 11
+            },
+            "observers": [
+              {
+                "kind": "MutationObserver",
+                "owner": "playwright",
+                "active": true
+              }
+            ],
+            "activeObserversByOwner": {
+              "playwright:MutationObserver": 1
+            },
+            "activeMutationObservers": 1,
+            "activeResizeObservers": 0,
+            "pendingFrames": 0,
+            "framesByOwner": [],
+            "timers": [],
+            "note": "Legacy counts included Playwright observers and collected objects; v2 prunes WeakRefs and separates construction owners."
+          },
+          "phase": "idle",
+          "refs": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          },
+          "elements": 13,
+          "fonts": 0,
+          "roots": 0,
+          "mounts": 0,
+          "windows": 0,
+          "settingsListeners": 0,
+          "resourceEntries": 3
+        }
+      },
+      "cleanupCompleted": true
+    }
+  },
+  "releaseFileChecks": {
+    "files": 9,
+    "status": "pass",
+    "published": false,
+    "report": "scripts/qa/runs/q18/release-check-final.log"
+  },
+  "sourceTypechecks": {
+    "root": "pass",
+    "pinnedVencord": "pass",
+    "reports": [
+      "typecheck-final-02.log",
+      "typecheck-vencord-final.log"
+    ]
+  },
+  "nodeDistributionTests": {
+    "total": 12,
+    "passed": 12,
+    "report": "node-distribution.log"
+  }
 }
