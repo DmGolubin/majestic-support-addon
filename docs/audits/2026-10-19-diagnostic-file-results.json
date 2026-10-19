@@ -1,0 +1,2013 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "bundlePath": "C:\\Users\\oblako\\dev\\support-templates\\betterdiscord\\out\\SupportTemplates.plugin.js",
+    "capturedAt": "2026-10-19T16:18:59.526Z",
+    "pluginSha256": "b5a4d9073ddbf7e7ab5b7694f18b8dda7affe1983f797bdc37228b97921b7822",
+    "sourceHead": "2a88a7674cdf7b64d47d285daccd07a2e2f2dfa0",
+    "sourceDirty": false,
+    "buildSourceCommit": "2a88a7674cdf",
+    "buildEvidenceMatchesBundle": true,
+    "worktreeMatchesBuildInputs": true,
+    "changedBuildInputs": [],
+    "sourceInputsSha256": "f43be8fc556b1032b361e30e78488b4f6da808860d00f3d12f44d20280279975",
+    "version": "1.0.1-canary.21",
+    "exactPublishedBundle": false,
+    "mocks": [
+      "Discord stores/event bus",
+      "strict synthetic OAuth and API",
+      "unsupported native persistence/updater bridge"
+    ],
+    "real": [
+      "React production",
+      "supplied BetterDiscord bundle",
+      "UI components and lifecycle",
+      "panel client, SSE parser and real-time timers"
+    ],
+    "limitation": "Browser fixture, not real Discord/BD; native protected storage and updater are not exercised."
+  },
+  "unit": {
+    "passed": 1726,
+    "failed": 0,
+    "files": 81,
+    "success": true
+  },
+  "checks": {
+    "browser": {
+      "status": "pass",
+      "assertions": [
+        {
+          "name": "host-has-no-editor-or-tabs",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "recording-enabled",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "transition-instruction",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "management-after-native-close",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "revocation-cause-in-export",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "http-status-in-export",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "network-failure-in-export",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "no-secrets-or-template-content",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "bounded-history",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "bounded-persistence",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "recording-survives-reload",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "cause-survives-reload",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "explicit-clear-removes-history",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "no-unhandled-errors",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "no-external-requests",
+          "pass": true,
+          "detail": []
+        }
+      ],
+      "errors": [],
+      "externalRequests": [],
+      "last": {
+        "label": "diagnostics-stopped",
+        "cycle": 0,
+        "elapsed": 22.731259299998783,
+        "wallTime": 1792426787.0413496,
+        "beforeGC": {
+          "Timestamp": 16179.798531,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 478,
+          "LayoutObjects": 86,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 101,
+          "Resources": 4,
+          "ContextLifecycleStateObservers": 5,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 2,
+          "ArrayBufferContents": 2,
+          "LayoutCount": 430,
+          "RecalcStyleCount": 1119,
+          "LayoutDuration": 1.081437,
+          "RecalcStyleDuration": 0.246822,
+          "DevToolsCommandDuration": 0.093578,
+          "ScriptDuration": 0.649719,
+          "V8CompileDuration": 0.000476,
+          "TaskDuration": 3.193018,
+          "TaskOtherDuration": 1.120986,
+          "ThreadTime": 3.267148,
+          "ProcessTime": 5.785895,
+          "JSHeapUsedSize": 5011944,
+          "JSHeapTotalSize": 24686592,
+          "FirstMeaningfulPaint": 16178.309247,
+          "DomContentLoaded": 16178.289699,
+          "NavigationStart": 16178.205633
+        },
+        "afterGC": {
+          "Timestamp": 16179.825652,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 17,
+          "LayoutObjects": 6,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 28,
+          "Resources": 3,
+          "ContextLifecycleStateObservers": 2,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 2,
+          "LayoutCount": 430,
+          "RecalcStyleCount": 1119,
+          "LayoutDuration": 1.081437,
+          "RecalcStyleDuration": 0.246822,
+          "DevToolsCommandDuration": 0.094427,
+          "ScriptDuration": 0.649719,
+          "V8CompileDuration": 0.000476,
+          "TaskDuration": 3.211779,
+          "TaskOtherDuration": 1.138898,
+          "ThreadTime": 3.284989,
+          "ProcessTime": 5.836177,
+          "JSHeapUsedSize": 3955904,
+          "JSHeapTotalSize": 4501504,
+          "FirstMeaningfulPaint": 16178.309247,
+          "DomContentLoaded": 16178.289699,
+          "NavigationStart": 16178.205633
+        },
+        "heap": {
+          "usedSize": 3955904,
+          "totalSize": 4501504,
+          "embedderHeapUsedSize": 808528,
+          "backingStorageSize": 1605042
+        },
+        "dom": {
+          "documents": 1,
+          "nodes": 28,
+          "jsEventListeners": 17
+        },
+        "app": {
+          "host": {
+            "fluxListeners": 0,
+            "storeListeners": 0,
+            "savedKeys": 0,
+            "streams": 0,
+            "toasts": 0,
+            "openedStreams": 0,
+            "closedStreams": 0,
+            "peakStreams": 0,
+            "deviceGrants": 0,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 0,
+            "networkTransitions": 0,
+            "deniedDestinations": 0,
+            "apiCalls": {}
+          },
+          "fixture": {
+            "offline": false,
+            "generation": 0,
+            "rotations": [],
+            "consumedRefresh": 0,
+            "activeTokenAgeSeconds": null,
+            "streams": 0,
+            "toasts": 0,
+            "openedStreams": 0,
+            "closedStreams": 0,
+            "peakStreams": 0,
+            "deviceGrants": 0,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 0,
+            "networkTransitions": 0,
+            "deniedDestinations": 0
+          },
+          "instrument": {
+            "version": 2,
+            "callbacks": {
+              "plugin:MutationObserver": 8,
+              "plugin:animation": 3
+            },
+            "observers": [],
+            "activeObserversByOwner": {},
+            "activeMutationObservers": 0,
+            "activeResizeObservers": 0,
+            "pendingFrames": 0,
+            "framesByOwner": [],
+            "timers": [],
+            "note": "Legacy counts included Playwright observers and collected objects; v2 prunes WeakRefs and separates construction owners."
+          },
+          "phase": "idle",
+          "refs": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          },
+          "elements": 13,
+          "fonts": 0,
+          "roots": 0,
+          "mounts": 0,
+          "windows": 0,
+          "settingsListeners": 0,
+          "resourceEntries": 3
+        }
+      }
+    },
+    "faults": {
+      "status": "pass",
+      "assertions": [
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "transient-stop-does-not-throw",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "permanent-stop-bounded-retries",
+          "pass": true,
+          "detail": 4
+        },
+        {
+          "name": "permanent-cleanup-blocks-remount",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "permanent-cleanup-no-duplicate-subscriptions",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "repaired-host-can-restart",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "close-releases-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "close-releases-targets",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "unrelated-dom-zero-plugin-raf",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "restart-dom-bounded",
+          "pass": true,
+          "detail": {
+            "documents": 1,
+            "nodes": 19,
+            "jsEventListeners": 2
+          }
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "restart-dom-bounded",
+          "pass": true,
+          "detail": {
+            "documents": 1,
+            "nodes": 19,
+            "jsEventListeners": 2
+          }
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "restart-dom-bounded",
+          "pass": true,
+          "detail": {
+            "documents": 1,
+            "nodes": 19,
+            "jsEventListeners": 2
+          }
+        },
+        {
+          "name": "bd-settings-subscription-released",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "bd-settings-subscription-released",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "bd-settings-subscription-released",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "bd-settings-subscription-released",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "no-unhandled-errors",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "no-external-requests",
+          "pass": true,
+          "detail": []
+        }
+      ],
+      "errors": [],
+      "externalRequests": [],
+      "last": {
+        "label": "bd-settings-stopped",
+        "cycle": 0,
+        "elapsed": 23.33048029999918,
+        "wallTime": 1792426787.640352,
+        "beforeGC": {
+          "Timestamp": 16180.40611,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 311,
+          "LayoutObjects": 11,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 26,
+          "Resources": 4,
+          "ContextLifecycleStateObservers": 2,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 2,
+          "LayoutCount": 345,
+          "RecalcStyleCount": 376,
+          "LayoutDuration": 0.286365,
+          "RecalcStyleDuration": 0.052458,
+          "DevToolsCommandDuration": 0.477758,
+          "ScriptDuration": 0.157534,
+          "V8CompileDuration": 0.000085,
+          "TaskDuration": 1.282405,
+          "TaskOtherDuration": 0.308205,
+          "ThreadTime": 1.335557,
+          "ProcessTime": 2.118556,
+          "JSHeapUsedSize": 2918352,
+          "JSHeapTotalSize": 3670016,
+          "FirstMeaningfulPaint": 16169.00821,
+          "DomContentLoaded": 16169.00441,
+          "NavigationStart": 16168.904075
+        },
+        "afterGC": {
+          "Timestamp": 16180.424988,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 2,
+          "LayoutObjects": 6,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 19,
+          "Resources": 3,
+          "ContextLifecycleStateObservers": 1,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 2,
+          "LayoutCount": 345,
+          "RecalcStyleCount": 376,
+          "LayoutDuration": 0.286365,
+          "RecalcStyleDuration": 0.052458,
+          "DevToolsCommandDuration": 0.478465,
+          "ScriptDuration": 0.157534,
+          "V8CompileDuration": 0.000085,
+          "TaskDuration": 1.291551,
+          "TaskOtherDuration": 0.316644,
+          "ThreadTime": 1.344563,
+          "ProcessTime": 2.149657,
+          "JSHeapUsedSize": 2816180,
+          "JSHeapTotalSize": 3670016,
+          "FirstMeaningfulPaint": 16169.00821,
+          "DomContentLoaded": 16169.00441,
+          "NavigationStart": 16168.904075
+        },
+        "heap": {
+          "usedSize": 2816180,
+          "totalSize": 3670016,
+          "embedderHeapUsedSize": 642520,
+          "backingStorageSize": 1592605
+        },
+        "dom": {
+          "documents": 1,
+          "nodes": 19,
+          "jsEventListeners": 2
+        },
+        "app": {
+          "host": {
+            "fluxListeners": 0,
+            "storeListeners": 0,
+            "savedKeys": 0,
+            "streams": 0,
+            "toasts": 0,
+            "openedStreams": 0,
+            "closedStreams": 0,
+            "peakStreams": 0,
+            "deviceGrants": 0,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 0,
+            "networkTransitions": 0,
+            "deniedDestinations": 0,
+            "apiCalls": {}
+          },
+          "fixture": {
+            "offline": false,
+            "generation": 0,
+            "rotations": [],
+            "consumedRefresh": 0,
+            "activeTokenAgeSeconds": null,
+            "streams": 0,
+            "toasts": 0,
+            "openedStreams": 0,
+            "closedStreams": 0,
+            "peakStreams": 0,
+            "deviceGrants": 0,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 0,
+            "networkTransitions": 0,
+            "deniedDestinations": 0
+          },
+          "instrument": {
+            "version": 2,
+            "callbacks": {
+              "plugin:MutationObserver": 456,
+              "plugin:animation": 60
+            },
+            "observers": [],
+            "activeObserversByOwner": {},
+            "activeMutationObservers": 0,
+            "activeResizeObservers": 0,
+            "pendingFrames": 0,
+            "framesByOwner": [],
+            "timers": [],
+            "note": "Legacy counts included Playwright observers and collected objects; v2 prunes WeakRefs and separates construction owners."
+          },
+          "phase": "idle",
+          "refs": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          },
+          "elements": 13,
+          "fonts": 0,
+          "roots": 0,
+          "mounts": 0,
+          "windows": 0,
+          "settingsListeners": 0,
+          "resourceEntries": 3
+        }
+      }
+    },
+    "smoke": {
+      "status": "pass",
+      "assertions": [
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4664164
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4747984
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "idle-cpu-closed",
+          "pass": true,
+          "detail": {
+            "mode": "closed",
+            "seconds": 10.2323379999998,
+            "taskSeconds": 0.00028999999999990145,
+            "mainThreadPercent": 0.00283415188200299
+          }
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4748072
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "closed-dom-bounded",
+          "pass": true,
+          "detail": 129
+        },
+        {
+          "name": "closed-listeners-bounded",
+          "pass": true,
+          "detail": 328
+        },
+        {
+          "name": "closed-heap-bounded",
+          "pass": true,
+          "detail": 4701344
+        },
+        {
+          "name": "host-listeners-stable",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "idle-cpu-picker",
+          "pass": true,
+          "detail": {
+            "mode": "picker",
+            "seconds": 10.239933000000747,
+            "taskSeconds": 0.018954000000000137,
+            "mainThreadPercent": 0.18509886734609254
+          }
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "idle-cpu-picker",
+          "pass": true,
+          "detail": {
+            "mode": "picker",
+            "seconds": 10.251396999999997,
+            "taskSeconds": 0.008956000000000186,
+            "mainThreadPercent": 0.0873637027226649
+          }
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "one-runtime-root",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "one-toolbar-mount",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "at-most-one-stream",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "no-invalid-refresh",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "fixture-origin-enforced",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "real-duration",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "cycle-count",
+          "pass": true,
+          "detail": 10
+        },
+        {
+          "name": "network-recovered",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "ready-at-end",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "single-device-login",
+          "pass": true,
+          "detail": 1
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-fluxListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-storeListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-streams",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-roots",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-mounts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-windows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-settingsListeners",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-fonts",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "stop-plugin-observers",
+          "pass": true,
+          "detail": {}
+        },
+        {
+          "name": "stop-plugin-fixture-timers",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-plugin-frames",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "stop-target-refs",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "stop-visible-items",
+          "pass": true,
+          "detail": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          }
+        },
+        {
+          "name": "no-api-after-stop",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "name": "no-page-errors",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "no-external-requests",
+          "pass": true,
+          "detail": []
+        },
+        {
+          "name": "checkpoint-gaps-at-most-60s",
+          "pass": true,
+          "detail": 10.27764390000084
+        }
+      ],
+      "errors": [],
+      "externalRequests": [],
+      "durationSeconds": 55.17427779999889,
+      "realSoakSeconds": 45.24422109999978,
+      "last": {
+        "label": "stopped-quiescent",
+        "cycle": 10,
+        "elapsed": 54.995076600000175,
+        "wallTime": 1792426819.3054035,
+        "beforeGC": {
+          "Timestamp": 16212.069423,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 233,
+          "LayoutObjects": 6,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 533,
+          "Resources": 4,
+          "ContextLifecycleStateObservers": 2,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 2,
+          "LayoutCount": 169,
+          "RecalcStyleCount": 442,
+          "LayoutDuration": 0.535198,
+          "RecalcStyleDuration": 0.107972,
+          "DevToolsCommandDuration": 0.043984,
+          "ScriptDuration": 0.337489,
+          "V8CompileDuration": 0.000156,
+          "TaskDuration": 1.677964,
+          "TaskOtherDuration": 0.653165,
+          "ThreadTime": 1.741525,
+          "ProcessTime": 3.210674,
+          "JSHeapUsedSize": 3927500,
+          "JSHeapTotalSize": 4763648,
+          "FirstMeaningfulPaint": 16159.869773,
+          "DomContentLoaded": 16159.398686,
+          "NavigationStart": 16159.052119
+        },
+        "afterGC": {
+          "Timestamp": 16212.09018,
+          "AudioHandlers": 0,
+          "AudioWorkletProcessors": 0,
+          "Documents": 1,
+          "Frames": 1,
+          "JSEventListeners": 233,
+          "LayoutObjects": 6,
+          "MediaKeySessions": 0,
+          "MediaKeys": 0,
+          "Nodes": 533,
+          "Resources": 4,
+          "ContextLifecycleStateObservers": 2,
+          "V8PerContextDatas": 2,
+          "WorkerGlobalScopes": 0,
+          "UACSSResources": 0,
+          "RTCPeerConnections": 0,
+          "ResourceFetchers": 1,
+          "AdSubframes": 0,
+          "DetachedScriptStates": 0,
+          "ArrayBufferContents": 2,
+          "LayoutCount": 169,
+          "RecalcStyleCount": 442,
+          "LayoutDuration": 0.535198,
+          "RecalcStyleDuration": 0.107972,
+          "DevToolsCommandDuration": 0.04471,
+          "ScriptDuration": 0.337489,
+          "V8CompileDuration": 0.000156,
+          "TaskDuration": 1.688384,
+          "TaskOtherDuration": 0.662859,
+          "ThreadTime": 1.751295,
+          "ProcessTime": 3.246589,
+          "JSHeapUsedSize": 3927024,
+          "JSHeapTotalSize": 4763648,
+          "FirstMeaningfulPaint": 16159.869773,
+          "DomContentLoaded": 16159.398686,
+          "NavigationStart": 16159.052119
+        },
+        "heap": {
+          "usedSize": 3927024,
+          "totalSize": 4763648,
+          "embedderHeapUsedSize": 678136,
+          "backingStorageSize": 1603048
+        },
+        "dom": {
+          "documents": 1,
+          "nodes": 533,
+          "jsEventListeners": 233
+        },
+        "app": {
+          "host": {
+            "fluxListeners": 0,
+            "storeListeners": 0,
+            "savedKeys": 1,
+            "streams": 0,
+            "toasts": 0,
+            "openedStreams": 2,
+            "closedStreams": 2,
+            "peakStreams": 1,
+            "deviceGrants": 1,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 2,
+            "networkTransitions": 2,
+            "deniedDestinations": 0,
+            "apiCalls": {
+              "/oauth/device_authorization": 1,
+              "/oauth/token": 1,
+              "/me": 1,
+              "/snapshot": 1,
+              "/sync/events": 3
+            }
+          },
+          "fixture": {
+            "offline": false,
+            "generation": 1,
+            "rotations": [
+              {
+                "generation": 1,
+                "reason": "device",
+                "issuedAt": 1792426768077,
+                "expiresAt": 1792427668077
+              }
+            ],
+            "consumedRefresh": 0,
+            "activeTokenAgeSeconds": 51.227,
+            "streams": 0,
+            "toasts": 0,
+            "openedStreams": 2,
+            "closedStreams": 2,
+            "peakStreams": 1,
+            "deviceGrants": 1,
+            "refreshAttempts": 0,
+            "refreshSuccess": 0,
+            "rejectedRefresh": 0,
+            "rejectedAccess": 0,
+            "expiryEvents": 0,
+            "networkFailures": 2,
+            "networkTransitions": 2,
+            "deniedDestinations": 0
+          },
+          "instrument": {
+            "version": 2,
+            "callbacks": {
+              "plugin:MutationObserver": 166,
+              "plugin:animation": 87,
+              "plugin:ResizeObserver": 22,
+              "plugin:interval": 88,
+              "plugin:timeout": 3,
+              "fixture:interval": 2
+            },
+            "observers": [
+              {
+                "kind": "MutationObserver",
+                "owner": "playwright",
+                "active": true
+              }
+            ],
+            "activeObserversByOwner": {
+              "playwright:MutationObserver": 1
+            },
+            "activeMutationObservers": 1,
+            "activeResizeObservers": 0,
+            "pendingFrames": 0,
+            "framesByOwner": [],
+            "timers": [],
+            "note": "Legacy counts included Playwright observers and collected objects; v2 prunes WeakRefs and separates construction owners."
+          },
+          "phase": "idle",
+          "refs": {
+            "windowTargetConnected": null,
+            "composeTargetConnected": null,
+            "visibleCount": 0
+          },
+          "elements": 13,
+          "fonts": 0,
+          "roots": 0,
+          "mounts": 0,
+          "windows": 0,
+          "settingsListeners": 0,
+          "resourceEntries": 3
+        }
+      }
+    }
+  }
+}
