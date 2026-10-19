@@ -16,6 +16,18 @@
   ],
   "tasks": [
     {
+      "id": "Q14",
+      "area": "Качество и безопасность",
+      "status": "done",
+      "title": "Память и простой BetterDiscord .19",
+      "detail": "Проверена .19: 500 циклов окон, 30 start/stop, по 180 с простоя; 11 мин 34 с на стенде и 10 мин read-only наблюдения Canary. В штатном режиме нет накопления DOM/listeners; воспроизведены аварийные утечки запуска/stop и ограниченное удержание состояния. Production не изменён; многосуточный режим и настоящий BD React не покрыты. Отчёт: docs/audits/2026-10-19-memory-idle.md.",
+      "updated": "2026-10-19",
+      "evidence": [
+        "audits/2026-10-19-memory-idle.md",
+        "audits/2026-10-19-memory-idle-results.json"
+      ]
+    },
+    {
       "id": "A20",
       "area": "A · Шаблоны",
       "status": "review",
