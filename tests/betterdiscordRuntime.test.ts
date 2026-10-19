@@ -1,5 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
+import * as fs from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 import { bdRequire, evaluate, loadAdapter, root, source } from "./betterdiscordHarness";
 
 const { JSDOM } = bdRequire("jsdom");
@@ -13,7 +17,7 @@ beforeAll(() => {
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup(); vi.unstubAllGlobals(); });
 
-function fixture({ delayedRead = false, missingStore = false, restrictedHost = false } = {}) {
+function fixture({ delayedRead = false, missingStore = false, restrictedHost = false, supportedBridge = false } = {}) {
     const dom = new JSDOM('<!doctype html><body><main><div class="channelTextArea_test"><div class="buttons_test"></div><div contenteditable="true" role="textbox" tabindex="0" data-slate-editor="true">draft stays</div></div></main></body>', { url: "https://discord.com/channels/test", pretendToBeVisual: true });
     const w = dom.window;
     const globals: any = {};
@@ -80,8 +84,21 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
             crypto: { createHash: bdRequire("crypto").createHash, randomBytes: bdRequire("crypto").randomBytes },
             electron: {}, buffer: bdRequire("buffer"), events: bdRequire("events")
         };
+        if (supportedBridge) {
+            const dir = fs.mkdtempSync(join(tmpdir(), "stx-bd-runtime-"));
+            host.Plugins.folder = join(dir, "plugins"); fs.mkdirSync(host.Plugins.folder);
+            modules.fs = Object.fromEntries(["readFileSync", "writeFileSync", "mkdirSync", "statSync", "realpathSync", "renameSync", "unlinkSync", "existsSync"].map(k => [k, (...args: any[]) => {
+                try { return (fs as any)[k](...args); } catch (error) { throw new Error((error as Error).message); }
+            }]));
+            modules.fs.lstatSync = modules.fs.statSync; // BD aliases lstat to stat and drops Error.code.
+            host.Net = { fetch: vi.fn(async () => new Response("Private", { status: 404 })) };
+            Object.defineProperty(globals.navigator, "locks", { value: { request: async (_name: any, _options: any, fn: any) => fn({}) } });
+            cleanups.push(async () => { await React.act(async () => { plugin.stop(); await plugin.retiring; }); fs.rmSync(dir, { recursive: true, force: true }); });
+        }
         globals.require = (name: string) => {
             if (name in modules) return modules[name];
+            if (supportedBridge && name.startsWith(join(host.Plugins.folder, "..", "SupportTemplates") + "\\") && name.endsWith(".plugin.js"))
+                return evaluate(fs.readFileSync(name, "utf8"), {}, globals);
             deniedModules.push(name);
             throw new Error(`ENOENT: no such file or directory, lstat 'Discord/${name}'`);
         };
@@ -90,12 +107,41 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
     const plugin = new Plugin();
     const frame = () => new Promise(resolve => w.requestAnimationFrame(() => resolve(undefined)));
     cleanups.push(async () => { await React.act(async () => { plugin.stop(); resolveRead(undefined); await frame(); }); w.close(); });
-    return { plugin, Plugin, host, componentDispatch, flux, changes, fonts, document: w.document, w, frame, resolveRead, data, deniedModules,
+    return { plugin, Plugin, host, globals, componentDispatch, flux, changes, fonts, document: w.document, w, frame, resolveRead, data, deniedModules,
         channel: (guild: string) => { channel = { ...channel, guild_id: guild }; dispatcher.dispatch({ type: "CHANNEL_SELECT", guildId: guild }); },
         key: () => { const event = new w.KeyboardEvent("keydown", { code: "KeyT", key: "t", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }); w.document.activeElement.dispatchEvent(event); return event; } };
 }
 
 describe("BetterDiscord final bundle in React/DOM", () => {
+    it("downloads without evaluating, then loads the verified runtime through BD's absolute-path loader on next startup", async () => {
+        const f = fixture({ restrictedHost: true, supportedBridge: true });
+        const version = "0.1.0-canary.99";
+        const code = `module.exports=class { getVersion(){return '${version}';} startBundledRuntime(){globalThis.BdApi.testStarts++;} stopBundledRuntime(){} getSettingsPanel(){} getBundledSettings(){} };`;
+        const config = JSON.parse(source("distribution/config.json"));
+        const asset = { variant: "betterdiscord", platform: "win32", kind: "renderer", name: "SupportTemplates.plugin.js", size: Buffer.byteLength(code), sha256: createHash("sha256").update(code).digest("hex") };
+        const manifest = { schema: 1, product: "SupportTemplates", repository: config.releaseRepository, channel: "canary", version, assets: [asset] };
+        const url = (name: string) => `https://github.com/${config.releaseRepository}/releases/download/v${version}/${name}`;
+        const release = { draft: false, prerelease: true, tag_name: `v${version}`, assets: [
+            { name: config.manifestAsset, state: "uploaded", size: Buffer.byteLength(JSON.stringify(manifest)), browser_download_url: url(config.manifestAsset) },
+            { name: asset.name, state: "uploaded", size: asset.size, browser_download_url: url(asset.name) }
+        ] };
+        f.host.testStarts = 0;
+        f.host.Net.fetch.mockImplementation(async (input: string) => new Response(input.startsWith("https://api.github.com/") ? JSON.stringify([release]) : input === url(config.manifestAsset) ? JSON.stringify(manifest) : code));
+        await React.act(async () => { await f.plugin.start(); await f.plugin.updater.check(); });
+        expect(f.plugin.getVersion()).toBe(config.version); expect(f.host.testStarts).toBe(0);
+        expect(f.document.querySelector('[data-slate-editor="true"]').textContent).toBe("draft stays");
+        await React.act(async () => { f.plugin.stop(); await f.plugin.retiring; await f.plugin.start(); });
+        expect(f.plugin.getVersion()).toBe(version); expect(f.host.testStarts).toBe(1);
+        expect(f.deniedModules).toEqual([]);
+    });
+    it("starts automatic checks using only the standard BD bridge and keeps the editor intact on GitHub 404", async () => {
+        const f = fixture({ restrictedHost: true, supportedBridge: true });
+        await React.act(async () => { await f.plugin.start(); await f.plugin.updater.check().catch(() => {}); await f.frame(); });
+        expect(f.host.Net.fetch).toHaveBeenCalledOnce();
+        expect(f.deniedModules).toEqual([]);
+        expect(f.document.querySelector('[data-slate-editor="true"]').textContent).toBe("draft stays");
+        expect(f.document.querySelectorAll('[data-stx="button"]')).toHaveLength(1);
+    });
     it("loads and opens settings under BetterDiscord's restricted module loader without probing unsupported modules", async () => {
         const f = fixture({ restrictedHost: true });
         await React.act(async () => { await f.plugin.start(); await f.frame(); });
@@ -125,7 +171,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         const settingsNode = f.document.createElement("div"); f.document.body.append(settingsNode);
         const settings = ReactDOM.createRoot(settingsNode);
         await React.act(async () => { settings.render(f.plugin.getSettingsPanel()); });
-        expect(settingsNode.textContent).toContain("0.1.0-canary.15");
+        expect(settingsNode.textContent).toContain("0.1.0-canary.16");
         expect(settingsNode.textContent).toContain("Мои шаблоны");
         expect(settingsNode.textContent).toContain("Режим отладки");
         expect(editor.textContent).toBe("draft stays");
@@ -169,9 +215,9 @@ describe("BetterDiscord final bundle in React/DOM", () => {
     });
     it("reports effective cached runtime version and tolerates prototype metadata checks", () => {
         const f = fixture();
-        expect(f.Plugin.prototype.getVersion()).toBe("0.1.0-canary.15");
-        f.plugin.delegate = { getVersion: () => "0.1.0-canary.16", stopBundledRuntime() {} };
-        expect(f.plugin.getVersion()).toBe("0.1.0-canary.16");
+        expect(f.Plugin.prototype.getVersion()).toBe("0.1.0-canary.16");
+        f.plugin.delegate = { getVersion: () => "0.1.0-canary.17", stopBundledRuntime() {} };
+        expect(f.plugin.getVersion()).toBe("0.1.0-canary.17");
     });
     it("inserts through ComponentDispatch only into a focused Slate composer and never sends", () => {
         const f = fixture();
@@ -191,7 +237,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         expect(evidence.inputs).not.toContain("src/vencord/buildInfo.ts");
         expect(evidence.inputs).not.toContain("src/vencord/panelVault.ts");
         expect(bundle).not.toContain("VencordNative");
-        expect(bundle).toContain("@version 0.1.0-canary.15");
+        expect(bundle).toContain("@version 0.1.0-canary.16");
         expect(evidence.embeddedCssBytes).toBeGreaterThan(10000);
         expect(source("betterdiscord/out/LICENSE")).toContain("GNU GENERAL PUBLIC LICENSE");
         expect(source("betterdiscord/out/source/LICENSE")).toContain("GNU GENERAL PUBLIC LICENSE");

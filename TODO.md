@@ -11,11 +11,17 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (28)
+## Реализовано · нужна приёмка (29)
+
+### D13 · Сохранение входа и автообновления стандартного BetterDiscord
+
+D · Доставка. BD-only .16 реализована: AES-GCM/IndexedDB сохраняет вход в профиле, Web Lock защищает ротацию; поддерживаемые Net/fs API загружают проверенный runtime вне plugins и включают его при Ctrl+R/запуске. 1606 тестов/74 файла и обе проверки типов прошли. Не OS keychain. Живой BD и публичная доставка следующего выпуска ещё не проверены; репозиторий остаётся приватным.
+
+Основание: [2026-10-19-betterdiscord-persistence-updates.md](docs/audits/2026-10-19-betterdiscord-persistence-updates.md), [2026-10-19-betterdiscord-persistence-tests.json](docs/audits/2026-10-19-betterdiscord-persistence-tests.json), [0.1.0-canary.16.md](docs/releases/0.1.0-canary.16.md).
 
 ### D12 · Совместимость загрузки BetterDiscord с ограниченным require
 
-D · Доставка. Сбой node:https воспроизведён и исправлен. BD-only .15 опубликована: BdApi.Net, bare-импорты и lazy native-модули с проверкой возможностей. 1586 тестов/72 файла, typecheck и загрузка финального пакета с ограниченным require прошли; 6 файлов GitHub проверены по SHA-256. Нужна живая приёмка. Стандартный BD: вход до перезапуска, обновление вручную (доработка в D09).
+D · Доставка. Сбой node:https воспроизведён и исправлен. BD-only .15 опубликована: BdApi.Net, bare-импорты и lazy native-модули с проверкой возможностей. 1586 тестов/72 файла, typecheck и загрузка финального пакета с ограниченным require прошли; 6 файлов GitHub проверены по SHA-256. Нужна живая приёмка. Ограничения сохранения входа и обновлений .15 доработаны в .16 (D13), нужна живая приёмка.
 
 Основание: [2026-10-19-betterdiscord-loader.md](docs/audits/2026-10-19-betterdiscord-loader.md), [2026-10-19-betterdiscord-loader-tests.json](docs/audits/2026-10-19-betterdiscord-loader-tests.json), [0.1.0-canary.15.md](docs/releases/0.1.0-canary.15.md).
 
@@ -177,7 +183,7 @@ C · Панель. Задержка после подтверждения на �
 
 ### D09 · Три пакета и общие обновления GitHub
 
-D · Доставка. Три Windows-пакета .14 опубликованы одним приватным prerelease: BetterDiscord, полный Vencord и отдельная сборка. Общий GitHub updater, BAT/PowerShell, исходники/хеши/Actions. 1584 теста, 12 Node-проверок и финальные TEMP install/status/uninstall прошли. Отдельная .14 установлена в Canary владельца. Живая приёмка трёх платформ и анонимное обновление после открытия репозитория ещё впереди. Выявлено ограничение стандартного BD: прежний native updater/vault несовместимы с его polyfill. В .15 безопасный режим без этих функций; реализация автообновления и защищённого сохранения входа для стандартного BD остаётся незавершённой.
+D · Доставка. Три Windows-пакета .14 опубликованы одним приватным prerelease: BetterDiscord, полный Vencord и отдельная сборка. Общий GitHub updater, BAT/PowerShell, исходники/хеши/Actions. 1584 теста, 12 Node-проверок и финальные TEMP install/status/uninstall прошли. Отдельная .14 установлена в Canary владельца. Живая приёмка трёх платформ и анонимное обновление после открытия репозитория ещё впереди. Выявлено ограничение стандартного BD: прежний native updater/vault несовместимы с его polyfill. В .15 безопасный режим без этих функций; в .16 реализован совместимый backend (D13), живая приёмка остаётся.
 
 Основание: [2026-10-19-three-distributions.md](docs/audits/2026-10-19-three-distributions.md), [2026-10-19-canary-14-install-and-release.md](docs/audits/2026-10-19-canary-14-install-and-release.md).
 

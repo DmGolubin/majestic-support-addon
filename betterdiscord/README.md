@@ -64,20 +64,32 @@ vault stores ciphertext under a namespace bound to BD's plugin directory and
 Discord's stable/PTB/canary origin. Account IDs are validated and envelopes bound
 to accounts. Stop drains accepted vault writes before releasing its lock.
 
-In standard BetterDiscord, protected native persistence is unavailable. The shared UI supports a memory-only session
-(`persistent: false`); login still works and requires reconnection after restart.
-No plaintext fallback. DPAPI invokes a short synchronous process on initial probe
+In standard BetterDiscord, `native/browserVault.ts` uses WebCrypto AES-256-GCM and
+IndexedDB transactions with strict durability. Each account has a nonextractable key
+stored alongside its ciphertext. AAD binds the Discord origin, canonical installation
+path and account. An exclusive Web Lock spans the whole session, including refresh
+token rotation; stop drains writes before releasing it. Logout deletes the record and
+key. This is profile-local encryption, **not OS-keychain protection**: malicious code
+running in the same Discord origin can use the key. Clearing profile storage removes
+the saved login. Tokens are never saved as plaintext in BdApi.Data or plugin files.
+If browser storage capabilities are absent, the shared UI reports a session-only login.
+Storage failures are reported rather than pretending the session was saved.
+
+In native-capable hosts, DPAPI invokes a short synchronous process on initial probe
 and token persistence because the reused vault's crypto contract is synchronous;
 each invocation is bounded to five seconds. Other trusted plugins running as the
 same OS user are outside this isolation boundary.
 
 ## Updates
 
-The parent-owned engine is bundled from `distribution/updater/`. Standard BetterDiscord
-does not expose the atomic file/lock operations needed by this updater. In that host,
-settings explicitly say **update the plugin manually**; no unsafe filesystem substitute
-or plaintext token persistence is used. Download the new `.plugin.js` from Releases,
-disable the old plugin, replace it and enable it again.
+Standard BetterDiscord uses `native/hostUpdater.ts`: the supported `BdApi.Net.fetch`
+stream and synchronous filesystem bridge, plus a Web Lock to serialize cache writes.
+It reuses the parent-owned version, manifest and bounded redirect validation from
+`distribution/updater/`. Checks run at startup and every six hours. Cache writes use
+exclusive temporary files and atomic rename. BD has no fsync bridge: a crash may lose
+the latest download, so cache length/hash are rechecked on each load and corruption
+falls back to the bundled plugin. Canonical paths are checked because BD aliases lstat
+to stat. Updating from .15/DEV to .16 requires one manual file replacement.
 
 In a host with full native capabilities, checks and verified downloads run automatically.
 Null releaseRepository disables checks; an anonymous
@@ -102,9 +114,9 @@ the bundled runtime and can install new plugin files manually with Discord close
 ## Validation limits
 
 Automated tests use mocked Discord/BdApi with real React and a DOM, a restricted renderer require,
-streaming BdApi.Net transport
-fixtures, encrypted temporary vaults and updater cache fixtures. No installed client
-was modified and no release published. A real BetterDiscord session remains the
+streaming BdApi.Net transport fixtures, WebCrypto with fake-indexeddb persistence,
+encrypted temporary native vaults and updater cache fixtures. No installed client
+is modified by these tests. A real BetterDiscord session remains the
 acceptance check for changing Discord Webpack/toolbar internals, panel account login,
 device approval, actual Slate insertion and OS-specific safeStorage availability.
 The shared debug report retains some Vencord wording, but its version/build values

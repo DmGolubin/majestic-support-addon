@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, mkdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
@@ -55,6 +55,12 @@ describe("BetterDiscord panel transport through BdApi.Net", () => {
 });
 
 describe("BetterDiscord protected session vault", () => {
+    it("retains native rejection of a dangling storage ancestor", () => {
+        const dir = temporary(), plugins = join(dir, "plugins"); mkdirSync(plugins);
+        symlinkSync(join(dir, "missing-target"), join(dir, "SupportTemplates"), process.platform === "win32" ? "junction" : "dir");
+        const { installationPaths } = loadAdapter("native/paths.ts", {}, { location: { origin: "https://discord.com" }, BdApi: { Plugins: { folder: plugins } } });
+        expect(() => installationPaths()).toThrow("Unsafe storage path");
+    });
     it("uses a session-only login without importing unsupported native modules on standard BetterDiscord", async () => {
         const requested: string[] = [];
         const { createPanelVault, closePanelVault } = loadAdapter("native/vaultHost.ts", {}, {

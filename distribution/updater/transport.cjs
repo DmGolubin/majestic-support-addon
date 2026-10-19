@@ -1,5 +1,4 @@
 'use strict';
-const https = require('node:https');
 const { assert, fail } = require('./validation.cjs');
 
 const CDN = new Set(['release-assets.githubusercontent.com', 'objects.githubusercontent.com', 'github-releases.githubusercontent.com']);
@@ -18,6 +17,7 @@ function validateUrl(value, { repo, role, tag, name, redirected = false }) {
     return url.href;
 }
 function defaultTransport(url, { signal }) {
+    const https = require('node:https'); // Browser hosts inject their supported Net bridge.
     return new Promise((resolve, reject) => {
         const request = https.get(url, {
             signal,

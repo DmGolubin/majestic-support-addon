@@ -9,11 +9,11 @@ const dirs: string[] = [];
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 function fixture() {
     const root = mkdtempSync(join(tmpdir(), "stx-bd-update-")); dirs.push(root);
-    const bytes = Buffer.from('/** @name SupportTemplates @version 0.1.0-canary.16 */\nmodule.exports = class {};');
+    const bytes = Buffer.from('/** @name SupportTemplates @version 0.1.0-canary.17 */\nmodule.exports = class {};');
     const config = JSON.parse(source("distribution/config.json"));
     const asset = { variant: "betterdiscord", platform: "win32", kind: "renderer", name: "SupportTemplates.plugin.js", size: bytes.length,
         sha256: createHash("sha256").update(bytes).digest("hex") };
-    const manifest = { schema: 1, product: "SupportTemplates", repository: config.releaseRepository, version: "0.1.0-canary.16", channel: "canary", assets: [asset] };
+    const manifest = { schema: 1, product: "SupportTemplates", repository: config.releaseRepository, version: "0.1.0-canary.17", channel: "canary", assets: [asset] };
     const assetPath = join(root, "download.plugin.js"); writeFileSync(assetPath, bytes);
     const cache = join(root, "runtime");
     return { root, bytes, manifest, asset, assetPath, cache, context: { assetPath, manifest, asset, version: manifest.version, variant: "betterdiscord", channel: "canary", phase: "runtime" } };
@@ -33,7 +33,7 @@ describe("BetterDiscord updater integration", () => {
         startup = true;
         expect(await adapter.apply({ ...f.context, phase: "startup" })).toEqual({ applied: true });
         const selected = await cachedRuntime(f.cache);
-        expect(selected.version).toBe("0.1.0-canary.16");
+        expect(selected.version).toBe("0.1.0-canary.17");
         expect(readFileSync(selected.path)).toEqual(f.bytes);
         expect(selected.path).toContain(f.asset.sha256);
         expect(readFileSync(f.assetPath)).toEqual(f.bytes);

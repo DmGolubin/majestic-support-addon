@@ -39,7 +39,7 @@ export default class SupportTemplates {
             try {
                 const updates = await prepareUpdates(live, event => {
                     if (!live()) return;
-                    if (event.type === "pending" || event.type === "pending-restart") this.updateStatus = "Обновление загружено. Оно включится при следующем запуске Discord.";
+                    if (event.type === "pending" || event.type === "pending-restart") this.updateStatus = "Обновление загружено. Оно включится после Ctrl+R или следующего запуска Discord.";
                     if (event.type === "error") this.updateStatus = "Проверка обновлений временно недоступна. Повторим автоматически.";
                     if (event.type === "unsupported-host") this.updateStatus = "Обновляйте плагин вручную: эта версия BetterDiscord не предоставляет необходимые функции для безопасного автообновления.";
                     for (const changed of this.settingsListeners) changed();
