@@ -5,8 +5,8 @@ import { api, NAME } from "./shims/host";
 import { React, useEffect, useState, FluxDispatcher, UserStore, ChannelStore, SelectedChannelStore, SelectedGuildStore } from "./shims/common";
 import ErrorBoundary from "./shims/errorBoundary";
 import { mountChatButtons } from "./chatMounts";
-import { closePanelVault } from "./native/vault";
-import { prepareUpdates } from "./native/updater";
+import { closePanelVault } from "./native/vaultHost";
+import { prepareUpdates } from "./native/updateHost";
 import { PLUGIN_VERSION } from "./shims/buildInfo";
 import css from "stx:css";
 
@@ -41,6 +41,7 @@ export default class SupportTemplates {
                     if (!live()) return;
                     if (event.type === "pending" || event.type === "pending-restart") this.updateStatus = "Обновление загружено. Оно включится при следующем запуске Discord.";
                     if (event.type === "error") this.updateStatus = "Проверка обновлений временно недоступна. Повторим автоматически.";
+                    if (event.type === "unsupported-host") this.updateStatus = "Обновляйте плагин вручную: эта версия BetterDiscord не предоставляет необходимые функции для безопасного автообновления.";
                     for (const changed of this.settingsListeners) changed();
                 });
                 if (!live()) { await updates?.updater.stop(); return; }

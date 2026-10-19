@@ -16,6 +16,19 @@
   ],
   "tasks": [
     {
+      "id": "D12",
+      "area": "D · Доставка",
+      "status": "review",
+      "title": "Совместимость загрузки BetterDiscord с ограниченным require",
+      "detail": "Сбой node:https воспроизведён на итоговом bundle. Исправлены загрузка и сетевой адаптер BdApi.Net; native-функции изолированы проверкой возможностей. 1586 тестов/72 файла и typecheck прошли. Готовим BD-only .15 для живой приёмки. В стандартном BD вход до перезапуска, обновление вручную; ограничения показаны явно.",
+      "updated": "2026-10-19",
+      "evidence": [
+        "audits/2026-10-19-betterdiscord-loader.md",
+        "audits/2026-10-19-betterdiscord-loader-tests.json",
+        "releases/0.1.0-canary.15.md"
+      ]
+    },
+    {
       "id": "D11",
       "area": "D · Доставка",
       "status": "done",
@@ -866,7 +879,7 @@
       "area": "D · Доставка",
       "status": "review",
       "title": "Три пакета и общие обновления GitHub",
-      "detail": "Три Windows-пакета .14 опубликованы одним приватным prerelease: BetterDiscord, полный Vencord и отдельная сборка. Общий GitHub updater, BAT/PowerShell, исходники/хеши/Actions. 1584 теста, 12 Node-проверок и финальные TEMP install/status/uninstall прошли. Отдельная .14 установлена в Canary владельца. Живая приёмка трёх платформ и анонимное обновление после открытия репозитория ещё впереди.",
+      "detail": "Три Windows-пакета .14 опубликованы одним приватным prerelease: BetterDiscord, полный Vencord и отдельная сборка. Общий GitHub updater, BAT/PowerShell, исходники/хеши/Actions. 1584 теста, 12 Node-проверок и финальные TEMP install/status/uninstall прошли. Отдельная .14 установлена в Canary владельца. Живая приёмка трёх платформ и анонимное обновление после открытия репозитория ещё впереди. Выявлено ограничение стандартного BD: прежний native updater/vault несовместимы с его polyfill. В .15 безопасный режим без этих функций; реализация автообновления и защищённого сохранения входа для стандартного BD остаётся незавершённой.",
       "updated": "2026-10-19",
       "evidence": [
         "audits/2026-10-19-three-distributions.md",

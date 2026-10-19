@@ -16,6 +16,9 @@ const aliases = {
 };
 export function adapterPlugin(css = '') {
     return { name: 'betterdiscord-host', setup(builder) {
+        // BD's renderer require recognizes bare polyfill names, not node: URLs.
+        // Native-only modules remain behind capability-checked lazy imports.
+        builder.onResolve({ filter: /^node:/ }, args => ({ path: args.path.slice(5), external: true }));
         builder.onResolve({ filter: /^stx:css$/ }, () => ({ path: 'css', namespace: 'embedded' }));
         builder.onLoad({ filter: /.*/, namespace: 'embedded' }, () => ({ contents: `export default ${JSON.stringify(css)}`, loader: 'js' }));
         builder.onResolve({ filter: /^@/ }, args => {
@@ -29,7 +32,7 @@ export function adapterPlugin(css = '') {
             if (!importer.includes('/src/vencord/')) return;
             if (/\/(?:buildInfo|panelPermission|panelVault)$/.test(args.path)) {
                 const name = path.basename(args.path);
-                return { path: path.join(own, name === 'panelVault' ? 'native/vault.ts' : `shims/${name}.ts`) };
+                return { path: path.join(own, name === 'panelVault' ? 'native/vaultHost.ts' : `shims/${name}.ts`) };
             }
             const core = /^(?:\.\.\/|\.\/)core\/(.+)$/.exec(args.path);
             if (core) {

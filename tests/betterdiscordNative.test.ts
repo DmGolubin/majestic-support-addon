@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { EventEmitter } from "node:events";
-import { PassThrough } from "node:stream";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { loadAdapter } from "./betterdiscordHarness";
 
@@ -11,69 +9,66 @@ const dirs: string[] = [];
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 const temporary = () => { const path = mkdtempSync(join(tmpdir(), "stx-bd-test-")); dirs.push(path); return path; };
 const url = "https://panel.majestic-rp.tech/api/plugin/v1/me";
-function requestFixture(status = 200, contentType = "application/json") {
-    let incoming: any;
-    const req: any = new EventEmitter();
-    req.end = vi.fn(() => {});
-    req.destroy = vi.fn((error: Error) => { req.emit("error", error); req.emit("close"); });
-    const request = vi.fn((_url, _options, callback) => {
-        incoming = new PassThrough(); incoming.statusCode = status; incoming.headers = { "content-type": contentType };
-        queueMicrotask(() => callback(incoming)); return req;
+describe("BetterDiscord panel transport through BdApi.Net", () => {
+    it("streams the response through Net.fetch with constrained endpoint, headers, TLS and redirects", async () => {
+        let stream!: ReadableStreamDefaultController<Uint8Array>;
+        const body = new ReadableStream<Uint8Array>({ start(c) { stream = c; } });
+        const net = vi.fn(async () => new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } }));
+        const { makePanelFetch } = loadAdapter("native/transport.ts");
+        const fetch = makePanelFetch(net);
+        const signal = new AbortController().signal;
+        const response = await fetch(url, { signal, headers: { Authorization: "Bearer secret", Accept: "text/event-stream" } });
+        expect(net.mock.calls[0]).toEqual([url, expect.objectContaining({ method: "GET", redirect: "error", maxRedirects: 0, rejectUnauthorized: true, timeout: null, credentials: "omit", signal, headers: { authorization: "Bearer secret", accept: "text/event-stream" } })]);
+        const reader = response.body.getReader();
+        stream.enqueue(new TextEncoder().encode("first"));
+        expect(new TextDecoder().decode((await reader.read()).value)).toBe("first");
+        stream.enqueue(new TextEncoder().encode("last")); stream.close();
+        expect(new TextDecoder().decode((await reader.read()).value)).toBe("last");
+        expect((await reader.read()).done).toBe(true);
+        for (const denied of ["https://evil.test/api/plugin/v1/me", url + "?token=secret", url + "#fragment", "https://user:pass@panel.majestic-rp.tech/api/plugin/v1/me", "https://panel.majestic-rp.tech/not-api"]) await expect(fetch(denied)).rejects.toThrow();
+        await expect(fetch(url, { headers: { Cookie: "bad" } })).rejects.toThrow();
+        await expect(fetch(url, { method: "PUT" })).rejects.toThrow();
+        await expect(fetch(url, { body: "a".repeat(1024 * 1024 + 1) })).rejects.toThrow();
+        expect(net).toHaveBeenCalledTimes(1);
     });
-    return { request, req, incoming: () => incoming };
-}
-
-describe("BetterDiscord native panel transport", () => {
-    it("streams JSON and SSE without cookies, credentials, redirects or arbitrary endpoints", async () => {
-        for (const mime of ["application/json", "text/event-stream"]) {
-            const f = requestFixture(200, mime);
-            const { makePanelFetch } = loadAdapter("native/transport.ts");
-            const fetch = makePanelFetch(f.request);
-            const response = await fetch(url, { headers: { Authorization: "Bearer secret", Accept: mime } });
-            expect(f.request.mock.calls[0][1]).toMatchObject({ agent: false, rejectUnauthorized: true, headers: { authorization: "Bearer secret" } });
-            expect(f.request.mock.calls[0][1].headers).not.toHaveProperty("cookie");
-            f.incoming().write("first");
-            const reader = response.body.getReader();
-            expect(new TextDecoder().decode((await reader.read()).value)).toBe("first");
-            f.incoming().end("last");
-            expect(new TextDecoder().decode((await reader.read()).value)).toBe("last");
-            expect((await reader.read()).done).toBe(true);
-            const calls = f.request.mock.calls.length;
-            for (const denied of ["https://evil.test/api/plugin/v1/me", url + "?token=secret", url + "#fragment", "https://user:pass@panel.majestic-rp.tech/api/plugin/v1/me", "https://panel.majestic-rp.tech/not-api"]) {
-                await expect(fetch(denied)).rejects.toThrow();
-            }
-            await expect(fetch(url, { headers: { Cookie: "bad" } })).rejects.toThrow();
-            expect(f.request).toHaveBeenCalledTimes(calls);
+    it("rejects and cancels redirects even if the host ignores redirect:error, preserves 204 and API errors", async () => {
+        const { makePanelFetch } = loadAdapter("native/transport.ts");
+        const cancelled = vi.fn();
+        const redirect = new Response(new ReadableStream({ cancel: cancelled }), { status: 302 });
+        await expect(makePanelFetch(async () => redirect)(url)).rejects.toThrow("network");
+        expect(cancelled).toHaveBeenCalledOnce();
+        for (const status of [204, 401, 429]) {
+            const response = await makePanelFetch(async () => new Response(null, { status }))(url, { method: "DELETE" });
+            expect(response.status).toBe(status);
         }
     });
-    it("rejects redirects without forwarding bearer credentials and preserves 204", async () => {
-        const { makePanelFetch } = loadAdapter("native/transport.ts");
-        const redirect = requestFixture(302);
-        await expect(makePanelFetch(redirect.request)(url)).rejects.toThrow("network");
-        expect(redirect.request).toHaveBeenCalledTimes(1);
-        expect(redirect.incoming().destroyed).toBe(true);
-        const noContent = requestFixture(204);
-        const response = await makePanelFetch(noContent.request)(url, { method: "DELETE" });
-        expect(response.status).toBe(204); expect(response.body).toBeNull();
-        noContent.incoming().end();
-    });
-    it("aborts both a pending request and a streaming body with sanitized errors", async () => {
-        const f = requestFixture();
-        const { makePanelFetch } = loadAdapter("native/transport.ts");
+    it("uses the actual BdApi.Net entrypoint, forwards cancellation and sanitizes request failures", async () => {
+        const net = vi.fn(async (_input: string, init: RequestInit) => new Promise((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(new Error("private-token")), { once: true })));
+        const { panelFetch } = loadAdapter("native/transport.ts", {}, { BdApi: { Net: { fetch: net } } });
         const controller = new AbortController();
-        const response = await makePanelFetch(f.request)(url, { signal: controller.signal });
-        const read = response.body.getReader().read();
-        controller.abort("private-secret");
-        await expect(read).rejects.toThrow();
-        expect(f.req.destroy).toHaveBeenCalledOnce();
-        expect(String(f.req.destroy.mock.calls[0][0])).not.toContain("private-secret");
-        const pre = new AbortController(); pre.abort();
-        await expect(makePanelFetch(f.request)(url, { signal: pre.signal })).rejects.toThrow();
-        expect(f.request).toHaveBeenCalledOnce();
+        const pending = panelFetch(url, { signal: controller.signal });
+        controller.abort();
+        await expect(pending).rejects.toThrow("Panel network request failed");
+        await expect(panelFetch(url, { signal: controller.signal })).rejects.toThrow("aborted");
+        expect(net).toHaveBeenCalledOnce();
     });
 });
 
 describe("BetterDiscord protected session vault", () => {
+    it("uses a session-only login without importing unsupported native modules on standard BetterDiscord", async () => {
+        const requested: string[] = [];
+        const { createPanelVault, closePanelVault } = loadAdapter("native/vaultHost.ts", {}, {
+            process: { platform: "win32", env: {} },
+            require(name: string) {
+                requested.push(name);
+                if (name === "fs" || name === "crypto") return {};
+                throw new Error(`Unsupported host module: ${name}`);
+            }
+        });
+        expect(await createPanelVault("123456789012345678")).toBeUndefined();
+        await closePanelVault();
+        expect(requested).toEqual(["fs", "crypto"]);
+    });
     it("encrypts on disk, binds accounts, serializes snapshots, rejects competing owners, drains and releases", async () => {
         const dir = temporary();
         const { createVaultSession } = loadAdapter("native/vault.ts");

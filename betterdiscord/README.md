@@ -43,14 +43,19 @@ guarded, including an unresolved storage load or updater operation.
 
 ## Panel and local secrets
 
-Native Node HTTPS streams only to the fixed panel API origin. No redirects,
+`BdApi.Net.fetch` streams only to the fixed panel API origin. No redirects,
 Discord cookies, implicit credentials or arbitrary headers are accepted. Shared
 JSON/SSE layers retain their response limits, timeout, cancellation, OAuth scope,
 account binding and error sanitization. Renderer CSP is not changed. Native 204
 responses are preserved; the current shared JSON protocol decides whether an empty
 response is valid (currently it expects JSON).
 
-The adapter reuses the current atomic encrypted vault and cross-process lock.
+Standard BetterDiscord provides a limited renderer module loader. It does not expose
+`node:*`, `stream`, `child_process` or `fs/promises`, and its `https` polyfill only
+implements `get()`. The plugin uses the supported Net API and keeps native-only
+modules lazy, behind explicit filesystem/crypto capability checks.
+
+In a host with full native capabilities, the adapter reuses the atomic encrypted vault and cross-process lock.
 When Electron exposes safeStorage (directly or through an existing remote bridge),
 it uses that. On Windows, the fallback is CurrentUser DPAPI through the system
 Windows PowerShell executable: a fixed command receives JSON/base64 via stdin;
@@ -59,7 +64,7 @@ vault stores ciphertext under a namespace bound to BD's plugin directory and
 Discord's stable/PTB/canary origin. Account IDs are validated and envelopes bound
 to accounts. Stop drains accepted vault writes before releasing its lock.
 
-If OS encryption is unavailable, the shared UI supports a memory-only session
+In standard BetterDiscord, protected native persistence is unavailable. The shared UI supports a memory-only session
 (`persistent: false`); login still works and requires reconnection after restart.
 No plaintext fallback. DPAPI invokes a short synchronous process on initial probe
 and token persistence because the reused vault's crypto contract is synchronous;
@@ -68,8 +73,14 @@ same OS user are outside this isolation boundary.
 
 ## Updates
 
-The parent-owned engine is bundled from `distribution/updater/`. Checks and verified
-downloads run automatically. Null releaseRepository disables checks; an anonymous
+The parent-owned engine is bundled from `distribution/updater/`. Standard BetterDiscord
+does not expose the atomic file/lock operations needed by this updater. In that host,
+settings explicitly say **update the plugin manually**; no unsafe filesystem substitute
+or plaintext token persistence is used. Download the new `.plugin.js` from Releases,
+disable the old plugin, replace it and enable it again.
+
+In a host with full native capabilities, checks and verified downloads run automatically.
+Null releaseRepository disables checks; an anonymous
 404 while the repository is private is harmless and never prompts for login.
 No GitHub tokens are read or embedded.
 
@@ -90,7 +101,8 @@ the bundled runtime and can install new plugin files manually with Discord close
 
 ## Validation limits
 
-Automated tests use mocked Discord/BdApi with real React and a DOM, native transport
+Automated tests use mocked Discord/BdApi with real React and a DOM, a restricted renderer require,
+streaming BdApi.Net transport
 fixtures, encrypted temporary vaults and updater cache fixtures. No installed client
 was modified and no release published. A real BetterDiscord session remains the
 acceptance check for changing Discord Webpack/toolbar internals, panel account login,

@@ -13,7 +13,7 @@ beforeAll(() => {
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup(); vi.unstubAllGlobals(); });
 
-function fixture({ delayedRead = false, missingStore = false } = {}) {
+function fixture({ delayedRead = false, missingStore = false, restrictedHost = false } = {}) {
     const dom = new JSDOM('<!doctype html><body><main><div class="channelTextArea_test"><div class="buttons_test"></div><div contenteditable="true" role="textbox" tabindex="0" data-slate-editor="true">draft stays</div></div></main></body>', { url: "https://discord.com/channels/test", pretendToBeVisual: true });
     const w = dom.window;
     const globals: any = {};
@@ -70,16 +70,44 @@ function fixture({ delayedRead = false, missingStore = false } = {}) {
     // Cross-realm clone of a deliberately deferred BdApi.load is used only to exercise
     // stop/start while the shared Store load awaits; production BD load is synchronous.
     globals.structuredClone = (value: any) => value === wait ? wait : structuredClone(value);
+    const deniedModules: string[] = [];
+    if (restrictedHost) {
+        globals.process = { platform: "win32", env: {}, pid: 1 };
+        // BetterDiscord's renderer exposes a finite polyfill switch, not Node require.
+        // In particular fs has no promises/open/link and crypto has no randomUUID.
+        const modules: Record<string, any> = {
+            fs: { existsSync: () => false }, path: bdRequire("path"),
+            crypto: { createHash: bdRequire("crypto").createHash, randomBytes: bdRequire("crypto").randomBytes },
+            electron: {}, buffer: bdRequire("buffer"), events: bdRequire("events")
+        };
+        globals.require = (name: string) => {
+            if (name in modules) return modules[name];
+            deniedModules.push(name);
+            throw new Error(`ENOENT: no such file or directory, lstat 'Discord/${name}'`);
+        };
+    }
     const Plugin = evaluate(bundle, { electron: { clipboard: { writeText: vi.fn() } }, "@electron/remote": {} }, globals);
     const plugin = new Plugin();
     const frame = () => new Promise(resolve => w.requestAnimationFrame(() => resolve(undefined)));
     cleanups.push(async () => { await React.act(async () => { plugin.stop(); resolveRead(undefined); await frame(); }); w.close(); });
-    return { plugin, Plugin, host, componentDispatch, flux, changes, fonts, document: w.document, w, frame, resolveRead, data,
+    return { plugin, Plugin, host, componentDispatch, flux, changes, fonts, document: w.document, w, frame, resolveRead, data, deniedModules,
         channel: (guild: string) => { channel = { ...channel, guild_id: guild }; dispatcher.dispatch({ type: "CHANNEL_SELECT", guildId: guild }); },
         key: () => { const event = new w.KeyboardEvent("keydown", { code: "KeyT", key: "t", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }); w.document.activeElement.dispatchEvent(event); return event; } };
 }
 
 describe("BetterDiscord final bundle in React/DOM", () => {
+    it("loads and opens settings under BetterDiscord's restricted module loader without probing unsupported modules", async () => {
+        const f = fixture({ restrictedHost: true });
+        await React.act(async () => { await f.plugin.start(); await f.frame(); });
+        expect(f.document.querySelectorAll('[data-stx="button"]')).toHaveLength(1);
+        const node = f.document.createElement("div"); f.document.body.append(node);
+        const settings = ReactDOM.createRoot(node);
+        await React.act(async () => { settings.render(f.plugin.getSettingsPanel()); });
+        expect(node.textContent).toContain("Мои шаблоны");
+        expect(node.textContent).toContain("Обновляйте плагин вручную");
+        expect(f.deniedModules).toEqual([]);
+        await React.act(async () => settings.unmount());
+    });
     it("mounts the actual shared UI with embedded CSS, opens by keyboard/button, renders host settings and cleans all roots/subscriptions", async () => {
         const f = fixture();
         await React.act(async () => { await f.plugin.start(); await f.frame(); });
@@ -97,7 +125,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         const settingsNode = f.document.createElement("div"); f.document.body.append(settingsNode);
         const settings = ReactDOM.createRoot(settingsNode);
         await React.act(async () => { settings.render(f.plugin.getSettingsPanel()); });
-        expect(settingsNode.textContent).toContain("0.1.0-canary.14");
+        expect(settingsNode.textContent).toContain("0.1.0-canary.15");
         expect(settingsNode.textContent).toContain("Мои шаблоны");
         expect(settingsNode.textContent).toContain("Режим отладки");
         expect(editor.textContent).toBe("draft stays");
@@ -141,9 +169,9 @@ describe("BetterDiscord final bundle in React/DOM", () => {
     });
     it("reports effective cached runtime version and tolerates prototype metadata checks", () => {
         const f = fixture();
-        expect(f.Plugin.prototype.getVersion()).toBe("0.1.0-canary.14");
-        f.plugin.delegate = { getVersion: () => "0.1.0-canary.15", stopBundledRuntime() {} };
-        expect(f.plugin.getVersion()).toBe("0.1.0-canary.15");
+        expect(f.Plugin.prototype.getVersion()).toBe("0.1.0-canary.15");
+        f.plugin.delegate = { getVersion: () => "0.1.0-canary.16", stopBundledRuntime() {} };
+        expect(f.plugin.getVersion()).toBe("0.1.0-canary.16");
     });
     it("inserts through ComponentDispatch only into a focused Slate composer and never sends", () => {
         const f = fixture();
@@ -163,7 +191,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         expect(evidence.inputs).not.toContain("src/vencord/buildInfo.ts");
         expect(evidence.inputs).not.toContain("src/vencord/panelVault.ts");
         expect(bundle).not.toContain("VencordNative");
-        expect(bundle).toContain("@version 0.1.0-canary.14");
+        expect(bundle).toContain("@version 0.1.0-canary.15");
         expect(evidence.embeddedCssBytes).toBeGreaterThan(10000);
         expect(source("betterdiscord/out/LICENSE")).toContain("GNU GENERAL PUBLIC LICENSE");
         expect(source("betterdiscord/out/source/LICENSE")).toContain("GNU GENERAL PUBLIC LICENSE");

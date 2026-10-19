@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { request as httpsRequest } from "node:https";
-import { Readable } from "node:stream";
 import { PANEL_API_PATH, PANEL_ORIGIN, panelEndpoint } from "../../src/core/panelProtocol";
+import { api } from "../shims/host";
 
-/** Native HTTPS has no Discord cookies, renderer CSP, proxy credentials or redirects.
- * Keep streaming: the shared transports enforce JSON/SSE size and deadline bounds.
- * The request implementation is injectable solely for isolated tests.
+/** Use BD's supported streaming network bridge. Renderer require('https') is only
+ * a legacy get() polyfill; stream and node:* are not available at all.
  */
-export function makePanelFetch(request: typeof httpsRequest = httpsRequest): typeof fetch {
+export function makePanelFetch(netFetch: (input: string, init: any) => Promise<Response> = (input, init) => api().Net.fetch(input, init)): typeof fetch {
     return (async (input: any, init: RequestInit = {}) => {
         const url = new URL(String(input));
         const path = url.pathname.slice(PANEL_API_PATH.length);
@@ -23,35 +21,19 @@ export function makePanelFetch(request: typeof httpsRequest = httpsRequest): typ
         });
         if (init.body !== undefined && (typeof init.body !== "string" || Buffer.byteLength(init.body) > 1024 * 1024)) throw new Error("Panel body denied");
         if (init.signal?.aborted) throw new Error("Panel request aborted");
-        return await new Promise<Response>((resolve, reject) => {
-            let response: any;
-            const fail = () => new Error("Panel network request failed");
-            const req = request(url, { method, headers, agent: false, rejectUnauthorized: true }, incoming => {
-                response = incoming;
-                const status = incoming.statusCode ?? 0;
-                if (status < 200 || status >= 300) {
-                    if (status < 200 || status >= 300 && status < 400) {
-                        incoming.destroy(); reject(fail()); return;
-                    }
-                }
-                const resultHeaders = new Headers();
-                for (const [key, value] of Object.entries(incoming.headers)) {
-                    if (value !== undefined) resultHeaders.set(key, Array.isArray(value) ? value.join(", ") : String(value));
-                }
-                const body = Readable.toWeb(incoming) as ReadableStream<Uint8Array>;
-                // Leave no-content semantics to the shared protocol, including future DELETE contracts.
-                const noBody = [204, 205, 304].includes(status);
-                if (noBody) incoming.resume();
-                try { resolve(new Response(noBody ? null : body, { status, headers: resultHeaders })); }
-                catch { incoming.destroy(); reject(fail()); }
+        try {
+            const response = await netFetch(url.href, {
+                method, headers, body: init.body, signal: init.signal,
+                credentials: "omit", redirect: "error", maxRedirects: 0,
+                rejectUnauthorized: true, timeout: null // Shared JSON/SSE layers own deadlines.
             });
-            const abort = () => { response?.destroy(); req.destroy(fail()); };
-            init.signal?.addEventListener("abort", abort, { once: true });
-            req.once("error", () => reject(fail()));
-            req.once("close", () => init.signal?.removeEventListener("abort", abort));
-            if (init.signal?.aborted) { abort(); return; }
-            req.end(init.body);
-        });
+            if (response.redirected || (response.url && response.url !== url.href)
+                || response.status < 200 || response.status >= 300 && response.status < 400) {
+                await response.body?.cancel().catch(() => {});
+                throw new Error("Unexpected panel redirect");
+            }
+            return response;
+        } catch { throw new Error("Panel network request failed"); }
     }) as typeof fetch;
 }
 export const panelFetch = makePanelFetch();

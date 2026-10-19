@@ -29,7 +29,13 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (27)
+## Реализовано · нужна приёмка (28)
+
+### D12 · Совместимость загрузки BetterDiscord с ограниченным require
+
+D · Доставка. Сбой node:https воспроизведён на итоговом bundle. Исправлены загрузка и сетевой адаптер BdApi.Net; native-функции изолированы проверкой возможностей. 1586 тестов/72 файла и typecheck прошли. Готовим BD-only .15 для живой приёмки. В стандартном BD вход до перезапуска, обновление вручную; ограничения показаны явно.
+
+Основание: [2026-10-19-betterdiscord-loader.md](audits/2026-10-19-betterdiscord-loader.md), [2026-10-19-betterdiscord-loader-tests.json](audits/2026-10-19-betterdiscord-loader-tests.json), [0.1.0-canary.15.md](releases/0.1.0-canary.15.md).
 
 ### Q13 · Полный цикл Master QA: 20 специализаций
 
@@ -189,7 +195,7 @@ C · Панель. Задержка после подтверждения на �
 
 ### D09 · Три пакета и общие обновления GitHub
 
-D · Доставка. Три Windows-пакета .14 опубликованы одним приватным prerelease: BetterDiscord, полный Vencord и отдельная сборка. Общий GitHub updater, BAT/PowerShell, исходники/хеши/Actions. 1584 теста, 12 Node-проверок и финальные TEMP install/status/uninstall прошли. Отдельная .14 установлена в Canary владельца. Живая приёмка трёх платформ и анонимное обновление после открытия репозитория ещё впереди.
+D · Доставка. Три Windows-пакета .14 опубликованы одним приватным prerelease: BetterDiscord, полный Vencord и отдельная сборка. Общий GitHub updater, BAT/PowerShell, исходники/хеши/Actions. 1584 теста, 12 Node-проверок и финальные TEMP install/status/uninstall прошли. Отдельная .14 установлена в Canary владельца. Живая приёмка трёх платформ и анонимное обновление после открытия репозитория ещё впереди. Выявлено ограничение стандартного BD: прежний native updater/vault несовместимы с его polyfill. В .15 безопасный режим без этих функций; реализация автообновления и защищённого сохранения входа для стандартного BD остаётся незавершённой.
 
 Основание: [2026-10-19-three-distributions.md](audits/2026-10-19-three-distributions.md), [2026-10-19-canary-14-install-and-release.md](audits/2026-10-19-canary-14-install-and-release.md).
 
