@@ -34,7 +34,7 @@ exec('tar', ['-xf', archive, '-C', source]);
 // No local plugin/settings/history is taken from the installed checkout.
 fs.cpSync(path.join(frozen, 'src/vencord'), path.join(source, 'src/userplugins/supportTemplates'), { recursive: true });
 fs.cpSync(path.join(frozen, 'src/core'), path.join(source, 'src/userplugins/supportTemplates/core'), { recursive: true });
-put('src/userplugins/supportTemplates/buildInfo.ts', `// Generated only in the isolated build copy.\nexport const PLUGIN_VERSION = ${JSON.stringify(config.version)};\nexport const PLUGIN_BUILD = ${JSON.stringify(pluginCommit.slice(0, 8))};\n`);
+put('src/userplugins/supportTemplates/buildInfo.ts', `// Generated only in the isolated build copy.\nexport const PLUGIN_VERSION = ${JSON.stringify(config.version)};\nexport const PLUGIN_BUILD = ${JSON.stringify(pluginCommit.slice(0, 8))};\nexport const PLUGIN_DISTRIBUTION = "standalone" as const;\n`);
 fs.cpSync(path.join(frozen, 'standalone/runtime'), path.join(source, 'src/standalone'), { recursive: true });
 fs.cpSync(path.join(frozen, 'distribution'), path.join(source, 'distribution'), { recursive: true });
 fs.copyFileSync(path.join(frozen, 'standalone/compile.mjs'), path.join(source, 'compile.mjs'));

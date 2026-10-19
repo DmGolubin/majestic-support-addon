@@ -7,7 +7,8 @@ import ErrorBoundary from "./shims/errorBoundary";
 import { mountChatButtons } from "./chatMounts";
 import { closePanelVault } from "./native/vaultHost";
 import { prepareUpdates } from "./native/updateHost";
-import { PLUGIN_VERSION } from "./shims/buildInfo";
+import { PLUGIN_DISTRIBUTION, PLUGIN_VERSION } from "./shims/buildInfo";
+import { distributionDisplay } from "../src/vencord/buildDisplay";
 import css from "stx:css";
 
 export default class SupportTemplates {
@@ -25,7 +26,7 @@ export default class SupportTemplates {
     getName() { return NAME; }
     getAuthor() { return "Oblako"; }
     getVersion() { return this?.delegate?.getVersion() ?? PLUGIN_VERSION; }
-    getDescription() { return "Шаблоны поддержки Majestic / Россия Онлайн. Ctrl+Alt+T — открыть, вставка без отправки."; }
+    getDescription() { return "SupportTemplates для BetterDiscord. Шаблоны поддержки Majestic / Россия Онлайн. Ctrl+Alt+T — открыть, вставка без отправки."; }
 
     start() {
         if (this.active) return this.starting;
@@ -120,7 +121,7 @@ export default class SupportTemplates {
             const runtime = owner.delegate ?? owner;
             const definitions = upstream.settings.definitions;
             return <div className="vc-stx-root stx-bd-settings">
-                <header><strong>SupportTemplates · {runtime.getVersion()} · BetterDiscord</strong>
+                <header><strong title={`Версия: ${runtime.getVersion()}`}>SupportTemplates · {distributionDisplay(PLUGIN_DISTRIBUTION, runtime.getVersion())}</strong>
                     <p>Ctrl+Alt+T — открыть шаблоны. Alt+1…9 — избранное. Текст вставляется без отправки.</p>
                     <small>{owner.updateStatus}</small></header>
                 {!runtime.runtimeActive ? <p>Включите плагин и дождитесь загрузки.</p> : owner.delegate

@@ -16,6 +16,7 @@ import { ProjectIcon } from "./ProjectIcon";
 import { IconBell, IconSettings, IconTemplates } from "./svg";
 import { TicketSettings } from "./TicketSettings";
 import { LocalStorageNotice } from "./LocalStorageNotice";
+import { BuildIdentity } from "./BuildIdentity";
 import { store, useStore } from "./uiState";
 
 const SERVERS = [
@@ -56,6 +57,7 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
         if (dirty) setPending(id); else setTab(id);
     };
     return <div className="vc-stx-settings vc-stx-settings-account">
+        <BuildIdentity />
         <LocalStorageNotice />
         <nav className="vc-stx-settings-nav" aria-label="Разделы настроек">
             {[["personal", "Мои шаблоны"], ["general", "Настройки"], ["tickets", "Тикеты"]].map(([id, label]) => <button key={id}

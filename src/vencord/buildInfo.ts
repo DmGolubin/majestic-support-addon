@@ -8,3 +8,4 @@
 // Unreleased source build of the v1 client; GitHub publication remains a separate step.
 export const PLUGIN_VERSION = "1.0.0";
 export const PLUGIN_BUILD = "source";
+export const PLUGIN_DISTRIBUTION = "vencord" as const;

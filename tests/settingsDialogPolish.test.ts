@@ -54,6 +54,7 @@ function harness(root = "Management", kind = "fields") {
         "./PanelPersonalLibrary": { discardPanelDraft: discard, PanelPersonalLibrary: (props: any) => { personal = props; return null; } },
         "./PanelConnection": { PanelConnection: empty }, "./TicketSettings": { TicketSettings: empty },
         "./LocalStorageNotice": { LocalStorageNotice: empty },
+        "./BuildIdentity": { BuildIdentity: empty },
         "./ProjectIcon": { ProjectIcon: empty }, "./svg": { IconBell: empty, IconSettings: empty, IconTemplates: empty },
         "../core/keys": { comboOf, comboLabel: (s: string) => s, bindProblem: () => null },
         "../platform": { toast: vi.fn() }, "./debug": { dlog: vi.fn() }, "./keylatch": { latchKey: vi.fn() }
@@ -87,7 +88,7 @@ function harness(root = "Management", kind = "fields") {
                     active = owner; cursor = 0;
                     return visit(n.type(n.props), path + "/output");
                 }
-                if (n.props.ref) n.props.ref.current = { focus: vi.fn(), contains: () => true };
+                if (n.props.ref) n.props.ref.current = { focus: vi.fn(), contains: (target: any) => !target?.chat };
                 return { ...n, props: { ...n.props, children: visit(n.props.children, path + "/children") } };
             };
             tree = visit(React.createElement(deps[`./${root}`][root], { onDirty }), "root");
@@ -111,13 +112,14 @@ function harness(root = "Management", kind = "fields") {
     return { render, button, click, prefix, change, press, store, ui, onDirty, discard, resolve, comboOf,
         personal: () => personal, text: () => textOf(tree),
         submit: () => { all(tree, n => n.type === "form")[0].props.onSubmit({ preventDefault() {} }); render(); },
-        backdrop: () => { tree.props.onMouseDown({ target: tree, currentTarget: tree }); render(); },
+        backdrop: () => { tree.props.onMouseDown?.({ target: tree, currentTarget: tree }); render(); },
+        tree: () => tree,
         unmount: () => { owners.forEach(dispose); owners.clear(); }
     };
 }
 
 describe("prefix dirty confirmation", () => {
-    it.each(["Escape", "button", "backdrop"])("guards close via %s and preserves prefix on return", via => {
+    it.each(["Escape", "button"])("guards close via %s and preserves prefix on return", via => {
         const h = harness(); h.click("Настройки"); h.change("!");
         if (via === "Escape") h.press(); else if (via === "button") h.click("Закрыть"); else h.backdrop();
         expect(h.ui.set).not.toHaveBeenCalled(); expect(h.text()).toContain("Есть несохранённые изменения");
@@ -164,6 +166,26 @@ describe("prefix dirty confirmation", () => {
         expect(h.button("Закрыть").props.disabled).toBe(true);
         p.onBusy(false); h.render(); h.click("Перейти без сохранения");
         expect(h.discard).toHaveBeenCalledOnce(); h.press(); expect(h.ui.set).toHaveBeenCalledWith({ management: false });
+    });
+});
+
+describe("nonmodal Management", () => {
+    it("leaves chat selection, Escape and Tab alone while keeping explicit dirty close guards", () => {
+        const h = harness(); h.click("Настройки"); h.change("!");
+        expect(h.tree().props.onMouseDown).toBeUndefined();
+        expect(all(h.tree(), n => n.props.role === "dialog")[0].props["aria-modal"]).toBeUndefined();
+        h.backdrop();
+        for (const name of ["Escape", "Tab"]) {
+            const event = h.press({ key: name, target: { chat: true } });
+            expect(event.preventDefault).not.toHaveBeenCalled();
+            expect(event.stopPropagation).not.toHaveBeenCalled();
+        }
+        expect(h.press({ key: "Tab" }).preventDefault).not.toHaveBeenCalled();
+        expect(h.ui.set).not.toHaveBeenCalled();
+        expect(h.text()).not.toContain("Есть несохранённые изменения");
+        h.click("Закрыть");
+        expect(h.text()).toContain("Есть несохранённые изменения");
+        h.click("Вернуться"); expect(h.prefix().props.value).toBe("!");
     });
 });
 

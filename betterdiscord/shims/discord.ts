@@ -6,5 +6,5 @@ export function insertTextIntoChatInputBox(text: string) {
     const dispatcher = byKeys("dispatchToLastSubscribed", "subscribe");
     if (!dispatcher) throw new Error("Discord text insertion is unavailable");
     // ComponentDispatch, NOT FluxDispatcher. Same INSERT_TEXT contract as Vencord.
-    dispatcher.dispatchToLastSubscribed("INSERT_TEXT", { plainText: text });
+    dispatcher.dispatchToLastSubscribed("INSERT_TEXT", { rawText: text, plainText: text });
 }

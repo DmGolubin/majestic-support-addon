@@ -68,7 +68,7 @@ export async function buildPlugin({ output = path.join(own, 'out'), archive = tr
     const css = first.outputFiles.find(file => file.path.endsWith('.css'))?.text ?? '';
     if (!css.includes('.vc-stx-root')) throw new Error('Shared UI stylesheet missing');
     const result = await build({ ...options, plugins: [adapterPlugin(css + '\n' + fs.readFileSync(path.join(own, 'adapter.css'), 'utf8'))] });
-    const header = `/**\n * @name SupportTemplates\n * @author Oblako\n * @version ${config.version}\n * @description Full SupportTemplates UI for Majestic / Россия Онлайн. Ctrl+Alt+T. Inserts text, never sends.\n * @license GPL-3.0-or-later\n */\n`;
+    const header = `/**\n * @name SupportTemplates\n * @author Oblako\n * @version ${config.version}\n * @description SupportTemplates для BetterDiscord. Шаблоны поддержки Majestic / Россия Онлайн. Ctrl+Alt+T — открыть, вставка без отправки.\n * @license GPL-3.0-or-later\n */\n`;
     const pluginPath = path.join(output, 'SupportTemplates.plugin.js');
     fs.mkdirSync(output, { recursive: true });
     fs.writeFileSync(pluginPath, header + result.outputFiles.find(file => file.path.endsWith('.js')).text);

@@ -9,6 +9,7 @@ import { bdRequire, evaluate, loadAdapter, root, source } from "./betterdiscordH
 const { JSDOM } = bdRequire("jsdom");
 const React = bdRequire("react");
 const ReactDOM = bdRequire("react-dom/client");
+const distributionVersion = JSON.parse(source("distribution/config.json")).version;
 let bundle: string;
 beforeAll(() => {
     execFileSync(process.execPath, ["betterdiscord/build.mjs"], { cwd: root, stdio: "pipe" });
@@ -120,7 +121,7 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
 }
 
 describe("BetterDiscord final bundle in React/DOM", () => {
-    it("restores encrypted login and loads the actual packaged UI with API minimum 1.0.0", async () => {
+    it("restores encrypted login, loads FAQ and inserts a clicked template into the captured composer", async () => {
         const f = fixture({ restrictedHost: true, supportedBridge: true, signedIn: true });
         const accountId = "123456789012345678", connectionId = "11111111-1111-4111-8111-111111111111";
         const origin = "https://discord.com", panelOrigin = "https://panel.majestic-rp.tech";
@@ -144,10 +145,28 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         });
         await React.act(async () => { await f.plugin.start(); await f.frame(); });
         await React.act(async () => { f.document.querySelector('[data-stx="button"]').click(); await f.frame(); });
-        await React.act(async () => { await vi.waitFor(() => expect(f.document.body.textContent).toContain("Version fixture FAQ")); });
+        await vi.waitFor(async () => {
+            // Flush each frame separately: holding one act() open while polling
+            // prevents React from committing a late IndexedDB/network completion.
+            await React.act(async () => { await f.frame(); });
+            expect(f.document.body.textContent).toContain("Version fixture FAQ");
+        }, { timeout: 5000 });
         expect(f.document.body.textContent).not.toContain("нужна новая версия");
         expect(f.host.Net.fetch.mock.calls.some(([url]: [string]) => url.includes("oauth/"))).toBe(false);
         expect(f.deniedModules).toEqual([]);
+        const editor = f.document.querySelector('[data-slate-editor="true"]');
+        // The host consumes rawText for its rich-text insertion path. Checking only
+        // dispatch calls previously hid a payload that silently left the draft unchanged.
+        f.componentDispatch.dispatchToLastSubscribed.mockImplementation((event: string, payload: any) => {
+            if (event === "INSERT_TEXT" && typeof payload.rawText === "string") {
+                expect(f.document.activeElement).toBe(editor);
+                editor.textContent += payload.rawText;
+            }
+        });
+        expect(f.document.activeElement).not.toBe(editor);
+        await React.act(async () => { f.document.querySelector('.vc-stx-it').click(); await f.frame(); });
+        expect(editor.textContent).toBe("draft staysFixture answer");
+        expect(f.componentDispatch.dispatchToLastSubscribed).toHaveBeenCalledExactlyOnceWith("INSERT_TEXT", { rawText: "Fixture answer", plainText: "Fixture answer" });
     });
     it("downloads without evaluating, then loads the verified runtime through BD's absolute-path loader on next startup", async () => {
         const f = fixture({ restrictedHost: true, supportedBridge: true });
@@ -207,7 +226,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         const settingsNode = f.document.createElement("div"); f.document.body.append(settingsNode);
         const settings = ReactDOM.createRoot(settingsNode);
         await React.act(async () => { settings.render(f.plugin.getSettingsPanel()); });
-        expect(settingsNode.textContent).toContain("1.0.1-canary.17");
+        expect(settingsNode.textContent).toContain("BetterDiscord");
         expect(settingsNode.textContent).toContain("Мои шаблоны");
         expect(settingsNode.textContent).toContain("Режим отладки");
         expect(editor.textContent).toBe("draft stays");
@@ -251,9 +270,9 @@ describe("BetterDiscord final bundle in React/DOM", () => {
     });
     it("reports effective cached runtime version and tolerates prototype metadata checks", () => {
         const f = fixture();
-        expect(f.Plugin.prototype.getVersion()).toBe("1.0.1-canary.17");
-        f.plugin.delegate = { getVersion: () => "1.0.1-canary.18", stopBundledRuntime() {} };
-        expect(f.plugin.getVersion()).toBe("1.0.1-canary.18");
+        expect(f.Plugin.prototype.getVersion()).toBe(distributionVersion);
+        f.plugin.delegate = { getVersion: () => "1.0.1-canary.99", stopBundledRuntime() {} };
+        expect(f.plugin.getVersion()).toBe("1.0.1-canary.99");
     });
     it("inserts through ComponentDispatch only into a focused Slate composer and never sends", () => {
         const f = fixture();
@@ -261,7 +280,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         expect(() => insertTextIntoChatInputBox("reply")).toThrow("No focused chat editor");
         f.document.querySelector('[data-slate-editor="true"]').focus();
         insertTextIntoChatInputBox("reply");
-        expect(f.componentDispatch.dispatchToLastSubscribed).toHaveBeenCalledExactlyOnceWith("INSERT_TEXT", { plainText: "reply" });
+        expect(f.componentDispatch.dispatchToLastSubscribed).toHaveBeenCalledExactlyOnceWith("INSERT_TEXT", { rawText: "reply", plainText: "reply" });
         const search = f.document.createElement("input"); f.document.body.append(search); search.focus();
         expect(() => insertTextIntoChatInputBox("wrong target")).toThrow("No focused chat editor");
         expect(f.componentDispatch.dispatchToLastSubscribed).toHaveBeenCalledOnce();
@@ -273,7 +292,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         expect(evidence.inputs).not.toContain("src/vencord/buildInfo.ts");
         expect(evidence.inputs).not.toContain("src/vencord/panelVault.ts");
         expect(bundle).not.toContain("VencordNative");
-        expect(bundle).toContain("@version 1.0.1-canary.17");
+        expect(bundle).toContain(`@version ${distributionVersion}`);
         expect(evidence.embeddedCssBytes).toBeGreaterThan(10000);
         expect(source("betterdiscord/out/LICENSE")).toContain("GNU GENERAL PUBLIC LICENSE");
         expect(source("betterdiscord/out/source/LICENSE")).toContain("GNU GENERAL PUBLIC LICENSE");

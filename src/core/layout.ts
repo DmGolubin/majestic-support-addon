@@ -27,6 +27,24 @@ export const COMPACT_W = 400;
 /** Hover tooltip: preferred and narrowest width; narrower than that = no tooltip. */
 export const TIP_W = 380, TIP_MIN = 240;
 
+/** Device-local picker preferences, independent of the pinned/temporary preview state. */
+export interface WindowSize { width: number; height: number; previewWidth: number; }
+export const DEFAULT_WINDOW_SIZE: WindowSize = { width: LIST_W, height: 500, previewWidth: SIDE_MAX - LIST_W };
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(n, hi));
+export function readWindowSize(value: unknown): WindowSize | null {
+    if (!value || typeof value !== "object") return null;
+    const s = value as WindowSize;
+    if (![s.width, s.height, s.previewWidth].every(n => typeof n === "number" && Number.isFinite(n))) return null;
+    return { width: clamp(Math.round(s.width), 320, 720), height: clamp(Math.round(s.height), 280, 1000), previewWidth: clamp(Math.round(s.previewWidth), PREVIEW_MIN, 900) };
+}
+
+/** Keep a useful height above the composer; on short viewports slide down before clipping. */
+export function windowVertical(viewportH: number, anchorBottom: number, wantedHeight = 500) {
+    const available = Math.max(0, viewportH - 2 * EDGE);
+    const bottom = clamp(anchorBottom, EDGE, Math.max(EDGE, viewportH - EDGE - Math.min(280, available)));
+    return { bottom, height: Math.min(wantedHeight, Math.max(0, viewportH - bottom - EDGE)) };
+}
+
 export type LayoutMode = "side" | "compact";
 
 export interface WinLayout {
@@ -47,19 +65,20 @@ export interface WinLayout {
  * `wide` — the preview is shown (pinned or Shift peek). The mode depends on the room only, never on
  * `wide`: opening the preview never moves the list.
  */
-export function windowLayout(viewportW: number, anchorRight: number, wide: boolean): WinLayout {
+export function windowLayout(viewportW: number, anchorRight: number, wide: boolean, size?: WindowSize | null): WinLayout {
     const vw = Math.max(0, viewportW);
+    const listW = size?.width ?? LIST_W, compactW = size?.width ?? COMPACT_W;
     // The closed window always fits: slide the anchor right (over the member list) when it would not.
-    const right0 = Math.max(EDGE, Math.min(anchorRight, vw - EDGE - LIST_W));
+    const right0 = Math.max(EDGE, Math.min(anchorRight, vw - EDGE - listW));
     const avail0 = Math.max(0, vw - right0 - EDGE);
-    if (avail0 >= SIDE_MIN) {
-        const width = wide ? Math.min(SIDE_MAX, avail0) : LIST_W;
-        return { mode: "side", width, right: right0, avail: avail0, previewW: wide ? width - LIST_W : 0 };
+    if (avail0 >= listW + PREVIEW_MIN) {
+        const width = wide ? Math.min(listW + (size?.previewWidth ?? DEFAULT_WINDOW_SIZE.previewWidth), avail0) : listW;
+        return { mode: "side", width, right: right0, avail: avail0, previewW: wide ? width - listW : 0 };
     }
     // Compact: a bit more room than the closed side window if the viewport has it — same width open or closed.
-    const right = Math.max(EDGE, Math.min(right0, vw - EDGE - COMPACT_W));
+    const right = Math.max(EDGE, Math.min(right0, vw - EDGE - compactW));
     const avail = Math.max(0, vw - right - EDGE);
-    const width = Math.min(COMPACT_W, avail);
+    const width = Math.min(compactW, avail);
     return { mode: "compact", width, right, avail, previewW: wide ? Math.max(0, width - 2) : 0 };
 }
 

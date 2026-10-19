@@ -1,13 +1,23 @@
 /* Keep the template menu's controls compact without changing Settings' shared Select styling. */
 .vc-stx-win .vc-stx-head { padding: 10px 10px 0; }
 .vc-stx-win .vc-stx-search-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.vc-stx-win .vc-stx-search-row { padding-right: 30px; }
+.vc-stx-win .vc-stx-window-close { position: absolute; top: 12px; right: 8px; z-index: 3; }
+.vc-stx-win .vc-stx-resize {
+    position: absolute; top: 0; left: 0; z-index: 3; width: 18px; height: 18px; padding: 0;
+    border: 0; background: transparent; cursor: nwse-resize; touch-action: none;
+}
+.vc-stx-win .vc-stx-resize::after { content: ''; position: absolute; top: 4px; left: 4px; width: 7px; height: 7px; border-top: 2px solid var(--stx-mu2); border-left: 2px solid var(--stx-mu2); }
+.vc-stx-win.compact > .vc-stx-pre { padding-top: 44px; }
 .vc-stx-win .vc-stx-search-row .vc-stx-search { flex: 1; min-width: 0; width: auto; padding-inline: 10px; }
+.vc-stx-win .vc-stx-window-close,
 .vc-stx-win .vc-stx-menu-settings,
 .vc-stx-win .vc-stx-category-reset {
     display: inline-flex; align-items: center; justify-content: center; flex: none;
     width: 30px; height: 30px; padding: 0; border: 1px solid transparent; border-radius: var(--stx-r);
     background: transparent; color: var(--stx-mu2); cursor: pointer;
 }
+.vc-stx-win .vc-stx-window-close:hover,
 .vc-stx-win .vc-stx-menu-settings:hover,
 .vc-stx-win .vc-stx-category-reset:hover { background: var(--stx-hover); color: var(--stx-tx); }
 .vc-stx-win [data-stx-menu-control]:focus-visible,

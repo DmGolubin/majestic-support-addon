@@ -90,6 +90,7 @@ function harness(initial: Store, rootName = "PersonalLibrary") {
         "./DemoConnection": { DemoConnection: empty }, "./PanelConnection": { PanelConnection: empty },
         "./TicketSettings": { TicketSettings: empty },
         "./LocalStorageNotice": { LocalStorageNotice: empty },
+        "./BuildIdentity": { BuildIdentity: empty },
         "./svg": Object.fromEntries(["IconFolder", "IconPlus", "IconBell", "IconLink", "IconSettings", "IconTemplates"].map(n => [n, empty])),
         "./flow": { confirmedForeign: new Set(), supersede: vi.fn() }, "./op": { nextGeneration: vi.fn() },
         "./uiState": {
@@ -329,7 +330,7 @@ describe("PersonalLibrary actual component lifecycle", () => {
 });
 
 describe("Settings / Management actual callbacks", () => {
-    it.each(["resolve", "reject"] as const)("blocks pre-opened tab/modal confirmations, Escape, backdrop and close until save %s", async outcome => {
+    it.each(["resolve", "reject"] as const)("blocks pre-opened tab/close confirmations and Escape until save %s; backdrop never dismisses", async outcome => {
         const { store, write } = makeStore(), gate = deferred();
         const h = harness(store, "Management");
         h.newDraft(); h.click("Настройки"); h.click("Закрыть");
@@ -337,7 +338,7 @@ describe("Settings / Management actual callbacks", () => {
         const tab = h.button("Тикеты"), backdrop = h.tree();
         write.mockImplementationOnce(() => gate.promise); h.submit();
         switchTab.props.onClick(); close.props.onClick(); tab.props.onClick(); h.button("Закрыть").props.onClick();
-        backdrop.props.onMouseDown({ target: backdrop, currentTarget: backdrop });
+        expect(backdrop.props.onMouseDown).toBeUndefined();
         h.listeners.get("keydown")!({ key: "Escape", target: { closest: () => null }, preventDefault() {}, stopPropagation() {} });
         h.render();
         expect(h.ui.set).not.toHaveBeenCalled();

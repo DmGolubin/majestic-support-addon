@@ -24,9 +24,10 @@ function hooks() {
     const slots: any[] = [];
     let cursor = 0, dirty = false;
     let effects: (() => void)[] = [];
+    const cleanups = new Map<number, any>();
     const effect = (fn: () => void, deps?: unknown[]) => {
         const i = cursor++, old = slots[i];
-        if (!deps || !old || deps.some((d, j) => !Object.is(d, old[j]))) effects.push(fn);
+        if (!deps || !old || deps.some((d, j) => !Object.is(d, old[j]))) effects.push(() => { cleanups.get(i)?.(); cleanups.set(i, fn()); });
         slots[i] = deps;
     };
     const React = {
@@ -60,6 +61,7 @@ function hooks() {
             } while (dirty);
             return tree!;
         },
+        unmount() { cleanups.forEach(fn => fn?.()); cleanups.clear(); },
     };
 }
 function load(code: string, dependencies: Record<string, any>, globals: Record<string, any> = {}) {
@@ -81,8 +83,8 @@ const template = (id: string, category: string | null): Template => ({
     teamUses: 0, command: null, color: null, updatedAt: null, source: "faq",
 });
 
-function windowHarness(width = 800, pinned = true) {
-    const h = hooks(), listeners: Record<string, Function> = {};
+function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async () => undefined as unknown), set: vi.fn(async (_key: string, _value: unknown) => {}) }) {
+    const h = hooks(), listeners: Record<string, Function> = {}, windowListeners: Record<string, Function> = {};
     const state = { compose: [], dialog: null, menu: null, windowOpen: true, management: false };
     const pool = [template("alpha", "Account"), template("beta", "Account"), template("gamma", "Game"), template("general", null)];
     const ui = { get: () => state, useSelect: (fn: any) => fn(state), set: vi.fn(patch => Object.assign(state, patch)) };
@@ -93,33 +95,44 @@ function windowHarness(width = 800, pinned = true) {
     };
     const insertTemplate = vi.fn(), addToCompose = vi.fn();
     const document: any = {
-        activeElement: null, addEventListener: (name: string, fn: Function) => { listeners[name] = fn; }, removeEventListener: vi.fn(),
+        activeElement: null, addEventListener: (name: string, fn: Function) => { listeners[name] = fn; },
+        removeEventListener: vi.fn((name: string) => { delete listeners[name]; }),
     };
     const input: any = { value: "", selectionStart: 0, selectionEnd: 0, closest: () => null, focus: vi.fn(() => { document.activeElement = input; }) };
     const categoryButton = { focus: vi.fn(), click: vi.fn() };
-    const win = { contains: () => true, querySelector: (s: string) => s.includes("combobox") ? categoryButton : null, addEventListener: vi.fn(), removeEventListener: vi.fn() };
+    const win = { contains: (target: any) => [input, control, dropdown].includes(target), querySelector: (s: string) => s.includes("combobox") ? categoryButton : null, addEventListener: vi.fn(), removeEventListener: vi.fn() };
     const list = { querySelector: () => null, addEventListener: vi.fn(), removeEventListener: vi.fn() };
     const debug = Object.fromEntries([
         "costEnd", "costStart", "debugEnabled", "debugVerbose", "dlog", "keyDesc", "logGeometry", "noteKey",
         "noteRender", "noteSearch", "noteWheel", "setDebugHover", "setDebugWindow",
     ].map(n => [n, () => false]));
+    const viewport = { innerWidth: width, innerHeight: 800,
+        addEventListener: (name: string, fn: Function) => { windowListeners[name] = fn; },
+        removeEventListener: vi.fn((name: string) => { delete windowListeners[name]; }) };
+    let geometryChange = () => {};
     const exports = load(windowCode, {
         "@webpack/common": h.api, "../core/keys": keys, "../core/layout": layout, "../core/rank": rank,
         "../core/search": search, "../core/types": { PROJECTS }, "../core/text": {},
-        "../platform": { chatAreaRect: () => ({ right: width - 240, top: 650 }) },
+        "../platform": { storage, chatAreaRect: () => ({ right: viewport.innerWidth - 240, top: viewport.innerHeight - 150 }) },
         "./ContextMenu": {}, "./debug": { ...debug, debugState: { useSelect: () => false } },
         "./flow": { insertTemplate, addToCompose }, "./highlight": {}, "./keylatch": { latchKey: vi.fn() },
         "./op": { windowEditor: () => null }, "./Preview": { Preview: "Preview", plural: () => "шаблонов" },
         "./ProjectIcon": { ProjectIcon: "ProjectIcon" }, "./Select": { Select: "Select" },
         "./svg": { IconSettings: "IconSettings" }, "./menu-refinement.css": {},
-        "./uiState": { store, ui, useStore: () => 0, activeScope: () => "mj", listedProject: () => "mj", poolFor: () => pool, watchChatArea: () => () => {} },
-    }, { document, window: { innerWidth: width, innerHeight: 800, addEventListener: vi.fn(), removeEventListener: vi.fn() } });
+        "./uiState": { store, ui, useStore: () => 0, activeScope: () => "mj", listedProject: () => "mj", poolFor: () => pool, watchChatArea: (fn: () => void) => { geometryChange = fn; return () => {}; } },
+    }, { document, window: viewport });
     const render = () => h.render(exports.Window, tree => {
         for (const node of nodes(tree)) {
             if (node.props.ref) node.props.ref.current = node.type === "input" ? input : node.props.className?.includes("vc-stx-win") ? win : list;
         }
     });
-    return { render, state, store, ui, pool, input, listeners, categoryButton, insertTemplate, addToCompose };
+    let captured: number | null = null;
+    const grip = { focus: vi.fn(), setPointerCapture: vi.fn((id: number) => { captured = id; }),
+        hasPointerCapture: (id: number) => captured === id, releasePointerCapture: vi.fn(() => { captured = null; }) };
+    const pointer = (clientX: number, clientY: number, pointerId = 1) => ({ currentTarget: grip, pointerId, button: 0, clientX, clientY, preventDefault() {}, stopPropagation() {} });
+    return { render, state, store, ui, pool, input, listeners, categoryButton, insertTemplate, addToCompose,
+        document, viewport, windowListeners, storage, grip, pointer, unmount: h.unmount,
+        resizeViewport(w: number, height: number) { viewport.innerWidth = w; viewport.innerHeight = height; geometryChange(); return render(); } };
 }
 function selectHarness(props: any, bounds = { top: 100, bottom: 600 }, buttonRect = { top: 500, bottom: 530 },
     ancestors: { top: number; bottom: number; overflowY: string; clientTop?: number; clientHeight?: number; }[] = [], viewportHeight = 800) {
@@ -264,6 +277,104 @@ describe("template menu refinement", () => {
         expect(h.store.setPreviewOpen).not.toHaveBeenCalled();
         expect(h.store.data.previewOpen).toBe(true);
         expect(nodes(windowHarness(1400, true).render()).some(n => n.type === "Preview")).toBe(true);
+    });
+});
+
+const flushStorage = () => new Promise<void>(resolve => setImmediate(resolve));
+describe("persistent nonmodal picker", () => {
+    it("keeps chat selection/focus and native chat keys while explicit close still works", () => {
+        const h = windowHarness(); h.render();
+        const chat = { closest: () => null };
+        h.document.activeElement = chat;
+        h.listeners.mousedown?.({ target: chat });
+        h.listeners.keydown(key("Shift", chat));
+        expect(h.state.windowOpen).toBe(true);
+        expect(h.document.activeElement).toBe(chat);
+        expect(nodes(h.render()).some(n => n.type === "Preview")).toBe(false);
+        byClass(h.render(), "vc-stx-window-close").props.onClick();
+        expect(h.state).toMatchObject({ windowOpen: false, menu: null });
+        h.unmount();
+    });
+    it("resizes larger and smaller, persists only completed gestures, and restores on reopen", async () => {
+        const h = windowHarness(1600, false);
+        let tree = h.render(); await flushStorage();
+        byClass(tree, "vc-stx-resize").props.onPointerDown(h.pointer(600, 200));
+        byClass(tree, "vc-stx-resize").props.onPointerMove(h.pointer(460, 100));
+        tree = h.render();
+        expect(byClass(tree, "vc-stx-win").props.style).toMatchObject({ width: 500, height: 600 });
+        expect(h.storage.set).not.toHaveBeenCalled();
+        byClass(tree, "vc-stx-resize").props.onPointerUp(h.pointer(460, 100));
+        await flushStorage();
+        const saved = h.storage.set.mock.calls[0][1];
+        expect(saved).toEqual({ width: 500, height: 600, previewWidth: 460 });
+        expect(h.grip.releasePointerCapture).toHaveBeenCalledWith(1);
+        h.unmount();
+        const reopened = windowHarness(1600, false, { get: vi.fn(async () => saved), set: vi.fn(async () => {}) });
+        reopened.render(); await flushStorage(); tree = reopened.render();
+        expect(byClass(tree, "vc-stx-win").props.style).toMatchObject({ width: 500, height: 600 });
+        byClass(tree, "vc-stx-resize").props.onPointerDown(reopened.pointer(400, 100));
+        byClass(tree, "vc-stx-resize").props.onPointerMove(reopened.pointer(500, 200));
+        tree = reopened.render();
+        expect(byClass(tree, "vc-stx-win").props.style).toMatchObject({ width: 400, height: 500 });
+        byClass(tree, "vc-stx-resize").props.onPointerUp(reopened.pointer(500, 200));
+        await flushStorage();
+        expect(reopened.storage.set).toHaveBeenCalledWith("SupportTemplates_windowSize_v1", { width: 400, height: 500, previewWidth: 460 });
+        reopened.unmount();
+    });
+    it.each(["escape", "cancel", "lostcapture", "blur", "unmount"])("cancels a drag on %s and cleans up capture/listeners without a write", async reason => {
+        const h = windowHarness(1600, false), tree = h.render(), before = byClass(tree, "vc-stx-win").props.style;
+        const grip = byClass(tree, "vc-stx-resize");
+        grip.props.onPointerDown(h.pointer(600, 200)); grip.props.onPointerMove(h.pointer(500, 100)); h.render();
+        if (reason === "escape") byClass(h.render(), "vc-stx-win").props.onKeyDown(key("Escape", control));
+        if (reason === "cancel") grip.props.onPointerCancel(h.pointer(500, 100));
+        if (reason === "lostcapture") grip.props.onLostPointerCapture(h.pointer(500, 100));
+        if (reason === "blur") h.windowListeners.blur();
+        if (reason === "unmount") h.unmount();
+        else { expect(byClass(h.render(), "vc-stx-win").props.style).toEqual(before); expect(h.state.windowOpen).toBe(true); h.unmount(); }
+        await flushStorage();
+        expect(h.storage.set).not.toHaveBeenCalled();
+        expect(h.grip.releasePointerCapture).toHaveBeenCalledOnce();
+        expect(Object.keys(h.listeners)).toEqual([]); expect(Object.keys(h.windowListeners)).toEqual([]);
+    });
+    it("does not treat a click/foreign pointer as a resize or overwrite preferences when the viewport shrinks", async () => {
+        const saved = { width: 500, height: 600, previewWidth: 600 };
+        const h = windowHarness(1600, false, { get: vi.fn(async () => saved), set: vi.fn(async () => {}) });
+        h.render(); await flushStorage();
+        const grip = byClass(h.render(), "vc-stx-resize");
+        grip.props.onPointerDown(h.pointer(500, 100)); grip.props.onPointerMove(h.pointer(100, 0, 2));
+        grip.props.onPointerUp(h.pointer(500, 100));
+        let style = byClass(h.resizeViewport(280, 220), "vc-stx-win").props.style;
+        expect(style.width + style.right).toBeLessThanOrEqual(272);
+        expect(style.height + style.bottom).toBeLessThanOrEqual(212);
+        style = byClass(h.resizeViewport(1600, 800), "vc-stx-win").props.style;
+        expect(style).toMatchObject({ width: 500, height: 600 });
+        expect(h.storage.set).not.toHaveBeenCalled(); h.unmount();
+    });
+    it("resizes a Shift preview without changing its pin or list width, with native keyboard resizing", async () => {
+        const h = windowHarness(1800, false);
+        h.render(); h.listeners.keydown(key("Shift", h.input));
+        let tree = h.render();
+        const event = key("ArrowLeft", control);
+        byClass(tree, "vc-stx-resize").props.onKeyDown(event); tree = h.render();
+        expect(event.defaultPrevented).toBe(true);
+        expect(byClass(tree, "vc-stx-win").props.style.width).toBe(840);
+        expect(byClass(tree, "vc-stx-col").props.style.width).toBe(358);
+        h.listeners.keyup(key("Shift", h.input)); tree = h.render();
+        expect(byClass(tree, "vc-stx-win").props.style.width).toBe(360);
+        expect(h.store.setPreviewOpen).not.toHaveBeenCalled();
+        await flushStorage();
+        expect(h.storage.set).toHaveBeenCalledWith("SupportTemplates_windowSize_v1", { width: 360, height: 500, previewWidth: 480 });
+        h.unmount();
+    });
+    it("ignores a late load after user resizing and tolerates storage failure", async () => {
+        let resolve!: (value: unknown) => void;
+        const storage = { get: vi.fn(() => new Promise<unknown>(r => { resolve = r; })), set: vi.fn(async () => { throw Error("disk unavailable"); }) };
+        const h = windowHarness(1600, false, storage);
+        h.render(); await flushStorage();
+        byClass(h.render(), "vc-stx-resize").props.onKeyDown(key("ArrowLeft", control));
+        resolve({ width: 650, height: 900, previewWidth: 700 }); await flushStorage();
+        expect(byClass(h.render(), "vc-stx-win").props.style.width).toBe(380);
+        expect(h.state.windowOpen).toBe(true); h.unmount();
     });
 });
 

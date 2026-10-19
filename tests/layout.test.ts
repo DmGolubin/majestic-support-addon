@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampTop, COMPACT_W, EDGE, LIST_W, SIDE_MAX, tipWidth, TIP_W, windowLayout } from "../src/core/layout";
+import { clampTop, COMPACT_W, DEFAULT_WINDOW_SIZE, EDGE, LIST_W, readWindowSize, SIDE_MAX, tipWidth, TIP_W, windowLayout, windowVertical } from "../src/core/layout";
 
 // Window spans y = 100…600 (500 px).
 describe("clampTop", () => {
@@ -106,5 +106,39 @@ describe("tipWidth", () => {
     it("no room → no tooltip", () => {
         expect(tipWidth(800, 240, 400)).toBe(0);
         expect(tipWidth(760, 352, 400)).toBe(0);
+    });
+});
+
+describe("resized picker geometry", () => {
+    it("rejects corrupt saved dimensions and clamps finite preferences to reasonable bounds", () => {
+        for (const value of [null, [], "500", {}, { width: "400", height: 500, previewWidth: 460 }, { width: Infinity, height: 500, previewWidth: 460 }]) {
+            expect(readWindowSize(value)).toBeNull();
+        }
+        expect(readWindowSize({ width: -10, height: 1e10, previewWidth: 1 })).toEqual({ width: 320, height: 1000, previewWidth: 360 });
+        expect(readWindowSize({ width: 500.4, height: 640.6, previewWidth: 1e10 })).toEqual({ width: 500, height: 641, previewWidth: 900 });
+    });
+    it("keeps the right-anchored list stable for pinned/temporary previews after a resize", () => {
+        const size = { width: 500, height: 700, previewWidth: 600 };
+        const closed = windowLayout(1600, 240, false, size), open = windowLayout(1600, 240, true, size);
+        expect(closed.width).toBe(500); expect(open.width).toBe(1100);
+        expect(open.width - open.previewW).toBe(closed.width);
+        expect(open.right).toBe(closed.right);
+        const compact = windowLayout(800, 240, true, size);
+        expect(compact.mode).toBe("compact");
+        expect(compact.width).toBe(windowLayout(800, 240, false, size).width);
+    });
+    it("bounds both axes even with tall composers, zoomed viewports and extreme saved sizes", () => {
+        for (const vw of [120, 280, 480, 800, 1400, 2400]) for (const vh of [100, 300, 500, 1080]) {
+            for (const anchor of [-100, 80, 240, 1800]) for (const wide of [false, true]) {
+                const size = readWindowSize({ width: 1e5, height: 1e5, previewWidth: 1e5 })!;
+                const horizontal = windowLayout(vw, anchor, wide, size), vertical = windowVertical(vh, anchor, size.height);
+                expect(horizontal.right).toBeGreaterThanOrEqual(EDGE);
+                expect(horizontal.right + horizontal.width).toBeLessThanOrEqual(vw - EDGE);
+                expect(vertical.bottom).toBeGreaterThanOrEqual(EDGE);
+                expect(vertical.height).toBeGreaterThanOrEqual(0);
+                expect(vertical.bottom + vertical.height).toBeLessThanOrEqual(vh - EDGE);
+            }
+        }
+        expect(DEFAULT_WINDOW_SIZE.height).toBe(500);
     });
 });

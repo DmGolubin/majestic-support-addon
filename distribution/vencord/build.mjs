@@ -45,8 +45,7 @@ copyTree(path.join(root, 'src/vencord'), plugin); copyTree(path.join(root, 'src/
 const pluginInputs = files(plugin).map(file => ({ path: path.relative(plugin, file).replaceAll('\\','/'), sha256: sha(fs.readFileSync(file)) }));
 const pluginSourceHash = sha(JSON.stringify(pluginInputs));
 const pluginCommit = run('git',['rev-parse','HEAD'],root).toString().trim();
-edit('src/userplugins/supportTemplates/buildInfo.ts', 'export const PLUGIN_VERSION = "1.0.0";', `export const PLUGIN_VERSION = ${JSON.stringify(config.version)};`);
-edit('src/userplugins/supportTemplates/buildInfo.ts', '"source"', JSON.stringify(`${config.version}+${pluginCommit.slice(0, 12)} · source ${pluginSourceHash.slice(0, 12)}`));
+fs.writeFileSync(path.join(plugin, 'buildInfo.ts'), `// Generated only in the isolated build copy.\nexport const PLUGIN_VERSION = ${JSON.stringify(config.version)};\nexport const PLUGIN_BUILD = ${JSON.stringify(`${config.version}+${pluginCommit.slice(0, 12)} · source ${pluginSourceHash.slice(0, 12)}`)};\nexport const PLUGIN_DISTRIBUTION = "vencord" as const;\n`);
 edit('src/userplugins/supportTemplates/index.tsx', 'name: "SupportTemplates",', 'name: "SupportTemplates",\n    enabledByDefault: true,');
 edit('src/api/Settings.ts', 'autoUpdate: true,', 'autoUpdate: false,');
 edit('src/main/patcher.ts', /    \/\/ Repatch after host updates[\s\S]*?\r?\n    }\r?\n/, '    // Full Vencord host repair is explicit via repair.bat.\n');

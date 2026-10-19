@@ -19,23 +19,23 @@ export function Management() {
     const close = () => { if (!busyRef.current) { if (dirty.current) setConfirm(true); else ui.set({ management: false }); } };
     useEffect(() => {
         const previous = document.activeElement as HTMLElement;
-        root.current?.focus();
+        const element = root.current;
+        element?.focus();
         const key = (e: KeyboardEvent) => {
+            // Nonmodal: Discord owns keys while the user is working in chat.
+            if (!element?.contains(e.target as Node)) return;
             if (e.isComposing || e.keyCode === 229) return;
             if (e.key === "Escape" && (e.target as HTMLElement)?.closest("[data-stx-select-open]")) return;
             if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
-            if (e.key === "Tab") {
-                const nodes = [...root.current!.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), summary, a[href], [tabindex='0']")].filter(el => el.getClientRects().length);
-                const i = nodes.indexOf(document.activeElement as HTMLElement);
-                if (i === -1 || (e.shiftKey ? i === 0 : i === nodes.length - 1)) { e.preventDefault(); nodes[e.shiftKey ? nodes.length - 1 : 0]?.focus(); }
-            }
-            if (!root.current?.contains(e.target as Node)) { e.preventDefault(); root.current?.focus(); }
         };
         document.addEventListener("keydown", key, true);
-        return () => { document.removeEventListener("keydown", key, true); if (previous?.isConnected) previous.focus(); };
+        return () => {
+            document.removeEventListener("keydown", key, true);
+            if (previous?.isConnected && (element?.contains(document.activeElement) || document.activeElement === document.body)) previous.focus();
+        };
     }, []);
-    return <div className="vc-stx-management-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) close(); }}>
-        <div ref={root} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Шаблоны и настройки" className="vc-stx-management">
+    return <div className="vc-stx-management-backdrop">
+        <div ref={root} tabIndex={-1} role="dialog" aria-label="Шаблоны и настройки" className="vc-stx-management">
             <header><b>SupportTemplates</b><button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={close}>Закрыть</button></header>
             {confirm && <div className="vc-stx-local-note vc-stx-close-confirm" role="alert"><span>Есть несохранённые изменения.</span><div className="vc-stx-close-actions"><button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={() => { if (!busyRef.current) setConfirm(false); }}>Вернуться</button><button className="vc-stx-btn" disabled={busy} onClick={() => { if (!busyRef.current) { discardPanelDraft(); ui.set({ management: false }); } }}>Закрыть без сохранения</button></div></div>}
             <Settings onDirty={v => { dirty.current = v; if (!v) setConfirm(false); }} onBusy={v => { busyRef.current = v; setBusy(v); }} />

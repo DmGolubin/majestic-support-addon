@@ -1,6 +1,7 @@
 node_modules
 /artifacts/standalone/
 /artifacts/distribution/
+/artifacts/ui18/
 __pycache__/
 *.py[cod]
 /graphify-out/

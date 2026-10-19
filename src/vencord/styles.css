@@ -189,10 +189,10 @@
 .vc-stx-settings h3 { margin: 16px 0 6px; font-weight: 600; }
 .vc-stx-manage-link { display: block; margin: 0 0 8px auto; padding: 3px 0; background: none; border: 0; color: var(--stx-mu); font: inherit; font-size: 11px; cursor: pointer; }
 .vc-stx-manage-link:hover { color: var(--stx-tx); }
-.vc-stx-management-backdrop { position: fixed; inset: 0; z-index: 4; background: rgb(0 0 0 / 65%); display: grid; place-items: center; padding: 20px; }
-.vc-stx-management { width: min(900px, 100%); max-height: calc(100dvh - 40px); display: flex; flex-direction: column; border: 1px solid var(--stx-bd2); border-radius: 8px; background: #0b0d10; color: var(--stx-tx); font-size: 13px; box-shadow: 0 20px 70px #0008; }
+.vc-stx-root > .vc-stx-management-backdrop { position: fixed; inset: 0; z-index: 4; pointer-events: none; display: grid; place-items: center; padding: 20px; }
+.vc-stx-management { pointer-events: auto; width: min(900px, 100%); height: min(720px, calc(100dvh - 40px)); max-height: calc(100dvh - 40px); display: flex; flex-direction: column; border: 1px solid var(--stx-bd2); border-radius: 8px; background: #0b0d10; color: var(--stx-tx); font-size: 13px; box-shadow: 0 20px 70px #0008; }
 .vc-stx-management > header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--stx-bd); }
-.vc-stx-management > .vc-stx-settings { overflow: auto; min-height: 0; padding: 0 24px 24px; scrollbar-width: thin; overscroll-behavior: contain; }
+.vc-stx-management > .vc-stx-settings { flex: 1; overflow: auto; min-height: 0; padding: 0 24px 24px; scrollbar-width: thin; overscroll-behavior: contain; }
 .vc-stx-settings { font-family: "STX Golos", "Golos Text", Inter, "Segoe UI", sans-serif; line-height: 1.5; }
 .vc-stx-settings *, .vc-stx-settings *::before, .vc-stx-settings *::after { box-sizing: border-box; }
 .vc-stx-settings-nav { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--stx-bd); margin-bottom: 20px; }
@@ -223,8 +223,8 @@
 .vc-stx-library-empty { border: 1px dashed var(--stx-bd2); border-radius: 6px; padding: 28px; text-align: center; color: var(--stx-mu); }
 .vc-stx-form-error { color: #ff8ba8; padding: 10px; border: 1px solid #96314a; border-radius: 6px; }
 @media (max-width: 600px) {
-    .vc-stx-management-backdrop { padding: 8px; }
-    .vc-stx-management { max-height: calc(100dvh - 16px); }
+    .vc-stx-root > .vc-stx-management-backdrop { padding: 8px; }
+    .vc-stx-management { height: min(720px, calc(100dvh - 16px)); max-height: calc(100dvh - 16px); }
     .vc-stx-management > .vc-stx-settings { padding: 0 14px 14px; }
     .vc-stx-form-grid { grid-template-columns: 1fr; }
     .vc-stx-lib-title { flex-wrap: wrap; }
