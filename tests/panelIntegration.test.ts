@@ -6,7 +6,7 @@ import { Store, STORE_KEY } from "../src/core/state";
 import { routeStore } from "../src/core/storeRouter";
 import { createPanelPreferencesStorage } from "../src/core/panelPreferences";
 import { PanelError } from "../src/core/panelClient";
-import { PanelCatalogValidationError, parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot } from "../src/core/panelCatalog";
+import { PanelCatalogValidationError, parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot, supportsPanelVersion } from "../src/core/panelCatalog";
 import { PanelMutation, panelMutationScope } from "../src/core/panelProtocol";
 import { Template } from "../src/core/types";
 
@@ -24,7 +24,7 @@ function deferred<T>() {
 const template: Template = { id: "faq:majestic:7", source: "faq", project: "mj", title: "FAQ", text: "Answer", category: null,
     status: "actual", statusNote: null, color: null, command: null, updatedAt: null, teamUses: 0 };
 
-function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: PanelMutation): Promise<unknown>; }) {
+function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: PanelMutation): Promise<unknown>; }, pluginVersion = "1.0.0") {
     const preferenceData = new Map<string, unknown>();
     const io = { readError: false, writeError: false, pendingRead: null as Promise<void> | null, pendingWrite: null as Promise<void> | null };
     const preferenceStorage = {
@@ -95,8 +95,8 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
         "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: state.discordId }),
             addChangeListener: (fn: () => void) => accountHandlers.add(fn), removeChangeListener: (fn: () => void) => accountHandlers.delete(fn) }, FluxDispatcher: {
             subscribe: (name: string, fn: () => void) => handlers.set(name, fn), unsubscribe: (name: string) => handlers.delete(name) } },
-        "../buildInfo": { PLUGIN_VERSION: "1.0.0" }, "../core/state": { Store, STORE_KEY },
-        "../core/panelCatalog": { ...parsers, PanelCatalogValidationError },
+        "../buildInfo": { PLUGIN_VERSION: pluginVersion }, "../core/state": { Store, STORE_KEY },
+        "../core/panelCatalog": { ...parsers, PanelCatalogValidationError, supportsPanelVersion },
         "../core/panelPreferences": { createPanelPreferencesStorage },
         "../platform": { storage: preferenceStorage },
         "../core/panelClient": { PanelClient: FakeClient, PanelError },
@@ -347,6 +347,24 @@ describe("permission races through the controller and actual catalog parsers", (
         const get = vi.fn(async (path: string): Promise<unknown> => path === "/me" ? profile("1") : snapshot("1"));
         return { ...harness({ get }), get };
     }
+
+    it("connects with the actual distribution version against the delivered API minimum", async () => {
+        const { version } = JSON.parse(readFileSync(new URL("../distribution/config.json", import.meta.url), "utf8"));
+        const h = harness({ get: async path => path === "/me" ? profile("1") : snapshot("1") }, version);
+        await h.api.connectPanel();
+        expect(h.api.panel.get().error).toBe("");
+        expect(h.access.get().ready).toBe(true);
+        expect(h.store.templates).toHaveLength(1);
+        h.api.disposePanel();
+    });
+
+    it.each(["0.1.0-canary.16", "1.0.0-canary.17", "invalid"])("keeps rejecting %s below the delivered stable minimum", async version => {
+        const h = harness({ get: async path => path === "/me" ? profile("1") : snapshot("1") }, version);
+        await h.api.connectPanel();
+        expect(h.access.get().ready).toBe(false);
+        expect(h.api.panel.get().error).toContain("нужна новая версия");
+        h.api.disposePanel();
+    });
 
     it.each(["restorePanel", "connectPanel"])("overlaps initial reads during %s but publishes only after both validate", async action => {
         const h = setup(), me = deferred<unknown>(), data = deferred<unknown>();

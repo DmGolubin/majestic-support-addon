@@ -129,6 +129,36 @@ function version(value: unknown): string {
     return v; // Compatibility comparison belongs to the caller, not this parser.
 }
 
+/** Full SemVer precedence. Build metadata does not change compatibility; a
+ * prerelease remains below the stable release with the same core version.
+ * Compare numeric strings without Number rounding for large identifiers.
+ */
+export function supportsPanelVersion(current: unknown, minimum: unknown): boolean {
+    const parse = (value: unknown) => {
+        const v = version(value).split("+")[0], dash = v.indexOf("-");
+        return { core: (dash < 0 ? v : v.slice(0, dash)).split("."), pre: dash < 0 ? [] : v.slice(dash + 1).split(".") };
+    };
+    const numeric = (a: string, b: string) => a === b ? 0 : a.length !== b.length ? (a.length > b.length ? 1 : -1) : a > b ? 1 : -1;
+    try {
+        const a = parse(current), b = parse(minimum);
+        for (let i = 0; i < 3; i++) {
+            const comparison = numeric(a.core[i], b.core[i]);
+            if (comparison) return comparison > 0;
+        }
+        if (!a.pre.length || !b.pre.length) return !a.pre.length;
+        for (let i = 0; i < Math.max(a.pre.length, b.pre.length); i++) {
+            const x = a.pre[i], y = b.pre[i];
+            if (x === undefined || y === undefined) return y === undefined;
+            if (x === y) continue;
+            const nx = /^\d+$/.test(x), ny = /^\d+$/.test(y);
+            if (nx && ny) return numeric(x, y) > 0;
+            if (nx !== ny) return !nx;
+            return x > y;
+        }
+        return true;
+    } catch { return false; }
+}
+
 export function parseProfile(value: unknown): PanelProfile {
     const r = record(value);
     if (r.schemaVersion !== 1) return invalid();

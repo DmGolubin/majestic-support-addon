@@ -10,7 +10,7 @@ afterEach(() => { vi.useRealTimers(); for (const dir of dirs.splice(0)) fs.rmSyn
 function fixture() {
     const root = fs.mkdtempSync(join(tmpdir(), "stx-bd-host-")); dirs.push(root);
     const config = JSON.parse(source("distribution/config.json"));
-    const version = "0.1.0-canary.99";
+    const version = "1.0.1-canary.99";
     const bytes = Buffer.from("module.exports = class VerifiedRuntime {};");
     const asset = { variant: "betterdiscord", platform: "win32", kind: "renderer", name: "SupportTemplates.plugin.js", size: bytes.length,
         sha256: createHash("sha256").update(bytes).digest("hex") };
@@ -58,7 +58,7 @@ describe("standard BetterDiscord updater", () => {
     it("refuses hash corruption and foreign manifests, preserving the last good runtime", async () => {
         const f = fixture(); const updater = f.make(); await updater.check();
         const saved = fs.readFileSync(join(f.root, "runtime.json"), "utf8");
-        f.manifest.version = "0.1.0-canary.100"; f.release.tag_name = "v0.1.0-canary.100";
+        f.manifest.version = "1.0.1-canary.100"; f.release.tag_name = "v1.0.1-canary.100";
         f.release.assets.forEach(a => { a.browser_download_url = a.browser_download_url.replace(".99/", ".100/"); });
         // Mismatched manifest must fail before any code can be committed.
         f.manifest.repository = "attacker/repo";

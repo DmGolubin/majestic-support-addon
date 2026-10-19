@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PanelClient, PanelError, PanelTransport } from "../src/core/panelClient";
 import { PANEL_ORIGIN } from "../src/core/panelProtocol";
 import { createPanelPreferencesStorage } from "../src/core/panelPreferences";
-import { PanelCatalogValidationError, parseProfile, parseSnapshot } from "../src/core/panelCatalog";
+import { PanelCatalogValidationError, parseProfile, parseSnapshot, supportsPanelVersion } from "../src/core/panelCatalog";
 import { Store, STORE_KEY } from "../src/core/state";
 import { createPanelVault } from "../src/vencord/panelVault";
 
@@ -78,7 +78,7 @@ function harness() {
         "../platform": { storage: { get: async () => undefined, set: async () => {} } },
         "../core/panelClient": { PanelClient, PanelError }, "../core/panelProtocol": { PANEL_ORIGIN },
         "../panelVault": { createPanelVault }, "../core/panelTransport": { createPanelTransport: () => transport },
-        "../core/panelCatalog": { PanelCatalogValidationError, parseProfile, parseSnapshot },
+        "../core/panelCatalog": { PanelCatalogValidationError, parseProfile, parseSnapshot, supportsPanelVersion },
         "../panelHtml": { htmlToDiscordText: () => "" },
         "../core/panelEvents": { createPanelEventStream: () => async (_token: string, signal: AbortSignal) => {
             if (!signal.aborted) await new Promise<void>(resolve => signal.addEventListener("abort", () => resolve(), { once: true }));

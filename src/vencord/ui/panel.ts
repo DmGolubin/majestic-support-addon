@@ -7,7 +7,7 @@
 import { FluxDispatcher, UserStore } from "@webpack/common";
 
 import { PLUGIN_VERSION } from "../buildInfo";
-import { PanelCatalog, PanelCatalogValidationError, parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot } from "../core/panelCatalog";
+import { PanelCatalog, PanelCatalogValidationError, parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot, supportsPanelVersion } from "../core/panelCatalog";
 import { PanelClient, PanelError } from "../core/panelClient";
 import { createPanelEventStream } from "../core/panelEvents";
 import { createPanelPreferencesStorage } from "../core/panelPreferences";
@@ -184,14 +184,6 @@ function startEvents() {
     })();
 }
 
-function supportsVersion(minimum: string) {
-    const parse = (v: string) => /^\d+\.\d+\.\d+$/.test(v) ? v.split(".").map(Number) : null;
-    const current = parse(PLUGIN_VERSION), required = parse(minimum);
-    if (!current || !required) return false;
-    for (let i = 0; i < 3; i++) if (current[i] !== required[i]) return current[i] > required[i];
-    return true;
-}
-
 function schedule(own: number, retryAfter = 0) {
     clearTimeout(timer);
     if (epoch !== own || !client) return;
@@ -236,7 +228,7 @@ async function loadLibrary(): Promise<boolean> {
                 if (own !== epoch || revision !== syncRevision || !library) return false;
                 profile = parseProfile(rawProfile);
                 if (profile.connectionId !== active.connectionId || profile.accountId !== UserStore.getCurrentUser()?.id || (accountId && accountId !== profile.accountId)) throw new PanelError("account_mismatch");
-                if (!supportsVersion(profile.minimumPluginVersion)) throw new PanelError("upgrade_required");
+                if (!supportsPanelVersion(PLUGIN_VERSION, profile.minimumPluginVersion)) throw new PanelError("upgrade_required");
                 nextPermissions = JSON.stringify([profile.permissionsRevision, [...profile.projects].sort(), [...profile.scopes].sort()]);
                 if (permissions && nextPermissions !== permissions) {
                     clearPersonal();

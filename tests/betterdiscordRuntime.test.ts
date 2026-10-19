@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createHash } from "node:crypto";
+import { createHash, webcrypto } from "node:crypto";
 import { bdRequire, evaluate, loadAdapter, root, source } from "./betterdiscordHarness";
 
 const { JSDOM } = bdRequire("jsdom");
@@ -17,9 +17,14 @@ beforeAll(() => {
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup(); vi.unstubAllGlobals(); });
 
-function fixture({ delayedRead = false, missingStore = false, restrictedHost = false, supportedBridge = false } = {}) {
+function fixture({ delayedRead = false, missingStore = false, restrictedHost = false, supportedBridge = false, signedIn = false } = {}) {
     const dom = new JSDOM('<!doctype html><body><main><div class="channelTextArea_test"><div class="buttons_test"></div><div contenteditable="true" role="textbox" tabindex="0" data-slate-editor="true">draft stays</div></div></main></body>', { url: "https://discord.com/channels/test", pretendToBeVisual: true });
     const w = dom.window;
+    w.HTMLElement.prototype.scrollIntoView = () => {}; // Layout/scrolling is not implemented by JSDOM.
+    // ReactDOM was imported before this per-test window, so its input detection
+    // takes the legacy branch. Bridge that branch to JSDOM's real event listeners.
+    w.HTMLElement.prototype.attachEvent = function (name: string, handler: any) { this.addEventListener(name.replace(/^on/, ""), handler); };
+    w.HTMLElement.prototype.detachEvent = function (name: string, handler: any) { this.removeEventListener(name.replace(/^on/, ""), handler); };
     const globals: any = {};
     for (const name of ["window", "document", "navigator", "location", "Element", "HTMLElement", "HTMLInputElement", "HTMLTextAreaElement", "MutationObserver", "Node", "Event", "MouseEvent", "KeyboardEvent", "getComputedStyle"]) {
         globals[name] = name === "window" ? w : w[name]; vi.stubGlobal(name, globals[name]);
@@ -49,7 +54,7 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
         ChannelStore: { getChannel: () => channel, addChangeListener: (fn: any) => changes.add(fn), removeChangeListener: (fn: any) => changes.delete(fn) },
         SelectedChannelStore: { getChannelId: () => channel.id }, SelectedGuildStore: { getGuildId: () => channel.guild_id },
         GuildStore: { getGuild: () => ({ name: "Majestic" }) },
-        UserStore: { getCurrentUser: () => null, addChangeListener: (fn: any) => changes.add(fn), removeChangeListener: (fn: any) => changes.delete(fn) },
+        UserStore: { getCurrentUser: () => signedIn ? { id: "123456789012345678" } : null, addChangeListener: (fn: any) => changes.add(fn), removeChangeListener: (fn: any) => changes.delete(fn) },
         AccessibilityStore: {}, LocaleStore: {}, ThemeStore: {}
     };
     const componentDispatch = { subscribe() {}, dispatchToLastSubscribed: vi.fn() };
@@ -85,6 +90,8 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
             electron: {}, buffer: bdRequire("buffer"), events: bdRequire("events")
         };
         if (supportedBridge) {
+            globals.crypto = webcrypto;
+            globals.indexedDB = new (bdRequire("fake-indexeddb").IDBFactory)();
             const dir = fs.mkdtempSync(join(tmpdir(), "stx-bd-runtime-"));
             host.Plugins.folder = join(dir, "plugins"); fs.mkdirSync(host.Plugins.folder);
             modules.fs = Object.fromEntries(["readFileSync", "writeFileSync", "mkdirSync", "statSync", "realpathSync", "renameSync", "unlinkSync", "existsSync"].map(k => [k, (...args: any[]) => {
@@ -113,9 +120,38 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
 }
 
 describe("BetterDiscord final bundle in React/DOM", () => {
+    it("restores encrypted login and loads the actual packaged UI with API minimum 1.0.0", async () => {
+        const f = fixture({ restrictedHost: true, supportedBridge: true, signedIn: true });
+        const accountId = "123456789012345678", connectionId = "11111111-1111-4111-8111-111111111111";
+        const origin = "https://discord.com", panelOrigin = "https://panel.majestic-rp.tech";
+        const plugins = fs.realpathSync(f.host.Plugins.folder);
+        const id = createHash("sha256").update(JSON.stringify([plugins.toLowerCase(), origin])).digest("hex");
+        const { createBrowserVaultSession } = loadAdapter("native/browserVault.ts");
+        const saved = await createBrowserVaultSession({ root: join(plugins, "..", "SupportTemplates", id), origin, platform: "win32",
+            crypto: webcrypto, indexedDB: f.globals.indexedDB, locks: f.globals.navigator.locks });
+        const scopes = ["profile:read", "faq:read", "personal:read", "folders:read", "sync:read"];
+        await saved.forAccount(accountId).save({ version: 1, state: "ready", accountId, origin: panelOrigin, clientId: "support-templates", expiresAt: Date.now() + 900000,
+            tokens: { accessToken: "fixture-access", refreshToken: "fixture-refresh", expiresIn: 900, connectionId, scopes } });
+        await saved.close();
+        const serverTime = new Date().toISOString();
+        f.host.Net.fetch.mockImplementation(async (url: string) => {
+            if (url === panelOrigin + "/api/plugin/v1/me") return Response.json({ schemaVersion: 1, accountId, connectionId, name: "Fixture", projects: ["majestic"], scopes,
+                permissionsRevision: "1", minimumPluginVersion: "1.0.0", serverTime });
+            if (url === panelOrigin + "/api/plugin/v1/snapshot") return Response.json({ schemaVersion: 1, accountId, projects: ["majestic"], permissionsRevision: "1", revision: "1", serverTime,
+                faq: [{ id: "majestic:1", version: "1", title: "Version fixture FAQ", text: "Fixture answer", format: "text", projects: ["majestic"], category: "Fixture", tags: [], status: "actual", updatedAt: serverTime }],
+                personal: [], folders: [], trash: [], colorLabels: {}, limits: { colors: [] } });
+            return new Response("Unavailable", { status: 404 });
+        });
+        await React.act(async () => { await f.plugin.start(); await f.frame(); });
+        await React.act(async () => { f.document.querySelector('[data-stx="button"]').click(); await f.frame(); });
+        await React.act(async () => { await vi.waitFor(() => expect(f.document.body.textContent).toContain("Version fixture FAQ")); });
+        expect(f.document.body.textContent).not.toContain("нужна новая версия");
+        expect(f.host.Net.fetch.mock.calls.some(([url]: [string]) => url.includes("oauth/"))).toBe(false);
+        expect(f.deniedModules).toEqual([]);
+    });
     it("downloads without evaluating, then loads the verified runtime through BD's absolute-path loader on next startup", async () => {
         const f = fixture({ restrictedHost: true, supportedBridge: true });
-        const version = "0.1.0-canary.99";
+        const version = "1.0.1-canary.99";
         const code = `module.exports=class { getVersion(){return '${version}';} startBundledRuntime(){globalThis.BdApi.testStarts++;} stopBundledRuntime(){} getSettingsPanel(){} getBundledSettings(){} };`;
         const config = JSON.parse(source("distribution/config.json"));
         const asset = { variant: "betterdiscord", platform: "win32", kind: "renderer", name: "SupportTemplates.plugin.js", size: Buffer.byteLength(code), sha256: createHash("sha256").update(code).digest("hex") };
@@ -171,7 +207,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         const settingsNode = f.document.createElement("div"); f.document.body.append(settingsNode);
         const settings = ReactDOM.createRoot(settingsNode);
         await React.act(async () => { settings.render(f.plugin.getSettingsPanel()); });
-        expect(settingsNode.textContent).toContain("0.1.0-canary.16");
+        expect(settingsNode.textContent).toContain("1.0.1-canary.17");
         expect(settingsNode.textContent).toContain("Мои шаблоны");
         expect(settingsNode.textContent).toContain("Режим отладки");
         expect(editor.textContent).toBe("draft stays");
@@ -215,9 +251,9 @@ describe("BetterDiscord final bundle in React/DOM", () => {
     });
     it("reports effective cached runtime version and tolerates prototype metadata checks", () => {
         const f = fixture();
-        expect(f.Plugin.prototype.getVersion()).toBe("0.1.0-canary.16");
-        f.plugin.delegate = { getVersion: () => "0.1.0-canary.17", stopBundledRuntime() {} };
-        expect(f.plugin.getVersion()).toBe("0.1.0-canary.17");
+        expect(f.Plugin.prototype.getVersion()).toBe("1.0.1-canary.17");
+        f.plugin.delegate = { getVersion: () => "1.0.1-canary.18", stopBundledRuntime() {} };
+        expect(f.plugin.getVersion()).toBe("1.0.1-canary.18");
     });
     it("inserts through ComponentDispatch only into a focused Slate composer and never sends", () => {
         const f = fixture();
@@ -237,7 +273,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         expect(evidence.inputs).not.toContain("src/vencord/buildInfo.ts");
         expect(evidence.inputs).not.toContain("src/vencord/panelVault.ts");
         expect(bundle).not.toContain("VencordNative");
-        expect(bundle).toContain("@version 0.1.0-canary.16");
+        expect(bundle).toContain("@version 1.0.1-canary.17");
         expect(evidence.embeddedCssBytes).toBeGreaterThan(10000);
         expect(source("betterdiscord/out/LICENSE")).toContain("GNU GENERAL PUBLIC LICENSE");
         expect(source("betterdiscord/out/source/LICENSE")).toContain("GNU GENERAL PUBLIC LICENSE");

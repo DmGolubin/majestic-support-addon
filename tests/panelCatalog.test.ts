@@ -1,9 +1,32 @@
 import { describe, expect, it, vi } from "vitest";
-import { PanelCatalogValidationError, parseProfile, parseSnapshot } from "../src/core/panelCatalog";
+import { PanelCatalogValidationError, parseProfile, parseSnapshot, supportsPanelVersion } from "../src/core/panelCatalog";
 import { PERSONAL_COLORS } from "../src/core/personal";
 import { htmlToDiscordText } from "../src/vencord/panelHtml";
 
 const date = "2026-10-18T10:00:00.000Z";
+describe("panel minimum version SemVer", () => {
+    it.each([
+        ["0.1.0-canary.16", "0.1.0-canary.16", true],
+        ["1.0.1-canary.17", "1.0.0", true],
+        ["0.1.0-canary.16", "1.0.0", false],
+        ["1.0.1-canary.17", "1.0.1", false],
+        ["1.0.1", "1.0.1-canary.99", true],
+        ["1.0.1-canary.17", "1.0.1-canary.9", true],
+        ["1.0.1-canary.9", "1.0.1-canary.17", false],
+        ["1.0.1-canary", "1.0.1-canary.1", false],
+        ["1.0.1-canary.1", "1.0.1-canary", true],
+        ["1.0.1-1", "1.0.1-alpha", false],
+        ["1.0.1-beta", "1.0.1-alpha", true],
+        ["1.0.0+hash-a", "1.0.0+hash-b", true],
+        ["1.0.0-canary.9007199254740993", "1.0.0-canary.9007199254740992", true],
+        ["1.0.0-canary.9007199254740992", "1.0.0-canary.9007199254740993", false],
+        ["1.0.1-canary.17", "99.0.0", false],
+        ["invalid", "1.0.0", false], ["1.0.0", "invalid", false],
+        ["01.0.0", "1.0.0", false], ["1.0.0-canary.01", "1.0.0-canary.1", false],
+    ])("%s >= %s is %s", (current, minimum, supported) => {
+        expect(supportsPanelVersion(current, minimum)).toBe(supported);
+    });
+});
 const profileWire = (): any => ({
     schemaVersion: 1, accountId: "123456789012345678", connectionId: "12345678-1234-1234-1234-123456789abc",
     name: "Support", projects: ["majestic", "russia-online"], scopes: ["profile:read", "faq:read", "personal:read", "folders:read"],

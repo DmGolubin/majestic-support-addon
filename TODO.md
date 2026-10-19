@@ -11,11 +11,17 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (29)
+## Реализовано · нужна приёмка (30)
+
+### D14 · Исправить отказ подключения canary-сборок по версии
+
+D · Доставка. Отказ .16 воспроизведён по точной ошибке: guard отвергал prerelease, пакет 0.1.0 был ниже минимума 1.0.0 поставленного контракта. Исправлен полный SemVer и версия 1.0.1-canary.17. 1631 тест/74 файла проходят, включая готовый BD bundle: зашифрованный вход восстанавливается и FAQ загружается при минимуме 1.0.0. Нужна живая приёмка; минимум живого API не прочитан.
+
+Основание: [2026-10-19-betterdiscord-version.md](docs/audits/2026-10-19-betterdiscord-version.md), [2026-10-19-betterdiscord-version-tests.json](docs/audits/2026-10-19-betterdiscord-version-tests.json), [1.0.1-canary.17.md](docs/releases/1.0.1-canary.17.md).
 
 ### D13 · Сохранение входа и автообновления стандартного BetterDiscord
 
-D · Доставка. BD-only .16 опубликована: AES-GCM/IndexedDB сохраняет вход в профиле, Web Lock защищает ротацию; поддерживаемые Net/fs API загружают проверенный runtime вне plugins и включают его при Ctrl+R/запуске. 1606 тестов/74 файла, финальные 37 целевых тестов и обе проверки типов прошли. Все 6 файлов выпуска сверены по SHA-256. Не OS keychain. Живой BD и публичная доставка следующего выпуска ещё не проверены; репозиторий остаётся приватным.
+D · Доставка. BD-only .16 опубликована: AES-GCM/IndexedDB сохраняет вход в профиле, Web Lock защищает ротацию; поддерживаемые Net/fs API загружают проверенный runtime вне plugins и включают его при Ctrl+R/запуске. 1606 тестов/74 файла, финальные 37 целевых тестов и обе проверки типов прошли. Все 6 файлов выпуска сверены по SHA-256. Не OS keychain. Живой BD и публичная доставка следующего выпуска ещё не проверены; репозиторий остаётся приватным. При живой проверке .16 выявлен отказ по версии; исправление D14.
 
 Основание: [2026-10-19-betterdiscord-persistence-updates.md](docs/audits/2026-10-19-betterdiscord-persistence-updates.md), [2026-10-19-betterdiscord-persistence-tests.json](docs/audits/2026-10-19-betterdiscord-persistence-tests.json), [0.1.0-canary.16.md](docs/releases/0.1.0-canary.16.md).
 

@@ -89,7 +89,7 @@ It reuses the parent-owned version, manifest and bounded redirect validation fro
 exclusive temporary files and atomic rename. BD has no fsync bridge: a crash may lose
 the latest download, so cache length/hash are rechecked on each load and corruption
 falls back to the bundled plugin. Canonical paths are checked because BD aliases lstat
-to stat. Updating from .15/DEV to .16 requires one manual file replacement.
+to stat. Release 1.0.1-canary.17 fixes the packaged client version gate and supports full SemVer. While the repository is private, install its file manually.
 
 In a host with full native capabilities, checks and verified downloads run automatically.
 Null releaseRepository disables checks; an anonymous
