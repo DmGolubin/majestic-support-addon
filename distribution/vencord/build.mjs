@@ -47,11 +47,18 @@ const pluginCommit = run('git',['rev-parse','HEAD'],root).toString().trim();
 fs.writeFileSync(path.join(plugin, 'buildInfo.ts'), `// Generated only in the isolated build copy.\nexport const PLUGIN_VERSION = ${JSON.stringify(config.version)};\nexport const PLUGIN_BUILD = ${JSON.stringify(`${config.version}+${pluginCommit.slice(0, 12)} · source ${pluginSourceHash.slice(0, 12)}`)};\nexport const PLUGIN_DISTRIBUTION = "vencord" as const;\n`);
 edit('src/userplugins/supportTemplates/index.tsx', 'name: "SupportTemplates",', 'name: "SupportTemplates",\n    enabledByDefault: true,');
 edit('src/api/Settings.ts', 'autoUpdate: true,', 'autoUpdate: false,');
+// Preserve data: preload routing, but keep the URL below Electron's 2MiB limit.
+// The executable script is a trusted build asset, never interpolated user CSS.
+edit('src/main/ipcMain.ts', 'import monacoHtml from "file://monacoWin.html?minify&base64";',
+    'import monacoHtml from "file://monacoWin.html?base64";\nimport monacoScript from "file://monacoWin.js?base64";');
+edit('src/main/ipcMain.ts', '    await win.loadURL(`data:text/html;base64,${monacoHtml}`);',
+    '    await win.loadURL(`data:text/html;base64,${monacoHtml}`);\n    await win.webContents.executeJavaScript(Buffer.from(monacoScript, "base64").toString("utf8"));');
 edit('src/main/patcher.ts', /    \/\/ Repatch after host updates[\s\S]*?\r?\n    }\r?\n/, '    // Full Vencord host repair is explicit via repair.bat.\n');
 const buildTimestamp = Number(run('git', ['show','-s','--format=%ct',PIN], base).toString().trim()) * 1000;
 const recipe = { schema: 1, variant: 'vencord-full', version: config.version, upstreamCommit: PIN, pluginCommit, pluginSourceHash, pluginInputs, buildTimestamp, node: process.version, packageManager: evidence.packageManager, lockSha256: lockHash, upstreamPlugins };
 fs.writeFileSync(path.join(source, 'vencord-full-build.json'), JSON.stringify(recipe, null, 2));
 copyTree(here, path.join(source, 'distribution/vencord'));
+copyTree(path.join(root, 'distribution/quickcss'), path.join(source, 'distribution/quickcss'));
 copyTree(path.join(root, 'distribution/updater'), path.join(source, 'distribution/updater'));
 fs.copyFileSync(path.join(root, 'distribution/config.json'), path.join(source, 'distribution/config.json'));
 fs.copyFileSync(path.join(root, 'distribution/config.mjs'), path.join(source, 'distribution/config.mjs'));
@@ -61,6 +68,8 @@ fs.symlinkSync(path.join(base, 'node_modules'), path.join(source, 'node_modules'
 console.log('Staged pinned full Vencord sources: ' + source);
 try { console.log(run(process.execPath, ['rebuild.mjs'], source).toString()); }
 catch (error) { process.stderr.write(error.stderr ?? ''); throw error; }
+recipe.quickCss = JSON.parse(fs.readFileSync(path.join(source, 'quickcss-build.json'), 'utf8'));
+fs.writeFileSync(path.join(source, 'vencord-full-build.json'), JSON.stringify(recipe, null, 2));
 for (const entry of upstreamPlugins) if (sha(fs.readFileSync(path.join(source, entry.path))) !== entry.sha256) throw Error('Ordinary upstream plugin changed');
 const renderer = fs.readFileSync(path.join(source, 'dist/renderer.js'), 'utf8');
 const patcher = fs.readFileSync(path.join(source, 'dist/patcher.js'), 'utf8');

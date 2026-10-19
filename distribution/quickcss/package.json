@@ -1,0 +1,11 @@
+{
+  "name": "support-templates-quickcss-build",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "dependencies": {
+    "monaco-editor": "0.57.0",
+    "dompurify": "3.4.17",
+    "esbuild": "0.28.2"
+  }
+}

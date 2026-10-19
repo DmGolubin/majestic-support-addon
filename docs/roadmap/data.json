@@ -16,6 +16,15 @@
   ],
   "tasks": [
     {
+      "id": "Q19",
+      "area": "Качество MVP",
+      "status": "active",
+      "title": "Закрыть блокер QuickCSS и подготовить три сборки .24",
+      "detail": "Локальная сборка Monaco0.57.0/DOMPurify3.4.17 заменяет CDN и встроенную старую копию. Frozen dependency install/audit успешны; проверяются Chromium/Electron, сохранение/подсказки/очистка, затем все три пакета. Реальная установка и публикация не входят в текущий запрос.",
+      "updated": "2026-10-19",
+      "evidence": []
+    },
+    {
       "id": "Q18",
       "area": "Качество MVP",
       "status": "review",
@@ -837,7 +846,7 @@
       "area": "Выпуск",
       "status": "review",
       "title": "Зависимости и состав урезанного Vencord",
-      "detail": "Три .23 собраны из pinned Vencord 32c9063 через frozen lockfile, состав и SHA-256 записаны. В full Vencord QuickCSS подтверждена внешняя Monaco0.50.0/DOMPurify3.0.5 с опубликованными уязвимостями: массовый выпуск этой версии удерживается до исправления зависимости и проверки совместимости. В BD/standalone этого пути нет. Upstream dev/build advisories отдельно классифицированы; их исправление не заявляется.",
+      "detail": "Блокер внешнего Monaco/DOMPurify в полной .23 подтверждён; исправление и новые три пакета ведутся в Q19. Прочие upstream dev/build advisories остаются классифицированным долгом.",
       "evidence": [
         "audits/2026-10-18-release-audit.md",
         "audits/2026-10-18-vencord-dependencies.json",

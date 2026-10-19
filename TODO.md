@@ -3,7 +3,11 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (1)
+## В работе (2)
+
+### Q19 · Закрыть блокер QuickCSS и подготовить три сборки .24
+
+Качество MVP. Локальная сборка Monaco0.57.0/DOMPurify3.4.17 заменяет CDN и встроенную старую копию. Frozen dependency install/audit успешны; проверяются Chromium/Electron, сохранение/подсказки/очистка, затем все три пакета. Реальная установка и публикация не входят в текущий запрос.
 
 ### C06 · Двусторонние личные шаблоны
 
@@ -153,7 +157,7 @@ C · Панель. Владелец сообщает сохранение вхо
 
 ### R09 · Зависимости и состав урезанного Vencord
 
-Выпуск. Три .23 собраны из pinned Vencord 32c9063 через frozen lockfile, состав и SHA-256 записаны. В full Vencord QuickCSS подтверждена внешняя Monaco0.50.0/DOMPurify3.0.5 с опубликованными уязвимостями: массовый выпуск этой версии удерживается до исправления зависимости и проверки совместимости. В BD/standalone этого пути нет. Upstream dev/build advisories отдельно классифицированы; их исправление не заявляется.
+Выпуск. Блокер внешнего Monaco/DOMPurify в полной .23 подтверждён; исправление и новые три пакета ведутся в Q19. Прочие upstream dev/build advisories остаются классифицированным долгом.
 
 Основание: [2026-10-18-release-audit.md](docs/audits/2026-10-18-release-audit.md), [2026-10-18-vencord-dependencies.json](docs/audits/2026-10-18-vencord-dependencies.json), [2026-10-18-standalone-dependencies.md](docs/audits/2026-10-18-standalone-dependencies.md), [README.md](docs/audits/master-qa-2026-10-18/README.md), [2026-10-19-three-distributions.md](docs/audits/2026-10-19-three-distributions.md), [2026-10-19-full-code23.md](docs/audits/2026-10-19-full-code23.md).
 

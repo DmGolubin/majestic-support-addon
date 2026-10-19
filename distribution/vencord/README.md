@@ -13,6 +13,14 @@ is compiled out, even if old settings have autoUpdate enabled.
 - Set `VENCORD_DIR` to the pinned frozen dependency checkout, including
   `support-templates-dependency-evidence.json`. Builds use an isolated source
   directory and never alter that checkout or the user's Discord installation.
+- Run `node distribution/quickcss/prepare.mjs` and set `QUICKCSS_DEPS_DIR` to
+  its returned directory. This separate frozen lock pins Monaco 0.57.0 and
+  DOMPurify 3.4.17. QuickCSS retains its existing small data-URL document.
+  Its trusted packaged script is executed by the main process after navigation;
+  styles and blob workers are bundled. CSP denies document scripts and network
+  connections. User CSS is never interpolated into executable code.
+  Both Monaco's vendored sanitizer and its package import resolve to the
+  pinned DOMPurify; the emitted input hashes are in `build-evidence.json`.
 - Default output: `artifacts/distribution/SupportTemplates-vencord-<version>/`
   and matching `.zip`. `DISTRIBUTION_OUTPUT_DIR` overrides the output directory.
   Existing outputs are refused. Last stdout line is JSON `{package,zip,source}`.
@@ -73,7 +81,8 @@ configured repository's publishing permissions. The package is not a signature.
 current custom plugin, lockfile, shared updater, installer/build recipes and GPL
 license. `vencord-full-build.json` records deterministic source identities.
 Extract into a new directory, install Node matching build-evidence.json and
-pnpm 11.9.0, run `pnpm install --frozen-lockfile`, then `node rebuild.mjs`.
+pnpm 11.9.0, run `pnpm install --frozen-lockfile`, prepare the separate QuickCSS
+dependencies as above, then run `node rebuild.mjs` with `QUICKCSS_DEPS_DIR` set.
 Upstream sources are obtained using `git archive` at the pin, never by copying
 the mutable checkout. Build timestamps and ZIP/TAR metadata are fixed; a second
 build from identical inputs and tooling produces identical bytes. Dependency

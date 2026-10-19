@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { assertQuickCssHtml, pins as quickCssPins } from '../../distribution/quickcss/security.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(path.join(root, 'betterdiscord/package.json'));
@@ -76,6 +77,26 @@ for (const variant of ['vencord', 'standalone']) {
         check('ordinary Vencord plugins retained', pluginSources.length > 100);
         const evidence = JSON.parse(fs.readFileSync(path.join(pkg, 'build-evidence.json')));
         check('upstream preservation evidence', evidence.upstreamPlugins.length > 100);
+        check('QuickCSS exact dependency pins recorded', JSON.stringify(evidence.quickCss?.versions) === JSON.stringify(quickCssPins));
+        for (const name of ['patcher.js', 'vencordDesktopMain.js']) {
+            const nativeMap = JSON.parse(fs.readFileSync(path.join(runtime, name + '.map')));
+            const getEmbedded = file => {
+                const index = nativeMap.sources.indexOf(`file-uri:file://${file}?base64`);
+                assert.ok(index >= 0, `Missing packaged ${file}`);
+                const text = nativeMap.sourcesContent[index].replace(/^export default /, '').replace(/;\s*$/, '');
+                const encoded = JSON.parse(text), decoded = Buffer.from(encoded, 'base64');
+                assert.equal(decoded.toString('base64'), encoded);
+                assert.ok(fs.readFileSync(path.join(runtime, name), 'utf8').includes(encoded), 'Source-map asset must be present in executable bundle');
+                return decoded.toString('utf8');
+            };
+            const html = getEmbedded('monacoWin.html'), script = getEmbedded('monacoWin.js');
+            assertQuickCssHtml(html, script);
+            check(`${name} secure offline QuickCSS fits native URL limit`, true);
+            check(`${name} QuickCSS assets match build evidence`, sha(html) === evidence.quickCss.htmlSha256 && sha(script) === evidence.quickCss.scriptSha256);
+            const ipc = nativeMap.sourcesContent[nativeMap.sources.findIndex(s => s.endsWith('/src/main/ipcMain.ts'))];
+            check(`${name} preserves isolated data preload and executes packaged script after navigation`, ipc?.includes('contextIsolation: true') && ipc.includes('nodeIntegration: false')
+                && ipc.includes('await win.loadURL(`data:text/html;base64,${monacoHtml}`);\n    await win.webContents.executeJavaScript(Buffer.from(monacoScript, "base64").toString("utf8"));'));
+        }
     }
     const text = fs.readFileSync(path.join(runtime, 'renderer.js'), 'utf8');
     check('diagnostic persistence and request events in renderer', ['SupportTemplates_diagnostics_v1', 'request.failure', 'auth.terminated', 'SupportTemplates-diagnostics-'].every(s => text.includes(s)));
