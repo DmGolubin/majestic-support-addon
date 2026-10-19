@@ -33,3 +33,9 @@ API reference: [BetterDiscord ReactUtils](https://docs.betterdiscord.app/api//Re
 - Graph updated with AST extraction only.
 
 Test hosts implement the observed composer contract; they are not a live Discord session. The owner must verify ordinary/preview/compose insertion and existing draft preservation in .19. Installed Discord files have not been changed by this work.
+
+## Delivery
+
+All three .19 variants were built from frozen source `7430ecfcf1b462ddb87bdc8cb41d3c1d55afb35b`. The pinned Vencord dependency checkout and frozen lock hash matched the prior isolated build. Package validation and final BetterDiscord JavaScript syntax check passed.
+
+Published private prerelease [v1.0.1-canary.19](https://github.com/skyjacc/support-templates/releases/tag/v1.0.1-canary.19), ID `417351734`. All nine remote asset sizes and SHA-256 digests were verified against the local package before and after publication. BetterDiscord plugin SHA-256: `81aa43daf7ca921ec7acda404eedf08a107416a2507200fecbe6111caf355155`.
