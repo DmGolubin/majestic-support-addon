@@ -155,4 +155,3 @@ describe("reminder settings rate limits", () => {
         expect(h.state().phase).toBe("ready");
     });
 });
-

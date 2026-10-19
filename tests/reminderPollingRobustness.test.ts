@@ -96,4 +96,3 @@ describe("reminder polling robustness regressions", () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 });
-
