@@ -1,20 +1,30 @@
+"""No-plugin control with the same React, fixture and instrumentation."""
 import json
-from pathlib import Path
-from playwright.sync_api import sync_playwright
-out=Path('artifacts/memory19')
-(out/'control.html').write_text('<!doctype html><meta charset="utf-8"><script src="react.js"></script><script src="host.js"></script>',encoding='utf-8')
-with sync_playwright() as p:
-    browser=p.chromium.launch(headless=True)
-    page=browser.new_page()
-    page.add_init_script(path='scripts/qa/memory-instrument.js')
-    cdp=page.context.new_cdp_session(page);cdp.send('Performance.enable')
-    page.goto('http://127.0.0.1:47836/control.html');page.wait_for_load_state('networkidle')
-    def measure():
-        return {'metrics':{x['name']:x['value'] for x in cdp.send('Performance.getMetrics')['metrics']},'dom':cdp.send('Memory.getDOMCounters'),'heap':cdp.send('Runtime.getHeapUsage'),'instrument':page.evaluate('instrumentMetrics()')}
-    cdp.send('HeapProfiler.collectGarbage');cdp.send('HeapProfiler.collectGarbage')
-    rows=[measure()]
-    for _ in range(2):
-        page.wait_for_timeout(30000);rows.append(measure())
-    (out/'control-results.json').write_text(json.dumps(rows,indent=2),encoding='utf-8')
-    print(json.dumps({'taskSeconds':rows[-1]['metrics']['TaskDuration']-rows[0]['metrics']['TaskDuration'],'duration':rows[-1]['metrics']['Timestamp']-rows[0]['metrics']['Timestamp']}),flush=True)
-    browser.close()
+import time
+from memory_common import parser, configure, Run, check, save
+p=parser('Passive no-plugin control; owns server/browser and blocks external traffic')
+p.add_argument('--seconds',type=int,default=60)
+args=p.parse_args()
+name='control-results.json'
+result=configure(args,name)
+try:
+    with Run(args,result) as run:
+        page,cdp=run.fresh(control=True)
+        result['samples'].append(run.measure(page,cdp,'control-start'))
+        elapsed=0
+        while elapsed<args.seconds:
+            wait=min(30,args.seconds-elapsed)
+            page.wait_for_timeout(wait*1000)
+            elapsed+=wait
+            result['samples'].append(run.measure(page,cdp,'control-idle'))
+            save(args,name,result)
+        check(result,'no-errors',not result['errors'],result['errors'])
+        check(result,'no-external-requests',not result['externalRequests'],result['externalRequests'])
+        check(result,'no-plugin-observers',all(not any(k.startswith('plugin:') and v for k,v in r['app']['instrument']['activeObserversByOwner'].items()) for r in result['samples']))
+        result['status']='pass' if all(x['pass'] for x in result['assertions']) else 'fail'
+except Exception as e:
+    result.update(status='fail',failure=str(e))
+finally:
+    save(args,name,result)
+    print(json.dumps({'status':result['status'],'output':str(args.out/name)}),flush=True)
+raise SystemExit(0 if result['status']=='pass' else 1)

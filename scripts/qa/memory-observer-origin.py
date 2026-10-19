@@ -1,31 +1,22 @@
-"""Attribute residual observer accounting without retaining observer/DOM objects."""
+"""Post-GC observer attribution, using shared WeakRef-only instrumentation."""
 import json
-from pathlib import Path
-from playwright.sync_api import sync_playwright
-from memory_server import server
-
-with server(), sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
-    page = browser.new_page()
-    page.add_init_script('''(() => {
-      const Native = MutationObserver, records = [];
-      window.MutationObserver = class extends Native {
-        constructor(fn) { super(fn); records.push({ref:new WeakRef(this),stack:new Error().stack}); }
-        observe(...args) { super.observe(...args); this.active=true; }
-        disconnect() { super.disconnect(); this.active=false; }
-      };
-      window.observerOrigins=()=>records.map(r=>({alive:!!r.ref.deref(),active:r.ref.deref()?.active??false,stack:r.stack}));
-    })();''')
-    page.goto('http://127.0.0.1:47836/index.html')
-    page.wait_for_load_state('networkidle')
-    page.evaluate('async()=>{await started;await harness.connectPanel()}')
-    page.wait_for_function('harness.panel.get().phase === "ready"')
-    page.evaluate('async()=>{harness.ui.set({windowOpen:true});await new Promise(r=>setTimeout(r,100))}')
-    page.locator('.vc-stx-menu-settings').click()
-    page.evaluate('async()=>{instance.stop();await instance.retiring}')
-    cdp=page.context.new_cdp_session(page)
-    cdp.send('HeapProfiler.collectGarbage')
-    result=page.evaluate('observerOrigins()')
-    Path('artifacts/memory19/observer-origins.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
-    print(json.dumps(result))
-    browser.close()
+from memory_common import parser, configure, Run, check, save, cleanup_assertions
+args=parser('Observer ownership after opening settings and stopping').parse_args()
+name='observer-origins.json';result=configure(args,name)
+try:
+    with Run(args,result) as run:
+        page,cdp=run.fresh();run.connect(page)
+        page.evaluate('async()=>{harness.ui.set({windowOpen:true});await testFrame()}')
+        page.locator('.vc-stx-menu-settings').click()
+        page.evaluate('testFrame()')
+        result['samples'].append(run.measure(page,cdp,'settings-open'))
+        run.stop(page)
+        row=run.measure(page,cdp,'stopped');result['samples'].append(row);cleanup_assertions(result,row)
+        check(result,'no-errors',not result['errors'],result['errors'])
+        check(result,'no-external-requests',not result['externalRequests'],result['externalRequests'])
+except BaseException as e:
+    check(result,'completed',False,str(e))
+finally:
+    result['status']='pass' if result['assertions'] and all(x['pass'] for x in result['assertions']) else 'fail'
+    save(args,name,result);print(json.dumps({'status':result['status'],'output':str(args.out/name)}),flush=True)
+raise SystemExit(0 if result['status']=='pass' else 1)

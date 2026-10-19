@@ -4,15 +4,15 @@ from functools import partial
 from threading import Thread
 
 @contextmanager
-def server():
+def server(directory):
     class Handler(SimpleHTTPRequestHandler):
         def log_message(self, *_):
             pass
-    http = ThreadingHTTPServer(('127.0.0.1', 47836), partial(Handler, directory='artifacts/memory19'))
+    http = ThreadingHTTPServer(('127.0.0.1', 0), partial(Handler, directory=str(directory)))
     thread = Thread(target=http.serve_forever, daemon=True)
     thread.start()
     try:
-        yield
+        yield f'http://127.0.0.1:{http.server_port}'
     finally:
         http.shutdown()
         http.server_close()
