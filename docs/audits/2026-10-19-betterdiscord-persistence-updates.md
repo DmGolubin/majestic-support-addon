@@ -25,3 +25,5 @@ Primary host implementation inspected: [filesystem bridge](https://github.com/Be
 ## Acceptance remaining
 
 No live BetterDiscord installation was controlled or real panel credentials read. User acceptance: one-time .16 installation, authorize once, Ctrl+R, full restart, logout and restart. Public GitHub delivery requires the owner to make `skyjacc/support-templates` public and publish a later compatible canary release with the manifest. Repository remains private; no employee GitHub-token workaround is introduced. D13 remains review until these live checks are confirmed.
+
+Published BetterDiscord-only prerelease: https://github.com/skyjacc/support-templates/releases/tag/v0.1.0-canary.16 . Source commit `0f3907ed96ee783698e17d01b57f35ed0700d166`; final plugin SHA-256 `255adac7a3a1b4d953de86ec712b6b9123e0a4a8865ca125cbcb4d47916d44db`. Exact packaged file loaded with restricted require and reported `.16`. All six uploaded asset sizes/digests matched locally before publishing; GitHub confirmed non-draft prerelease. Release includes exact-source ZIP, install notes, manifest and checksums. Installed clients and repository visibility unchanged.
