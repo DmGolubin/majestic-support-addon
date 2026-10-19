@@ -84,4 +84,15 @@ describe("BetterDiscord composer resource lifecycle", () => {
         expect(f.w.document.querySelector('.stx-bd-button-mount')).toBeNull();
         expect(f.observer().disconnect).toHaveBeenCalled(); stop();
     });
+    it("does not recursively unsubscribe when host cleanup re-enters stop", () => {
+        const f = fixture(), stop = f.mount();
+        let attempts = 0;
+        f.bus.unsubscribe.mockImplementation((_type, fn) => {
+            if (++attempts > 2) throw Error('recursive unsubscribe');
+            stop(); f.listeners.delete(fn);
+        });
+        stop();
+        expect(attempts).toBe(1);
+        expect(f.listeners.size).toBe(0);
+    });
 });

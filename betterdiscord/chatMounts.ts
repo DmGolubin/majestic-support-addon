@@ -4,10 +4,16 @@ import { serverMode } from "../src/core/guard";
 
 const pendingSubscriptions = new Set<() => void>();
 function releaseSubscriptions() {
-    for (const remove of pendingSubscriptions) {
+    for (const remove of [...pendingSubscriptions]) {
+        pendingSubscriptions.delete(remove);
         for (let attempt = 0; attempt < 2; attempt++) {
-            try { remove(); pendingSubscriptions.delete(remove); break; }
-            catch (error) { if (attempt === 1) console.error("[SupportTemplates] Toolbar subscription cleanup failed", error); }
+            try { remove(); break; }
+            catch (error) {
+                if (attempt === 1) {
+                    pendingSubscriptions.add(remove);
+                    console.error("[SupportTemplates] Toolbar subscription cleanup failed", error);
+                }
+            }
         }
     }
 }
