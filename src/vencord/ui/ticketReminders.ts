@@ -22,9 +22,17 @@ let controller: ReturnType<typeof createReminderController> | null = null;
 let revision = 0;
 let settingsRead: Promise<void> | null = null;
 let settingsRevision = 0;
+let settingsRetryAt = 0;
+
+function deferSettings(error: unknown) {
+    if (!(error instanceof PanelError)) return;
+    const delay = Number.isFinite(error.retryAfterMs) && error.retryAfterMs! > 0 ? error.retryAfterMs! : error.status === 429 ? 60000 : 0;
+    if (delay) settingsRetryAt = Math.max(settingsRetryAt, Date.now() + delay);
+}
 
 export function stopTicketReminders() {
     revision++; settingsRevision++;
+    settingsRetryAt = 0;
     controller?.stop(); controller = null; binding = null; settingsRead = null;
     ticketRemindersState.set({ phase: "idle", settings: null, busy: false, error: "", deliveryError: "" });
 }
@@ -81,6 +89,7 @@ export async function refreshTicketReminders(): Promise<void> {
     const b = binding, own = revision;
     if (!b || !current(b, own) || ticketRemindersState.get().phase === "permission" || ticketRemindersState.get().busy) return;
     if (settingsRead) return settingsRead;
+    if (Date.now() < settingsRetryAt) return;
     const readRevision = ++settingsRevision;
     ticketRemindersState.set({ phase: ticketRemindersState.get().settings ? "ready" : "loading" });
     const task = (async () => {
@@ -92,7 +101,9 @@ export async function refreshTicketReminders(): Promise<void> {
             controller?.start();
             controller?.invalidate();
         } catch (error) {
-            if (!current(b, own) || readRevision !== settingsRevision) return;
+            if (!current(b, own)) return;
+            deferSettings(error);
+            if (readRevision !== settingsRevision) return;
             controller?.stop();
             ticketRemindersState.set({ phase: error instanceof PanelError && error.status === 403 ? "permission" : "offline", error: error instanceof PanelError && error.status === 403
                 ? "Нет доступа к настройкам напоминаний. Подключите аккаунт заново."
@@ -119,6 +130,7 @@ export async function setDiscordReminders(enabled: boolean): Promise<void> {
         ticketRemindersState.set({ settings, phase: "ready", error: "" });
     } catch (error) {
         if (!current(b, own)) return;
+        deferSettings(error);
         if (error instanceof PanelError && error.status === 401) { b.onAuthError(error); return; }
         ticketRemindersState.set({ phase: "offline", error: error instanceof PanelError && error.status === 412
             ? "Настройки изменились на панели. Повторите проверку и выберите нужное значение."

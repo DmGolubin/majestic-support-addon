@@ -37,6 +37,7 @@ export function LoginWindow() {
     return <div ref={ref} tabIndex={-1} role="dialog" aria-label="Вход в SupportTemplates" className="vc-stx-login"
         style={{ width, right: Math.max(8, Math.min(innerWidth - width - 8, rect ? innerWidth - rect.right : 16)), bottom, maxHeight: innerHeight - bottom - 8 }}
         onKeyDown={e => {
+            if (e.nativeEvent.isComposing || e.keyCode === 229) return;
             if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); ui.set({ windowOpen: false }); }
             if (e.key === "Tab") {
                 const nodes = [...ref.current!.querySelectorAll<HTMLElement>("button:not(:disabled), a[href]")];

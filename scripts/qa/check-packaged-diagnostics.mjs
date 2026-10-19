@@ -30,7 +30,7 @@ for (const variant of ['vencord', 'standalone']) {
     execFileSync('tar', ['-xf', archive, '-C', dir]);
     const pkg = path.join(dir, fs.readdirSync(dir)[0]);
     const manifest = JSON.parse(fs.readFileSync(path.join(pkg, 'manifest.json')));
-    check('version .21', manifest.version === '1.0.1-canary.21');
+    check('version matches release manifest', manifest.version === releaseManifest.version);
     for (const item of manifest.files) {
         const bytes = fs.readFileSync(path.join(pkg, item.path));
         assert.equal(bytes.length, item.size); assert.equal(sha(bytes), item.sha256);
@@ -46,7 +46,9 @@ for (const variant of ['vencord', 'standalone']) {
         if (offset >= 0) sources.set(map.sources[i].slice(offset + marker.length), map.sourcesContent[i]);
     }
     for (const file of ['core/diagnosticJournal.ts', 'core/panelTransport.ts', 'core/panelClient.ts',
-        'core/panelEvents.ts', 'ui/diagnostics.ts', 'ui/DiagnosticControls.tsx', 'ui/Settings.tsx', 'ui/panel.ts']) {
+        'core/panelEvents.ts', 'core/panelProtocol.ts', 'core/panelReminders.ts',
+        'ui/diagnostics.ts', 'ui/DiagnosticControls.tsx', 'ui/Settings.tsx', 'ui/panel.ts',
+        'ui/ticketReminders.ts', 'ui/Management.tsx', 'ui/Window.tsx', 'ui/LoginWindow.tsx']) {
         const original = path.join(root, file.startsWith('core/') ? 'src' : 'src/vencord', file);
         check(`packaged source matches ${file}`, normalize(sources.get(file)) === normalize(fs.readFileSync(original, 'utf8')));
     }

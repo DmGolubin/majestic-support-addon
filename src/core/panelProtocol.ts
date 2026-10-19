@@ -6,7 +6,7 @@
 
 /** Wire boundary for the delivered panel contract. No IO or token persistence here. */
 export const PANEL_ORIGIN = "https://panel.majestic-rp.tech";
-// The deployed API can return the public site's confirmation page. API/token requests stay on PANEL_ORIGIN.
+// Accept legacy server responses, but open confirmation on the canonical API host.
 const PANEL_LOGIN_ORIGIN = "https://majestic-rp.tech";
 export const PANEL_API_PATH = "/api/plugin/v1";
 export const PANEL_CLIENT_ID = "support-templates";
@@ -119,7 +119,7 @@ function verification(value: unknown, trustedOrigin: string, userCode: string, c
     if ([...u.searchParams.keys()].some(k => k !== "user_code" && k !== "code")) return invalid();
     const codes = [...u.searchParams.getAll("user_code"), ...u.searchParams.getAll("code")];
     if (complete ? codes.length !== 1 || codes[0] !== userCode : codes.length !== 0) return invalid();
-    return u.href;
+    return trustedOrigin + "/connect";
 }
 
 export function parseDeviceAuthorization(value: unknown, trustedOrigin = PANEL_ORIGIN): DeviceAuthorization {
@@ -129,13 +129,16 @@ export function parseDeviceAuthorization(value: unknown, trustedOrigin = PANEL_O
     const expiresIn = positive(r.expires_in);
     const interval = positive(r.interval);
     if (interval >= expiresIn) return invalid();
+    const verificationUri = verification(r.verification_uri, trusted, userCode, false);
+    // Validate even the legacy complete link before constructing our destination.
+    // Never carry redirect parameters, tokens or an untrusted origin into the browser.
+    if (r.verification_uri_complete !== undefined) verification(r.verification_uri_complete, trusted, userCode, true);
+    const complete = new URL(verificationUri);
+    complete.searchParams.set("code", userCode);
     return {
         deviceCode: string(r.device_code), userCode,
-        verificationUri: verification(r.verification_uri, trusted, userCode, false),
-        // OpenAPI permits omitting the complete link; use the base page and show the code.
-        verificationUriComplete: r.verification_uri_complete === undefined
-            ? verification(r.verification_uri, trusted, userCode, false)
-            : verification(r.verification_uri_complete, trusted, userCode, true),
+        verificationUri,
+        verificationUriComplete: complete.href,
         expiresIn, interval
     };
 }

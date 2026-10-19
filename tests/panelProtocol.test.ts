@@ -40,14 +40,22 @@ describe("production panel protocol boundary", () => {
     it("accepts a matching code and server-provided timing", () => {
         expect(parseDeviceAuthorization(device)).toMatchObject({ deviceCode: device.device_code, userCode: "ABCD12", interval: 5, expiresIn: 600 });
         expect(slowerPolling(slowerPolling(5))).toBe(15);
-        expect(parseDeviceAuthorization({ ...device, verification_uri_complete: undefined }).verificationUriComplete).toBe(device.verification_uri);
+        expect(parseDeviceAuthorization({ ...device, verification_uri_complete: undefined }).verificationUriComplete).toBe(PANEL_ORIGIN + "/connect?code=ABCD12");
     });
-    it.each([PANEL_ORIGIN, "https://majestic-rp.tech"])("accepts the deployed code link on %s without moving the API", webOrigin => {
+    it.each([PANEL_ORIGIN, "https://majestic-rp.tech"])("opens the canonical panel code link for a validated response from %s", webOrigin => {
         const value = { ...device, user_code: "TEST123456", verification_uri: webOrigin + "/connect",
             verification_uri_complete: webOrigin + "/connect?code=TEST123456" };
-        expect(parseDeviceAuthorization(value)).toMatchObject({ userCode: "TEST123456", verificationUriComplete: value.verification_uri_complete });
-        expect(parseDeviceAuthorization({ ...value, verification_uri_complete: undefined }).verificationUriComplete).toBe(value.verification_uri);
+        expect(parseDeviceAuthorization(value)).toMatchObject({ userCode: "TEST123456", verificationUri: PANEL_ORIGIN + "/connect", verificationUriComplete: PANEL_ORIGIN + "/connect?code=TEST123456" });
+        expect(parseDeviceAuthorization({ ...value, verification_uri_complete: undefined }).verificationUriComplete).toBe(PANEL_ORIGIN + "/connect?code=TEST123456");
         expect(panelEndpoint("/oauth/token")).toBe(PANEL_ORIGIN + "/api/plugin/v1/oauth/token");
+    });
+    it("normalizes legacy query names and encodes the user code as one parameter", () => {
+        expect(parseDeviceAuthorization(device).verificationUriComplete).toBe(PANEL_ORIGIN + "/connect?code=ABCD12");
+        const user_code = "A+B &next=?/";
+        const result = parseDeviceAuthorization({ ...device, user_code, verification_uri_complete: undefined });
+        const url = new URL(result.verificationUriComplete);
+        expect(url.origin).toBe(PANEL_ORIGIN);
+        expect([...url.searchParams.entries()]).toEqual([["code", user_code]]);
     });
     it.each([
         "https://majestic-rp.tech/connect?code=OTHER",

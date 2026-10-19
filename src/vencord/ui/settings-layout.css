@@ -1,5 +1,6 @@
 .vc-stx-settings-account .vc-stx-settings-nav { gap: 8px; padding-block: 14px; }
 .vc-stx-management:focus { outline: none; }
+.vc-stx-form-error { overflow-wrap: anywhere; }
 .vc-stx-settings-account .vc-stx-settings-nav .vc-stx-btn { min-height: 38px; padding-inline: 14px; border-radius: 6px; }
 .vc-stx-settings-account .vc-stx-settings-nav .vc-stx-btn[aria-pressed=true] { background: var(--stx-acc); box-shadow: inset 0 -2px var(--stx-pr); }
 .vc-stx-settings-sections { display: grid; gap: 14px; padding-bottom: 4px; }

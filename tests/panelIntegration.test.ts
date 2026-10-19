@@ -520,16 +520,25 @@ describe("permission races through the controller and actual catalog parsers", (
         { code: "session_revoked", status: 0, terminal: true },
         { code: "refresh_uncertain", status: 0, terminal: true },
     ])("handles delayed invalidated request errors: $code", async ({ code, status, terminal }) => {
+        vi.spyOn(Math, "random").mockReturnValue(0.5);
         const h = setup(); await h.api.connectPanel();
         const wait = deferred<unknown>(); h.get.mockReturnValueOnce(wait.promise);
         const refresh = h.api.reloadPanel(); await vi.advanceTimersByTimeAsync(0);
         h.streams[0].emit({ type: "permissions.changed", data: {} });
         wait.reject(new PanelError(code, status));
         await refresh; await vi.advanceTimersByTimeAsync(0);
-        expect(h.api.panel.get().phase).toBe(terminal ? "error" : "ready");
-        expect(h.access.get().ready).toBe(!terminal);
+        expect(h.api.panel.get().phase).toBe(terminal ? "error" : "offline");
+        expect(h.access.get().ready).toBe(false);
         expect(h.clients[0].cancel).toHaveBeenCalledTimes(terminal ? 1 : 0);
         if (terminal) expect(h.store.templates).toEqual([]);
+        else {
+            const reads = h.get.mock.calls.length;
+            await vi.advanceTimersByTimeAsync(9999);
+            expect(h.get).toHaveBeenCalledTimes(reads);
+            await vi.advanceTimersByTimeAsync(1);
+            expect(h.api.panel.get().phase).toBe("ready");
+            expect(h.access.get().ready).toBe(true);
+        }
         h.api.disposePanel();
     });
 

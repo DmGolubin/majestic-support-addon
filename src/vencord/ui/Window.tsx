@@ -208,12 +208,18 @@ function WindowView() {
     selIdxRef.current = selIdx;
 
     useEffect(() => {
+        const previous = document.activeElement as HTMLElement;
+        const element = winRef.current;
         inputRef.current?.focus();
         const off = watchChatArea(() => setGeometry({ rect: chatAreaRect(windowEditor()) }), windowEditor);
         logGeometry("окно открыто");
         return () => {
             off();
             logGeometry("окно закрыто");
+            // Restore the opener on dismiss, but leave a new settings/dialog or
+            // an editor focused by insertion in charge of its own focus.
+            if (!ui.get().management && !ui.get().dialog && previous?.isConnected
+                && (element?.contains(document.activeElement) || document.activeElement === document.body)) previous.focus({ preventScroll: true });
         };
     }, []);
     useEffect(() => {

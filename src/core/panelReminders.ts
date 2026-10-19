@@ -345,10 +345,10 @@ export function createReminderController(options: ReminderOptions): ReminderCont
                 const ms = object(error).retryAfterMs;
                 if (typeof ms === "number" && Number.isFinite(ms) && ms > 0) retry = ms;
             } catch { /* no transport delay */ }
-            notBefore = Math.max(notBefore, clock.now() + retry);
+            // Invalidation must not turn a failed in-flight read into an immediate retry.
+            notBefore = Math.max(notBefore, clock.now() + Math.max(retry, pollDelay()));
             if (!valid(g)) return;
             snapshot = undefined;
-            notBefore = Math.max(notBefore, clock.now() + pollDelay());
             notify({ status: "unavailable" });
         }
     }

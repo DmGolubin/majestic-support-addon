@@ -48,6 +48,7 @@ let failures = 0;
 let retryAt = 0;
 let syncRevision = 0;
 let resyncPending = false;
+let resyncQueued = false;
 let stream: AbortController | null = null;
 let streamTimer: ReturnType<typeof setTimeout> | undefined;
 let streamFailures = 0;
@@ -77,7 +78,7 @@ function wipe() {
     const previousLibrary = library, previousStream = stream, previousTimer = timer, previousStreamTimer = streamTimer;
     library = null; preferences = null; stream = null; timer = streamTimer = undefined;
     epoch++; loading = null; fingerprint = ""; permissions = ""; accountId = null; boundAccountId = null; failures = 0; retryAt = 0;
-    streamFailures = 0; syncRevision++; resyncPending = false;
+    streamFailures = 0; syncRevision++; resyncPending = false; resyncQueued = false;
     cleanupPanelStep("library timer", () => clearTimeout(previousTimer));
     cleanupPanelStep("stream timer", () => clearTimeout(previousStreamTimer));
     cleanupPanelStep("event stream", () => previousStream?.abort());
@@ -115,6 +116,7 @@ function message(error: unknown): string {
         upgrade_required: "Для подключения нужна новая версия плагина.",
         rate_limited: "Слишком много запросов. Повторим позже.",
         network_error: "Нет связи с панелью. Повторим подключение.",
+        transport_error: "Нет связи с панелью. Повторим подключение.",
         timeout: "Панель не ответила вовремя. Повторим подключение.",
         invalid_response: "Ответ панели не соответствует контракту. Загрузка остановлена."
     };
@@ -140,7 +142,16 @@ function requestResync(clearCatalog: boolean) {
         library?.clearPanelCatalog(); fingerprint = "";
     }
     panel.set({ phase: "loading", checkedAt: 0 });
-    if (!loading) void loadLibrary();
+    if (!loading && !resyncQueued) {
+        const own = epoch;
+        resyncQueued = true;
+        // Invalidate synchronously, but capture one revision after this event burst.
+        void Promise.resolve().then(() => {
+            if (own !== epoch) return;
+            resyncQueued = false;
+            if (resyncPending) void loadLibrary();
+        });
+    }
 }
 
 function startEvents() {
@@ -198,7 +209,15 @@ function startEvents() {
         const delay = tokenExpired ? 250 : Math.max(retryAfter, Math.min(60000, 1000 * 2 ** streamFailures) * (0.8 + Math.random() * 0.4));
         panel.set({ sync: "retrying" });
         journal.record("stream.retry", { retryAfterMs: delay, failures: streamFailures });
-        streamTimer = setTimeout(() => { streamTimer = undefined; if (own === epoch) startEvents(); }, Math.min(delay, 2147483647));
+        const due = Date.now() + Math.ceil(delay);
+        const reconnect = () => {
+            if (own !== epoch || client !== active) return;
+            const remaining = due - Date.now();
+            if (remaining > 0) { streamTimer = setTimeout(reconnect, Math.min(remaining, 2147483647)); return; }
+            streamTimer = undefined;
+            startEvents();
+        };
+        streamTimer = setTimeout(reconnect, Math.min(Math.ceil(delay), 2147483647));
     })();
 }
 
@@ -208,7 +227,15 @@ function schedule(own: number, retryAfter = 0) {
     // Timers truncate fractions; use the same whole milliseconds for the timer and retry guard.
     const delay = Math.ceil(failures ? Math.max(retryAfter, Math.min(120000, 5000 * 2 ** Math.min(failures, 5)) * (0.8 + Math.random() * 0.4)) : 50000 + Math.random() * 20000);
     retryAt = failures ? Date.now() + delay : 0;
-    timer = setTimeout(() => void loadLibrary(), Math.min(delay, 2147483647));
+    const due = Date.now() + delay;
+    const poll = () => {
+        if (epoch !== own || !client) return;
+        const remaining = due - Date.now();
+        if (remaining > 0) { timer = setTimeout(poll, Math.min(remaining, 2147483647)); return; }
+        timer = undefined;
+        void loadLibrary();
+    };
+    timer = setTimeout(poll, Math.min(delay, 2147483647));
 }
 
 function terminalReadError(error: unknown): boolean {
@@ -240,7 +267,13 @@ async function loadLibrary(): Promise<boolean> {
                     const [me, snapshot] = await Promise.allSettled([active.get("/me"), active.get("/snapshot")]);
                     if (me.status === "rejected" && terminalReadError(me.reason)) throw me.reason;
                     if (snapshot.status === "rejected" && terminalReadError(snapshot.reason)) throw snapshot.reason;
-                    if (me.status === "rejected") throw me.reason;
+                    if (me.status === "rejected") {
+                        // Both parallel reads share the next retry; preserve the longer server delay.
+                        if (me.reason instanceof PanelError && snapshot.status === "rejected" && snapshot.reason instanceof PanelError) {
+                            throw new PanelError(me.reason.code, me.reason.status, Math.max(me.reason.retryAfterMs ?? 0, snapshot.reason.retryAfterMs ?? 0));
+                        }
+                        throw me.reason;
+                    }
                     rawProfile = me.value; initialSnapshot = snapshot;
                 } else rawProfile = await active.get("/me");
                 if (own !== epoch || revision !== syncRevision || !library) return false;
@@ -319,14 +352,15 @@ async function loadLibrary(): Promise<boolean> {
         } catch (error) {
             if (own !== epoch) return false;
             journal.record("panel.load_failure", { code: error instanceof PanelError ? error.code : "invalid_response", status: error instanceof PanelError ? error.status : 0 }, true);
-            // Superseded reads cannot fail a newer resync, but auth/storage failures
-            // still fail closed: invalidation must never suppress a genuine revocation.
+            // Superseded payload errors cannot fail a newer resync. Auth/storage failures
+            // still fail closed, and transient failures retain their retry delay below.
             const terminal = terminalReadError(error);
-            if (revision !== syncRevision && !terminal) return false;
+            // Even a superseded read's rate limit/network backoff applies to the next read.
+            const transient = !terminal && ((error instanceof PanelCatalogValidationError && error.kind === "data")
+                || (error instanceof PanelError && (error.status === 429 || error.status >= 500 || ["network_error", "transport_error", "timeout", "request_timeout"].includes(error.code))));
+            if (revision !== syncRevision && !terminal && !transient) return false;
             panelAccess.set({ ready: false }); invalidate();
             stopTicketReminders();
-            const transient = !terminal && ((error instanceof PanelCatalogValidationError && error.kind === "data")
-                || (error instanceof PanelError && (error.status === 429 || error.status >= 500 || ["network_error", "timeout", "request_timeout"].includes(error.code))));
             if (transient) {
                 failures++;
                 panel.set({ phase: "offline", error: message(error) });
