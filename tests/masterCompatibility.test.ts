@@ -250,4 +250,20 @@ describe("Role05 Discord compatibility regressions", () => {
         expect(fn).toHaveBeenCalledExactlyOnceWith(null);
         off(); expect(h.common.FluxDispatcher.unsubscribe).toHaveBeenCalledExactlyOnceWith(event, handler);
     });
+    it("retains only failed removals, blocks duplicate channel subscriptions and recovers with the host", () => {
+        const h = harness(), fn = vi.fn(), bus = h.common.FluxDispatcher;
+        const listeners = new Set<any>();
+        bus.subscribe.mockImplementation((_event: string, handler: any) => listeners.add(handler));
+        bus.unsubscribe.mockImplementation(() => { throw Error('host unavailable'); });
+        const off = h.platform.onChannelChange(fn); off();
+        expect(listeners.size).toBe(1);
+        for (let i = 0; i < 10; i++) h.platform.onChannelChange(fn)();
+        expect(listeners.size).toBe(1); expect(bus.subscribe).toHaveBeenCalledOnce();
+        [...listeners].forEach(handler => handler({ guildId: 'stale' }));
+        expect(fn).not.toHaveBeenCalled();
+        bus.unsubscribe.mockImplementation((_event: string, handler: any) => listeners.delete(handler));
+        const recovered = h.platform.onChannelChange(fn);
+        expect(listeners.size).toBe(1);
+        recovered(); expect(listeners.size).toBe(0);
+    });
 });

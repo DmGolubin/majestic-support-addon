@@ -126,6 +126,37 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-18T00:
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("reminder lifecycle wiring", () => {
+    it("retires timers, stream, catalog and freshness even when client disposal and reminder cleanup throw", async () => {
+        const h = harness();
+        const off = h.api.startPanel(); await h.api.connectPanel();
+        expect(h.store.templates.length).toBeGreaterThan(0);
+        expect(h.streams).toHaveLength(1);
+        const active = h.clients[h.clients.length - 1];
+        active.dispose.mockImplementationOnce(() => { throw new Error("dispose failure"); });
+        h.reminders.stopTicketReminders.mockImplementationOnce(() => { throw new Error("reminder cleanup failure"); });
+        expect(() => h.api.disposePanel()).not.toThrow();
+        expect(h.handlers.size + h.windowHandlers.size + h.documentHandlers.size + h.accountHandlers.size).toBe(0);
+        expect(h.streams[0].signal.aborted).toBe(true);
+        expect(h.api.panelPersonal.get().catalog).toBeNull();
+        expect(h.api.panel.get().phase).toBe("idle");
+        expect(h.store.templates).toEqual([]); expect(h.access.get().ready).toBe(false);
+        expect(await h.freshness()).toBe(false);
+        await vi.advanceTimersByTimeAsync(120000);
+        expect(vi.getTimerCount()).toBe(0);
+        off(); h.api.disposePanel(); expect(active.dispose).toHaveBeenCalledOnce();
+    });
+
+    it("attempts preference flush and catalog clearing even when closing preference writes throws", async () => {
+        const h = harness(); await h.api.connectPanel();
+        const closing = vi.fn(() => { throw new Error("close preferences failed"); });
+        const flush = vi.fn(async () => {});
+        h.store.closePanelPreferences = closing; h.store.flush = flush;
+        expect(() => h.api.disposePanel()).not.toThrow();
+        expect(closing).toHaveBeenCalledOnce(); expect(flush).toHaveBeenCalledOnce();
+        expect(h.store.templates).toEqual([]); expect(h.api.panelPersonal.get().catalog).toBeNull();
+        expect(h.api.panel.get().phase).toBe("idle");
+    });
+
     it("binds verified identity and projects, forwards ticket events and invalidates on disposal", async () => {
         const h = harness(); await h.api.connectPanel();
         const binding = h.reminders.syncTicketReminders.mock.calls.at(-1)![0];

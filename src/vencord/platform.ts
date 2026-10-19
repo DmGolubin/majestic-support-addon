@@ -75,27 +75,48 @@ export function currentChannel() {
     }, { id: null, name: "", guildId: null });
 }
 
+const pendingChannelUnsubscribes = new Set<() => void>();
+function releaseChannelSubscriptions() {
+    for (const remove of [...pendingChannelUnsubscribes]) {
+        // Detach before invoking host code, which may re-enter disposal.
+        pendingChannelUnsubscribes.delete(remove);
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try { remove(); break; }
+            catch (error) {
+                if (attempt === 1) {
+                    pendingChannelUnsubscribes.add(remove);
+                    console.error("[SupportTemplates] Channel subscription cleanup failed", error);
+                }
+            }
+        }
+    }
+}
+
 /** fn gets the new channel's guild id (null in DMs) from the CHANNEL_SELECT payload. */
 export function onChannelChange(fn: (guildId: string | null) => void) {
     const h = (e: { guildId?: string | null; }) => fn(e?.guildId ?? null);
     return hostValue("channel-events", () => {
+        releaseChannelSubscriptions();
+        if (pendingChannelUnsubscribes.size) throw new Error("Channel subscription could not be released");
         const dispatcher = FluxDispatcher;
         // Resolve both methods before subscribing, including potentially throwing lazy proxies.
         const subscribe = dispatcher.subscribe.bind(dispatcher);
-        const unsubscribe = dispatcher.unsubscribe.bind(dispatcher);
+        if (typeof dispatcher.unsubscribe !== "function") throw new Error("Channel unsubscribe unavailable");
         let active = true;
         const handler = (e: { guildId?: string | null; }) => { if (active) h(e); };
+        const off = () => {
+            if (active) {
+                active = false;
+                pendingChannelUnsubscribes.add(() => dispatcher.unsubscribe("CHANNEL_SELECT", handler));
+            }
+            releaseChannelSubscriptions();
+        };
         try { subscribe("CHANNEL_SELECT", handler); }
         catch (error) {
-            active = false;
-            try { unsubscribe("CHANNEL_SELECT", handler); } catch { /* Partial subscription: callback is inert. */ }
+            off();
             throw error;
         }
-        return () => {
-            if (!active) return;
-            active = false;
-            hostValue("channel-events-cleanup", () => unsubscribe("CHANNEL_SELECT", handler), undefined);
-        };
+        return off;
     }, () => {});
 }
 
