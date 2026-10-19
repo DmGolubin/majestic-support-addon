@@ -59,6 +59,17 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
         AccessibilityStore: {}, LocaleStore: {}, ThemeStore: {}
     };
     const componentDispatch = { subscribe() {}, dispatchToLastSubscribed: vi.fn() };
+    const editor = w.document.querySelector('[data-slate-editor="true"]');
+    const slate = { children: [{ children: [{ text: editor.textContent }] }], operations: [] as any[] };
+    const composer = {
+        props: { disabled: false }, getSlateEditor: () => slate,
+        ref: { current: { focus: () => editor.focus() } },
+        handleInsertText: vi.fn((payload: any) => {
+            slate.children[0].children[0].text += payload.rawText;
+            slate.operations.push({ type: "insert_text", text: payload.rawText });
+            editor.textContent = slate.children[0].children[0].text;
+        })
+    };
     const data = new Map();
     let resolveRead!: (value: any) => void;
     let delay = delayedRead;
@@ -66,6 +77,7 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
     const styleNodes = new Map();
     const host: any = {
         React, ReactDOM,
+        ReactUtils: { getInternalInstance: (node: any) => node === editor ? { stateNode: editor, return: { stateNode: composer } } : null },
         Webpack: { getStore: (name: string) => missingStore && name === "ChannelStore" ? undefined : stores[name],
             getModule: (filter: any) => [dispatcher, componentDispatch].find(filter) },
         Data: { load: vi.fn((_name, key) => {
@@ -115,7 +127,7 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
     const plugin = new Plugin();
     const frame = () => new Promise(resolve => w.requestAnimationFrame(() => resolve(undefined)));
     cleanups.push(async () => { await React.act(async () => { plugin.stop(); resolveRead(undefined); await frame(); }); w.close(); });
-    return { plugin, Plugin, host, globals, componentDispatch, flux, changes, fonts, document: w.document, w, frame, resolveRead, data, deniedModules,
+    return { plugin, Plugin, host, globals, componentDispatch, composer, slate, flux, changes, fonts, document: w.document, w, frame, resolveRead, data, deniedModules,
         channel: (guild: string) => { channel = { ...channel, guild_id: guild }; dispatcher.dispatch({ type: "CHANNEL_SELECT", guildId: guild }); },
         key: () => { const event = new w.KeyboardEvent("keydown", { code: "KeyT", key: "t", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }); w.document.activeElement.dispatchEvent(event); return event; } };
 }
@@ -155,18 +167,14 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         expect(f.host.Net.fetch.mock.calls.some(([url]: [string]) => url.includes("oauth/"))).toBe(false);
         expect(f.deniedModules).toEqual([]);
         const editor = f.document.querySelector('[data-slate-editor="true"]');
-        // The host consumes rawText for its rich-text insertion path. Checking only
-        // dispatch calls previously hid a payload that silently left the draft unchanged.
-        f.componentDispatch.dispatchToLastSubscribed.mockImplementation((event: string, payload: any) => {
-            if (event === "INSERT_TEXT" && typeof payload.rawText === "string") {
-                expect(f.document.activeElement).toBe(editor);
-                editor.textContent += payload.rawText;
-            }
-        });
+        // The global event dispatcher deliberately does nothing. The bundle must
+        // target the captured editor's owner and observe its model change.
         expect(f.document.activeElement).not.toBe(editor);
         await React.act(async () => { f.document.querySelector('.vc-stx-it').click(); await f.frame(); });
         expect(editor.textContent).toBe("draft staysFixture answer");
-        expect(f.componentDispatch.dispatchToLastSubscribed).toHaveBeenCalledExactlyOnceWith("INSERT_TEXT", { rawText: "Fixture answer", plainText: "Fixture answer" });
+        expect(f.slate.children[0].children[0].text).toBe("draft staysFixture answer");
+        expect(f.composer.handleInsertText).toHaveBeenCalledExactlyOnceWith({ rawText: "Fixture answer", plainText: "Fixture answer", addSpace: false });
+        expect(f.componentDispatch.dispatchToLastSubscribed).not.toHaveBeenCalled();
     });
     it("downloads without evaluating, then loads the verified runtime through BD's absolute-path loader on next startup", async () => {
         const f = fixture({ restrictedHost: true, supportedBridge: true });
@@ -274,16 +282,17 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         f.plugin.delegate = { getVersion: () => "1.0.1-canary.99", stopBundledRuntime() {} };
         expect(f.plugin.getVersion()).toBe("1.0.1-canary.99");
     });
-    it("inserts through ComponentDispatch only into a focused Slate composer and never sends", () => {
+    it("inserts through the focused Slate composer's handler and never broadcasts or sends", () => {
         const f = fixture();
         const { insertTextIntoChatInputBox } = loadAdapter("shims/discord.ts", {}, { document: f.document, BdApi: f.host });
         expect(() => insertTextIntoChatInputBox("reply")).toThrow("No focused chat editor");
         f.document.querySelector('[data-slate-editor="true"]').focus();
         insertTextIntoChatInputBox("reply");
-        expect(f.componentDispatch.dispatchToLastSubscribed).toHaveBeenCalledExactlyOnceWith("INSERT_TEXT", { rawText: "reply", plainText: "reply" });
+        expect(f.composer.handleInsertText).toHaveBeenCalledExactlyOnceWith({ rawText: "reply", plainText: "reply", addSpace: false });
         const search = f.document.createElement("input"); f.document.body.append(search); search.focus();
         expect(() => insertTextIntoChatInputBox("wrong target")).toThrow("No focused chat editor");
-        expect(f.componentDispatch.dispatchToLastSubscribed).toHaveBeenCalledOnce();
+        expect(f.composer.handleInsertText).toHaveBeenCalledOnce();
+        expect(f.componentDispatch.dispatchToLastSubscribed).not.toHaveBeenCalled();
     });
     it("packages real UI/core, all host aliases, source/license and no Vencord runtime bridge", () => {
         const evidence = JSON.parse(source("betterdiscord/out/build-evidence.json"));

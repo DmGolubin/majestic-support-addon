@@ -28,7 +28,7 @@ Server restrictions and the rule that text is inserted but never sent are retain
 ## Host adaptation
 
 `shims/` maps every external renderer import: BetterDiscord's own React/ReactDOM,
-lazy Webpack stores and FluxDispatcher, ComponentDispatch INSERT_TEXT, BdApi.Data,
+lazy Webpack stores and FluxDispatcher, the focused composer's insertion handler, BdApi.Data,
 host setting preferences, clipboard, toast, chat button and error boundary.
 Relative core imports resolve directly to `src/core`; no historical plugin stub
 or copied UI is used. `build-evidence.json` lists every bundled input, alias and
