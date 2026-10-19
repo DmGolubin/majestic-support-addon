@@ -3,6 +3,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Store, STORE_KEY } from "../src/core/state";
+import { diagnosticJournal } from "../src/core/diagnosticJournal";
 import { routeStore } from "../src/core/storeRouter";
 import { createPanelPreferencesStorage } from "../src/core/panelPreferences";
 import { PanelError } from "../src/core/panelClient";
@@ -95,6 +96,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
         "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: state.discordId }),
             addChangeListener: (fn: () => void) => accountHandlers.add(fn), removeChangeListener: (fn: () => void) => accountHandlers.delete(fn) }, FluxDispatcher: {
             subscribe: (name: string, fn: () => void) => handlers.set(name, fn), unsubscribe: (name: string) => handlers.delete(name) } },
+        "../core/diagnosticJournal": { diagnosticJournal },
         "../buildInfo": { PLUGIN_VERSION: pluginVersion }, "../core/state": { Store, STORE_KEY },
         "../core/panelCatalog": { ...parsers, PanelCatalogValidationError, supportsPanelVersion },
         "../core/panelPreferences": { createPanelPreferencesStorage },

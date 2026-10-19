@@ -30,6 +30,7 @@ function harness() {
         return { get: () => value, set: vi.fn((patch: any) => { value = { ...value, ...patch }; }) };
     };
     const deps: Record<string, any> = {
+        "../core/diagnosticJournal": { diagnosticJournal: { record: vi.fn() } },
         "@webpack/common": {
             FluxDispatcher: { subscribe: (name: string, fn: () => void) => add("flux:" + name, fn), unsubscribe: (name: string, fn: () => void) => remove("flux:" + name, fn) },
             UserStore: { getCurrentUser: user, addChangeListener: (fn: () => void) => add("user", fn), removeChangeListener: (fn: () => void) => remove("user", fn) },

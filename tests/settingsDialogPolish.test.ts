@@ -48,6 +48,7 @@ function harness(root = "Management", kind = "fields") {
         removeEventListener: (_: string, fn: (e: any) => void) => listeners.delete(fn) };
     const empty = () => null;
     const deps: Record<string, any> = {
+        "./DiagnosticControls": { DiagnosticControls: empty },
         "@webpack/common": { ...hooks, GuildStore: { getGuild: () => null } },
         "./settings-layout.css": {}, "../core/trigger": { validPrefix },
         "./uiState": { ui, store, useStore: empty }, "./panel": { panel: { use: () => ({ phase: "ready" }) } },

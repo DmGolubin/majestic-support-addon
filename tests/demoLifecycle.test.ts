@@ -84,6 +84,7 @@ async function harness() {
         "./platform": { currentGuildId: vi.fn(), currentChannel: vi.fn(), toast: vi.fn(), disposePlatformNotices: vi.fn(), onChannelChange: () => vi.fn() },
         "./ui/ContextMenu": { resetMenuGuards: vi.fn() },
         "./ui/debug": noops(["costEnd", "costStart", "debugEnabled", "dlog", "keyDesc", "noteKey", "setDebugEnabled", "setDebugVerbose", "setLoadTime"]),
+        "./ui/diagnostics": noops(["startDiagnostics", "stopDiagnostics"]),
         "./ui/demo": demo, "./ui/flow": flow, "./ui/fonts": noops(["loadFonts", "unloadFonts"]),
         "./ui/Host": { Host: () => null }, "./ui/icons": { MJ_ICON: "" },
         "./ui/inline": { startInline: () => vi.fn(), resetInline: vi.fn(), handleInlineKey: vi.fn() },

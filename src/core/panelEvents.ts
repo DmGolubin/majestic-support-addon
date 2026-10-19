@@ -5,6 +5,7 @@
  */
 
 import { PanelError } from "./panelClient";
+import { diagnosticJournal as journal } from "./diagnosticJournal";
 import { PANEL_ORIGIN, panelEndpoint } from "./panelProtocol";
 import { createPanelTransport } from "./panelTransport";
 
@@ -142,6 +143,7 @@ export function createPanelEventStream(fetchImpl = globalThis.fetch, trustedOrig
             const discard = () => { void response.body?.cancel().catch(() => {}); };
             if (cancellation) { discard(); throw cancellation; }
             status = response.status;
+            journal.record("stream.http", { route: "/sync/events", status });
             if (response.redirected || (status >= 300 && status < 400) || (response.url && response.url !== url)) {
                 discard();
                 throw new PanelError("redirect_not_allowed", status);

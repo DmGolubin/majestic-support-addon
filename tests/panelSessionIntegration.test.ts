@@ -70,6 +70,7 @@ function harness() {
     const document = { visibilityState: "visible", addEventListener: (n: string, fn: () => void) => documentEvents.set(n, fn),
         removeEventListener: (n: string) => documentEvents.delete(n) };
     const deps: Record<string, unknown> = {
+        "../core/diagnosticJournal": { diagnosticJournal: { record() {} } },
         "../panelPermission": { ensurePanelPermission: async () => "ready" },
         "@webpack/common": { UserStore: { getCurrentUser: () => ({ id: account }), addChangeListener() {}, removeChangeListener() {} },
             FluxDispatcher: { subscribe: (n: string, fn: () => void) => events.set(n, fn), unsubscribe: (n: string) => events.delete(n) } },

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { diagnosticJournal as journal } from "./diagnosticJournal";
 import {
     DeviceAuthorization, PANEL_CLIENT_ID, PANEL_ORIGIN, panelEndpoint, panelMutationScope, PanelMutation, PanelTokens,
     parseDeviceAuthorization, parsePanelTokens, slowerPolling,
@@ -148,9 +149,10 @@ export class PanelClient {
 
     /** Restores only a validated local binding; the controller must still verify /me. No network IO. */
     async restore(): Promise<boolean> {
+        journal.record("auth.restore");
         this.dispose();
         const session = this.#begin();
-        if (!this.#vault) return false;
+        if (!this.#vault) { journal.record("auth.restore", { outcome: "failure", reason: "no_vault" }); return false; }
         try {
             const raw = await this.#queueVault(async () => {
                 this.#assert(session);
@@ -162,15 +164,17 @@ export class PanelClient {
                 return this.#vault!.load();
             });
             this.#assert(session);
-            if (raw === null) return false;
+            if (raw === null) { journal.record("auth.restore", { outcome: "failure", reason: "no_saved_session" }); return false; }
             const record = this.#parseSaved(raw);
             if (!record) {
+                journal.record("auth.restore", { outcome: "failure", reason: "invalid_saved_session" }, true);
                 await this.#clearVault(session.lease);
                 this.#assert(session);
                 return false;
             }
             session.tokens = record.tokens;
             session.expiresAt = record.expiresAt;
+            journal.record("auth.restore", { outcome: "success" }, true);
             return true;
         } catch (error) {
             await this.#terminate(session);
@@ -435,6 +439,7 @@ export class PanelClient {
     }
 
     async #rotate(session: Session): Promise<void> {
+        journal.record("auth.refresh", { outcome: "start" }, true);
         const previous = session.tokens;
         if (!previous) throw new PanelError("not_authenticated", 401);
         const started = this.#now();
@@ -450,8 +455,10 @@ export class PanelClient {
             if (next.connectionId !== previous.connectionId) throw new PanelError("connection_mismatch");
             if (next.accessToken === previous.accessToken || next.refreshToken === previous.refreshToken) throw new PanelError("invalid_response");
             await this.#publish(session, next, started);
+            journal.record("auth.refresh", { outcome: "success", durationMs: this.#now() - started }, true);
         } catch (error) {
             const failure = safeError(error);
+            journal.record("auth.refresh", { outcome: "failure", code: failure.code, status: failure.status, durationMs: this.#now() - started }, true);
             const interrupted = this.#session !== session || session.controller.signal.aborted;
             await this.#terminate(session);
             if (interrupted) throw new PanelError("cancelled");
@@ -600,6 +607,7 @@ export class PanelClient {
             this.#assert(session);
             return result;
         } catch (error) {
+            journal.record("auth.request_failure", { route: path, code: safeError(error).code, status: safeError(error).status }, true);
             this.#assert(session);
             throw safeError(error);
         } finally {

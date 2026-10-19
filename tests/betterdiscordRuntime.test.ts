@@ -238,7 +238,8 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         const node = f.document.createElement("div"); f.document.body.append(node);
         const settings = ReactDOM.createRoot(node);
         await React.act(async () => { settings.render(f.plugin.getSettingsPanel()); });
-        expect(node.textContent).toContain("Мои шаблоны");
+        expect(node.textContent).toContain("Диагностика для тестера");
+        expect(node.querySelector(".vc-stx-settings-nav, textarea")).toBeNull();
         expect(node.textContent).toContain("Обновляйте плагин вручную");
         expect(f.deniedModules).toEqual([]);
         await React.act(async () => settings.unmount());
@@ -261,7 +262,8 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         const settings = ReactDOM.createRoot(settingsNode);
         await React.act(async () => { settings.render(f.plugin.getSettingsPanel()); });
         expect(settingsNode.textContent).toContain("BetterDiscord");
-        expect(settingsNode.textContent).toContain("Мои шаблоны");
+        expect(settingsNode.textContent).toContain("Скачать диагностику");
+        expect(settingsNode.querySelector(".vc-stx-settings-nav, textarea")).toBeNull();
         expect(settingsNode.textContent).toContain("Режим отладки");
         expect(editor.textContent).toBe("draft stays");
         await React.act(async () => { settings.unmount(); f.plugin.stop(); await f.frame(); });

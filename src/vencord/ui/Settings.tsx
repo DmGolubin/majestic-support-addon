@@ -10,6 +10,7 @@ import { GuildStore, useRef, useState } from "@webpack/common";
 
 import { validPrefix } from "../core/trigger";
 import { panel } from "./panel";
+import { DiagnosticControls } from "./DiagnosticControls";
 import { PanelConnection } from "./PanelConnection";
 import { discardPanelDraft, PanelPersonalLibrary } from "./PanelPersonalLibrary";
 import { ProjectIcon } from "./ProjectIcon";
@@ -78,6 +79,7 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
         {tab === "tickets" && <TicketSettings />}
         {tab === "general" && <div className="vc-stx-settings-sections">
             <PanelConnection />
+            <DiagnosticControls />
             <section className="vc-stx-setting-section vc-stx-setting-card" aria-labelledby="stx-input-settings">
                 <h3 id="stx-input-settings">Быстрый ввод</h3>
                 <div className="vc-stx-setting-line">

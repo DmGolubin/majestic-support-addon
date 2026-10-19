@@ -17,6 +17,7 @@ import { favoritesOf } from "./core/rank";
 import { currentChannel, currentGuildId, disposePlatformNotices, onChannelChange, toast } from "./platform";
 import { resetMenuGuards } from "./ui/ContextMenu";
 import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
+import { startDiagnostics, stopDiagnostics } from "./ui/diagnostics";
 import { disposeDemo } from "./ui/demo";
 import { insertTemplate, supersede } from "./ui/flow";
 import { loadFonts, unloadFonts } from "./ui/fonts";
@@ -233,6 +234,7 @@ function stopRuntime() {
         ["UI state", () => ui.set({ management: false, windowOpen: false, dialog: null, inline: null, menu: null, compose: [] })],
         ["debug", () => setDebugEnabled(false)],
         ["notices", disposePlatformNotices],
+        ["diagnostics", stopDiagnostics],
     ];
     try {
         for (const [name, cleanup] of steps) {
@@ -290,6 +292,7 @@ export default definePlugin({
         const t0 = performance.now();
         const gen = ++lifecycle;
         try {
+            startDiagnostics();
             nextGeneration();
             try { await realStore.load(); }
             catch {

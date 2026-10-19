@@ -5,6 +5,7 @@
  */
 
 import { PanelError, type PanelTransport } from "./panelClient";
+import { diagnosticJournal as journal } from "./diagnosticJournal";
 import { PANEL_ORIGIN, panelEndpoint, panelMutationScope } from "./panelProtocol";
 
 const TIMEOUT_MS = 15_000;
@@ -90,6 +91,8 @@ export function createPanelTransport(fetchImpl = globalThis.fetch, trustedOrigin
         const timer = setTimeout(() => abort("timeout"), TIMEOUT_MS);
         let status = 0;
         let delay: number | undefined;
+        const started = Date.now();
+        const requestId = journal.record("request.start", { route: path, method: options.method ?? (body === undefined ? "GET" : "POST") });
 
         const request = async (): Promise<unknown> => {
             let response: Response;
@@ -170,8 +173,14 @@ export function createPanelTransport(fetchImpl = globalThis.fetch, trustedOrigin
             }
         };
 
-        try { return await Promise.race([request(), cancelled]); }
+        try {
+            const value = await Promise.race([request(), cancelled]);
+            journal.record("request.success", { requestId, route: path, status, durationMs: Date.now() - started });
+            return value;
+        }
         catch (error) {
+            journal.record("request.failure", { requestId, route: path, status, durationMs: Date.now() - started,
+                code: cancellation?.code ?? (error instanceof PanelError ? error.code : "invalid_response"), retryAfterMs: delay }, true);
             if (cancellation) throw cancellation;
             if (error instanceof PanelError) throw error;
             throw new PanelError("invalid_response", status, delay);

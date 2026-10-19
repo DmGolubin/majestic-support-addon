@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import upstream from "../src/vencord/index";
-import { Settings } from "../src/vencord/ui/Settings";
+import { ServiceSettings } from "./ServiceSettings";
 import { api, NAME } from "./shims/host";
 import { React, useEffect, useState, FluxDispatcher, UserStore, ChannelStore, SelectedChannelStore, SelectedGuildStore } from "./shims/common";
 import ErrorBoundary from "./shims/errorBoundary";
@@ -130,13 +130,15 @@ export default class SupportTemplates {
                 <header><strong title={`Версия: ${runtime.getVersion()}`}>SupportTemplates · {distributionDisplay(PLUGIN_DISTRIBUTION, runtime.getVersion())}</strong>
                     <p>Ctrl+Alt+T — открыть шаблоны. Alt+1…9 — избранное. Текст вставляется без отправки.</p>
                     <small>{owner.updateStatus}</small></header>
-                {!runtime.runtimeActive ? <p>Включите плагин и дождитесь загрузки.</p> : owner.delegate
+                {owner.delegate
                     ? owner.delegate.getBundledSettings()
                     : <ErrorBoundary onError={() => api().UI.showToast("Не удалось открыть настройки шаблонов", { type: "error" })}>
-                        <Settings />
+                        <ServiceSettings active={runtime.runtimeActive} />
+                        <details className="stx-bd-debug-options"><summary>Экранная отладка</summary><p>Дополнительная панель поверх Discord. Для записи файла включать её не нужно.</p>
                         {Object.entries(definitions).filter(([, value]: any) => value.type === "boolean").map(([key, value]: any) =>
-                            <label key={key} className="stx-bd-host-option"><input type="checkbox" checked={!!upstream.settings.store[key]}
+                            <label key={key} className="stx-bd-host-option"><input type="checkbox" disabled={!runtime.runtimeActive} checked={runtime.runtimeActive && !!upstream.settings.store[key]}
                                 onChange={e => { upstream.settings.store[key] = e.currentTarget.checked; refresh((n: number) => n + 1); }} />{value.displayName}<small>{value.description}</small></label>)}
+                        </details>
                     </ErrorBoundary>}
             </div>;
         }

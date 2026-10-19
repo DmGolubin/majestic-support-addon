@@ -80,6 +80,7 @@ function harness(initial: Store, rootName = "PersonalLibrary") {
     };
     const empty = () => null;
     const dependencies: Record<string, any> = {
+        "./DiagnosticControls": { DiagnosticControls: () => null },
         "@webpack/common": { ...hooks, GuildStore: { getGuild: () => null } },
         "./settings-layout.css": {}, "./ProjectIcon": { ProjectIcon: empty },
         "../core/personal": { PERSONAL_COLORS }, "../core/tokenEditor": {},

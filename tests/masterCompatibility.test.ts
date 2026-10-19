@@ -62,8 +62,8 @@ function pluginFor(platform: any, op: any, ui: any) {
         "@webpack/common": {}, "./core/guard": guard, "./core/keys": {}, "./core/rank": {},
         "./platform": platform, "./ui/op": op, "./ui/uiState": { ui },
     };
-    const lifecycle = { resetMenuGuards: vi.fn(), setDebugEnabled: vi.fn(), disposeDemo: vi.fn(), supersede: vi.fn(), unloadFonts: vi.fn(), resetInline: vi.fn(), disposePanel: vi.fn() };
-    for (const name of ["ContextMenu", "debug", "demo", "flow", "fonts", "Host", "icons", "inline", "keylatch", "panel", "ProjectIcon", "Settings", "ticketSound", "Window"]) dependencies[`./ui/${name}`] = lifecycle;
+    const lifecycle = { resetMenuGuards: vi.fn(), setDebugEnabled: vi.fn(), disposeDemo: vi.fn(), supersede: vi.fn(), unloadFonts: vi.fn(), resetInline: vi.fn(), disposePanel: vi.fn(), startDiagnostics: vi.fn(), stopDiagnostics: vi.fn() };
+    for (const name of ["ContextMenu", "debug", "diagnostics", "demo", "flow", "fonts", "Host", "icons", "inline", "keylatch", "panel", "ProjectIcon", "Settings", "ticketSound", "Window"]) dependencies[`./ui/${name}`] = lifecycle;
     return load("../src/vencord/index.tsx", dependencies, { document: { removeEventListener: vi.fn() } });
 }
 

@@ -2,7 +2,19 @@
 .stx-bd-chat-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 4px; border: 0; border-radius: 6px; background: transparent; color: var(--interactive-normal, #b5bac1); cursor: pointer; }
 .stx-bd-chat-button:hover { background: var(--background-modifier-hover, #ffffff18); color: var(--interactive-hover, #fff); }
 .stx-bd-chat-button:focus-visible { outline: 2px solid var(--brand-500, #5865f2); outline-offset: 2px; }
-.stx-bd-settings { position: relative; color: var(--text-normal, #eee); }
+.stx-bd-settings { position: relative; inset: auto; pointer-events: auto; z-index: auto; color: var(--text-normal, #eee); font-size: 14px; line-height: 1.5; }
+.stx-bd-settings { --stx-pr: #c41651; --stx-ring: #e63a70; --stx-r: 6px; --stx-mu: #b8bdc7; --stx-tx: #eef0f3; --stx-bd: #30343b; --stx-acc: #24272e; font-family: "Segoe UI", sans-serif; }
+.stx-bd-settings *, .stx-bd-settings *::before, .stx-bd-settings *::after { box-sizing: border-box; }
+.stx-bd-settings .vc-stx-btn:disabled { opacity: .5; cursor: not-allowed; }
+.stx-bd-debug-options { margin-top: 16px; padding-top: 12px; border-top: 1px solid #454850; }
+.stx-bd-debug-options summary { cursor: pointer; }
+.stx-bd-debug-options > p { font-size: 12px; opacity: .8; }
+.stx-bd-service { display: grid; gap: 16px; }
+.stx-bd-service-card { background: #15171c; color: #eef0f3; border: 1px solid #30343b; border-radius: 8px; padding: 18px; }
+.stx-bd-service-status { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.stx-bd-service-status span { font-size: 12px; color: #b8bdc7; }
+.stx-bd-service-card p { margin: 12px 0 16px; }
+.stx-bd-settings .vc-stx-btn { cursor: pointer; }
 .stx-bd-settings > header { margin-bottom: 16px; }
 .stx-bd-host-option { display: block; margin: 12px 0; }
 .stx-bd-host-option small { display: block; margin-left: 24px; opacity: .7; }

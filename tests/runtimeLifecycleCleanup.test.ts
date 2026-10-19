@@ -35,6 +35,7 @@ function harness() {
         body: { append: (node: any) => { node.connected = true; step("append:host"); } },
     };
     const deps: Record<string, any> = {
+        "./ui/diagnostics": { startDiagnostics: vi.fn(), stopDiagnostics: vi.fn() },
         "./styles.css": {}, "@api/ChatButtons": {},
         "@api/Settings": { definePluginSettings: () => ({ store: { debug: true, debugVerbose: true } }) },
         "@utils/types": { default: (p: unknown) => p, OptionType: { COMPONENT: 1, BOOLEAN: 2 } },

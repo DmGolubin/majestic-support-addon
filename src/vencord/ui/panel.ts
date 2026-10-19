@@ -7,6 +7,7 @@
 import { FluxDispatcher, UserStore } from "@webpack/common";
 
 import { PLUGIN_VERSION } from "../buildInfo";
+import { diagnosticJournal as journal } from "../core/diagnosticJournal";
 import { PanelCatalog, PanelCatalogValidationError, parseFolderRecord, parsePersonalRecord, parseProfile, parseSnapshot, supportsPanelVersion } from "../core/panelCatalog";
 import { PanelClient, PanelError } from "../core/panelClient";
 import { createPanelEventStream } from "../core/panelEvents";
@@ -122,6 +123,7 @@ function message(error: unknown): string {
 
 function terminateSession(active: PanelClient, error: unknown) {
     if (client !== active) return;
+    journal.record("auth.terminated", { code: error instanceof PanelError ? error.code : "unknown", status: error instanceof PanelError ? error.status : 0 }, true);
     client = null;
     // cancel clears saved credentials too, including a restored session without a device code.
     void trackCleanup(active.cancel()).catch(() => {});
@@ -146,6 +148,7 @@ function startEvents() {
     if (!active?.connectionId || stream || streamTimer) return;
     const controller = new AbortController(); stream = controller;
     panel.set({ sync: "connecting" });
+    journal.record("stream.start");
     void (async () => {
         let tokenExpired = false;
         let retryAfter = 0;
@@ -158,6 +161,7 @@ function startEvents() {
                 try {
                     await readEvents(token, controller.signal, event => {
                         if (own !== epoch || client !== active || controller.signal.aborted) return;
+                        journal.record("stream.event", { event: event.type }, event.type === "session.revoked");
                         panel.set({ sync: "live" });
                         if (event.type === "session.revoked") {
                             terminateSession(active, new PanelError("session_revoked", 401));
@@ -178,6 +182,7 @@ function startEvents() {
                 if (own === epoch && client === active) requestResync(false);
             }
         } catch (error) {
+            journal.record("stream.failure", { code: error instanceof PanelError ? error.code : "unknown", status: error instanceof PanelError ? error.status : 0 }, true);
             if (own !== epoch || client !== active) return;
             if (error instanceof PanelError && (["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error", "connection_mismatch"].includes(error.code)
                 || error.status === 401 || error.status === 403)) {
@@ -192,6 +197,7 @@ function startEvents() {
         streamFailures = Date.now() - started >= 30000 ? 0 : Math.min(streamFailures + 1, 6);
         const delay = tokenExpired ? 250 : Math.max(retryAfter, Math.min(60000, 1000 * 2 ** streamFailures) * (0.8 + Math.random() * 0.4));
         panel.set({ sync: "retrying" });
+        journal.record("stream.retry", { retryAfterMs: delay, failures: streamFailures });
         streamTimer = setTimeout(() => { streamTimer = undefined; if (own === epoch) startEvents(); }, Math.min(delay, 2147483647));
     })();
 }
@@ -312,6 +318,7 @@ async function loadLibrary(): Promise<boolean> {
             return true;
         } catch (error) {
             if (own !== epoch) return false;
+            journal.record("panel.load_failure", { code: error instanceof PanelError ? error.code : "invalid_response", status: error instanceof PanelError ? error.status : 0 }, true);
             // Superseded reads cannot fail a newer resync, but auth/storage failures
             // still fail closed: invalidation must never suppress a genuine revocation.
             const terminal = terminalReadError(error);
@@ -405,12 +412,13 @@ async function beginPanel(restore: boolean, writeAccess = !restore, reminderAcce
         await loadLibrary();
     } catch (error) {
         if (own !== epoch) return;
+        journal.record("auth.login_failure", { code: error instanceof PanelError ? error.code : "unknown", status: error instanceof PanelError ? error.status : 0 }, true);
         client = null; if (active) void trackCleanup(active.cancel()).catch(() => {}); wipe();
         panel.set({ phase: "error", error: message(error) });
     }
 }
 
-export async function connectPanel() { await beginPanel(false); }
+export async function connectPanel() { journal.record("user.login", {}, true); await beginPanel(false); }
 export async function restorePanel() { await beginPanel(true); }
 
 /** Explicit user action only. Existing read-only credentials remain valid until this is chosen. */
@@ -541,13 +549,15 @@ export function openPanelPage() {
 }
 
 export async function cancelPanelLogin() {
+    journal.record("user.cancel", {}, true);
     const previous = client; client = null; wipe();
     const own = epoch;
     try { if (previous) await trackCleanup(previous.cancel()); }
     catch { if (own === epoch) panel.set({ error: "Локальный вход отменён. Если доступ уже разрешён, отключите устройство на панели." }); }
 }
 
-export async function logoutPanel() {
+export async function logoutPanel(reason: "user" | "discord_logout" | "account_changed" = "user") {
+    journal.record("auth.logout", { reason }, true);
     const previous = client; client = null; wipe();
     const own = epoch;
     try { if (previous) await trackCleanup(previous.logout()); }
@@ -630,10 +640,10 @@ export function startPanel() {
         removals.add(remove); // Host subscriptions may throw AFTER attaching the callback.
         add();
     };
-    const disconnected = () => { if (live && panel.get().enabled) void logoutPanel(); };
+    const disconnected = () => { if (live && panel.get().enabled) void logoutPanel("discord_logout"); };
     const resume = () => {
         if (!live || !panel.get().enabled) return;
-        if (boundAccountId && boundAccountId !== UserStore.getCurrentUser()?.id) { void logoutPanel(); return; }
+        if (boundAccountId && boundAccountId !== UserStore.getCurrentUser()?.id) { void logoutPanel("account_changed"); return; }
         if (cleanups.size) return;
         if (client) {
             if (!client.connectionId) { client.resumeLogin(); return; }
@@ -648,7 +658,7 @@ export function startPanel() {
         else if (panel.get().phase === "idle" && UserStore.getCurrentUser()?.id) void restorePanel();
     };
     const changedAccount = () => {
-        if (live && boundAccountId && boundAccountId !== UserStore.getCurrentUser()?.id) disconnected();
+        if (live && boundAccountId && boundAccountId !== UserStore.getCurrentUser()?.id) void logoutPanel("account_changed");
     };
     const visible = () => { if (live && document.visibilityState === "visible") resume(); };
     offPanelEvents = off;

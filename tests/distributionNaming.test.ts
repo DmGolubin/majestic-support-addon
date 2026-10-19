@@ -81,7 +81,7 @@ describe("BetterDiscord runtime identity", () => {
 
     it("displays the active delegate build without changing its updater version", () => {
         const plugin = new Plugin();
-        plugin.delegate = { getVersion: () => "1.0.1-canary.99" };
+        plugin.delegate = { getVersion: () => "1.0.1-canary.99", getBundledSettings: () => null };
         expect(plugin.getVersion()).toBe("1.0.1-canary.99");
         const dom = new JSDOM(renderToStaticMarkup(plugin.getSettingsPanel()));
         try {

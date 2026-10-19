@@ -17,6 +17,7 @@ import { gitHash } from "@shared/vencordUserAgent";
 import { useEffect, useState } from "@webpack/common";
 
 import { PLUGIN_BUILD, PLUGIN_VERSION } from "../buildInfo";
+import { diagnosticJournal as journal, diagnosticData } from "../core/diagnosticJournal";
 import { COST_CATS, CostCat, CostMeter, NESTED_CATS, overlapLabel, significant, throttle } from "../core/cost";
 import { comboLabel } from "../core/keys";
 import { DebugEvent, formatEvent, Ring } from "../core/ring";
@@ -54,7 +55,7 @@ const meter = new CostMeter();
 
 /** performance.now() when debug is on, else 0 (= not measured). The start of a measured span. */
 export function costStart(): number {
-    return enabled ? performance.now() : 0;
+    return enabled || journal.active ? performance.now() : 0;
 }
 
 /** The end of a span started by costStart(); a no-op for 0. */
@@ -73,7 +74,7 @@ function dspan<A extends unknown[]>(fn: (...a: A) => void): (...a: A) => void {
 /** on: the setting; verbose: the effective verbose level; win: the window's report; log: bumps on every event. */
 export const debugState = createObservable<{ on: boolean; verbose: boolean; win: WinDebug | null; log: number; }>({ on: false, verbose: false, win: null, log: 0 });
 
-export const debugEnabled = () => enabled;
+export const debugEnabled = () => enabled || journal.active;
 export const debugVerbose = () => verbose;
 export const debugCap = () => ring.cap;
 
@@ -109,6 +110,7 @@ function applyVerbose() {
  * and counts repeats (held keys, hover, typing) instead of flooding the ring.
  */
 export function dlog(type: string, data: Record<string, unknown> = {}, coalesce?: string) {
+    journal.record("debug", { ...data, event: type }, type === "error");
     if (!enabled) return;
     ring.push(Date.now(), type, data, coalesce);
     console.debug("[SupportTemplates]", type, data);
@@ -117,6 +119,7 @@ export function dlog(type: string, data: Record<string, unknown> = {}, coalesce?
 
 /** The window publishes its local state (only while debug is on). */
 export function setDebugWindow(win: WinDebug | null) {
+    if (win) journal.record("ui.window", { ...win, queryLength: win.query.length });
     if (!enabled) return;
     const prev = debugState.get().win;
     if (!shallowEqual(prev, win)) debugState.set({ win });
@@ -448,6 +451,18 @@ export function debugReport(): string {
         `== События (${events.length}/${ring.cap}, старые сверху) ==`,
         ...events.map(e => formatEvent(e, true)),
     ].join("\n");
+}
+
+/** File diagnostics deliberately omit names, identifiers, query text and arbitrary exception messages. */
+export function debugFileSnapshot() {
+    const now = performance.now();
+    return {
+        options: { debug: enabled, debugVerbose: verbose },
+        window: debugState.get().win ? diagnosticData({ ...debugState.get().win, queryLength: debugState.get().win!.query.length }) : null,
+        performance: { measured: enabled || journal.active, totalMs: meter.total(now), windowMs: meter.windowMs(now), categories: meter.sums(now),
+            longTasksMeasured: enabled && longSupported, longTasks: { count: long.count, maxMs: long.max, pluginMs: long.pluginMs } },
+        load: load ? { total: load.total, storeLoad: load.storeLoad, mount: load.mount } : null,
+    };
 }
 
 // ---- Verbose listeners: only while verbose is on; capture, passive, never preventDefault ----
