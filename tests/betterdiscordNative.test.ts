@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, mkdirSync, symlinkSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { EventEmitter } from "node:events";
 import { loadAdapter } from "./betterdiscordHarness";
 
 const dirs: string[] = [];
@@ -113,26 +114,51 @@ describe("BetterDiscord protected session vault", () => {
         expect(session.forAccount("123456789012345678")).toBeUndefined();
         await session.close();
     });
-    it("passes DPAPI secret bytes only on stdin and hides the bounded PowerShell process", () => {
+    it("passes DPAPI secret bytes only on stdin and hides the bounded PowerShell process", async () => {
         const { createDpapiCrypto, DPAPI_SCRIPT } = loadAdapter("native/dpapi.ts");
-        const spawn: any = vi.fn(() => ({ status: 0, stdout: Buffer.from("ciphertext").toString("base64") }));
-        const crypto = createDpapiCrypto({ spawn, executable: "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe" });
-        expect(crypto.encryptString("secret-token").toString()).toBe("ciphertext");
-        const [file, args, options] = spawn.mock.calls[0];
+        const stdin = Object.assign(new EventEmitter(), { end: vi.fn() });
+        const execFile: any = vi.fn(() => ({ stdin }));
+        const crypto = createDpapiCrypto({ execFile, executable: "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe" });
+        const encrypted = crypto.encryptString("secret-token");
+        const [file, args, options, callback] = execFile.mock.calls[0];
+        callback(null, Buffer.from("ciphertext").toString("base64"), "");
+        expect((await encrypted).toString()).toBe("ciphertext");
         expect(file).toContain("powershell.exe");
         expect(args.join(" ")).not.toContain("secret-token");
         expect(args.at(-1)).toBe(DPAPI_SCRIPT);
-        expect(options).toMatchObject({ windowsHide: true, timeout: 5000, stdio: ["pipe", "pipe", "pipe"] });
-        expect(Buffer.from(JSON.parse(options.input).data, "base64").toString()).toBe("secret-token");
-        spawn.mockReturnValue({ status: 1, stderr: "secret-token" });
-        expect(() => crypto.decryptString(Buffer.from("bad"))).toThrow("Protected panel storage operation failed.");
+        expect(options).toMatchObject({ windowsHide: true, timeout: 5000, maxBuffer: 256 * 1024 });
+        expect(Buffer.from(JSON.parse(stdin.end.mock.calls[0][0]).data, "base64").toString()).toBe("secret-token");
+        const decrypted = crypto.decryptString(Buffer.from("bad"));
+        execFile.mock.calls[1][3](new Error("secret-token"), "", "secret-token");
+        await expect(decrypted).rejects.toThrow("Protected panel storage operation failed.");
     });
-    it.skipIf(process.platform !== "win32")("round-trips synthetic data through real Windows CurrentUser DPAPI", () => {
+    it.skipIf(process.platform !== "win32")("q18 round-trips synthetic data through real Windows CurrentUser DPAPI with responsive timers", async () => {
         const { createDpapiCrypto } = loadAdapter("native/dpapi.ts");
         const crypto = createDpapiCrypto();
+        const metrics: Record<string, unknown> = {};
+        const measure = async <T>(name: string, operation: () => Promise<T>) => {
+            const start = performance.now();
+            let previous = start, maxGapMs = 0, beats = 0;
+            const timer = setInterval(() => {
+                const now = performance.now();
+                maxGapMs = Math.max(maxGapMs, now - previous); previous = now; beats++;
+            }, 10);
+            try {
+                const pending = operation();
+                const returnedMs = performance.now() - start;
+                const result = await pending;
+                maxGapMs = Math.max(maxGapMs, performance.now() - previous);
+                metrics[name] = { durationMs: performance.now() - start, returnedMs, beats, maxGapMs };
+                expect(beats).toBeGreaterThan(0);
+                return result;
+            } finally { clearInterval(timer); }
+        };
+        expect(crypto.isEncryptionAvailable()).toBe(false);
+        expect(await measure("initialize", () => crypto.initialize())).toBe(true);
         expect(crypto.isEncryptionAvailable()).toBe(true);
-        const cipher = crypto.encryptString("synthetic-test-value");
+        const cipher = await measure<Buffer>("encrypt", () => crypto.encryptString("synthetic-test-value"));
         expect(cipher.includes(Buffer.from("synthetic-test-value"))).toBe(false);
-        expect(crypto.decryptString(cipher)).toBe("synthetic-test-value");
-    }, 15000);
+        expect(await measure("decrypt", () => crypto.decryptString(cipher))).toBe("synthetic-test-value");
+        console.log("Q18_DPAPI_HEARTBEAT " + JSON.stringify(metrics));
+    }, 20000); // Three independently bounded 5s children, plus test/host overhead.
 });

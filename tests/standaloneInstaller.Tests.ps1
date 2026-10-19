@@ -67,8 +67,9 @@ function Run($f, [string]$action, [string[]]$more = @(), [bool]$success = $true)
     if (-not $success -and $code -eq 0) { throw "$action unexpectedly succeeded: $output" }
     return ($output -join "`n")
 }
-function Test([string]$name, [scriptblock]$body) {
+function Test([string]$name, [scriptblock]$body, [string]$SkipReason) {
     if ($name -notlike $Only) { return }
+    if ($SkipReason) { Write-Host "SKIP ${name}: $SkipReason"; return }
     & $body
     $script:passed++
     Write-Host "PASS $name"
@@ -684,7 +685,6 @@ try {
         }
     }
     Test 'built real payload installs only into a TEMP Discord fixture' {
-        if (-not $PayloadPackageRoot) { Write-Host 'SKIP real payload: supply -PayloadPackageRoot to test a built package'; return }
         $source = [IO.Path]::GetFullPath($PayloadPackageRoot)
         Assert ($source.StartsWith([IO.Path]::GetFullPath([IO.Path]::GetTempPath()), [StringComparison]::OrdinalIgnoreCase)) 'Built payload must be in TEMP'
         $f = Fixture; $original = Hash "$($f.Resources)/app.asar"
@@ -698,7 +698,7 @@ try {
         Run $f Status | Out-Null
         Run $f Uninstall | Out-Null
         Assert ((Hash "$($f.Resources)/app.asar") -eq $original) 'real payload fixture original restore failed'
-    }
+    } -SkipReason $(if (-not $PayloadPackageRoot) { 'Supply -PayloadPackageRoot to test a built package' })
     Write-Host "$passed installer fixture groups passed on PowerShell $($PSVersionTable.PSVersion)."
 }
 finally {

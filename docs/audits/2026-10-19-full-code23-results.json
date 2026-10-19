@@ -2,885 +2,57 @@
   "schema": 1,
   "task": "Q18",
   "version": "1.0.1-canary.23",
-  "status": "source verification complete; package acceptance pending",
+  "status": "Final source verification complete; rebuilt package/installer acceptance pending",
   "inventory": {
-    "sourceCommit": "431b14d9b0cd1aa9aa19241b692c382c150c8b88",
+    "sourceCommit": "1b1349303cebba6b61f899d4ba88dbf77df1d120",
     "limitation": "Static inventory of tracked and nonignored untracked own files. Symbols are review navigation, not test/function coverage. Vendor dependencies and generated artifacts are separate boundaries.",
     "files": [
       {
-        "file": "scripts/qa/code-inventory.mjs",
-        "category": "tooling",
-        "sha256": "d69f0885e4e408447f82615e2f1f7782e33d81207333e8cc604bcb9557fdb044",
-        "lines": 47,
+        "file": "tests/q18Dpapi.test.ts",
+        "category": "tests",
+        "sha256": "bcb7f23ec33cbe080d3e97fee8269930fb97495a16c40b6711320b810367b0b0",
+        "lines": 138,
         "symbolMethod": "TypeScript AST function-like bodies",
         "symbols": [
+          {
+            "name": "delay",
+            "line": 7
+          },
+          {
+            "name": "<callback>",
+            "line": 7
+          },
+          {
+            "name": "controlled",
+            "line": 9
+          },
+          {
+            "name": "<callback>",
+            "line": 11
+          },
           {
             "name": "<callback>",
             "line": 12
           },
           {
             "name": "<callback>",
-            "line": 14
-          },
-          {
-            "name": "visit",
-            "line": 19
-          },
-          {
-            "name": "<callback>",
-            "line": 28
-          },
-          {
-            "name": "<callback>",
-            "line": 45
-          },
-          {
-            "name": "<callback>",
-            "line": 46
-          },
-          {
-            "name": "<callback>",
-            "line": 46
-          },
-          {
-            "name": "<callback>",
-            "line": 46
-          }
-        ],
-        "reviewedBy": [
-          "parent-review.json"
-        ]
-      },
-      {
-        "file": "scripts/qa/native-service-check.py",
-        "category": "tooling",
-        "sha256": "ce58aa943f6b27427d49ace9ecb4bcb0e524d3a351383178c10026511c0512f8",
-        "lines": 74,
-        "symbolMethod": "declaration line scan",
-        "symbols": [
-          {
-            "name": "check",
-            "line": 13
-          },
-          {
-            "name": "local_only",
-            "line": 16
-          },
-          {
-            "name": "reject_websocket",
-            "line": 23
-          }
-        ],
-        "reviewedBy": [
-          "parent-review.json"
-        ]
-      },
-      {
-        "file": "scripts/qa/native-service-harness.mjs",
-        "category": "tooling",
-        "sha256": "249d73fd292748dedc9eb852621043812f5c765799b750b6166aa621d6d3319f",
-        "lines": 45,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "setup",
-            "line": 32
-          },
-          {
-            "name": "<callback>",
-            "line": 33
-          },
-          {
-            "name": "<callback>",
-            "line": 38
-          },
-          {
-            "name": "<callback>",
-            "line": 42
-          }
-        ],
-        "reviewedBy": [
-          "parent-review.json"
-        ]
-      },
-      {
-        "file": "src/vencord/ui/NativeServiceSettings.tsx",
-        "category": "product-or-build",
-        "sha256": "3d773e24603317768760e0ff405cbc08b29ace19eabdd01737b12fd541c3e18f",
-        "lines": 47,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "NativeServiceSettings",
-            "line": 14
-          },
-          {
-            "name": "<callback>",
-            "line": 15
-          },
-          {
-            "name": "<callback>",
-            "line": 20
-          },
-          {
-            "name": "<callback>",
-            "line": 20
-          },
-          {
-            "name": "<callback>",
-            "line": 35
-          }
-        ],
-        "reviewedBy": [
-          "ui-review.json"
-        ]
-      },
-      {
-        "file": "tests/q18BetterdiscordEntry.test.ts",
-        "category": "tests",
-        "sha256": "d35a16565b1bb8f6dbc325a233935cb705c270629adfc8c50d8ad226932607b7",
-        "lines": 53,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "fixture",
-            "line": 6
-          },
-          {
-            "name": "createElement",
-            "line": 7
-          },
-          {
-            "name": "ServiceSettings",
-            "line": 13
-          },
-          {
-            "name": "api",
-            "line": 14
-          },
-          {
-            "name": "useState",
-            "line": 15
-          },
-          {
-            "name": "<callback>",
-            "line": 15
-          },
-          {
-            "name": "useEffect",
-            "line": 15
-          },
-          {
-            "name": "\"./shims/errorBoundary\"",
-            "line": 16
-          },
-          {
-            "name": "distributionDisplay",
-            "line": 19
-          },
-          {
-            "name": "render",
-            "line": 22
-          },
-          {
-            "name": "<callback>",
-            "line": 32
-          },
-          {
-            "name": "<callback>",
-            "line": 33
-          },
-          {
-            "name": "<callback>",
-            "line": 36
-          },
-          {
-            "name": "<callback>",
-            "line": 39
-          },
-          {
-            "name": "<callback>",
-            "line": 40
-          },
-          {
-            "name": "<callback>",
-            "line": 41
-          },
-          {
-            "name": "<callback>",
-            "line": 46
-          },
-          {
-            "name": "<callback>",
-            "line": 49
-          },
-          {
-            "name": "<callback>",
-            "line": 50
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18BetterdiscordShims.test.ts",
-        "category": "tests",
-        "sha256": "ee1f76042d7e9e5cac6abe05895cb0ee130d83b9b9c74181547f48f44423d403",
-        "lines": 73,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "<callback>",
-            "line": 4
-          },
-          {
-            "name": "<callback>",
-            "line": 5
-          },
-          {
-            "name": "<callback>",
             "line": 17
           },
           {
-            "name": "<callback>",
-            "line": 19
-          },
-          {
-            "name": "<callback>",
-            "line": 19
-          },
-          {
-            "name": "<callback>",
-            "line": 30
-          },
-          {
-            "name": "writeText",
-            "line": 32
-          },
-          {
-            "name": "storeFixture",
-            "line": 37
-          },
-          {
-            "name": "useState",
-            "line": 41
-          },
-          {
-            "name": "useRef",
-            "line": 41
-          },
-          {
-            "name": "useEffect",
-            "line": 42
-          },
-          {
-            "name": "<callback>",
-            "line": 45
-          },
-          {
-            "name": "<callback>",
-            "line": 46
-          },
-          {
-            "name": "mount",
-            "line": 47
-          },
-          {
-            "name": "<callback>",
-            "line": 47
-          },
-          {
-            "name": "<callback>",
-            "line": 51
-          },
-          {
-            "name": "<callback>",
-            "line": 52
-          },
-          {
-            "name": "<callback>",
-            "line": 54
-          },
-          {
-            "name": "<callback>",
-            "line": 63
-          },
-          {
-            "name": "<callback>",
-            "line": 66
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18BetterdiscordUpdater.test.ts",
-        "category": "tests",
-        "sha256": "7d80d0112b0d2943baf843c423ac9040233a11a6dd41f96446dde97771b9a466",
-        "lines": 105,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "<callback>",
-            "line": 11
-          },
-          {
-            "name": "<callback>",
-            "line": 15
-          },
-          {
-            "name": "<callback>",
-            "line": 16
-          },
-          {
-            "name": "<callback>",
-            "line": 19
-          },
-          {
-            "name": "<callback>",
-            "line": 19
-          },
-          {
-            "name": "<callback>",
-            "line": 29
-          },
-          {
-            "name": "<callback>",
-            "line": 31
-          },
-          {
-            "name": "<callback>",
-            "line": 38
-          },
-          {
-            "name": "<callback>",
-            "line": 39
-          },
-          {
-            "name": "<callback>",
-            "line": 57
-          },
-          {
-            "name": "<callback>",
-            "line": 58
-          },
-          {
-            "name": "<callback>",
-            "line": 62
-          },
-          {
-            "name": "<callback>",
-            "line": 62
-          },
-          {
-            "name": "<callback>",
-            "line": 71
-          },
-          {
-            "name": "<callback>",
-            "line": 81
-          },
-          {
-            "name": "<callback>",
-            "line": 82
-          },
-          {
-            "name": "<callback>",
-            "line": 93
-          },
-          {
-            "name": "<callback>",
-            "line": 93
-          },
-          {
-            "name": "<callback>",
-            "line": 97
-          },
-          {
-            "name": "<callback>",
-            "line": 101
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18CoreGuardTrigger.test.ts",
-        "category": "tests",
-        "sha256": "6593dd7228dd0b7572ba9804c2a083a040683f8f9e7371241305ebe47bb1ebbe",
-        "lines": 36,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "<callback>",
-            "line": 8
-          },
-          {
-            "name": "<callback>",
-            "line": 9
-          },
-          {
-            "name": "<callback>",
-            "line": 15
-          },
-          {
-            "name": "<callback>",
-            "line": 17
-          },
-          {
-            "name": "<callback>",
-            "line": 25
-          },
-          {
-            "name": "get",
-            "line": 27
-          },
-          {
-            "name": "set",
-            "line": 27
-          },
-          {
-            "name": "<callback>",
-            "line": 28
-          },
-          {
-            "name": "<callback>",
-            "line": 30
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18CoreParsing.test.ts",
-        "category": "tests",
-        "sha256": "ee0cbe24da37896a4a27b936556b62b5a135f49479ad2ebbd022f747648805ec",
-        "lines": 43,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "bounded",
-            "line": 7
-          },
-          {
-            "name": "<callback>",
-            "line": 9
-          },
-          {
-            "name": "<callback>",
-            "line": 11
-          },
-          {
-            "name": "<callback>",
-            "line": 13
-          },
-          {
-            "name": "<callback>",
-            "line": 15
-          },
-          {
-            "name": "<callback>",
-            "line": 17
-          },
-          {
-            "name": "<callback>",
-            "line": 19
-          },
-          {
-            "name": "<callback>",
+            "name": "complete",
             "line": 21
           },
           {
             "name": "<callback>",
-            "line": 26
-          },
-          {
-            "name": "<callback>",
-            "line": 28
-          },
-          {
-            "name": "<callback>",
-            "line": 33
-          },
-          {
-            "name": "<callback>",
-            "line": 39
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18CoreReferenceMigration.test.ts",
-        "category": "tests",
-        "sha256": "b2b2ea5ce2eb65676a0e284d0c00e07905d173e7485835e99312937f398091de",
-        "lines": 58,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "<callback>",
-            "line": 14
-          },
-          {
-            "name": "backup",
-            "line": 20
-          },
-          {
-            "name": "<callback>",
-            "line": 26
-          },
-          {
-            "name": "<callback>",
-            "line": 27
-          },
-          {
-            "name": "<callback>",
-            "line": 30
-          },
-          {
-            "name": "<callback>",
-            "line": 31
-          },
-          {
-            "name": "<callback>",
-            "line": 38
-          },
-          {
-            "name": "get",
-            "line": 41
-          },
-          {
-            "name": "set",
-            "line": 42
-          },
-          {
-            "name": "<callback>",
-            "line": 53
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18CoreState.test.ts",
-        "category": "tests",
-        "sha256": "4ca4917d44ac7a0425d177696787e492f621a67987f354dfeb16631f24d60a90",
-        "lines": 108,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "defaults",
-            "line": 8
-          },
-          {
-            "name": "get",
-            "line": 8
-          },
-          {
-            "name": "set",
-            "line": 8
-          },
-          {
-            "name": "gate",
-            "line": 9
-          },
-          {
-            "name": "<callback>",
-            "line": 11
-          },
-          {
-            "name": "<callback>",
-            "line": 14
-          },
-          {
-            "name": "<callback>",
-            "line": 16
-          },
-          {
-            "name": "<callback>",
-            "line": 17
-          },
-          {
-            "name": "<callback>",
-            "line": 18
-          },
-          {
-            "name": "get",
-            "line": 24
-          },
-          {
-            "name": "set",
-            "line": 25
-          },
-          {
-            "name": "<callback>",
-            "line": 36
-          },
-          {
-            "name": "<callback>",
-            "line": 47
-          },
-          {
-            "name": "<callback>",
-            "line": 50
-          },
-          {
-            "name": "<callback>",
-            "line": 51
-          },
-          {
-            "name": "get",
-            "line": 56
-          },
-          {
-            "name": "set",
-            "line": 56
-          },
-          {
-            "name": "<callback>",
-            "line": 59
-          },
-          {
-            "name": "<callback>",
-            "line": 68
-          },
-          {
-            "name": "<callback>",
-            "line": 69
-          },
-          {
-            "name": "get",
-            "line": 70
-          },
-          {
-            "name": "set",
-            "line": 72
-          },
-          {
-            "name": "<callback>",
-            "line": 78
-          },
-          {
-            "name": "<callback>",
-            "line": 79
-          },
-          {
-            "name": "get",
-            "line": 80
-          },
-          {
-            "name": "set",
-            "line": 82
-          },
-          {
-            "name": "<callback>",
-            "line": 84
-          },
-          {
-            "name": "<callback>",
-            "line": 85
-          },
-          {
-            "name": "<callback>",
-            "line": 90
-          },
-          {
-            "name": "<callback>",
-            "line": 91
-          },
-          {
-            "name": "<callback>",
-            "line": 101
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18DeliveryConfig.test.ts",
-        "category": "tests",
-        "sha256": "037d50dc4ccb9fad6c69027f244781beac04c3604d4ded0b2467d6215f614103",
-        "lines": 29,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "<callback>",
-            "line": 10
-          },
-          {
-            "name": "<callback>",
-            "line": 12
-          },
-          {
-            "name": "<callback>",
-            "line": 13
-          },
-          {
-            "name": "<callback>",
-            "line": 16
-          },
-          {
-            "name": "<callback>",
-            "line": 17
-          },
-          {
-            "name": "<callback>",
-            "line": 19
-          },
-          {
-            "name": "<callback>",
-            "line": 20
-          },
-          {
-            "name": "<callback>",
             "line": 23
           },
           {
             "name": "<callback>",
-            "line": 25
-          },
-          {
-            "name": "apply",
-            "line": 26
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18DeliveryHelperLock.test.ts",
-        "category": "tests",
-        "sha256": "908f9313f98a04e864387e41fb1e8e0c2a4f2f8ffc4a6d25e3382f3c98571269",
-        "lines": 55,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "psQuote",
-            "line": 11
+            "line": 24
           },
           {
             "name": "<callback>",
-            "line": 12
-          },
-          {
-            "name": "<callback>",
-            "line": 19
-          },
-          {
-            "name": "fixture",
-            "line": 20
-          },
-          {
-            "name": "run",
-            "line": 25
-          },
-          {
-            "name": "<callback>",
-            "line": 34
-          },
-          {
-            "name": "<callback>",
-            "line": 40
-          },
-          {
-            "name": "<callback>",
-            "line": 44
-          },
-          {
-            "name": "<callback>",
-            "line": 46
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18DeliveryRenderer.Tests.ps1",
-        "category": "tests",
-        "sha256": "104830aeedeafd66802006902750484cebb164208ea39944fd0edb23bed1d6f8",
-        "lines": 68,
-        "symbolMethod": "declaration line scan",
-        "symbols": [
-          {
-            "name": "Delivery-Payload",
-            "line": 8
-          },
-          {
-            "name": "Delivery-Fixture",
-            "line": 14
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18DeliveryUpdater.test.ts",
-        "category": "tests",
-        "sha256": "9752802b3198c332c2c027938504118c9f822db67561e3460a6e7cd709645614",
-        "lines": 68,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "<callback>",
-            "line": 11
-          },
-          {
-            "name": "fixture",
-            "line": 18
-          },
-          {
-            "name": "<callback>",
-            "line": 30
-          },
-          {
-            "name": "<callback>",
-            "line": 30
-          },
-          {
-            "name": "<callback>",
-            "line": 31
-          },
-          {
-            "name": "<callback>",
-            "line": 31
-          },
-          {
-            "name": "<callback>",
-            "line": 36
-          },
-          {
-            "name": "<callback>",
-            "line": 37
-          },
-          {
-            "name": "<callback>",
-            "line": 40
-          },
-          {
-            "name": "<callback>",
-            "line": 40
-          },
-          {
-            "name": "<callback>",
-            "line": 47
-          },
-          {
-            "name": "<callback>",
-            "line": 49
-          },
-          {
-            "name": "<callback>",
-            "line": 49
+            "line": 41
           },
           {
             "name": "<callback>",
@@ -888,143 +60,7 @@
           },
           {
             "name": "<callback>",
-            "line": 51
-          },
-          {
-            "name": "<callback>",
-            "line": 52
-          },
-          {
-            "name": "<callback>",
-            "line": 60
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18PanelClient.test.ts",
-        "category": "tests",
-        "sha256": "d04eaea8f7610bc4b5e8191f6efb78adfd61d55ba83025cce8c6b38bef58d660",
-        "lines": 61,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "fixture",
-            "line": 11
-          },
-          {
-            "name": "<callback>",
-            "line": 13
-          },
-          {
-            "name": "<callback>",
-            "line": 28
-          },
-          {
-            "name": "<callback>",
-            "line": 29
-          },
-          {
-            "name": "<callback>",
-            "line": 31
-          },
-          {
-            "name": "<callback>",
-            "line": 32
-          },
-          {
-            "name": "<callback>",
-            "line": 34
-          },
-          {
-            "name": "<callback>",
-            "line": 34
-          },
-          {
-            "name": "<callback>",
-            "line": 34
-          },
-          {
-            "name": "<callback>",
-            "line": 49
-          },
-          {
-            "name": "<callback>",
-            "line": 51
-          },
-          {
-            "name": "<callback>",
-            "line": 51
-          },
-          {
-            "name": "<callback>",
-            "line": 51
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18PanelController.test.ts",
-        "category": "tests",
-        "sha256": "1c051400cbbe21ab257dc8fc8ebed2a7bba1f5ac74152164063b2c8b90b341ee",
-        "lines": 159,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "observable",
-            "line": 17
-          },
-          {
-            "name": "get",
-            "line": 18
-          },
-          {
-            "name": "set",
-            "line": 18
-          },
-          {
-            "name": "deferred",
-            "line": 20
-          },
-          {
-            "name": "<callback>",
-            "line": 22
-          },
-          {
-            "name": "harness",
-            "line": 28
-          },
-          {
-            "name": "<callback>",
-            "line": 32
-          },
-          {
-            "name": "<callback>",
-            "line": 37
-          },
-          {
-            "name": "<callback>",
-            "line": 43
-          },
-          {
-            "name": "get",
-            "line": 44
-          },
-          {
-            "name": "FakeClient",
-            "line": 56
-          },
-          {
-            "name": "<callback>",
-            "line": 57
-          },
-          {
-            "name": "<callback>",
-            "line": 58
+            "line": 59
           },
           {
             "name": "<callback>",
@@ -1036,475 +72,11 @@
           },
           {
             "name": "<callback>",
-            "line": 65
+            "line": 80
           },
           {
             "name": "<callback>",
-            "line": 66
-          },
-          {
-            "name": "<callback>",
-            "line": 75
-          },
-          {
-            "name": "<callback>",
-            "line": 76
-          },
-          {
-            "name": "<callback>",
-            "line": 77
-          },
-          {
-            "name": "freshness",
-            "line": 79
-          },
-          {
-            "name": "<callback>",
-            "line": 86
-          },
-          {
-            "name": "<callback>",
-            "line": 86
-          },
-          {
-            "name": "<callback>",
-            "line": 88
-          },
-          {
-            "name": "<callback>",
-            "line": 90
-          },
-          {
-            "name": "parseProfile",
-            "line": 93
-          },
-          {
-            "name": "parseSnapshot",
-            "line": 93
-          },
-          {
-            "name": "getCurrentUser",
-            "line": 96
-          },
-          {
-            "name": "addChangeListener",
-            "line": 97
-          },
-          {
-            "name": "removeChangeListener",
-            "line": 97
-          },
-          {
-            "name": "subscribe",
-            "line": 98
-          },
-          {
-            "name": "unsubscribe",
-            "line": 98
-          },
-          {
-            "name": "createPanelEventStream",
-            "line": 106
-          },
-          {
-            "name": "createPanelVault",
-            "line": 107
-          },
-          {
-            "name": "<callback>",
-            "line": 108
-          },
-          {
-            "name": "nextGeneration",
-            "line": 112
-          },
-          {
-            "name": "windowEditor",
-            "line": 112
-          },
-          {
-            "name": "libraryIsFresh",
-            "line": 114
-          },
-          {
-            "name": "setFreshnessCheck",
-            "line": 115
-          },
-          {
-            "name": "addEventListener",
-            "line": 120
-          },
-          {
-            "name": "removeEventListener",
-            "line": 120
-          },
-          {
-            "name": "addEventListener",
-            "line": 121
-          },
-          {
-            "name": "removeEventListener",
-            "line": 122
-          },
-          {
-            "name": "require",
-            "line": 123
-          },
-          {
-            "name": "freshness",
-            "line": 125
-          },
-          {
-            "name": "generation",
-            "line": 125
-          },
-          {
-            "name": "<callback>",
-            "line": 127
-          },
-          {
-            "name": "<callback>",
-            "line": 128
-          },
-          {
-            "name": "<callback>",
-            "line": 130
-          },
-          {
-            "name": "<callback>",
-            "line": 131
-          },
-          {
-            "name": "<callback>",
-            "line": 145
-          },
-          {
-            "name": "<callback>",
-            "line": 150
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18UiFlowStaleness.test.ts",
-        "category": "tests",
-        "sha256": "a103c32ee4fbbd600187cd7c1519258036841ca7cd1a89fe673cfdbad4d5b78b",
-        "lines": 107,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "deferred",
-            "line": 13
-          },
-          {
-            "name": "<callback>",
-            "line": 15
-          },
-          {
-            "name": "settle",
-            "line": 18
-          },
-          {
-            "name": "harness",
-            "line": 20
-          },
-          {
-            "name": "<callback>",
-            "line": 22
-          },
-          {
-            "name": "closest",
-            "line": 26
-          },
-          {
-            "name": "<callback>",
-            "line": 27
-          },
-          {
-            "name": "<callback>",
-            "line": 28
-          },
-          {
-            "name": "get",
-            "line": 30
-          },
-          {
-            "name": "set",
-            "line": 30
-          },
-          {
-            "name": "byId",
-            "line": 31
-          },
-          {
-            "name": "<callback>",
-            "line": 31
-          },
-          {
-            "name": "isIntentional",
-            "line": 32
-          },
-          {
-            "name": "activeEditor",
-            "line": 35
-          },
-          {
-            "name": "currentChannel",
-            "line": 35
-          },
-          {
-            "name": "readClipboard",
-            "line": 36
-          },
-          {
-            "name": "debugEnabled",
-            "line": 37
-          },
-          {
-            "name": "dlog",
-            "line": 37
-          },
-          {
-            "name": "generationNow",
-            "line": 38
-          },
-          {
-            "name": "targetNow",
-            "line": 38
-          },
-          {
-            "name": "rememberComposeTarget",
-            "line": 38
-          },
-          {
-            "name": "activeScope",
-            "line": 39
-          },
-          {
-            "name": "currentMode",
-            "line": 39
-          },
-          {
-            "name": "libraryIsFresh",
-            "line": 39
-          },
-          {
-            "name": "require",
-            "line": 42
-          },
-          {
-            "name": "setFresh",
-            "line": 46
-          },
-          {
-            "name": "<callback>",
-            "line": 50
-          },
-          {
-            "name": "<callback>",
-            "line": 51
-          },
-          {
-            "name": "<callback>",
-            "line": 71
-          },
-          {
-            "name": "<callback>",
-            "line": 89
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18UiKeyboardSafety.test.ts",
-        "category": "tests",
-        "sha256": "3597415bcfa20ffd1eb0d91a8f76f71a7e555d5033397bd44b81c715b3e2a1b0",
-        "lines": 113,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "<callback>",
-            "line": 10
-          },
-          {
-            "name": "text",
-            "line": 16
-          },
-          {
-            "name": "pathTo",
-            "line": 18
-          },
-          {
-            "name": "<callback>",
-            "line": 19
-          },
-          {
-            "name": "harness",
-            "line": 25
-          },
-          {
-            "name": "costStart",
-            "line": 26
-          },
-          {
-            "name": "costEnd",
-            "line": 26
-          },
-          {
-            "name": "dlog",
-            "line": 26
-          },
-          {
-            "name": "noteKey",
-            "line": 26
-          },
-          {
-            "name": "useMemo",
-            "line": 29
-          },
-          {
-            "name": "useRef",
-            "line": 29
-          },
-          {
-            "name": "useState",
-            "line": 30
-          },
-          {
-            "name": "useEffect",
-            "line": 31
-          },
-          {
-            "name": "createElement",
-            "line": 33
-          },
-          {
-            "name": "<callback>",
-            "line": 37
-          },
-          {
-            "name": "composeEditor",
-            "line": 43
-          },
-          {
-            "name": "composeTargetNow",
-            "line": 43
-          },
-          {
-            "name": "resetComposeTarget",
-            "line": 43
-          },
-          {
-            "name": "insertTemplate",
-            "line": 45
-          },
-          {
-            "name": "addToCompose",
-            "line": 46
-          },
-          {
-            "name": "fillFields",
-            "line": 47
-          },
-          {
-            "name": "snapNow",
-            "line": 48
-          },
-          {
-            "name": "stillCurrent",
-            "line": 48
-          },
-          {
-            "name": "focusTarget",
-            "line": 48
-          },
-          {
-            "name": "byId",
-            "line": 51
-          },
-          {
-            "name": "isFavorite",
-            "line": 51
-          },
-          {
-            "name": "markUsed",
-            "line": 51
-          },
-          {
-            "name": "subscribe",
-            "line": 51
-          },
-          {
-            "name": "<callback>",
-            "line": 51
-          },
-          {
-            "name": "get",
-            "line": 52
-          },
-          {
-            "name": "set",
-            "line": 52
-          },
-          {
-            "name": "useSelect",
-            "line": 52
-          },
-          {
-            "name": "subscribe",
-            "line": 52
-          },
-          {
-            "name": "<callback>",
-            "line": 52
-          },
-          {
-            "name": "useStore",
-            "line": 53
-          },
-          {
-            "name": "useChatRect",
-            "line": 53
-          },
-          {
-            "name": "libraryIsFresh",
-            "line": 53
-          },
-          {
-            "name": "evaluate",
-            "line": 56
-          },
-          {
-            "name": "require",
-            "line": 58
-          },
-          {
-            "name": "<callback>",
-            "line": 67
-          },
-          {
-            "name": "focus",
-            "line": 68
-          },
-          {
-            "name": "draft",
-            "line": 68
-          },
-          {
-            "name": "event",
-            "line": 71
-          },
-          {
-            "name": "<callback>",
-            "line": 74
-          },
-          {
-            "name": "<callback>",
-            "line": 79
+            "line": 82
           },
           {
             "name": "<callback>",
@@ -1512,159 +84,19 @@
           },
           {
             "name": "<callback>",
-            "line": 87
+            "line": 89
           },
           {
             "name": "<callback>",
-            "line": 88
+            "line": 89
           },
           {
             "name": "<callback>",
-            "line": 102
+            "line": 89
           },
           {
             "name": "<callback>",
-            "line": 107
-          },
-          {
-            "name": "<callback>",
-            "line": 108
-          }
-        ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
-      },
-      {
-        "file": "tests/q18UiServiceSettings.test.ts",
-        "category": "tests",
-        "sha256": "3c9b2794160b9e14e67ac156fc2c18050dc2fc42418bda57cafefd4ab9bd838e",
-        "lines": 160,
-        "symbolMethod": "TypeScript AST function-like bodies",
-        "symbols": [
-          {
-            "name": "nodes",
-            "line": 7
-          },
-          {
-            "name": "text",
-            "line": 9
-          },
-          {
-            "name": "harness",
-            "line": 14
-          },
-          {
-            "name": "useRef",
-            "line": 21
-          },
-          {
-            "name": "useState",
-            "line": 22
-          },
-          {
-            "name": "<callback>",
-            "line": 25
-          },
-          {
-            "name": "useEffect",
-            "line": 27
-          },
-          {
-            "name": "useSelect",
-            "line": 43
-          },
-          {
-            "name": "createElement",
-            "line": 53
-          },
-          {
-            "name": "getElementById",
-            "line": 54
-          },
-          {
-            "name": "require",
-            "line": 55
-          },
-          {
-            "name": "render",
-            "line": 60
-          },
-          {
-            "name": "unmount",
-            "line": 61
-          },
-          {
-            "name": "<callback>",
-            "line": 61
-          },
-          {
-            "name": "replayMountEffects",
-            "line": 62
-          },
-          {
-            "name": "<callback>",
-            "line": 62
-          },
-          {
-            "name": "stop",
-            "line": 65
-          },
-          {
-            "name": "restart",
-            "line": 65
-          },
-          {
-            "name": "setPhase",
-            "line": 65
-          },
-          {
-            "name": "button",
-            "line": 69
-          },
-          {
-            "name": "<callback>",
-            "line": 69
-          },
-          {
-            "name": "<callback>",
-            "line": 75
-          },
-          {
-            "name": "<callback>",
-            "line": 76
-          },
-          {
-            "name": "<callback>",
-            "line": 79
-          },
-          {
-            "name": "<callback>",
-            "line": 80
-          },
-          {
-            "name": "<callback>",
-            "line": 81
-          },
-          {
-            "name": "<callback>",
-            "line": 84
-          },
-          {
-            "name": "<callback>",
-            "line": 86
-          },
-          {
-            "name": "<callback>",
-            "line": 86
-          },
-          {
-            "name": "<callback>",
-            "line": 91
-          },
-          {
-            "name": "<callback>",
-            "line": 95
+            "line": 98
           },
           {
             "name": "<callback>",
@@ -1672,31 +104,143 @@
           },
           {
             "name": "<callback>",
+            "line": 102
+          },
+          {
+            "name": "<callback>",
+            "line": 115
+          },
+          {
+            "name": "<callback>",
+            "line": 124
+          },
+          {
+            "name": "execFile",
+            "line": 128
+          },
+          {
+            "name": "<callback>",
+            "line": 131
+          }
+        ],
+        "reviewedBy": [
+          "dpapi-review.json"
+        ]
+      },
+      {
+        "file": "tests/q18DpapiVault.test.ts",
+        "category": "tests",
+        "sha256": "de3e9e81f7e660a392a6e4a1cf78081b51c7f9ed8b98e481f23f0353a70a5ab8",
+        "lines": 132,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "temporary",
+            "line": 11
+          },
+          {
+            "name": "<callback>",
+            "line": 12
+          },
+          {
+            "name": "deferred",
+            "line": 19
+          },
+          {
+            "name": "<callback>",
+            "line": 19
+          },
+          {
+            "name": "cipher",
+            "line": 20
+          },
+          {
+            "name": "isEncryptionAvailable",
+            "line": 23
+          },
+          {
+            "name": "encryptString",
+            "line": 24
+          },
+          {
+            "name": "decryptString",
+            "line": 26
+          },
+          {
+            "name": "<callback>",
+            "line": 31
+          },
+          {
+            "name": "<callback>",
+            "line": 32
+          },
+          {
+            "name": "<callback>",
+            "line": 35
+          },
+          {
+            "name": "<callback>",
+            "line": 36
+          },
+          {
+            "name": "<callback>",
+            "line": 46
+          },
+          {
+            "name": "<callback>",
+            "line": 48
+          },
+          {
+            "name": "<callback>",
+            "line": 54
+          },
+          {
+            "name": "<callback>",
+            "line": 72
+          },
+          {
+            "name": "<callback>",
+            "line": 74
+          },
+          {
+            "name": "<callback>",
+            "line": 75
+          },
+          {
+            "name": "<callback>",
+            "line": 89
+          },
+          {
+            "name": "<callback>",
+            "line": 92
+          },
+          {
+            "name": "end",
+            "line": 95
+          },
+          {
+            "name": "spawnSync",
+            "line": 98
+          },
+          {
+            "name": "<callback>",
+            "line": 102
+          },
+          {
+            "name": "<callback>",
             "line": 104
           },
           {
             "name": "<callback>",
-            "line": 111
+            "line": 113
           },
           {
             "name": "<callback>",
-            "line": 126
-          },
-          {
-            "name": "<callback>",
-            "line": 134
-          },
-          {
-            "name": "<callback>",
-            "line": 142
-          },
-          {
-            "name": "<callback>",
-            "line": 151
+            "line": 119
           }
         ],
         "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
+          "dpapi-review.json"
         ]
       },
       {
@@ -2242,39 +786,65 @@
           }
         ],
         "reviewedBy": [
-          "betterdiscord-review.json"
+          "betterdiscord-review.json",
+          "dpapi-review.json"
         ]
       },
       {
         "file": "betterdiscord/native/dpapi.ts",
         "category": "product-or-build",
-        "sha256": "40d5ee940d787b68c25289d40559bf4fd9b60515ee90c3ecf332b7bbb7bf34bf",
-        "lines": 52,
+        "sha256": "86c6b760c436cc082da0105725b3816593a5da716d7e8b4531e260edf8d4546e",
+        "lines": 86,
         "symbolMethod": "TypeScript AST function-like bodies",
         "symbols": [
           {
+            "name": "failed",
+            "line": 29
+          },
+          {
             "name": "createDpapiCrypto",
-            "line": 24
+            "line": 31
           },
           {
             "name": "transform",
-            "line": 28
+            "line": 36
           },
           {
-            "name": "isEncryptionAvailable",
+            "name": "<callback>",
             "line": 39
           },
           {
+            "name": "<callback>",
+            "line": 45
+          },
+          {
+            "name": "failInput",
+            "line": 59
+          },
+          {
+            "name": "initialize",
+            "line": 72
+          },
+          {
+            "name": "<callback>",
+            "line": 73
+          },
+          {
+            "name": "isEncryptionAvailable",
+            "line": 81
+          },
+          {
             "name": "encryptString",
-            "line": 48
+            "line": 82
           },
           {
             "name": "decryptString",
-            "line": 49
+            "line": 83
           }
         ],
         "reviewedBy": [
-          "betterdiscord-review.json"
+          "betterdiscord-review.json",
+          "dpapi-review.json"
         ]
       },
       {
@@ -2470,7 +1040,8 @@
           }
         ],
         "reviewedBy": [
-          "betterdiscord-review.json"
+          "betterdiscord-review.json",
+          "dpapi-review.json"
         ]
       },
       {
@@ -2572,8 +1143,8 @@
       {
         "file": "betterdiscord/native/vault.ts",
         "category": "product-or-build",
-        "sha256": "9739a5bbe21f0cb9f77f8a7b237e648473b92abdf952d8275080b14ad46ae6c3",
-        "lines": 66,
+        "sha256": "0fe54f11872f6284b2273ced674822450ef7f280f88d6897c22881fce4db4d97",
+        "lines": 77,
         "symbolMethod": "TypeScript AST function-like bodies",
         "symbols": [
           {
@@ -2629,24 +1200,41 @@
             "line": 38
           },
           {
+            "name": "serialize",
+            "line": 45
+          },
+          {
+            "name": "<callback>",
+            "line": 47
+          },
+          {
+            "name": "<callback>",
+            "line": 47
+          },
+          {
             "name": "createPanelVault",
-            "line": 44
+            "line": 50
+          },
+          {
+            "name": "<callback>",
+            "line": 51
           },
           {
             "name": "closePanelVault",
-            "line": 61
+            "line": 71
           },
           {
             "name": "<callback>",
-            "line": 63
+            "line": 72
           },
           {
             "name": "<callback>",
-            "line": 63
+            "line": 75
           }
         ],
         "reviewedBy": [
-          "betterdiscord-review.json"
+          "betterdiscord-review.json",
+          "dpapi-review.json"
         ]
       },
       {
@@ -2686,7 +1274,8 @@
           }
         ],
         "reviewedBy": [
-          "betterdiscord-review.json"
+          "betterdiscord-review.json",
+          "dpapi-review.json"
         ]
       },
       {
@@ -5559,6 +4148,50 @@
         ]
       },
       {
+        "file": "scripts/qa/code-inventory.mjs",
+        "category": "tooling",
+        "sha256": "d69f0885e4e408447f82615e2f1f7782e33d81207333e8cc604bcb9557fdb044",
+        "lines": 47,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "<callback>",
+            "line": 12
+          },
+          {
+            "name": "<callback>",
+            "line": 14
+          },
+          {
+            "name": "visit",
+            "line": 19
+          },
+          {
+            "name": "<callback>",
+            "line": 28
+          },
+          {
+            "name": "<callback>",
+            "line": 45
+          },
+          {
+            "name": "<callback>",
+            "line": 46
+          },
+          {
+            "name": "<callback>",
+            "line": 46
+          },
+          {
+            "name": "<callback>",
+            "line": 46
+          }
+        ],
+        "reviewedBy": [
+          "parent-review.json"
+        ]
+      },
+      {
         "file": "scripts/qa/diagnostics-file.py",
         "category": "tooling",
         "sha256": "493393f1ac62dc05040a8627a5e05001591d514287e37fbf325ec263ec461ef8",
@@ -5997,6 +4630,58 @@
           {
             "name": "log_message",
             "line": 9
+          }
+        ],
+        "reviewedBy": [
+          "parent-review.json"
+        ]
+      },
+      {
+        "file": "scripts/qa/native-service-check.py",
+        "category": "tooling",
+        "sha256": "ce58aa943f6b27427d49ace9ecb4bcb0e524d3a351383178c10026511c0512f8",
+        "lines": 74,
+        "symbolMethod": "declaration line scan",
+        "symbols": [
+          {
+            "name": "check",
+            "line": 13
+          },
+          {
+            "name": "local_only",
+            "line": 16
+          },
+          {
+            "name": "reject_websocket",
+            "line": 23
+          }
+        ],
+        "reviewedBy": [
+          "parent-review.json"
+        ]
+      },
+      {
+        "file": "scripts/qa/native-service-harness.mjs",
+        "category": "tooling",
+        "sha256": "249d73fd292748dedc9eb852621043812f5c765799b750b6166aa621d6d3319f",
+        "lines": 45,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "setup",
+            "line": 32
+          },
+          {
+            "name": "<callback>",
+            "line": 33
+          },
+          {
+            "name": "<callback>",
+            "line": 38
+          },
+          {
+            "name": "<callback>",
+            "line": 42
           }
         ],
         "reviewedBy": [
@@ -9051,6 +7736,7 @@
           }
         ],
         "reviewedBy": [
+          "dpapi-review.json",
           "parent-review.json"
         ]
       },
@@ -9273,7 +7959,7 @@
       {
         "file": "src/vencord/panelVaultNative.ts",
         "category": "product-or-build",
-        "sha256": "ebe65ee02063f7b17e4e3f60de934d2ecc76cdfcd148be37017f226d7b679e98",
+        "sha256": "d1d696d81522b175771ca9eaff188462e0b33b34c22b9d163d578f53e1ff8bda",
         "lines": 195,
         "symbolMethod": "TypeScript AST function-like bodies",
         "symbols": [
@@ -9363,6 +8049,7 @@
           }
         ],
         "reviewedBy": [
+          "dpapi-review.json",
           "parent-review.json"
         ]
       },
@@ -10406,6 +9093,38 @@
           {
             "name": "<callback>",
             "line": 59
+          }
+        ],
+        "reviewedBy": [
+          "ui-review.json"
+        ]
+      },
+      {
+        "file": "src/vencord/ui/NativeServiceSettings.tsx",
+        "category": "product-or-build",
+        "sha256": "3d773e24603317768760e0ff405cbc08b29ace19eabdd01737b12fd541c3e18f",
+        "lines": 47,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "NativeServiceSettings",
+            "line": 14
+          },
+          {
+            "name": "<callback>",
+            "line": 15
+          },
+          {
+            "name": "<callback>",
+            "line": 20
+          },
+          {
+            "name": "<callback>",
+            "line": 20
+          },
+          {
+            "name": "<callback>",
+            "line": 35
           }
         ],
         "reviewedBy": [
@@ -14579,9 +13298,7 @@
             "line": 107
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/betterdiscordBrowserVault.test.ts",
@@ -14811,9 +13528,7 @@
             "line": 332
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/betterdiscordChatMounts.test.ts",
@@ -14963,9 +13678,7 @@
             "line": 90
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/betterdiscordHarness.ts",
@@ -14992,7 +13705,7 @@
           }
         ],
         "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
+          "dpapi-review.json"
         ]
       },
       {
@@ -15119,9 +13832,7 @@
             "line": 119
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/betterdiscordInsertion.test.ts",
@@ -15299,60 +14010,50 @@
             "line": 109
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/betterdiscordNative.test.ts",
         "category": "tests",
-        "sha256": "230fa49e0ad343e089eca9c99e177a85fcc98c23e5e3ee9be17daea2495d15d4",
-        "lines": 139,
+        "sha256": "9893ba960ba6ed2fceacc45e3bb5091b9821098487e4ee5e9b2c17b48298d648",
+        "lines": 165,
         "symbolMethod": "TypeScript AST function-like bodies",
         "symbols": [
           {
             "name": "<callback>",
-            "line": 9
-          },
-          {
-            "name": "temporary",
             "line": 10
           },
           {
-            "name": "<callback>",
-            "line": 12
+            "name": "temporary",
+            "line": 11
           },
           {
             "name": "<callback>",
             "line": 13
           },
           {
-            "name": "start",
-            "line": 15
+            "name": "<callback>",
+            "line": 14
           },
           {
-            "name": "<callback>",
+            "name": "start",
             "line": 16
           },
           {
             "name": "<callback>",
-            "line": 34
+            "line": 17
           },
           {
             "name": "<callback>",
-            "line": 38
+            "line": 35
           },
           {
             "name": "<callback>",
-            "line": 41
+            "line": 39
           },
           {
             "name": "<callback>",
-            "line": 45
-          },
-          {
-            "name": "<callback>",
-            "line": 46
+            "line": 42
           },
           {
             "name": "<callback>",
@@ -15360,11 +14061,15 @@
           },
           {
             "name": "<callback>",
-            "line": 46
+            "line": 47
           },
           {
             "name": "<callback>",
-            "line": 57
+            "line": 47
+          },
+          {
+            "name": "<callback>",
+            "line": 47
           },
           {
             "name": "<callback>",
@@ -15372,59 +14077,79 @@
           },
           {
             "name": "<callback>",
-            "line": 62
+            "line": 59
           },
           {
             "name": "<callback>",
-            "line": 64
+            "line": 63
+          },
+          {
+            "name": "<callback>",
+            "line": 65
           },
           {
             "name": "require",
-            "line": 68
+            "line": 69
           },
           {
             "name": "<callback>",
-            "line": 78
+            "line": 79
           },
           {
             "name": "isEncryptionAvailable",
-            "line": 83
-          },
-          {
-            "name": "encryptString",
             "line": 84
           },
           {
+            "name": "encryptString",
+            "line": 85
+          },
+          {
             "name": "decryptString",
-            "line": 86
+            "line": 87
           },
           {
             "name": "<callback>",
-            "line": 110
+            "line": 111
           },
           {
             "name": "isEncryptionAvailable",
-            "line": 112
+            "line": 113
           },
           {
             "name": "<callback>",
-            "line": 116
+            "line": 117
           },
           {
             "name": "<callback>",
-            "line": 118
+            "line": 120
           },
           {
             "name": "<callback>",
-            "line": 128
+            "line": 135
+          },
+          {
+            "name": "measure",
+            "line": 139
           },
           {
             "name": "<callback>",
-            "line": 130
+            "line": 142
+          },
+          {
+            "name": "<callback>",
+            "line": 157
+          },
+          {
+            "name": "<callback>",
+            "line": 159
+          },
+          {
+            "name": "<callback>",
+            "line": 161
           }
         ],
         "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
+          "dpapi-review.json"
         ]
       },
       {
@@ -15843,9 +14568,7 @@
             "line": 325
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/betterdiscordUpdater.test.ts",
@@ -15903,9 +14626,7 @@
             "line": 73
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/compose.test.ts",
@@ -15935,9 +14656,7 @@
             "line": 17
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/contextMenuComposition.test.ts",
@@ -15959,9 +14678,7 @@
             "line": 20
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/cost.test.ts",
@@ -16019,9 +14736,7 @@
             "line": 80
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/customSound.test.ts",
@@ -16267,9 +14982,7 @@
             "line": 450
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/debug-privacy.test.ts",
@@ -16335,9 +15048,7 @@
             "line": 82
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/demoLifecycle.test.ts",
@@ -16611,9 +15322,7 @@
             "line": 301
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/diagnosticJournal.test.ts",
@@ -16771,9 +15480,7 @@
             "line": 93
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/distributionConfig.test.ts",
@@ -16819,9 +15526,7 @@
             "line": 18
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/distributionNaming.test.ts",
@@ -16875,9 +15580,7 @@
             "line": 84
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/distributionRelease.test.ts",
@@ -16947,9 +15650,7 @@
             "line": 56
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/distributionUpdater.test.ts",
@@ -17483,9 +16184,7 @@
             "line": 389
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/fixtures/config-0.5.1.json",
@@ -17494,9 +16193,7 @@
         "lines": 141,
         "symbolMethod": "not applicable",
         "symbols": [],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/flowCancellation.test.ts",
@@ -17650,9 +16347,7 @@
             "line": 242
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/guard.test.ts",
@@ -17726,9 +16421,7 @@
             "line": 58
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/importBindingPriority.test.ts",
@@ -17750,9 +16443,7 @@
             "line": 6
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/importer-linearity.test.ts",
@@ -17818,9 +16509,7 @@
             "line": 34
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/importer.test.ts",
@@ -17870,9 +16559,7 @@
             "line": 37
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/interactionCancellation.test.ts",
@@ -18246,9 +16933,7 @@
             "line": 314
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/keys.test.ts",
@@ -18302,9 +16987,7 @@
             "line": 39
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/layout.test.ts",
@@ -18406,9 +17089,7 @@
             "line": 130
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/masterCodeAudit.test.ts",
@@ -18626,9 +17307,7 @@
             "line": 176
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/masterCompatibility.test.ts",
@@ -18910,9 +17589,7 @@
             "line": 264
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/masterKeyboardConflicts.test.ts",
@@ -19042,9 +17719,7 @@
             "line": 140
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/masterPerformance.test.ts",
@@ -19150,9 +17825,7 @@
             "line": 49
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/masterPersistenceStress.test.ts",
@@ -19438,9 +18111,7 @@
             "line": 380
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/masterReact.test.ts",
@@ -19546,9 +18217,7 @@
             "line": 66
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/masterRegression.test.ts",
@@ -19614,9 +18283,7 @@
             "line": 58
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/masterUserPaths.test.ts",
@@ -19886,9 +18553,7 @@
             "line": 190
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/masterUx.test.ts",
@@ -20306,9 +18971,7 @@
             "line": 274
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/menuRefinement.test.ts",
@@ -20906,9 +19569,7 @@
             "line": 446
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/observable.test.ts",
@@ -20954,9 +19615,7 @@
             "line": 52
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelAccess.test.ts",
@@ -21058,9 +19717,7 @@
             "line": 55
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelCatalog.test.ts",
@@ -21326,9 +19983,7 @@
             "line": 243
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelClient.test.ts",
@@ -22006,9 +20661,7 @@
             "line": 957
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelEvents.test.ts",
@@ -22242,9 +20895,7 @@
             "line": 291
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelHtml.test.ts",
@@ -22326,9 +20977,7 @@
             "line": 95
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelIntegration.test.ts",
@@ -23014,9 +21663,7 @@
             "line": 915
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelLifecycleCleanup.test.ts",
@@ -23174,9 +21821,7 @@
             "line": 126
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelPermission.test.ts",
@@ -23226,9 +21871,7 @@
             "line": 38
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelPersonalLibrary.test.ts",
@@ -23470,9 +22113,7 @@
             "line": 150
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelPreferences.test.ts",
@@ -23654,9 +22295,7 @@
             "line": 274
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelProtocol.test.ts",
@@ -23758,9 +22397,7 @@
             "line": 100
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelReminders.test.ts",
@@ -24082,9 +22719,7 @@
             "line": 514
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelRequestRobustness.test.ts",
@@ -24358,9 +22993,7 @@
             "line": 272
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelSessionIntegration.test.ts",
@@ -24626,9 +23259,7 @@
             "line": 205
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelSessionRobustness.test.ts",
@@ -24738,9 +23369,7 @@
             "line": 105
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelTransport.test.ts",
@@ -24998,9 +23627,7 @@
             "line": 347
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/panelVault.test.ts",
@@ -25403,7 +24030,7 @@
           }
         ],
         "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
+          "dpapi-review.json"
         ]
       },
       {
@@ -25642,9 +24269,7 @@
             "line": 162
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/personal.test.ts",
@@ -25718,9 +24343,7 @@
             "line": 101
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/personalLibraryLifecycle.test.ts",
@@ -26110,9 +24733,7 @@
             "line": 384
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/personalPersistence.test.ts",
@@ -26314,9 +24935,1541 @@
             "line": 177
           }
         ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18BetterdiscordEntry.test.ts",
+        "category": "tests",
+        "sha256": "d35a16565b1bb8f6dbc325a233935cb705c270629adfc8c50d8ad226932607b7",
+        "lines": 53,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "fixture",
+            "line": 6
+          },
+          {
+            "name": "createElement",
+            "line": 7
+          },
+          {
+            "name": "ServiceSettings",
+            "line": 13
+          },
+          {
+            "name": "api",
+            "line": 14
+          },
+          {
+            "name": "useState",
+            "line": 15
+          },
+          {
+            "name": "<callback>",
+            "line": 15
+          },
+          {
+            "name": "useEffect",
+            "line": 15
+          },
+          {
+            "name": "\"./shims/errorBoundary\"",
+            "line": 16
+          },
+          {
+            "name": "distributionDisplay",
+            "line": 19
+          },
+          {
+            "name": "render",
+            "line": 22
+          },
+          {
+            "name": "<callback>",
+            "line": 32
+          },
+          {
+            "name": "<callback>",
+            "line": 33
+          },
+          {
+            "name": "<callback>",
+            "line": 36
+          },
+          {
+            "name": "<callback>",
+            "line": 39
+          },
+          {
+            "name": "<callback>",
+            "line": 40
+          },
+          {
+            "name": "<callback>",
+            "line": 41
+          },
+          {
+            "name": "<callback>",
+            "line": 46
+          },
+          {
+            "name": "<callback>",
+            "line": 49
+          },
+          {
+            "name": "<callback>",
+            "line": 50
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18BetterdiscordShims.test.ts",
+        "category": "tests",
+        "sha256": "ee1f76042d7e9e5cac6abe05895cb0ee130d83b9b9c74181547f48f44423d403",
+        "lines": 73,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "<callback>",
+            "line": 4
+          },
+          {
+            "name": "<callback>",
+            "line": 5
+          },
+          {
+            "name": "<callback>",
+            "line": 17
+          },
+          {
+            "name": "<callback>",
+            "line": 19
+          },
+          {
+            "name": "<callback>",
+            "line": 19
+          },
+          {
+            "name": "<callback>",
+            "line": 30
+          },
+          {
+            "name": "writeText",
+            "line": 32
+          },
+          {
+            "name": "storeFixture",
+            "line": 37
+          },
+          {
+            "name": "useState",
+            "line": 41
+          },
+          {
+            "name": "useRef",
+            "line": 41
+          },
+          {
+            "name": "useEffect",
+            "line": 42
+          },
+          {
+            "name": "<callback>",
+            "line": 45
+          },
+          {
+            "name": "<callback>",
+            "line": 46
+          },
+          {
+            "name": "mount",
+            "line": 47
+          },
+          {
+            "name": "<callback>",
+            "line": 47
+          },
+          {
+            "name": "<callback>",
+            "line": 51
+          },
+          {
+            "name": "<callback>",
+            "line": 52
+          },
+          {
+            "name": "<callback>",
+            "line": 54
+          },
+          {
+            "name": "<callback>",
+            "line": 63
+          },
+          {
+            "name": "<callback>",
+            "line": 66
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18BetterdiscordUpdater.test.ts",
+        "category": "tests",
+        "sha256": "7d80d0112b0d2943baf843c423ac9040233a11a6dd41f96446dde97771b9a466",
+        "lines": 105,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "<callback>",
+            "line": 11
+          },
+          {
+            "name": "<callback>",
+            "line": 15
+          },
+          {
+            "name": "<callback>",
+            "line": 16
+          },
+          {
+            "name": "<callback>",
+            "line": 19
+          },
+          {
+            "name": "<callback>",
+            "line": 19
+          },
+          {
+            "name": "<callback>",
+            "line": 29
+          },
+          {
+            "name": "<callback>",
+            "line": 31
+          },
+          {
+            "name": "<callback>",
+            "line": 38
+          },
+          {
+            "name": "<callback>",
+            "line": 39
+          },
+          {
+            "name": "<callback>",
+            "line": 57
+          },
+          {
+            "name": "<callback>",
+            "line": 58
+          },
+          {
+            "name": "<callback>",
+            "line": 62
+          },
+          {
+            "name": "<callback>",
+            "line": 62
+          },
+          {
+            "name": "<callback>",
+            "line": 71
+          },
+          {
+            "name": "<callback>",
+            "line": 81
+          },
+          {
+            "name": "<callback>",
+            "line": 82
+          },
+          {
+            "name": "<callback>",
+            "line": 93
+          },
+          {
+            "name": "<callback>",
+            "line": 93
+          },
+          {
+            "name": "<callback>",
+            "line": 97
+          },
+          {
+            "name": "<callback>",
+            "line": 101
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18CoreGuardTrigger.test.ts",
+        "category": "tests",
+        "sha256": "6593dd7228dd0b7572ba9804c2a083a040683f8f9e7371241305ebe47bb1ebbe",
+        "lines": 36,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "<callback>",
+            "line": 8
+          },
+          {
+            "name": "<callback>",
+            "line": 9
+          },
+          {
+            "name": "<callback>",
+            "line": 15
+          },
+          {
+            "name": "<callback>",
+            "line": 17
+          },
+          {
+            "name": "<callback>",
+            "line": 25
+          },
+          {
+            "name": "get",
+            "line": 27
+          },
+          {
+            "name": "set",
+            "line": 27
+          },
+          {
+            "name": "<callback>",
+            "line": 28
+          },
+          {
+            "name": "<callback>",
+            "line": 30
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18CoreParsing.test.ts",
+        "category": "tests",
+        "sha256": "ee0cbe24da37896a4a27b936556b62b5a135f49479ad2ebbd022f747648805ec",
+        "lines": 43,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "bounded",
+            "line": 7
+          },
+          {
+            "name": "<callback>",
+            "line": 9
+          },
+          {
+            "name": "<callback>",
+            "line": 11
+          },
+          {
+            "name": "<callback>",
+            "line": 13
+          },
+          {
+            "name": "<callback>",
+            "line": 15
+          },
+          {
+            "name": "<callback>",
+            "line": 17
+          },
+          {
+            "name": "<callback>",
+            "line": 19
+          },
+          {
+            "name": "<callback>",
+            "line": 21
+          },
+          {
+            "name": "<callback>",
+            "line": 26
+          },
+          {
+            "name": "<callback>",
+            "line": 28
+          },
+          {
+            "name": "<callback>",
+            "line": 33
+          },
+          {
+            "name": "<callback>",
+            "line": 39
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18CoreReferenceMigration.test.ts",
+        "category": "tests",
+        "sha256": "b2b2ea5ce2eb65676a0e284d0c00e07905d173e7485835e99312937f398091de",
+        "lines": 58,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "<callback>",
+            "line": 14
+          },
+          {
+            "name": "backup",
+            "line": 20
+          },
+          {
+            "name": "<callback>",
+            "line": 26
+          },
+          {
+            "name": "<callback>",
+            "line": 27
+          },
+          {
+            "name": "<callback>",
+            "line": 30
+          },
+          {
+            "name": "<callback>",
+            "line": 31
+          },
+          {
+            "name": "<callback>",
+            "line": 38
+          },
+          {
+            "name": "get",
+            "line": 41
+          },
+          {
+            "name": "set",
+            "line": 42
+          },
+          {
+            "name": "<callback>",
+            "line": 53
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18CoreState.test.ts",
+        "category": "tests",
+        "sha256": "4ca4917d44ac7a0425d177696787e492f621a67987f354dfeb16631f24d60a90",
+        "lines": 108,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "defaults",
+            "line": 8
+          },
+          {
+            "name": "get",
+            "line": 8
+          },
+          {
+            "name": "set",
+            "line": 8
+          },
+          {
+            "name": "gate",
+            "line": 9
+          },
+          {
+            "name": "<callback>",
+            "line": 11
+          },
+          {
+            "name": "<callback>",
+            "line": 14
+          },
+          {
+            "name": "<callback>",
+            "line": 16
+          },
+          {
+            "name": "<callback>",
+            "line": 17
+          },
+          {
+            "name": "<callback>",
+            "line": 18
+          },
+          {
+            "name": "get",
+            "line": 24
+          },
+          {
+            "name": "set",
+            "line": 25
+          },
+          {
+            "name": "<callback>",
+            "line": 36
+          },
+          {
+            "name": "<callback>",
+            "line": 47
+          },
+          {
+            "name": "<callback>",
+            "line": 50
+          },
+          {
+            "name": "<callback>",
+            "line": 51
+          },
+          {
+            "name": "get",
+            "line": 56
+          },
+          {
+            "name": "set",
+            "line": 56
+          },
+          {
+            "name": "<callback>",
+            "line": 59
+          },
+          {
+            "name": "<callback>",
+            "line": 68
+          },
+          {
+            "name": "<callback>",
+            "line": 69
+          },
+          {
+            "name": "get",
+            "line": 70
+          },
+          {
+            "name": "set",
+            "line": 72
+          },
+          {
+            "name": "<callback>",
+            "line": 78
+          },
+          {
+            "name": "<callback>",
+            "line": 79
+          },
+          {
+            "name": "get",
+            "line": 80
+          },
+          {
+            "name": "set",
+            "line": 82
+          },
+          {
+            "name": "<callback>",
+            "line": 84
+          },
+          {
+            "name": "<callback>",
+            "line": 85
+          },
+          {
+            "name": "<callback>",
+            "line": 90
+          },
+          {
+            "name": "<callback>",
+            "line": 91
+          },
+          {
+            "name": "<callback>",
+            "line": 101
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18DeliveryConfig.test.ts",
+        "category": "tests",
+        "sha256": "037d50dc4ccb9fad6c69027f244781beac04c3604d4ded0b2467d6215f614103",
+        "lines": 29,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "<callback>",
+            "line": 10
+          },
+          {
+            "name": "<callback>",
+            "line": 12
+          },
+          {
+            "name": "<callback>",
+            "line": 13
+          },
+          {
+            "name": "<callback>",
+            "line": 16
+          },
+          {
+            "name": "<callback>",
+            "line": 17
+          },
+          {
+            "name": "<callback>",
+            "line": 19
+          },
+          {
+            "name": "<callback>",
+            "line": 20
+          },
+          {
+            "name": "<callback>",
+            "line": 23
+          },
+          {
+            "name": "<callback>",
+            "line": 25
+          },
+          {
+            "name": "apply",
+            "line": 26
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18DeliveryHelperLock.test.ts",
+        "category": "tests",
+        "sha256": "908f9313f98a04e864387e41fb1e8e0c2a4f2f8ffc4a6d25e3382f3c98571269",
+        "lines": 55,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "psQuote",
+            "line": 11
+          },
+          {
+            "name": "<callback>",
+            "line": 12
+          },
+          {
+            "name": "<callback>",
+            "line": 19
+          },
+          {
+            "name": "fixture",
+            "line": 20
+          },
+          {
+            "name": "run",
+            "line": 25
+          },
+          {
+            "name": "<callback>",
+            "line": 34
+          },
+          {
+            "name": "<callback>",
+            "line": 40
+          },
+          {
+            "name": "<callback>",
+            "line": 44
+          },
+          {
+            "name": "<callback>",
+            "line": 46
+          }
+        ],
         "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
+          "dpapi-review.json"
         ]
+      },
+      {
+        "file": "tests/q18DeliveryRenderer.Tests.ps1",
+        "category": "tests",
+        "sha256": "104830aeedeafd66802006902750484cebb164208ea39944fd0edb23bed1d6f8",
+        "lines": 68,
+        "symbolMethod": "declaration line scan",
+        "symbols": [
+          {
+            "name": "Delivery-Payload",
+            "line": 8
+          },
+          {
+            "name": "Delivery-Fixture",
+            "line": 14
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18DeliveryUpdater.test.ts",
+        "category": "tests",
+        "sha256": "9752802b3198c332c2c027938504118c9f822db67561e3460a6e7cd709645614",
+        "lines": 68,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "<callback>",
+            "line": 11
+          },
+          {
+            "name": "fixture",
+            "line": 18
+          },
+          {
+            "name": "<callback>",
+            "line": 30
+          },
+          {
+            "name": "<callback>",
+            "line": 30
+          },
+          {
+            "name": "<callback>",
+            "line": 31
+          },
+          {
+            "name": "<callback>",
+            "line": 31
+          },
+          {
+            "name": "<callback>",
+            "line": 36
+          },
+          {
+            "name": "<callback>",
+            "line": 37
+          },
+          {
+            "name": "<callback>",
+            "line": 40
+          },
+          {
+            "name": "<callback>",
+            "line": 40
+          },
+          {
+            "name": "<callback>",
+            "line": 47
+          },
+          {
+            "name": "<callback>",
+            "line": 49
+          },
+          {
+            "name": "<callback>",
+            "line": 49
+          },
+          {
+            "name": "<callback>",
+            "line": 51
+          },
+          {
+            "name": "<callback>",
+            "line": 51
+          },
+          {
+            "name": "<callback>",
+            "line": 52
+          },
+          {
+            "name": "<callback>",
+            "line": 60
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18PanelClient.test.ts",
+        "category": "tests",
+        "sha256": "d04eaea8f7610bc4b5e8191f6efb78adfd61d55ba83025cce8c6b38bef58d660",
+        "lines": 61,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "fixture",
+            "line": 11
+          },
+          {
+            "name": "<callback>",
+            "line": 13
+          },
+          {
+            "name": "<callback>",
+            "line": 28
+          },
+          {
+            "name": "<callback>",
+            "line": 29
+          },
+          {
+            "name": "<callback>",
+            "line": 31
+          },
+          {
+            "name": "<callback>",
+            "line": 32
+          },
+          {
+            "name": "<callback>",
+            "line": 34
+          },
+          {
+            "name": "<callback>",
+            "line": 34
+          },
+          {
+            "name": "<callback>",
+            "line": 34
+          },
+          {
+            "name": "<callback>",
+            "line": 49
+          },
+          {
+            "name": "<callback>",
+            "line": 51
+          },
+          {
+            "name": "<callback>",
+            "line": 51
+          },
+          {
+            "name": "<callback>",
+            "line": 51
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18PanelController.test.ts",
+        "category": "tests",
+        "sha256": "1c051400cbbe21ab257dc8fc8ebed2a7bba1f5ac74152164063b2c8b90b341ee",
+        "lines": 159,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "observable",
+            "line": 17
+          },
+          {
+            "name": "get",
+            "line": 18
+          },
+          {
+            "name": "set",
+            "line": 18
+          },
+          {
+            "name": "deferred",
+            "line": 20
+          },
+          {
+            "name": "<callback>",
+            "line": 22
+          },
+          {
+            "name": "harness",
+            "line": 28
+          },
+          {
+            "name": "<callback>",
+            "line": 32
+          },
+          {
+            "name": "<callback>",
+            "line": 37
+          },
+          {
+            "name": "<callback>",
+            "line": 43
+          },
+          {
+            "name": "get",
+            "line": 44
+          },
+          {
+            "name": "FakeClient",
+            "line": 56
+          },
+          {
+            "name": "<callback>",
+            "line": 57
+          },
+          {
+            "name": "<callback>",
+            "line": 58
+          },
+          {
+            "name": "<callback>",
+            "line": 62
+          },
+          {
+            "name": "<callback>",
+            "line": 64
+          },
+          {
+            "name": "<callback>",
+            "line": 65
+          },
+          {
+            "name": "<callback>",
+            "line": 66
+          },
+          {
+            "name": "<callback>",
+            "line": 75
+          },
+          {
+            "name": "<callback>",
+            "line": 76
+          },
+          {
+            "name": "<callback>",
+            "line": 77
+          },
+          {
+            "name": "freshness",
+            "line": 79
+          },
+          {
+            "name": "<callback>",
+            "line": 86
+          },
+          {
+            "name": "<callback>",
+            "line": 86
+          },
+          {
+            "name": "<callback>",
+            "line": 88
+          },
+          {
+            "name": "<callback>",
+            "line": 90
+          },
+          {
+            "name": "parseProfile",
+            "line": 93
+          },
+          {
+            "name": "parseSnapshot",
+            "line": 93
+          },
+          {
+            "name": "getCurrentUser",
+            "line": 96
+          },
+          {
+            "name": "addChangeListener",
+            "line": 97
+          },
+          {
+            "name": "removeChangeListener",
+            "line": 97
+          },
+          {
+            "name": "subscribe",
+            "line": 98
+          },
+          {
+            "name": "unsubscribe",
+            "line": 98
+          },
+          {
+            "name": "createPanelEventStream",
+            "line": 106
+          },
+          {
+            "name": "createPanelVault",
+            "line": 107
+          },
+          {
+            "name": "<callback>",
+            "line": 108
+          },
+          {
+            "name": "nextGeneration",
+            "line": 112
+          },
+          {
+            "name": "windowEditor",
+            "line": 112
+          },
+          {
+            "name": "libraryIsFresh",
+            "line": 114
+          },
+          {
+            "name": "setFreshnessCheck",
+            "line": 115
+          },
+          {
+            "name": "addEventListener",
+            "line": 120
+          },
+          {
+            "name": "removeEventListener",
+            "line": 120
+          },
+          {
+            "name": "addEventListener",
+            "line": 121
+          },
+          {
+            "name": "removeEventListener",
+            "line": 122
+          },
+          {
+            "name": "require",
+            "line": 123
+          },
+          {
+            "name": "freshness",
+            "line": 125
+          },
+          {
+            "name": "generation",
+            "line": 125
+          },
+          {
+            "name": "<callback>",
+            "line": 127
+          },
+          {
+            "name": "<callback>",
+            "line": 128
+          },
+          {
+            "name": "<callback>",
+            "line": 130
+          },
+          {
+            "name": "<callback>",
+            "line": 131
+          },
+          {
+            "name": "<callback>",
+            "line": 145
+          },
+          {
+            "name": "<callback>",
+            "line": 150
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18UiFlowStaleness.test.ts",
+        "category": "tests",
+        "sha256": "a103c32ee4fbbd600187cd7c1519258036841ca7cd1a89fe673cfdbad4d5b78b",
+        "lines": 107,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "deferred",
+            "line": 13
+          },
+          {
+            "name": "<callback>",
+            "line": 15
+          },
+          {
+            "name": "settle",
+            "line": 18
+          },
+          {
+            "name": "harness",
+            "line": 20
+          },
+          {
+            "name": "<callback>",
+            "line": 22
+          },
+          {
+            "name": "closest",
+            "line": 26
+          },
+          {
+            "name": "<callback>",
+            "line": 27
+          },
+          {
+            "name": "<callback>",
+            "line": 28
+          },
+          {
+            "name": "get",
+            "line": 30
+          },
+          {
+            "name": "set",
+            "line": 30
+          },
+          {
+            "name": "byId",
+            "line": 31
+          },
+          {
+            "name": "<callback>",
+            "line": 31
+          },
+          {
+            "name": "isIntentional",
+            "line": 32
+          },
+          {
+            "name": "activeEditor",
+            "line": 35
+          },
+          {
+            "name": "currentChannel",
+            "line": 35
+          },
+          {
+            "name": "readClipboard",
+            "line": 36
+          },
+          {
+            "name": "debugEnabled",
+            "line": 37
+          },
+          {
+            "name": "dlog",
+            "line": 37
+          },
+          {
+            "name": "generationNow",
+            "line": 38
+          },
+          {
+            "name": "targetNow",
+            "line": 38
+          },
+          {
+            "name": "rememberComposeTarget",
+            "line": 38
+          },
+          {
+            "name": "activeScope",
+            "line": 39
+          },
+          {
+            "name": "currentMode",
+            "line": 39
+          },
+          {
+            "name": "libraryIsFresh",
+            "line": 39
+          },
+          {
+            "name": "require",
+            "line": 42
+          },
+          {
+            "name": "setFresh",
+            "line": 46
+          },
+          {
+            "name": "<callback>",
+            "line": 50
+          },
+          {
+            "name": "<callback>",
+            "line": 51
+          },
+          {
+            "name": "<callback>",
+            "line": 71
+          },
+          {
+            "name": "<callback>",
+            "line": 89
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18UiKeyboardSafety.test.ts",
+        "category": "tests",
+        "sha256": "3597415bcfa20ffd1eb0d91a8f76f71a7e555d5033397bd44b81c715b3e2a1b0",
+        "lines": 113,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "<callback>",
+            "line": 10
+          },
+          {
+            "name": "text",
+            "line": 16
+          },
+          {
+            "name": "pathTo",
+            "line": 18
+          },
+          {
+            "name": "<callback>",
+            "line": 19
+          },
+          {
+            "name": "harness",
+            "line": 25
+          },
+          {
+            "name": "costStart",
+            "line": 26
+          },
+          {
+            "name": "costEnd",
+            "line": 26
+          },
+          {
+            "name": "dlog",
+            "line": 26
+          },
+          {
+            "name": "noteKey",
+            "line": 26
+          },
+          {
+            "name": "useMemo",
+            "line": 29
+          },
+          {
+            "name": "useRef",
+            "line": 29
+          },
+          {
+            "name": "useState",
+            "line": 30
+          },
+          {
+            "name": "useEffect",
+            "line": 31
+          },
+          {
+            "name": "createElement",
+            "line": 33
+          },
+          {
+            "name": "<callback>",
+            "line": 37
+          },
+          {
+            "name": "composeEditor",
+            "line": 43
+          },
+          {
+            "name": "composeTargetNow",
+            "line": 43
+          },
+          {
+            "name": "resetComposeTarget",
+            "line": 43
+          },
+          {
+            "name": "insertTemplate",
+            "line": 45
+          },
+          {
+            "name": "addToCompose",
+            "line": 46
+          },
+          {
+            "name": "fillFields",
+            "line": 47
+          },
+          {
+            "name": "snapNow",
+            "line": 48
+          },
+          {
+            "name": "stillCurrent",
+            "line": 48
+          },
+          {
+            "name": "focusTarget",
+            "line": 48
+          },
+          {
+            "name": "byId",
+            "line": 51
+          },
+          {
+            "name": "isFavorite",
+            "line": 51
+          },
+          {
+            "name": "markUsed",
+            "line": 51
+          },
+          {
+            "name": "subscribe",
+            "line": 51
+          },
+          {
+            "name": "<callback>",
+            "line": 51
+          },
+          {
+            "name": "get",
+            "line": 52
+          },
+          {
+            "name": "set",
+            "line": 52
+          },
+          {
+            "name": "useSelect",
+            "line": 52
+          },
+          {
+            "name": "subscribe",
+            "line": 52
+          },
+          {
+            "name": "<callback>",
+            "line": 52
+          },
+          {
+            "name": "useStore",
+            "line": 53
+          },
+          {
+            "name": "useChatRect",
+            "line": 53
+          },
+          {
+            "name": "libraryIsFresh",
+            "line": 53
+          },
+          {
+            "name": "evaluate",
+            "line": 56
+          },
+          {
+            "name": "require",
+            "line": 58
+          },
+          {
+            "name": "<callback>",
+            "line": 67
+          },
+          {
+            "name": "focus",
+            "line": 68
+          },
+          {
+            "name": "draft",
+            "line": 68
+          },
+          {
+            "name": "event",
+            "line": 71
+          },
+          {
+            "name": "<callback>",
+            "line": 74
+          },
+          {
+            "name": "<callback>",
+            "line": 79
+          },
+          {
+            "name": "<callback>",
+            "line": 83
+          },
+          {
+            "name": "<callback>",
+            "line": 87
+          },
+          {
+            "name": "<callback>",
+            "line": 88
+          },
+          {
+            "name": "<callback>",
+            "line": 102
+          },
+          {
+            "name": "<callback>",
+            "line": 107
+          },
+          {
+            "name": "<callback>",
+            "line": 108
+          }
+        ],
+        "reviewedBy": []
+      },
+      {
+        "file": "tests/q18UiServiceSettings.test.ts",
+        "category": "tests",
+        "sha256": "3c9b2794160b9e14e67ac156fc2c18050dc2fc42418bda57cafefd4ab9bd838e",
+        "lines": 160,
+        "symbolMethod": "TypeScript AST function-like bodies",
+        "symbols": [
+          {
+            "name": "nodes",
+            "line": 7
+          },
+          {
+            "name": "text",
+            "line": 9
+          },
+          {
+            "name": "harness",
+            "line": 14
+          },
+          {
+            "name": "useRef",
+            "line": 21
+          },
+          {
+            "name": "useState",
+            "line": 22
+          },
+          {
+            "name": "<callback>",
+            "line": 25
+          },
+          {
+            "name": "useEffect",
+            "line": 27
+          },
+          {
+            "name": "useSelect",
+            "line": 43
+          },
+          {
+            "name": "createElement",
+            "line": 53
+          },
+          {
+            "name": "getElementById",
+            "line": 54
+          },
+          {
+            "name": "require",
+            "line": 55
+          },
+          {
+            "name": "render",
+            "line": 60
+          },
+          {
+            "name": "unmount",
+            "line": 61
+          },
+          {
+            "name": "<callback>",
+            "line": 61
+          },
+          {
+            "name": "replayMountEffects",
+            "line": 62
+          },
+          {
+            "name": "<callback>",
+            "line": 62
+          },
+          {
+            "name": "stop",
+            "line": 65
+          },
+          {
+            "name": "restart",
+            "line": 65
+          },
+          {
+            "name": "setPhase",
+            "line": 65
+          },
+          {
+            "name": "button",
+            "line": 69
+          },
+          {
+            "name": "<callback>",
+            "line": 69
+          },
+          {
+            "name": "<callback>",
+            "line": 75
+          },
+          {
+            "name": "<callback>",
+            "line": 76
+          },
+          {
+            "name": "<callback>",
+            "line": 79
+          },
+          {
+            "name": "<callback>",
+            "line": 80
+          },
+          {
+            "name": "<callback>",
+            "line": 81
+          },
+          {
+            "name": "<callback>",
+            "line": 84
+          },
+          {
+            "name": "<callback>",
+            "line": 86
+          },
+          {
+            "name": "<callback>",
+            "line": 86
+          },
+          {
+            "name": "<callback>",
+            "line": 91
+          },
+          {
+            "name": "<callback>",
+            "line": 95
+          },
+          {
+            "name": "<callback>",
+            "line": 100
+          },
+          {
+            "name": "<callback>",
+            "line": 104
+          },
+          {
+            "name": "<callback>",
+            "line": 111
+          },
+          {
+            "name": "<callback>",
+            "line": 126
+          },
+          {
+            "name": "<callback>",
+            "line": 134
+          },
+          {
+            "name": "<callback>",
+            "line": 142
+          },
+          {
+            "name": "<callback>",
+            "line": 151
+          }
+        ],
+        "reviewedBy": []
       },
       {
         "file": "tests/rank.test.ts",
@@ -26402,9 +26555,7 @@
             "line": 46
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/reminderPollingRobustness.test.ts",
@@ -26522,9 +26673,7 @@
             "line": 83
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/reminderSettings.test.ts",
@@ -26662,9 +26811,7 @@
             "line": 164
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/reminderSettingsRobustness.test.ts",
@@ -26802,9 +26949,7 @@
             "line": 173
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/ring.test.ts",
@@ -26878,9 +27023,7 @@
             "line": 77
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/roadmap_server_test.py",
@@ -26902,9 +27045,7 @@
             "line": 27
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/runtimeLifecycleCleanup.test.ts",
@@ -27118,9 +27259,7 @@
             "line": 106
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/search.test.ts",
@@ -27258,9 +27397,7 @@
             "line": 108
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/settingsDialogPolish.test.ts",
@@ -27522,9 +27659,7 @@
             "line": 213
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/standaloneAutoUpdate.Tests.ps1",
@@ -27566,9 +27701,7 @@
             "line": 61
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/standaloneAutoUpdate.test.ts",
@@ -27746,9 +27879,7 @@
             "line": 171
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/standaloneBuild.test.ts",
@@ -27778,14 +27909,12 @@
             "line": 21
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/standaloneInstaller.Tests.ps1",
         "category": "tests",
-        "sha256": "4758e3014d77186f9d10a84785fc703fb9a9495731cdb079ef99e994e748226c",
+        "sha256": "b0c298af96542e260e9021d7ab9bf78d0aea721a9add787ed5eb3c5f8a64dd9c",
         "lines": 712,
         "symbolMethod": "declaration line scan",
         "symbols": [
@@ -27823,23 +27952,23 @@
           },
           {
             "name": "Tree-State",
-            "line": 78
+            "line": 79
           },
           {
             "name": "Renderer-Payload",
-            "line": 87
+            "line": 88
           },
           {
             "name": "Renderer-Fixture",
-            "line": 97
+            "line": 98
           },
           {
             "name": "Assert-RendererRecord",
-            "line": 112
+            "line": 113
           }
         ],
         "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
+          "parent-review.json"
         ]
       },
       {
@@ -27978,9 +28107,7 @@
             "line": 128
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/standaloneProvenance.test.ts",
@@ -28058,9 +28185,7 @@
             "line": 71
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/state.test.ts",
@@ -28186,9 +28311,7 @@
             "line": 161
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/storageRecovery.test.ts",
@@ -28242,9 +28365,7 @@
             "line": 36
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/storeRouter.test.ts",
@@ -28294,9 +28415,7 @@
             "line": 29
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/text.test.ts",
@@ -28366,9 +28485,7 @@
             "line": 67
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/ticketReminder.test.ts",
@@ -28398,9 +28515,7 @@
             "line": 19
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/ticketRemindersAdapter.test.ts",
@@ -28678,9 +28793,7 @@
             "line": 494
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/ticketSettings.test.ts",
@@ -28910,9 +29023,7 @@
             "line": 222
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/ticketSound.test.ts",
@@ -28966,9 +29077,7 @@
             "line": 43
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/ticketSoundRuntime.test.ts",
@@ -29082,9 +29191,7 @@
             "line": 117
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/tokenEditor.test.ts",
@@ -29130,9 +29237,7 @@
             "line": 22
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/tokens.test.ts",
@@ -29170,9 +29275,7 @@
             "line": 35
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/trigger.test.ts",
@@ -29202,9 +29305,7 @@
             "line": 21
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/uiRetention.test.ts",
@@ -29438,9 +29539,7 @@
             "line": 214
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/uiSubscriptions.test.ts",
@@ -29530,14 +29629,12 @@
             "line": 111
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tests/vencordDistribution.Tests.ps1",
         "category": "tests",
-        "sha256": "2c6c430f9b34f06b44f6a4715953d089debfd3a0c0082dba074c17b31f3c267f",
+        "sha256": "35df5e93c1f00c318a9274cb008606609f5d23b3f4c008c8a34dd6e8139223f5",
         "lines": 413,
         "symbolMethod": "declaration line scan",
         "symbols": [
@@ -29575,11 +29672,11 @@
           },
           {
             "name": "Tree-State",
-            "line": 78
+            "line": 79
           }
         ],
         "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
+          "parent-review.json"
         ]
       },
       {
@@ -29750,9 +29847,7 @@
             "line": 169
           }
         ],
-        "reviewedBy": [
-          "executed test suite / fixture, not a claim of full manual test-source review"
-        ]
+        "reviewedBy": []
       },
       {
         "file": "tsconfig.json",
@@ -33780,6 +33875,163 @@
         "scripts/qa/runs/q18/dependencies-upstream-bundle-evidence.json"
       ]
     },
+    "dpapi-review.json": {
+      "schemaVersion": 1,
+      "task": "Q18",
+      "role": "betterdiscord-dpapi",
+      "status": "fixed-scoped-validation-complete-parent-integration-pending",
+      "scope": "Narrow follow-up for Q18-BD-07: asynchronous Windows DPAPI in native-capable BetterDiscord, shared vault Promise compatibility, and initialization/retirement ordering. The earlier full BetterDiscord audit is unchanged.",
+      "reviewedFiles": [
+        "betterdiscord/native/dpapi.ts",
+        "betterdiscord/native/vault.ts",
+        "betterdiscord/native/vaultHost.ts",
+        "betterdiscord/native/paths.ts",
+        "betterdiscord/native/capabilities.ts",
+        "src/vencord/panelVaultNative.ts",
+        "src/vencord/native.ts",
+        "tests/betterdiscordHarness.ts",
+        "tests/betterdiscordNative.test.ts",
+        "tests/panelVault.test.ts",
+        "tests/q18Dpapi.test.ts",
+        "tests/q18DpapiVault.test.ts",
+        "tests/q18DeliveryHelperLock.test.ts",
+        "scripts/qa/runs/q18/windows-dpapi.json",
+        "betterdiscord/README.md"
+      ],
+      "changedPaths": [
+        "betterdiscord/native/dpapi.ts",
+        "betterdiscord/native/vault.ts",
+        "src/vencord/panelVaultNative.ts",
+        "tests/betterdiscordNative.test.ts",
+        "tests/q18Dpapi.test.ts",
+        "tests/q18DpapiVault.test.ts",
+        "scripts/qa/runs/q18/dpapi-red.json",
+        "scripts/qa/runs/q18/dpapi-green.json",
+        "scripts/qa/runs/q18/dpapi-host-green.json",
+        "scripts/qa/runs/q18/dpapi-review.json"
+      ],
+      "findings": [
+        {
+          "id": "Q18-BD-07",
+          "severity": "P2",
+          "status": "fixed",
+          "title": "Native BetterDiscord DPAPI fallback blocks the renderer event loop through spawnSync",
+          "repro": "Use a Windows native-capable host without Electron safeStorage. The original availability check performs two synchronous PowerShell children; encrypt/decrypt each perform another. The integration baseline measured 7763/4385/3862ms blocking. A repeat against actual source from 1b13493 confirmed zero timer heartbeats during all three operations.",
+          "fix": "Use execFile with a fixed System32 PowerShell executable and fixed script, windowsHide, a 5000ms child timeout and 256KiB per-stream output cap. Secret data travels only through stdin/stdout. initialize() caches a single-flight async probe; the probe protects and unprotects synthetic bytes in one child and compares returned bytes. isEncryptionAvailable() only reads a cached boolean. The shared vault awaits encrypt/decrypt while retaining synchronous Electron support. Native create/close now serialize across initialization as well as session retirement.",
+          "errorAndOwnershipEvidence": "Input/output limits and canonical base64 validation fail closed with generic errors. Launch, callback, timeout, output-limit and stdin EPIPE errors expose no child diagnostics. Stdin failures kill and drain the child before rejecting. Async saves/loads remain ordered and retain input snapshots; close drains accepted work and holds the lock through pending encryption/decryption, rejects later writes, then permits a replacement owner. A close queued during initialization retires its resulting handle before reopen.",
+          "regressions": [
+            "tests/q18Dpapi.test.ts",
+            "tests/q18DpapiVault.test.ts",
+            "tests/betterdiscordNative.test.ts"
+          ]
+        }
+      ],
+      "tests": {
+        "red": {
+          "command": "node node_modules/vitest/vitest.mjs run tests/q18Dpapi.test.ts tests/q18DpapiVault.test.ts --maxWorkers=1 --reporter=json --outputFile=scripts/qa/runs/q18/dpapi-red.json",
+          "result": "17 tests: 16 failed, 1 passed before production edits. Failures covered missing async initialization, forbidden synchronous child execution, unsupported Promise crypto, and initialization/close ordering. Synchronous Electron compatibility already passed.",
+          "report": "scripts/qa/runs/q18/dpapi-red.json"
+        },
+        "green": {
+          "command": "node node_modules/vitest/vitest.mjs run tests/q18Dpapi.test.ts tests/q18DpapiVault.test.ts tests/betterdiscordNative.test.ts tests/panelVault.test.ts --maxWorkers=1 --reporter=default --reporter=json --outputFile.json=scripts/qa/runs/q18/dpapi-green.json",
+          "result": "99/99 passed in 4 files, including the real Windows synthetic roundtrip.",
+          "report": "scripts/qa/runs/q18/dpapi-green.json"
+        },
+        "hostAndOwnershipCompatibility": {
+          "command": "node node_modules/vitest/vitest.mjs run tests/betterdiscordBrowserVault.test.ts tests/panelVaultLock.test.ts --maxWorkers=1 --reporter=default --reporter=json --outputFile.json=scripts/qa/runs/q18/dpapi-host-green.json",
+          "result": "33/33 passed in 2 files. Standard BetterDiscord browser storage and process-lock behavior remain compatible.",
+          "report": "scripts/qa/runs/q18/dpapi-host-green.json"
+        },
+        "totalGreen": 132,
+        "finalCleanupGuardVerification": {
+          "change": "New q18DpapiVault afterEach resolves the absolute deletion target and requires its parent to equal resolved os.tmpdir() and its basename to start with stx-q18-dpapi- before recursive rmSync, following the existing q18DeliveryHelperLock pattern.",
+          "command": "node node_modules/vitest/vitest.mjs run tests/q18DpapiVault.test.ts --maxWorkers=1",
+          "result": "5/5 passed after the final cleanup-guard edit; these are a rerun of tests already counted in totalGreen. Source and tests are frozen for parent integration."
+        },
+        "coverage": [
+          "Single-flight probe initialization; cached success/failure; mismatched probe; unsupported platform; no I/O from availability getter",
+          "Timer heartbeat while a child is pending; fixed program/arguments; hidden process; no secret argv or explicit environment values",
+          "Synchronous launch errors and asynchronous callback errors sanitized; malformed, noncanonical and oversized base64 rejected",
+          "Input caps and decrypted-output caps; real child stdout/stderr maxBuffer termination and real 5s timeout with timer heartbeat",
+          "Stdin EPIPE event and synchronous end failure kill the child, await completion and tolerate late pipe errors",
+          "Async save/load ordering, save snapshots, pending close and lock ownership, stale handle rejection, replacement-owner persistence",
+          "Async crypto rejection leaves prior ciphertext intact, returns a generic error and allows subsequent operations",
+          "Direct native vault and vaultHost open/close/reopen ordering during a pending probe",
+          "Existing synchronous Electron safeStorage and standard BetterDiscord browser-vault suites",
+          "Real Windows CurrentUser DPAPI one-child probe plus encrypt/decrypt; only synthetic in-memory data"
+        ],
+        "diffCheck": "git diff --check -- betterdiscord/native/dpapi.ts betterdiscord/native/vault.ts src/vencord/panelVaultNative.ts tests/betterdiscordNative.test.ts passed",
+        "timeouts": "No global test timeout changed. Actual child-bound tests allow 8s per test for one 5s-bounded child. The real Windows roundtrip allows 20s for three independently 5s-bounded children and host/test overhead."
+      },
+      "responsiveness": {
+        "method": "A 10ms setInterval heartbeat runs on the same Node event loop as the adapter. Async phase metrics were emitted by the real Windows regression test. The old source was read from commit 1b13493, transpiled/evaluated in memory, and run with the same synthetic payload; its heartbeat was primed before each synchronous call and the subsequent timer delay was observed. No actual user session was read and neither measurement wrote vault files.",
+        "originalIntegrationBaseline": {
+          "report": "scripts/qa/runs/q18/windows-dpapi.json",
+          "availabilityMs": 7762.8373,
+          "encryptMs": 4384.6619,
+          "decryptMs": 3861.8679
+        },
+        "remeasuredSynchronousBaseline": {
+          "commit": "1b13493",
+          "sourceSha256": "40d5ee940d787b68c25289d40559bf4fd9b60515ee90c3ecf332b7bbb7bf34bf",
+          "initialize": {
+            "durationMs": 8939.8282,
+            "beatsDuringOperation": 0,
+            "observedMaxGapMs": 8958.7901
+          },
+          "encrypt": {
+            "durationMs": 3062.7126,
+            "beatsDuringOperation": 0,
+            "observedMaxGapMs": 3062.87
+          },
+          "decrypt": {
+            "durationMs": 3372.5713,
+            "beatsDuringOperation": 0,
+            "observedMaxGapMs": 3372.715
+          },
+          "available": true,
+          "roundTrip": true
+        },
+        "asynchronousAdapter": {
+          "initialize": {
+            "durationMs": 4119.1871,
+            "returnedPromiseMs": 20.9575,
+            "beatsDuringOperation": 241,
+            "observedMaxGapMs": 45.1176
+          },
+          "encrypt": {
+            "durationMs": 3090.8914,
+            "returnedPromiseMs": 5.1223,
+            "beatsDuringOperation": 186,
+            "observedMaxGapMs": 29.1775
+          },
+          "decrypt": {
+            "durationMs": 3947.7534,
+            "returnedPromiseMs": 3.4021,
+            "beatsDuringOperation": 224,
+            "observedMaxGapMs": 35.3162
+          },
+          "available": true,
+          "roundTrip": true,
+          "cipherDiffers": true
+        },
+        "interpretation": "Measured responsiveness improved from zero heartbeat callbacks and multi-second event-loop stalls to hundreds of callbacks with observed maximum gaps of 29-45ms during these runs. Encryption/decryption still take seconds. One probe child replaces two process startups, but these timings are host-load-dependent observations, not a claim that cryptography is faster or instantaneous.",
+        "persistentFilesWritten": false,
+        "actualUserSessionRead": false
+      },
+      "parentHandoff": [
+        "Parent owns build, full suite, typecheck, graphify refresh, roadmap, versions and commits; none were run or edited here.",
+        "Preserve the existing intermediate .23 artifact from 1b13493; no distribution or release artifact was modified.",
+        "betterdiscord/README.md:78-80 still describes the old synchronous DPAPI contract. Update this small documentation passage during parent integration; the narrow implementation ownership list did not include README.",
+        "Unrelated docs/audits/2026-10-15* changes and concurrent parent roadmap changes were left untouched."
+      ],
+      "limits": [
+        "Actual Windows DPAPI and real child-process bounds were exercised, but no active Discord renderer, account token, user vault or live API was accessed.",
+        "Close drains accepted initialization and crypto operations; it does not cancel an accepted write midway. Each PowerShell child retains its 5s configured bound.",
+        "Only native-capable BetterDiscord without safeStorage uses this fallback. Standard BetterDiscord continues to use its browser vault.",
+        "No persistent helper, new dependency, plaintext fallback, new storage scheme, install, build, publication, broad suite or global test-timeout change."
+      ]
+    },
     "parent-review.json": {
       "task": "Q18",
       "role": "parent integration/runtime/security/tooling",
@@ -33833,7 +34085,9 @@
         "reference/vencord-spike/store.ts",
         "reference/vencord-spike/styles.css",
         "scripts/qa/native-service-harness.mjs",
-        "scripts/qa/native-service-check.py"
+        "scripts/qa/native-service-check.py",
+        "tests/standaloneInstaller.Tests.ps1",
+        "tests/vencordDistribution.Tests.ps1"
       ],
       "findings": [
         {
@@ -33868,6 +34122,24 @@
           ],
           "red": "global-keyboard-red.json:3 failing cases",
           "green": "global-keyboard-green.json:75/75"
+        },
+        {
+          "id": "Q18-TOOL-08",
+          "severity": "P3",
+          "status": "fixed",
+          "files": [
+            "tests/standaloneInstaller.Tests.ps1",
+            "tests/vencordDistribution.Tests.ps1"
+          ],
+          "title": "Missing built-package input was reported both SKIP and PASS and incremented the installer suite pass count",
+          "repro": "Full fixture runs without -PayloadPackageRoot print SKIP real payload followed by PASS built real payload. The body returned normally and the Test wrapper counted it as completed.",
+          "fix": "Test accepts an explicit skip reason and checks it before running/counting the body. The built-package case supplies this reason only when its required input is missing. No installer behavior changed.",
+          "verification": [
+            "ps-skip-standalone.log: missing input yields SKIP and 0 groups passed",
+            "ps-skip-vencord.log: missing input yields SKIP and 0 groups passed",
+            "Final real-payload reruns with supplied .23 package validate the positive path."
+          ],
+          "limits": "Existing full-run logs were produced before this reporting correction; deduct their one missing-payload skip until the separate real-payload run succeeds. Junction tests had no environment skips on this machine."
         }
       ],
       "checks": [
@@ -38310,617 +38582,14 @@
     }
   },
   "unit": {
-    "method": "Full suite followed by focused rerun after adjusting only Windows helper test timeout from 5s to 20s (child has a 15s timeout); production source unchanged.",
-    "fullRun": "unit-final-02.json",
-    "focusedRun": "helper-lock-final.json",
-    "files": 100,
-    "total": 1848,
-    "passed": 1848,
+    "report": "scripts/qa/runs/q18/unit-release-final.json",
+    "method": "One complete final run after asynchronous DPAPI integration",
+    "total": 1865,
+    "passed": 1865,
     "failed": 0,
     "skipped": 0,
-    "success": true,
-    "fileResults": [
-      {
-        "file": "tests/audit-import.test.ts",
-        "passed": 11,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/betterdiscordBrowserVault.test.ts",
-        "passed": 11,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/betterdiscordChatMounts.test.ts",
-        "passed": 8,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/betterdiscordHostUpdater.test.ts",
-        "passed": 7,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/betterdiscordInsertion.test.ts",
-        "passed": 12,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/betterdiscordNative.test.ts",
-        "passed": 9,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/betterdiscordRuntime.test.ts",
-        "passed": 13,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/betterdiscordUpdater.test.ts",
-        "passed": 4,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/compose.test.ts",
-        "passed": 4,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/contextMenuComposition.test.ts",
-        "passed": 3,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/cost.test.ts",
-        "passed": 9,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/customSound.test.ts",
-        "passed": 44,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/debug-privacy.test.ts",
-        "passed": 18,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/demoLifecycle.test.ts",
-        "passed": 15,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/diagnosticJournal.test.ts",
-        "passed": 12,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/distributionConfig.test.ts",
-        "passed": 7,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/distributionNaming.test.ts",
-        "passed": 10,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/distributionRelease.test.ts",
-        "passed": 5,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/distributionUpdater.test.ts",
-        "passed": 73,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/flowCancellation.test.ts",
-        "passed": 29,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/guard.test.ts",
-        "passed": 8,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/importBindingPriority.test.ts",
-        "passed": 1,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/importer-linearity.test.ts",
-        "passed": 3,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/importer.test.ts",
-        "passed": 5,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/interactionCancellation.test.ts",
-        "passed": 41,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/keys.test.ts",
-        "passed": 7,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/layout.test.ts",
-        "passed": 19,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/masterCodeAudit.test.ts",
-        "passed": 28,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/masterCompatibility.test.ts",
-        "passed": 24,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/masterKeyboardConflicts.test.ts",
-        "passed": 28,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/masterPerformance.test.ts",
-        "passed": 2,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/masterPersistenceStress.test.ts",
-        "passed": 32,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/masterReact.test.ts",
-        "passed": 3,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/masterRegression.test.ts",
-        "passed": 3,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/masterUserPaths.test.ts",
-        "passed": 5,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/masterUx.test.ts",
-        "passed": 10,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/menuRefinement.test.ts",
-        "passed": 27,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/observable.test.ts",
-        "passed": 3,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelAccess.test.ts",
-        "passed": 5,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelCatalog.test.ts",
-        "passed": 123,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelClient.test.ts",
-        "passed": 117,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelEvents.test.ts",
-        "passed": 71,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelHtml.test.ts",
-        "passed": 23,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelIntegration.test.ts",
-        "passed": 97,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelLifecycleCleanup.test.ts",
-        "passed": 17,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelPermission.test.ts",
-        "passed": 6,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelPersonalLibrary.test.ts",
-        "passed": 7,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelPreferences.test.ts",
-        "passed": 38,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelProtocol.test.ts",
-        "passed": 46,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelReminders.test.ts",
-        "passed": 92,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelRequestRobustness.test.ts",
-        "passed": 15,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelSessionIntegration.test.ts",
-        "passed": 11,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelSessionRobustness.test.ts",
-        "passed": 6,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelTransport.test.ts",
-        "passed": 77,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelVault.test.ts",
-        "passed": 73,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/panelVaultLock.test.ts",
-        "passed": 22,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/personal.test.ts",
-        "passed": 9,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/personalLibraryLifecycle.test.ts",
-        "passed": 18,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/personalPersistence.test.ts",
-        "passed": 17,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18BetterdiscordEntry.test.ts",
-        "passed": 2,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18BetterdiscordShims.test.ts",
-        "passed": 5,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18BetterdiscordUpdater.test.ts",
-        "passed": 4,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18CoreGuardTrigger.test.ts",
-        "passed": 9,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18CoreParsing.test.ts",
-        "passed": 9,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18CoreReferenceMigration.test.ts",
-        "passed": 6,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18CoreState.test.ts",
-        "passed": 8,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18DeliveryConfig.test.ts",
-        "passed": 11,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18DeliveryUpdater.test.ts",
-        "passed": 3,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18PanelClient.test.ts",
-        "passed": 3,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18PanelController.test.ts",
-        "passed": 2,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18UiFlowStaleness.test.ts",
-        "passed": 4,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18UiKeyboardSafety.test.ts",
-        "passed": 6,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18UiServiceSettings.test.ts",
-        "passed": 14,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/rank.test.ts",
-        "passed": 7,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/reminderPollingRobustness.test.ts",
-        "passed": 2,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/reminderSettings.test.ts",
-        "passed": 17,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/reminderSettingsRobustness.test.ts",
-        "passed": 7,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/ring.test.ts",
-        "passed": 9,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/runtimeLifecycleCleanup.test.ts",
-        "passed": 12,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/search.test.ts",
-        "passed": 27,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/settingsDialogPolish.test.ts",
-        "passed": 21,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/standaloneAutoUpdate.test.ts",
-        "passed": 15,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/standaloneBuild.test.ts",
-        "passed": 6,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/standaloneLoader.test.ts",
-        "passed": 44,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/standaloneProvenance.test.ts",
-        "passed": 12,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/state.test.ts",
-        "passed": 14,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/storageRecovery.test.ts",
-        "passed": 3,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/storeRouter.test.ts",
-        "passed": 2,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/text.test.ts",
-        "passed": 22,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/ticketReminder.test.ts",
-        "passed": 6,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/ticketRemindersAdapter.test.ts",
-        "passed": 37,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/ticketSettings.test.ts",
-        "passed": 15,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/ticketSound.test.ts",
-        "passed": 7,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/ticketSoundRuntime.test.ts",
-        "passed": 3,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/tokenEditor.test.ts",
-        "passed": 4,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/tokens.test.ts",
-        "passed": 6,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/trigger.test.ts",
-        "passed": 4,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/uiRetention.test.ts",
-        "passed": 6,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/uiSubscriptions.test.ts",
-        "passed": 9,
-        "failed": 0,
-        "evidence": "unit-final-02.json"
-      },
-      {
-        "file": "tests/q18DeliveryHelperLock.test.ts",
-        "passed": 2,
-        "failed": 0,
-        "evidence": "helper-lock-final.json"
-      }
-    ]
+    "files": 102,
+    "success": true
   },
   "upstream": {
     "schema": 1,
@@ -41011,5 +40680,654 @@
     "Full Vencord release is held for the confirmed vulnerable external DOMPurify component; exploitability in QuickCSS not demonstrated.",
     "Archived reference code is reviewed for migration/packaging and is not shipped.",
     "Raw prior failures are preserved under scripts/qa/runs/q18; unit consolidation explicitly records the focused rerun."
+  ],
+  "priorUnitValidation": {
+    "method": "Full suite followed by focused rerun after adjusting only Windows helper test timeout from 5s to 20s (child has a 15s timeout); production source unchanged.",
+    "fullRun": "unit-final-02.json",
+    "focusedRun": "helper-lock-final.json",
+    "files": 100,
+    "total": 1848,
+    "passed": 1848,
+    "failed": 0,
+    "skipped": 0,
+    "success": true,
+    "fileResults": [
+      {
+        "file": "tests/audit-import.test.ts",
+        "passed": 11,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/betterdiscordBrowserVault.test.ts",
+        "passed": 11,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/betterdiscordChatMounts.test.ts",
+        "passed": 8,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/betterdiscordHostUpdater.test.ts",
+        "passed": 7,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/betterdiscordInsertion.test.ts",
+        "passed": 12,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/betterdiscordNative.test.ts",
+        "passed": 9,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/betterdiscordRuntime.test.ts",
+        "passed": 13,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/betterdiscordUpdater.test.ts",
+        "passed": 4,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/compose.test.ts",
+        "passed": 4,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/contextMenuComposition.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/cost.test.ts",
+        "passed": 9,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/customSound.test.ts",
+        "passed": 44,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/debug-privacy.test.ts",
+        "passed": 18,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/demoLifecycle.test.ts",
+        "passed": 15,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/diagnosticJournal.test.ts",
+        "passed": 12,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/distributionConfig.test.ts",
+        "passed": 7,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/distributionNaming.test.ts",
+        "passed": 10,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/distributionRelease.test.ts",
+        "passed": 5,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/distributionUpdater.test.ts",
+        "passed": 73,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/flowCancellation.test.ts",
+        "passed": 29,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/guard.test.ts",
+        "passed": 8,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/importBindingPriority.test.ts",
+        "passed": 1,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/importer-linearity.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/importer.test.ts",
+        "passed": 5,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/interactionCancellation.test.ts",
+        "passed": 41,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/keys.test.ts",
+        "passed": 7,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/layout.test.ts",
+        "passed": 19,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/masterCodeAudit.test.ts",
+        "passed": 28,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/masterCompatibility.test.ts",
+        "passed": 24,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/masterKeyboardConflicts.test.ts",
+        "passed": 28,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/masterPerformance.test.ts",
+        "passed": 2,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/masterPersistenceStress.test.ts",
+        "passed": 32,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/masterReact.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/masterRegression.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/masterUserPaths.test.ts",
+        "passed": 5,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/masterUx.test.ts",
+        "passed": 10,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/menuRefinement.test.ts",
+        "passed": 27,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/observable.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelAccess.test.ts",
+        "passed": 5,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelCatalog.test.ts",
+        "passed": 123,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelClient.test.ts",
+        "passed": 117,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelEvents.test.ts",
+        "passed": 71,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelHtml.test.ts",
+        "passed": 23,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelIntegration.test.ts",
+        "passed": 97,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelLifecycleCleanup.test.ts",
+        "passed": 17,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelPermission.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelPersonalLibrary.test.ts",
+        "passed": 7,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelPreferences.test.ts",
+        "passed": 38,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelProtocol.test.ts",
+        "passed": 46,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelReminders.test.ts",
+        "passed": 92,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelRequestRobustness.test.ts",
+        "passed": 15,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelSessionIntegration.test.ts",
+        "passed": 11,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelSessionRobustness.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelTransport.test.ts",
+        "passed": 77,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelVault.test.ts",
+        "passed": 73,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/panelVaultLock.test.ts",
+        "passed": 22,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/personal.test.ts",
+        "passed": 9,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/personalLibraryLifecycle.test.ts",
+        "passed": 18,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/personalPersistence.test.ts",
+        "passed": 17,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18BetterdiscordEntry.test.ts",
+        "passed": 2,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18BetterdiscordShims.test.ts",
+        "passed": 5,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18BetterdiscordUpdater.test.ts",
+        "passed": 4,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18CoreGuardTrigger.test.ts",
+        "passed": 9,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18CoreParsing.test.ts",
+        "passed": 9,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18CoreReferenceMigration.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18CoreState.test.ts",
+        "passed": 8,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18DeliveryConfig.test.ts",
+        "passed": 11,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18DeliveryUpdater.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18PanelClient.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18PanelController.test.ts",
+        "passed": 2,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18UiFlowStaleness.test.ts",
+        "passed": 4,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18UiKeyboardSafety.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18UiServiceSettings.test.ts",
+        "passed": 14,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/rank.test.ts",
+        "passed": 7,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/reminderPollingRobustness.test.ts",
+        "passed": 2,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/reminderSettings.test.ts",
+        "passed": 17,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/reminderSettingsRobustness.test.ts",
+        "passed": 7,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/ring.test.ts",
+        "passed": 9,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/runtimeLifecycleCleanup.test.ts",
+        "passed": 12,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/search.test.ts",
+        "passed": 27,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/settingsDialogPolish.test.ts",
+        "passed": 21,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/standaloneAutoUpdate.test.ts",
+        "passed": 15,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/standaloneBuild.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/standaloneLoader.test.ts",
+        "passed": 44,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/standaloneProvenance.test.ts",
+        "passed": 12,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/state.test.ts",
+        "passed": 14,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/storageRecovery.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/storeRouter.test.ts",
+        "passed": 2,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/text.test.ts",
+        "passed": 22,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/ticketReminder.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/ticketRemindersAdapter.test.ts",
+        "passed": 37,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/ticketSettings.test.ts",
+        "passed": 15,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/ticketSound.test.ts",
+        "passed": 7,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/ticketSoundRuntime.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/tokenEditor.test.ts",
+        "passed": 4,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/tokens.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/trigger.test.ts",
+        "passed": 4,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/uiRetention.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/uiSubscriptions.test.ts",
+        "passed": 9,
+        "failed": 0,
+        "evidence": "unit-final-02.json"
+      },
+      {
+        "file": "tests/q18DeliveryHelperLock.test.ts",
+        "passed": 2,
+        "failed": 0,
+        "evidence": "helper-lock-final.json"
+      }
+    ]
+  },
+  "publicEndpoints": {
+    "method": "Three unauthenticated GETs, no credentials/cookies; fake invalid code, redirect manual; response bodies not retained.",
+    "rows": [
+      {
+        "path": "/connect?code=Q18-INVALID",
+        "status": 200,
+        "ms": 283,
+        "location": null
+      },
+      {
+        "path": "/api/plugin/v1/me",
+        "status": 401,
+        "ms": 146,
+        "location": null
+      },
+      {
+        "path": "/api/plugin/v1/snapshot",
+        "status": 401,
+        "ms": 94,
+        "location": null
+      }
+    ],
+    "limits": "Initial HTTP routing and unauthenticated rejection only, not a valid login or website OAuth redirect count."
+  },
+  "fixed": {
+    "productAndDelivery": 27,
+    "tooling": 8,
+    "total": 35
+  },
+  "reviewAmendments": [
+    "Parent removed obsolete latch stub from UI fixture; real source keylatch is now loaded.",
+    "Parent aligned memory-host refresh reuse with 401/session_revoked and revoked replacement access.",
+    "Parent fixed historical test Settings import, Windows subprocess test timeout and EPIPE mock TypeScript typing.",
+    "Parent checked new native-service fixtures, including preexisting host lifetime, CSS at320/720px and network isolation.",
+    "Full original installer logs include one explicit missing-payload skip each; final positive package cases are run separately."
   ]
 }

@@ -43,8 +43,8 @@ export interface VaultDependencies {
     crypto: {
         isEncryptionAvailable(): boolean;
         getSelectedStorageBackend?(): string;
-        encryptString(value: string): Buffer;
-        decryptString(value: Buffer): string;
+        encryptString(value: string): Buffer | Promise<Buffer>;
+        decryptString(value: Buffer): string | Promise<string>;
     };
 }
 
@@ -144,7 +144,7 @@ export function createNativePanelVault(deps: VaultDependencies) {
                 if (!count || count > MAX_ENCRYPTED) throw failed();
                 encrypted = bytes.subarray(0, count);
             } finally { await handle.close(); }
-            const plain = deps.crypto.decryptString(encrypted);
+            const plain = await deps.crypto.decryptString(encrypted);
             if (typeof plain !== "string" || Buffer.byteLength(plain, "utf8") > MAX_PLAIN + 128) throw failed();
             const envelope = JSON.parse(plain);
             if (!envelope || envelope.version !== 1 || envelope.accountId !== account
@@ -162,7 +162,7 @@ export function createNativePanelVault(deps: VaultDependencies) {
             } catch { return Promise.reject(failed()); }
             return serialized(async () => {
                 if (!available()) throw failed();
-                const encrypted = deps.crypto.encryptString(plain);
+                const encrypted = await deps.crypto.encryptString(plain);
                 if (!Buffer.isBuffer(encrypted) || !encrypted.length || encrypted.length > MAX_ENCRYPTED) throw failed();
                 await directory(true);
                 await existing(path);

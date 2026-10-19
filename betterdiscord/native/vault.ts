@@ -40,26 +40,37 @@ export function createVaultSession(deps: { root: string; crypto: any; platform?:
 }
 
 let session: ReturnType<typeof createVaultSession> | undefined;
-let retiring: Promise<void> = Promise.resolve();
-export async function createPanelVault(accountId: string) {
-    await retiring;
-    if (!validVaultAccount(accountId)) return undefined;
-    try {
-        if (!session) {
-            // safeStorage is not universally exposed to BD's renderer. Never substitute
-            // plaintext, a bundled key or Discord's account token when unavailable.
-            let crypto: any;
-            try { crypto = require("electron").safeStorage; } catch {}
-            if (!crypto) { try { crypto = require("@electron/remote").safeStorage; } catch {} }
-            if (!crypto && process.platform === "win32") crypto = createDpapiCrypto();
-            if (!crypto?.isEncryptionAvailable?.()) return undefined;
-            session = createVaultSession({ root: join(installationPaths().root, "panel-vault"), crypto });
-        }
-        return session.forAccount(accountId);
-    } catch { return undefined; }
+// Closing during the asynchronous probe must also retire the session it creates.
+let lifecycle: Promise<unknown> = Promise.resolve();
+function serialize<T>(operation: () => Promise<T>): Promise<T> {
+    const task = lifecycle.then(operation);
+    lifecycle = task.then(() => {}, () => {});
+    return task;
+}
+export function createPanelVault(accountId: string) {
+    return serialize(async () => {
+        if (!validVaultAccount(accountId)) return undefined;
+        try {
+            if (!session) {
+                // safeStorage is not universally exposed to BD's renderer. Never substitute
+                // plaintext, a bundled key or Discord's account token when unavailable.
+                let crypto: any;
+                try { crypto = require("electron").safeStorage; } catch {}
+                if (!crypto) { try { crypto = require("@electron/remote").safeStorage; } catch {} }
+                if (!crypto && process.platform === "win32") {
+                    crypto = createDpapiCrypto();
+                    await crypto.initialize();
+                }
+                if (!crypto?.isEncryptionAvailable?.()) return undefined;
+                session = createVaultSession({ root: join(installationPaths().root, "panel-vault"), crypto });
+            }
+            return session.forAccount(accountId);
+        } catch { return undefined; }
+    });
 }
 export function closePanelVault() {
-    const previous = session; session = undefined;
-    retiring = retiring.then(() => previous?.close()).catch(() => {});
-    return retiring;
+    return serialize(async () => {
+        const previous = session; session = undefined;
+        await previous?.close();
+    }).catch(() => {});
 }
