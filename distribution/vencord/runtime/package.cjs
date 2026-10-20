@@ -1,6 +1,8 @@
 /* Copyright (c) 2026 SupportTemplates contributors. GPL-3.0-or-later. */
 'use strict';
-const fs = require('fs');
+// Electron's patched fs exposes .asar as a virtual directory. Integrity checks
+// must inspect the physical archive bytes, just as the installer does.
+const fs = process.versions.electron ? require('original-fs') : require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const PIN = '32c90633ce6a95d7e56c95479efbb431bacf1eac';
