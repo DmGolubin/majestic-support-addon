@@ -3,23 +3,7 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (4)
-
-### A29 · Уведомления по серверам и настройки Discord
-
-A · Интерфейс. Карточки личных напоминаний Majestic/РО с проверяемым переходом, отдельные preview. Новые тикеты по решению владельца — только звук. Убрана карточка Подключение, host-настройки оформлены под Discord, единая подпись версии. 197 browser checks и живые preview BD прошли; пороги Discord ждут API Дмитрия. Финальные пакеты в работе.
-
-Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md).
-
-### A30 · Проверить задержки BetterDiscord
-
-A · Интерфейс. RAF и переиспользование строк; фактический BD Canary: 3 вставки .36 17–47 мс, candidate .37 16–30 мс, без отправки и с восстановлением пустого черновика. Задержка 3–4 с не воспроизвелась на прогретом соединении. Drag max183.6→67.3 мс в коротком сравнении; доработка диагностического I/O и финальная проверка в работе.
-
-Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md).
-
-### D17 · GitHub Дмитрия и графическая установка Lite
-
-D · Доставка. Подготовить и загрузить исходники/выпуск в DmGolubin/majestic-support-addon. Два публичных формата: плагин BetterDiscord и Lite + SupportTemplates с payload в отдельной папке и BAT-запуском GUI. Выбор Discord-канала, установка/статус/удаление, понятный прогресс и небольшие анимации. Полный Vencord остаётся личным.
+## В работе (1)
 
 ### C06 · Двусторонние личные шаблоны
 
@@ -27,7 +11,25 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (43)
+## Реализовано · нужна приёмка (46)
+
+### A29 · Уведомления по серверам и настройки Discord
+
+A · Интерфейс. .37 собрана из ab04485f и установлена в BetterDiscord Canary. Карточки Majestic/РО с проверяемым переходом, отдельные preview; новые тикеты — только звук. Убрана карточка Подключение, оформление Discord и единая подпись версии. 2479 тестов, обе проверки типов, 197 browser checks и живые preview прошли. Реальный просроченный тикет/переход и звук остаются приёмкой; отдельные пороги Discord ждут API Дмитрия.
+
+Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md).
+
+### A30 · Проверить задержки BetterDiscord
+
+A · Интерфейс. RAF, переиспользование строк, сокращение native bridge-вызовов и устранение цикла диагностических записей реализованы. Точная .37 в активном Canary: вставки до кадра 26/381/13 мс; в другом прогоне DOM 10–16 мс, кадр около 1 с, Playwright около 3 с — причина различия не доказана. При drag сохраняются кадры до 196 мс; полное устранение зависаний не заявляется. Черновик восстановлен, сообщения не отправлялись. main.log исправен, loss0, резервная localStorage-копия в BD недоступна. Нужна приёмка владельца.
+
+Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md).
+
+### D17 · GitHub Дмитрия и графическая установка Lite
+
+D · Доставка. Исходники ab04485f отправлены в main DmGolubin/majestic-support-addon; 8 файлов .37 загружены в draft prerelease. Два формата: BD plugin и Lite + SupportTemplates с отдельным payload и BAT→GUI, выбором Stable/Canary, статусом/установкой/восстановлением/удалением. TEMP, WPF 96/120 DPI, реальный упакованный payload, 33 пакетные и 13 BD runtime проверки прошли. Репозиторий приватный, анонимные обновления недоступны. Приёмка GUI на рабочем месте и опубликованный выпуск остаются; полный Vencord личный.
+
+Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md).
 
 ### A28 · Убрать закрепление и упростить блок логов
 
