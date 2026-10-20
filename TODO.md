@@ -3,13 +3,7 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (2)
-
-### A30 · Проверить задержки BetterDiscord
-
-A · Интерфейс. Продолжение по запросу владельца: профиль живого BetterDiscord, устранение задержек перетаскивания и рабочая резервная копия логов вместо localStorage. Изменения через PR для проверки Дмитрием.
-
-Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md).
+## В работе (1)
 
 ### C06 · Двусторонние личные шаблоны
 
@@ -17,13 +11,19 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (45)
+## Реализовано · нужна приёмка (46)
 
 ### A29 · Уведомления по серверам и настройки Discord
 
 A · Интерфейс. .37 собрана из ab04485f и установлена в BetterDiscord Canary. Карточки Majestic/РО с проверяемым переходом, отдельные preview; новые тикеты — только звук. Убрана карточка Подключение, оформление Discord и единая подпись версии. 2479 тестов, обе проверки типов, 197 browser checks и живые preview прошли. Реальный просроченный тикет/переход и звук остаются приёмкой; отдельные пороги Discord ждут API Дмитрия.
 
 Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md).
+
+### A30 · Проверить задержки BetterDiscord
+
+A · Интерфейс. .38 из 3429b52: запись main.log и резервной копии перенесена за пределы pointer-жеста; backup хранится через платформу. 2506 тестов, обе проверки типов, 34 пакетные проверки и TEMP-установка Lite прошли. Два живых прогона точной BD .38: p95 8.5 мс, максимум 25.1/37.4 мс, long tasks нет; запись возобновляется после жеста, loss0. Backup на диске пережил перезапуск, предупреждение исчезло. Изменения в отдельной PR-ветке, выпуск только draft; нужна приёмка владельца.
+
+Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md), [2026-10-20-bd-drag-and-log-backup.md](docs/audits/2026-10-20-bd-drag-and-log-backup.md).
 
 ### D17 · GitHub Дмитрия и графическая установка Lite
 

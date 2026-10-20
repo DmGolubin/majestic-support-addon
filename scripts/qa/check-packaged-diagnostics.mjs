@@ -119,6 +119,7 @@ for (const { asset, archive } of nativeAssets) {
     const mocks = {
         'diagnosticStorage.ts': 'export const openDiagnosticStorageFolder=async()=>{globalThis.fixture.opened=true;};export const loadDiagnosticStorage=async()=>({path:"fixture/main.log",state:globalThis.fixture.saved?JSON.stringify(JSON.parse(globalThis.fixture.saved).journal):null});export const saveDiagnosticStorage=async(report)=>{globalThis.fixture.saved=report;return {path:"fixture/main.log"}};',
         'ui/debug.ts': 'export const debugFileSnapshot=()=>({});',
+        'platform.ts': 'export const storage={get:async k=>globalThis.fixture.persisted.get(k),set:async(k,v)=>{globalThis.fixture.persisted.set(k,v);}};',
         'ui/panel.ts': 'export const panel=globalThis.fixture.panel;',
         'ui/uiState.ts': 'export const ui=globalThis.fixture.ui;export const store=globalThis.fixture.store;'
     };
@@ -144,13 +145,24 @@ for (const { asset, archive } of nativeAssets) {
         navigator: {onLine: true},
         window: {...eventHost, innerWidth: 1280, innerHeight: 720, localStorage: {getItem: k => persisted.get(k) ?? null, setItem: (k, v) => persisted.set(k, v)}},
         document: {...eventHost, visibilityState: 'visible'},
-        fixture: {panel: {get: () => ({phase: 'ready', sync: 'idle', persistent: true}), subscribe},
+        fixture: {persisted, panel: {get: () => ({phase: 'ready', sync: 'idle', persistent: true}), subscribe},
             ui: {get: () => ({windowOpen: false, management: false, compose: []}), subscribe},
             store: {data: {favorites: [], recent: [], binds: {}}, templates: [], subscribe}}
     };
     box.exports = box.module.exports;
     vm.runInNewContext(compiled.outputFiles[0].text, box);
     const api = box.module.exports;
+    const settleStorage = async () => {
+        // Async host backup + gesture gate deliberately yield between writes.
+        // Drive only the fixture's owned timers; all host/state boundaries stay mocked.
+        for (let i = 0; i < 100; i++) {
+            await Promise.resolve();
+            const ready = [...timers.entries()];
+            for (const [id, task] of ready) {
+                if (timers.delete(id)) task.cb();
+            }
+        }
+    };
     await api.startDiagnostics();
     const initialJournal = api.diagnosticJournal.snapshot();
     check('continuous recording defaults on without expiry', api.diagnosticJournal.active
@@ -169,12 +181,15 @@ for (const { asset, archive } of nativeAssets) {
     check('recording and request history survive restart', api.diagnosticJournal.active && JSON.parse(api.diagnosticFile()).journal.events.some(e => e.data.status === 401));
     for (let i = 0; i < 2500; i++) api.diagnosticJournal.record('ui.state', {count: i, query: 'PRIVATE_QUERY_SENTINEL'});
     const flood = JSON.parse(api.diagnosticFile());
+    await settleStorage();
     check('bounded flood', flood.journal.events.length <= 2000 && persisted.get('SupportTemplates_diagnostics_v1').length <= 512 * 1024);
+    check('host backup stored without a warning', !api.diagnosticStorageStatus().localError
+        && JSON.parse(persisted.get('SupportTemplates_diagnostics_v1')).schema === 1);
     api.setRecording(false); api.diagnosticJournal.clear();
     check('disable and clear', !api.diagnosticJournal.active && api.diagnosticJournal.snapshot().events.length === 0);
     api.stopDiagnostics();
     // Finish the mocked asynchronous save queue; an idle timer is a real leak.
-    for (let i = 0; i < 100; i++) await Promise.resolve();
+    await settleStorage();
     check('no observers/listeners/timers after stop', observers.size === 0 && listeners.size === 0 && timers.size === 0);
     results.push({variant, archive: asset.name, sha256: asset.sha256, version: manifest.version, pluginCommit: manifest.pluginCommit,
         payloadFiles: manifest.files.length, rendererPluginSources: pluginSources.length, assertions,
