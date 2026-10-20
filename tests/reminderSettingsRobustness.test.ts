@@ -80,6 +80,7 @@ function harness() {
     };
     const storage = { get: vi.fn(async (_key: string): Promise<unknown> => undefined), set: vi.fn(async (_key: string, _value: unknown) => {}) };
     const toast = vi.fn();
+    const reminderSoundPolicy = vi.fn(() => ({ enabled: true, revision: 0 }));
     const playTicketReminder = vi.fn(async (valid: () => boolean) => valid());
     const engines: {
         options: EngineOptions;
@@ -103,7 +104,7 @@ function harness() {
         "../core/panelClient": { PanelError },
         "../core/panelReminders": { createReminderController, parseNotificationSettings },
         "../platform": { storage, toast },
-        "./ticketSound": { playTicketReminder, prepareTicketSound: vi.fn(), stopTicketReminderSound: vi.fn() },
+        "./ticketSound": { reminderSoundPolicy, playTicketReminder, prepareTicketSound: vi.fn(), stopTicketReminderSound: vi.fn() },
         "./observable": {
             createObservable<T extends object>(initial: T) {
                 let value = initial;
@@ -124,7 +125,7 @@ function harness() {
         await exports.refreshTicketReminders();
         expect(exports.ticketRemindersState.get()).toMatchObject({ phase: "ready", settings: initial, busy: false });
     }
-    return { ...exports, client, binding, storage, toast, playTicketReminder, createReminderController, engines, running, ready,
+    return { ...exports, client, binding, storage, toast, reminderSoundPolicy, playTicketReminder, createReminderController, engines, running, ready,
         state: () => exports.ticketRemindersState.get() };
 }
 

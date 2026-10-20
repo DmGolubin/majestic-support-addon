@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { channelTicketSound, defaultTicketSound, NewTicketEvent, readTicketSound, TicketSoundGate } from "../src/core/ticketSound";
+import { channelTicketSound, defaultTicketSound, NewTicketEvent, readTicketSound, reminderTicketSound, TicketSoundGate } from "../src/core/ticketSound";
 
 const start = 1792100000000;
 const id = (at: number) => String(BigInt(at - 1420070400000) << 22n);
@@ -8,6 +8,18 @@ const event = (at = start + 1000): NewTicketEvent => ({ id: id(at), parentId: "6
 const options = () => ({ ...defaultTicketSound(), enabled: true });
 
 describe("new ticket sound", () => {
+    it("seeds local reminders independently of the new-ticket toggle and normalizes only known projects", () => {
+        const legacy = readTicketSound({ ...defaultTicketSound(), enabled: false, volume: 73 });
+        expect(legacy.reminders).toEqual({ majestic: { enabled: true, volume: 73 }, "russia-online": { enabled: true, volume: 73 } });
+        const parsed = readTicketSound({ ...legacy, reminders: {
+            majestic: { enabled: false, volume: -5, discordEnabled: false, personalReminderMinutes: 10 },
+            "russia-online": { enabled: "yes", volume: Infinity }, outside: { enabled: true, volume: 50 },
+        } });
+        expect(parsed.reminders).toEqual({ majestic: { enabled: false, volume: 0 }, "russia-online": { enabled: true, volume: 73 } });
+        expect(parsed.channels).toEqual(legacy.channels);
+        const editedGlobal = readTicketSound({ ...parsed, volume: 14 });
+        expect(reminderTicketSound(editedGlobal, "russia-online").volume).toBe(73);
+    });
     it.each([undefined, null, false, "invalid"])("seeds independent 30%% channel defaults for missing/invalid preferences (%s)", value => {
         const parsed = readTicketSound(value);
         for (const id of parsed.channelIds) expect(parsed.channels?.[id]).toMatchObject({ enabled: false, volume: 30 });

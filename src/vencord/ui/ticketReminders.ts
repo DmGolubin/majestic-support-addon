@@ -8,7 +8,7 @@ import { PanelClient, PanelError } from "../core/panelClient";
 import { createReminderController, parseNotificationSettings } from "../core/panelReminders";
 import { storage, toast } from "../platform";
 import { createObservable } from "./observable";
-import { playTicketReminder, prepareTicketSound, stopTicketReminderSound } from "./ticketSound";
+import { playTicketReminder, prepareTicketSound, reminderSoundPolicy, stopTicketReminderSound } from "./ticketSound";
 
 type Settings = ReturnType<typeof parseNotificationSettings>;
 type Binding = { client: PanelClient; accountId: string; projects: string[]; permissionsRevision: string; scopes: readonly string[]; current(): boolean; onAuthError(error: unknown): void; };
@@ -73,6 +73,7 @@ export function syncTicketReminders(next: Binding) {
     controller = createReminderController({
         accountId: next.accountId, projects: next.projects,
         get: () => get(next, "/tickets/assigned"), storage,
+        projectSound: reminderSoundPolicy,
         current: () => current(next, own) && next.client.connectionId ? {
             accountId: next.accountId, projects: next.projects, sessionId: next.client.connectionId,
             permissionsRevision: next.permissionsRevision,
@@ -82,7 +83,8 @@ export function syncTicketReminders(next: Binding) {
         play: async (valid, ticket) => {
             if (!current(next, own)) return false;
             const canPlay = () => valid() && current(next, own) && ticketRemindersState.get().phase === "ready"
-                && !ticketRemindersState.get().busy && ticketRemindersState.get().settings?.discordEnabled === true;
+                && !ticketRemindersState.get().busy && ticketRemindersState.get().settings?.discordEnabled === true
+                && (!ticket || reminderSoundPolicy(ticket.project).enabled);
             if (!canPlay()) return false;
             const played = await playTicketReminder(canPlay, ticket);
             if (played && canPlay()) {

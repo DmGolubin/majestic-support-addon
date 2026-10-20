@@ -131,12 +131,32 @@ export interface DiagnosticFileSystem {
     existsSync(path: string): boolean;
     statSync(path: string): Info;
     lstatSync?(path: string): Info;
-    realpathSync(path: string): string;
+    realpathSync: { (path: string): string; native?: (path: string) => string; };
     mkdirSync(path: string, options: { recursive: true; mode: number; }): unknown;
     readFileSync(path: string): Uint8Array;
     writeFileSync(path: string, data: string | Uint8Array, options: { flag: string; mode: number; }): void;
     renameSync(from: string, to: string): void;
     unlinkSync(path: string): void;
+}
+
+/** Resolve only a directory already authorized by store.directory().
+ * Windows package virtualization can give JS realpath a logical AppData name,
+ * while native realpath returns the backing directory used by Explorer.
+ * Standard BD may expose only the bridged JS method; never guess a package path.
+ */
+export function diagnosticShellDirectory(fs: DiagnosticFileSystem, directory: string): string {
+    if (!isAbsolute(directory)) throw fail();
+    const before = fs.statSync(directory);
+    if (!before.isDirectory()) throw fail();
+    const physical = typeof fs.realpathSync.native === "function"
+        ? fs.realpathSync.native(directory) : fs.realpathSync(directory);
+    if (typeof physical !== "string" || !isAbsolute(physical) || /[\u0000-\u001f]/.test(physical)) throw fail();
+    const after = fs.statSync(physical);
+    if (!after.isDirectory()) throw fail();
+    // Same directory, not a separately chosen folder that happens to exist.
+    for (const key of ["dev", "ino"] as const)
+        if (before[key] !== undefined && after[key] !== undefined && before[key] !== after[key]) throw fail();
+    return physical;
 }
 
 type Report = ReturnType<typeof sanitizeDiagnosticReport>;

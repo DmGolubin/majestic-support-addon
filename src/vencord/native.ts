@@ -148,7 +148,9 @@ export async function diagnosticsOpenFolder(event: IpcMainInvokeEvent): Promise<
             if (!trusted(event) || event.senderFrame !== frame || frame.url !== url) throw diagnosticDenied();
         };
         const directory = await store.directory(authorize);
+        const { diagnosticShellDirectory } = await import("./diagnosticFileNative");
+        const physical = diagnosticShellDirectory(lockFS, directory);
         authorize();
-        if (await shell.openPath(directory)) throw diagnosticDenied();
+        if (await shell.openPath(physical)) throw diagnosticDenied();
     } catch { throw diagnosticDenied(); }
 }

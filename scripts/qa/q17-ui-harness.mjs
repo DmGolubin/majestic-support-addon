@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..').replaceAll('\\','/');
 const require=createRequire(root+'/betterdiscord/package.json');
 const { build }=require('esbuild');
-const a25 = process.argv.includes('--a25');
+const a26 = process.argv.includes('--a26');
+const a25 = process.argv.includes('--a25') || a26;
 const a24 = process.argv.includes('--a24') || a25;
 const a23 = process.argv.includes('--a23') || a24;
 
@@ -94,6 +95,14 @@ if (a25) {
 const a25Catalog=panelPersonal.get().catalog;
 panelPersonal.set({catalog:{...a25Catalog,personalRecords:[['Проверка файлов лаунчера','red'],['Сбор журналов подключения','amber'],['Восстановление доступа','blue'],['Общий ответ',null]].map(([title,color],i)=>({...a25Catalog.personalRecords[i%3],id:'a25-'+i,title,color,text:'Проверьте файлы лаунчера и повторите подключение. Если проблема сохранится, приложите журнал.',command:i===0?'launcher':null})),colorLabels:{red:'Красный',amber:'Янтарный',blue:'Синий'}}});
 `;
+}
+if (a26) {
+    // Absent keys differ from explicit null (a user's standard-sound reset).
+    stubs.platform += `storage.get=async key=>{const raw=localStorage.getItem(key);return raw===null?undefined:JSON.parse(raw)};`;
+    stubs.reminders = stubs.reminders.replace(
+        'export const setDiscordReminders=async enabled=>{',
+        'export const setDiscordReminders=async enabled=>{(window.a26ReminderApiCalls??=[]).push({discordEnabled:enabled});'
+    );
 }
 const hostImport = a24 ? `import {Host} from '${root}/src/vencord/ui/Host.tsx';` : '';
 const hostTree = a24 ? '<Host/>' : '<div className="vc-stx-root">{s.management&&<Management/>}{s.windowOpen&&(p.phase==="ready"?<Window/>:<LoginWindow/>)}</div>';

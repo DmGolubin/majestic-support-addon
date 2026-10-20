@@ -42,7 +42,7 @@ function harness(patch: Partial<State> = {}) {
             createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props: { ...props as object, children } }),
         },
     });
-    return { ticketRemindersState, authorizePanelReminders, refreshTicketReminders, setDiscordReminders, render: () => exports.ReminderSettings() };
+    return { ticketRemindersState, authorizePanelReminders, refreshTicketReminders, setDiscordReminders, render: (children?: Node) => exports.ReminderSettings({ children }) };
 }
 
 const settings = (discordEnabled = true): NonNullable<State["settings"]> => ({
@@ -117,11 +117,41 @@ describe("reminder settings", () => {
         expect(nodes(tree).filter(n => n.type === "li").map(text)).toEqual(["Majestic5 мин", "Россия Онлайн15 мин"]);
         expect(nodes(tree).filter(n => n.type === "ProjectIcon").map(n => n.props.project)).toEqual(["mj", "ro"]);
         expect(text(tree)).toContain("Порог меняется в Telegram.");
-        expect(text(tree)).toContain("Звук и громкость — ниже.");
+        expect(text(tree)).toContain("Звук и громкость — отдельно для каждого сервера.");
         expect(text(tree)).toContain("Только назначенные вам тикеты, где игрок ждёт ответа.");
         const controls = nodes(tree).filter(n => ["input", "select", "Select", "textarea", "button"].includes(n.type as string) || n.props.contentEditable);
         expect(controls).toHaveLength(1);
         expect(controls[0].props.type).toBe("checkbox");
+    });
+
+    it("places supplied personal cards under the master control without duplicate fallback thresholds", () => {
+        const h = harness({ phase: "ready", settings: settings() });
+        const children: Node = { type: "div", props: { children: "Project audio cards" } };
+        const tree = h.render(children);
+        expect(nodes(tree).filter(n => n === children)).toHaveLength(1);
+        expect(nodes(tree).filter(n => n.type === "li" || n.props["aria-label"] === "Пороги личных напоминаний")).toHaveLength(0);
+        expect(nodes(tree).indexOf(checkbox(tree)!)).toBeLessThan(nodes(tree).indexOf(children));
+        expect(text(tree)).toContain("Общий переключатель для всех серверов");
+        expect(text(tree)).toContain("Порог меняется в Telegram.");
+        expect(text(tree)).toContain("Звук и громкость — отдельно для каждого сервера.");
+        expect(h.setDiscordReminders).not.toHaveBeenCalled();
+        expect(h.refreshTicketReminders).not.toHaveBeenCalled();
+        expect(h.authorizePanelReminders).not.toHaveBeenCalled();
+    });
+
+    it.each(["idle", "permission"] as const)("does not render personal children without authorization in %s", phase => {
+        const child: Node = { type: "input", props: { type: "range", "aria-label": "Personal volume" } };
+        const tree = harness({ phase, settings: settings() }).render(child);
+        expect(nodes(tree)).not.toContain(child);
+        expect(checkbox(tree)).toBeUndefined();
+        expect(text(tree)).not.toContain(" мин");
+    });
+
+    it.each(["majestic", "russia-online"] as const)("keeps standalone thresholds limited to authorized %s", project => {
+        const saved = settings(); saved.projects = saved.projects.filter(p => p.project === project);
+        const tree = harness({ phase: "ready", settings: saved }).render();
+        expect(nodes(tree).filter(n => n.type === "li").map(text)).toEqual([project === "majestic" ? "Majestic5 мин" : "Россия Онлайн15 мин"]);
+        expect(nodes(tree).filter(n => n.type === "ProjectIcon").map(n => n.props.project)).toEqual([project === "majestic" ? "mj" : "ro"]);
     });
 
     it.each([

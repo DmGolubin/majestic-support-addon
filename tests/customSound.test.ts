@@ -31,11 +31,17 @@ interface SoundState {
     playing: boolean;
     playbackStatus: string;
     canReset: boolean;
+    reminderAudio: Record<core.ReminderSoundProject, { customName: string; loadingSound: boolean; canReset: boolean; error: string; }>;
     channelAudio: Record<string, { customName: string; loadingSound: boolean; canReset: boolean; error: string; }>;
 }
 interface Runtime {
     startTicketSound(): () => void;
     setTicketSound(patch: Partial<core.TicketSoundOptions>): void;
+    setReminderTicketSound(project: core.ReminderSoundProject, patch: Partial<core.ReminderSoundOptions>): void;
+    chooseReminderSound(file: File, project: core.ReminderSoundProject): Promise<void>;
+    resetReminderSound(project: core.ReminderSoundProject): void;
+    testReminderSound(project: core.ReminderSoundProject): Promise<void>;
+    reminderSoundPolicy(project: core.ReminderSoundProject): { enabled: boolean; revision: string; };
     setChannelTicketSound(id: string, patch: Partial<core.ChannelTicketSoundOptions>): void;
     chooseTicketSound(file: File, parentId?: string): Promise<void>;
     resetTicketSound(parentId?: string): void;
@@ -49,9 +55,10 @@ interface Runtime {
 const file = (name = "ping.mp3", bytes = [1, 2, 3, 4]) => new File([new Uint8Array(bytes)], name, { type: "audio/mpeg" });
 const record = (name = "saved.wav") => ({ version: 1, name, data: "AQIDBA==" });
 
-async function harness(initial: unknown = core.defaultTicketSound(), initialAudioState = "running", initialSound: unknown = null, channelAudio: Record<string, unknown> = {}) {
+async function harness(initial: unknown = core.defaultTicketSound(), initialAudioState = "running", initialSound: unknown = null, channelAudio: Record<string, unknown> = {}, reminderAudio: Record<string, unknown> = {}) {
     const saved = new Map<string, unknown>([[KEY, initial], [AUDIO_KEY, initialSound]]);
     for (const [id, sound] of Object.entries(channelAudio)) saved.set(`${AUDIO_KEY}_channel_${id}`, sound);
+    for (const [project, sound] of Object.entries(reminderAudio)) saved.set(`${AUDIO_KEY}_reminder_${project}`, sound);
     const storage = {
         get: vi.fn(async (key: string) => saved.get(key)),
         set: vi.fn(async (key: string, value: unknown) => { saved.set(key, value); }),
@@ -316,7 +323,7 @@ describe("custom ticket audio", () => {
     });
 
     it("drains queued resets after stop while ignoring stale error publication", async () => {
-        const h = await harness(undefined, "running", null, Object.fromEntries(core.defaultTicketSound().channelIds.map(id => [id, null])));
+        const h = await harness(undefined, "running", null, Object.fromEntries(core.defaultTicketSound().channelIds.map(id => [id, null])), { majestic: null, "russia-online": null });
         const pending = deferred<void>();
         h.storage.set.mockReturnValueOnce(pending.promise);
         const importing = h.chooseTicketSound(file());
@@ -777,9 +784,9 @@ describe("A24 independent parent-channel audio", () => {
         expect(events).toHaveBeenCalledWith("result", expect.objectContaining({ ...data, phase: "ended" }));
         const context = { ticketId: "regional:42", channelId: null, guildId: null, project: "russia-online" as const, cycle: 3, waitingCycleId: "opaque", reminderId: null };
         expect(await h.playTicketReminder(() => true, context)).toBe(true);
-        expect(events).toHaveBeenCalledWith("played", expect.objectContaining({ ...context, configSource: "global", mode: "reminder" }));
+        expect(events).toHaveBeenCalledWith("played", expect.objectContaining({ ...context, configSource: "personal", mode: "reminder", enabled: true }));
         for (const [, data] of events.mock.calls.filter(([, data]) => data.mode === "reminder"))
-            expect(data).not.toHaveProperty("enabled");
+            expect(data.enabled).toBe(true);
     });
 
     it("logs suspension and start exceptions without recording false start success", async () => {
@@ -794,5 +801,116 @@ describe("A24 independent parent-channel audio", () => {
         expect(events).toHaveBeenCalledWith("error", expect.objectContaining({ channelId: ro, code: "sound_playback", configSource: "preview" }));
         expect(events.mock.calls.filter(([event]) => event === "played")).toHaveLength(0);
         expect(JSON.stringify(events.mock.calls)).not.toContain("SECRET");
+    });
+});
+
+describe("A26 personal reminder projects", () => {
+    const mj = "majestic" as const, ro = "russia-online" as const;
+    const context = (project: core.ReminderSoundProject) => ({ project, ticketId: `${project}:42`, channelId: "696711470783922247", guildId: "530693013622489088" });
+    const key = (project: string) => `${AUDIO_KEY}_reminder_${project}`;
+
+    it("seeds both projects from global volume/audio but never the unrelated global new-ticket toggle", async () => {
+        const h = await harness({ ...core.defaultTicketSound(), enabled: false, volume: 84 }, "running", record("legacy.wav"));
+        for (const project of [mj, ro]) {
+            expect(core.reminderTicketSound(h.ticketSoundState.get().options, project)).toEqual({ enabled: true, volume: 84 });
+            expect(h.ticketSoundState.get().reminderAudio[project].customName).toBe("legacy.wav");
+            expect(h.reminderSoundPolicy(project).enabled).toBe(true);
+        }
+        const channels = structuredClone(h.ticketSoundState.get().options.channels);
+        h.setReminderTicketSound(mj, { enabled: false, volume: 21 }); await flush(); await h.restart();
+        expect(core.reminderTicketSound(h.ticketSoundState.get().options, mj)).toEqual({ enabled: false, volume: 21 });
+        expect(core.reminderTicketSound(h.ticketSoundState.get().options, ro)).toEqual({ enabled: true, volume: 84 });
+        expect(h.ticketSoundState.get().options.channels).toEqual(channels);
+        expect(await h.playTicketReminder(undefined, context(mj))).toBe(false);
+        expect(await h.playTicketReminder(undefined, context(ro))).toBe(true);
+        expect(h.gainValue).toHaveBeenLastCalledWith(0.84, 0);
+    });
+
+    it("keeps fresh defaults independent when the first edit changes one reminder project", async () => {
+        const h = await harness(null);
+        h.setReminderTicketSound(mj, { volume: 17 }); await flush(); await h.restart();
+        expect(core.reminderTicketSound(h.ticketSoundState.get().options, ro).volume).toBe(30);
+        for (const id of core.defaultTicketSound().channelIds) expect(core.channelTicketSound(h.ticketSoundState.get().options, id).volume).toBe(30);
+        expect(h.ticketSoundState.get().options.volume).toBe(30);
+    });
+
+    it("persists independent project audio/reset and preserves inherited legacy audio after a global replacement", async () => {
+        const h = await harness(undefined, "running", record("legacy.wav"));
+        await h.chooseReminderSound(file("mj.wav", [5, 6, 7, 8]), mj);
+        await h.chooseTicketSound(file("new-legacy.wav"));
+        await h.restart();
+        expect(h.saved(key(mj))).toMatchObject({ name: "mj.wav", data: "BQYHCA==" });
+        expect(h.saved(key(ro))).toEqual(record("legacy.wav"));
+        expect(h.ticketSoundState.get().reminderAudio[mj].customName).toBe("mj.wav");
+        expect(h.ticketSoundState.get().reminderAudio[ro].customName).toBe("legacy.wav");
+        h.resetReminderSound(mj); await flush(); await h.restart();
+        expect(h.saved(key(mj))).toBeNull();
+        expect(h.ticketSoundState.get().reminderAudio[mj].customName).toBe("");
+        expect(h.ticketSoundState.get().reminderAudio[ro].customName).toBe("legacy.wav");
+        await h.playTicketReminder(undefined, context(mj)); await h.playTicketReminder(undefined, context(ro));
+        expect(h.oscillatorStart).toHaveBeenCalledTimes(3);
+        expect(h.bufferStart).toHaveBeenCalledOnce();
+    });
+
+    it("routes project traces to local configuration and never logs internal scope keys or filenames", async () => {
+        const events = vi.spyOn(core, "recordTicketSoundDiagnostic");
+        const h = await harness(undefined, "running", record("SECRET.wav"));
+        h.setReminderTicketSound(ro, { enabled: false, volume: 0 });
+        expect(await h.playTicketReminder(undefined, context(ro))).toBe(false);
+        await h.testReminderSound(ro);
+        expect(h.gainValue).toHaveBeenLastCalledWith(0.3, 0);
+        expect(core.reminderTicketSound(h.ticketSoundState.get().options, ro)).toEqual({ enabled: false, volume: 0 });
+        expect(events).toHaveBeenCalledWith("played", expect.objectContaining({ project: ro, configSource: "preview", enabled: false, volume: 30, audioState: "running" }));
+        h.setReminderTicketSound(mj, { volume: 65 });
+        await h.playTicketReminder(undefined, context(mj));
+        expect(events).toHaveBeenCalledWith("played", expect.objectContaining({ ...context(mj), configSource: "personal", enabled: true, volume: 65 }));
+        expect(JSON.stringify(events.mock.calls)).not.toMatch(/SECRET|AQIDBA|reminder:majestic|reminder:russia-online/);
+    });
+
+    it.each(["disable", "zero", "replace", "reset"] as const)("%s stops only the edited project's active audio", async action => {
+        const h = await harness({ ...core.defaultTicketSound(), enabled: true }, "running", record());
+        await h.playTicketReminder(undefined, context(mj)); await h.playTicketReminder(undefined, context(ro));
+        await h.testTicketSound(core.defaultTicketSound().channelIds[0]);
+        if (action === "disable") h.setReminderTicketSound(mj, { enabled: false });
+        if (action === "zero") h.setReminderTicketSound(mj, { volume: 0 });
+        if (action === "replace") await h.chooseReminderSound(file("replace.wav"), mj);
+        if (action === "reset") h.resetReminderSound(mj);
+        expect(h.sources[0].stop).toHaveBeenCalledOnce();
+        expect(h.sources[1].stop).not.toHaveBeenCalled();
+        expect(h.sources[2].stop).not.toHaveBeenCalled();
+    });
+
+    it.each(["project-edit", "global-off"] as const)("cancels pending resume on %s and clears test busy state", async action => {
+        const h = await harness(); const pending = deferred<void>();
+        h.resume.mockReturnValueOnce(pending.promise);
+        const testing = h.testReminderSound(mj);
+        if (action === "project-edit") { h.setReminderTicketSound(mj, { enabled: false }); h.setReminderTicketSound(mj, { enabled: true }); }
+        else h.stopTicketReminderSound();
+        pending.resolve(); await testing;
+        expect(h.oscillatorStart).not.toHaveBeenCalled();
+        expect(h.ticketSoundState.get().testing).toBe(false);
+    });
+
+    it("keeps another project's pending resume valid and invalidates policy while importing", async () => {
+        const h = await harness(); const pending = deferred<void>(); h.resume.mockReturnValueOnce(pending.promise);
+        const testing = h.testReminderSound(ro);
+        h.setReminderTicketSound(mj, { volume: 0 }); pending.resolve(); await testing;
+        expect(h.oscillatorStart).toHaveBeenCalledTimes(3);
+        const decode = deferred<{ duration: number }>(); h.decode.mockReturnValueOnce(decode.promise);
+        const selecting = h.chooseReminderSound(file(), ro); await flush();
+        expect(h.reminderSoundPolicy(ro).enabled).toBe(false);
+        h.resetReminderSound(ro); decode.resolve({ duration: 1 }); await selecting; await flush();
+        expect(h.ticketSoundState.get().reminderAudio[ro]).toMatchObject({ loadingSound: false, customName: "" });
+        expect(h.saved(key(ro))).toBeNull();
+    });
+
+    it("exposes scoped load/save errors and supports reset retry", async () => {
+        const h = await harness(undefined, "running", null, {}, { majestic: { version: 99 }, "russia-online": record("ro.wav") });
+        expect(h.ticketSoundState.get().reminderAudio[mj].error).not.toBe("");
+        expect(h.ticketSoundState.get().reminderAudio[ro].error).toBe("");
+        h.storage.set.mockRejectedValueOnce(Error("PRIVATE")); h.resetReminderSound(mj); await flush();
+        expect(h.ticketSoundState.get().reminderAudio[mj].canReset).toBe(true);
+        h.resetReminderSound(mj); await flush();
+        expect(h.ticketSoundState.get().reminderAudio[mj]).toMatchObject({ canReset: false, error: "" });
     });
 });

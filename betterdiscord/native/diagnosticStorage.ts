@@ -28,7 +28,11 @@ export async function openDiagnosticStorageFolder(): Promise<void> {
         const { join } = require("path") as typeof import("path");
         if (latest.root !== original.root || latest.origin !== original.origin
             || directory !== join(original.root, "diagnostics")) throw failed();
+        const { diagnosticShellDirectory } = await import("../../src/vencord/diagnosticFileNative");
+        const physical = diagnosticShellDirectory(require("fs"), directory);
+        const final = installationPaths();
+        if (final.root !== original.root || final.origin !== original.origin) throw failed();
         const { shell } = require("electron") as typeof import("electron");
-        if (typeof shell?.openPath !== "function" || await shell.openPath(directory)) throw failed();
+        if (typeof shell?.openPath !== "function" || await shell.openPath(physical)) throw failed();
     } catch { throw failed(); }
 }

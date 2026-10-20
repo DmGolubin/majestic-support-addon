@@ -84,7 +84,7 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
                     <label className="vc-stx-switch"><input type="checkbox" aria-label="Общие шаблоны первыми в поиске" checked={store.data.generalFirstInSearch} disabled={p.phase !== "ready"} onChange={e => store.setGeneralFirstInSearch(e.currentTarget.checked)} /><span aria-hidden="true" /></label>
                 </div>
                 <h4>Порядок вкладок</h4>
-                <p id="stx-tab-order-help">Перетащите вкладку · Alt + стрелки с клавиатуры.</p>
+                <p id="stx-tab-order-help">Перетащите вкладки в нужном порядке.</p>
                 <ol aria-label="Порядок вкладок" style={{ display: "flex", flexWrap: "wrap", gap: 6, listStyle: "none", padding: 0, margin: "8px 0" }}>
                     {store.data.windowTabOrder.map((id, index, order) => <li key={id} style={{ margin: 0 }}>
                         <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={p.phase !== "ready"} draggable={p.phase === "ready"}

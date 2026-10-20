@@ -124,6 +124,52 @@ describe("panel reminder controller", () => {
     });
     afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
+    it("filters a muted first project before receipt selection and still delivers the other project", async () => {
+        const h = harness({ projectSound: project => ({ enabled: project === "russia-online", revision: 1 }) });
+        h.get.mockResolvedValue(assigned({ tickets: [ticket(), ticket({ ticketId: "43", project: "russia-online" })] }));
+        h.controller.start(); await flush();
+        expect(h.storage.saved()).toEqual({ v: 1, receipts: [[ACCOUNT, "russia-online", "43", "reminder-1"]] });
+        expect(h.play).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ project: "russia-online", ticketId: "43" }));
+        h.controller.stop();
+    });
+
+    it("does not consume muted-project receipts or keep overdue polling active", async () => {
+        let enabled = false;
+        const h = harness({ projectSound: () => ({ enabled, revision: 1 }) });
+        h.controller.start(); await flush();
+        expect(h.storage.set).not.toHaveBeenCalled(); expect(h.play).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(59_999);
+        expect(h.get).toHaveBeenCalledOnce();
+        enabled = true;
+        await vi.advanceTimersByTimeAsync(1);
+        expect(h.get).toHaveBeenCalledTimes(2);
+        expect(h.play).toHaveBeenCalledOnce();
+        h.controller.stop();
+    });
+
+    it("invalidates a claimed playback after a project off/on revision during persistence", async () => {
+        let revision = 1;
+        const h = harness({ projectSound: () => ({ enabled: true, revision }) });
+        const pending = deferred<void>(); h.storage.set.mockImplementationOnce(() => pending.promise);
+        h.controller.start(); await flush();
+        expect(h.storage.set).toHaveBeenCalledOnce();
+        revision += 2; pending.resolve(); await flush();
+        expect(h.play).not.toHaveBeenCalled(); h.controller.stop();
+    });
+
+    it("checks project revisions after asynchronous playback preparation while leaving other projects independent", async () => {
+        const revisions = { majestic: 1, "russia-online": 1 };
+        const h = harness({ projectSound: project => ({ enabled: true, revision: revisions[project] }) });
+        const decoded = deferred<void>(); let audibleStart = false;
+        h.play.mockImplementation(async valid => { await decoded.promise; audibleStart = valid(); return audibleStart; });
+        h.controller.start(); await flush();
+        revisions["russia-online"]++;
+        expect(h.play.mock.calls[0][0]()).toBe(true);
+        revisions.majestic++;
+        decoded.resolve(); await flush();
+        expect(audibleStart).toBe(false); h.controller.stop();
+    });
+
     it("durably saves before audio, reports its outcome and deduplicates across reload", async () => {
         const h = harness();
         h.play.mockImplementation(async () => {

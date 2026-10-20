@@ -8,18 +8,20 @@ import "./ticket-settings.css";
 
 import { ChannelStore, useStateFromStores } from "@webpack/common";
 
-import { channelTicketSound } from "../core/ticketSound";
+import { channelTicketSound, reminderTicketSound, ReminderSoundProject } from "../core/ticketSound";
 import { PROJECTS } from "../core/types";
 import { Select } from "./Select";
 import { ProjectIcon } from "./ProjectIcon";
 import { IconBell } from "./svg";
-import { chooseTicketSound, resetTicketSound, retryTicketSoundSettings, setChannelTicketSound, setTicketSound, stopTicketSoundPlayback, testTicketSound, ticketSoundState } from "./ticketSound";
+import { chooseTicketSound, resetTicketSound, retryTicketSoundSettings, setChannelTicketSound, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound, stopTicketSoundPlayback, testTicketSound, ticketSoundState } from "./ticketSound";
 import { ReminderSettings } from "./ReminderSettings";
+import { ticketRemindersState } from "./ticketReminders";
 
 const percent = (value: number) => `${Math.round(value)}%`;
 
 export function TicketSettings() {
     const state = ticketSoundState.use();
+    const reminders = ticketRemindersState.use();
     const { options, loaded, error, testing, playing, playbackStatus } = state;
     const channels = useStateFromStores([ChannelStore], () => options.channelIds.map(id => {
         const channel = ChannelStore.getChannel(id);
@@ -28,27 +30,27 @@ export function TicketSettings() {
     }), [options.channelIds]);
 
     // Reuse the same picker/reset/test controls for each independent audio record.
-    const audioControls = (parentId?: string) => {
-        const sound = parentId ? state.channelAudio?.[parentId] : state;
-        const config = parentId ? channelTicketSound(options, parentId) : options;
+    const audioControls = (parentId?: string, project?: ReminderSoundProject) => {
+        const sound = project ? state.reminderAudio?.[project] : parentId ? state.channelAudio?.[parentId] : state;
+        const config = project ? reminderTicketSound(options, project) : parentId ? channelTicketSound(options, parentId) : options;
         const customName = sound?.customName ?? "";
         const loadingSound = sound?.loadingSound ?? false;
-        const mutedPreview = !!parentId && (!config.enabled || config.volume === 0);
+        const mutedPreview = !!(parentId || project) && (!config.enabled || config.volume === 0 || !!project && !reminders.settings?.discordEnabled);
         return <div className="vc-stx-ticket-custom-sound">
             <div className="vc-stx-ticket-sound-name"><span className="vc-stx-muted">Звук</span><span>{loadingSound ? "Загружаем…" : customName || "Стандартный"}</span></div>
             <div className="vc-stx-ticket-audio-actions">
                 <label className="vc-stx-btn vc-stx-ghost vc-stx-sound-file">Выбрать файл
                     <input type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/flac,.mp3,.wav,.ogg,.m4a,.flac" aria-label="Выбрать свой звук" disabled={loadingSound || testing} onChange={e => {
                         const file = e.currentTarget.files?.[0]; e.currentTarget.value = "";
-                        if (file) void chooseTicketSound(file, parentId);
+                        if (file) void (project ? chooseReminderSound(file, project) : chooseTicketSound(file, parentId));
                     }} />
                 </label>
-                <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={testing || loadingSound || (!parentId && config.volume === 0)} onClick={() => void testTicketSound(parentId)} aria-busy={testing}><IconBell />Проверить звук</button>
-                {(customName || sound?.canReset || loadingSound) && <button type="button" className="vc-stx-btn vc-stx-ghost vc-stx-ticket-reset" disabled={testing} onClick={() => resetTicketSound(parentId)}>Вернуть стандартный</button>}
+                <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={testing || loadingSound} onClick={() => void (project ? testReminderSound(project) : testTicketSound(parentId))} aria-busy={testing}><IconBell />Проверить звук</button>
+                {(customName || sound?.canReset || loadingSound) && <button type="button" className="vc-stx-btn vc-stx-ghost vc-stx-ticket-reset" disabled={testing} onClick={() => project ? resetReminderSound(project) : resetTicketSound(parentId)}>Вернуть стандартный</button>}
             </div>
             <small className="vc-stx-muted">До 5 МБ · до 30 с · хранится локально</small>
-            {mutedPreview && <small className="vc-stx-muted">Проверка: {percent(config.volume || 30)}, без включения канала.</small>}
-            {parentId && sound?.error && <p className="vc-stx-ticket-error" role="alert">{sound.error}</p>}
+            {mutedPreview && <small className="vc-stx-muted">Проверка: {percent(config.volume || 30)}, без включения {project ? "напоминаний" : "канала"}.</small>}
+            {(parentId || project) && sound?.error && <p className="vc-stx-ticket-error" role="alert">{sound.error}</p>}
         </div>;
     };
 
@@ -86,18 +88,26 @@ export function TicketSettings() {
                 </fieldset>;
             })}</div>
         </section>
-        <ReminderSettings />
-        <section className="vc-stx-setting-section vc-stx-ticket-section" aria-label="Звук личных напоминаний">
-            <header className="vc-stx-ticket-heading"><IconBell size={18} /><h3>Звук личных напоминаний</h3></header>
-            <p className="vc-stx-muted">Общий звук для ваших тикетов в обоих проектах. Не зависит от настроек новых тикетов.</p>
-            <fieldset className="vc-stx-ticket-controls" disabled={!loaded} aria-label="Аудио личных напоминаний">
-                <label className="vc-stx-ticket-volume"><span>Громкость <span className="vc-stx-ticket-value">{percent(options.volume)}</span></span>
-                    <input aria-label="Громкость личных напоминаний" aria-valuetext={percent(options.volume)} type="range" min={0} max={100} step={1} value={options.volume} onChange={e => setTicketSound({ volume: Number(e.currentTarget.value) })} />
-                </label>
-                {options.volume === 0 && <small className="vc-stx-muted">0% — личные напоминания и проверка без звука.</small>}
-                {audioControls()}
-            </fieldset>
-        </section>
+        <ReminderSettings>
+            <div className="vc-stx-ticket-card-grid">{reminders.settings?.projects.map(({ project, personalReminderMinutes }) => {
+                const config = reminderTicketSound(options, project);
+                const projectId = project === "majestic" ? "mj" : "ro";
+                const name = PROJECTS[projectId].short;
+                return <fieldset key={project} className="vc-stx-ticket-controls vc-stx-ticket-channel" disabled={!loaded} aria-label={`Личные напоминания · ${name}`}>
+                    <div className="vc-stx-ticket-card-heading">
+                        <span aria-hidden="true"><ProjectIcon project={projectId} size={24} /></span>
+                        <div><strong>{name}</strong><span>Игрок ждёт ответа · {personalReminderMinutes} мин</span></div>
+                    </div>
+                    <label className="vc-stx-check"><input type="checkbox" checked={config.enabled} onChange={e => setReminderTicketSound(project, { enabled: e.currentTarget.checked })} />Напоминания этого сервера</label>
+                    {!reminders.settings?.discordEnabled && <p className="vc-stx-ticket-project-note">Общий переключатель напоминаний выключен.</p>}
+                    <label className="vc-stx-ticket-volume"><span>Громкость <span className="vc-stx-ticket-value">{percent(config.volume)}</span></span>
+                        <input aria-label={`Громкость личных напоминаний · ${name}`} aria-valuetext={percent(config.volume)} type="range" min={0} max={100} step={1} value={config.volume} onChange={e => setReminderTicketSound(project, { volume: Number(e.currentTarget.value) })} />
+                    </label>
+                    {config.volume === 0 && <small className="vc-stx-muted">0% — напоминания этого сервера без звука.</small>}
+                    {audioControls(undefined, project)}
+                </fieldset>;
+            })}</div>
+        </ReminderSettings>
         {(testing || playing) && <button type="button" className="vc-stx-btn vc-stx-ghost" onClick={stopTicketSoundPlayback}>Остановить звук</button>}
         {playbackStatus && <p className="vc-stx-ticket-playback" role="status">{playbackStatus.replace(/(\d+(?:\.\d+)?)%/g, (_, value) => percent(Number(value)))}</p>}
         {error && <p className="vc-stx-ticket-error" role="alert">{error}</p>}

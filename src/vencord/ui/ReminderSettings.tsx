@@ -8,7 +8,7 @@ import { ProjectIcon } from "./ProjectIcon";
 import { authorizePanelReminders } from "./panel";
 import { refreshTicketReminders, setDiscordReminders, ticketRemindersState } from "./ticketReminders";
 
-export function ReminderSettings() {
+export function ReminderSettings({ children }: { children?: React.ReactNode; } = {}) {
     const { phase, settings, busy, error, deliveryError } = ticketRemindersState.use();
     const ready = phase === "ready" && !!settings;
     return <section className="vc-stx-setting-section vc-stx-ticket-section" aria-label="Личные напоминания">
@@ -22,13 +22,14 @@ export function ReminderSettings() {
                 <p className="vc-stx-muted">Разрешите панели доступ к вашим тикетам и настройкам напоминаний.</p>
                 <button type="button" className="vc-stx-btn vc-stx-ghost" onClick={() => void authorizePanelReminders()}>Подключить напоминания</button>
             </> : <>
-                <label className="vc-stx-check"><input type="checkbox" checked={settings?.discordEnabled ?? false} disabled={!ready || busy} onChange={e => void setDiscordReminders(e.currentTarget.checked)} />Напоминать в Discord</label>
+                <div className="vc-stx-reminder-master"><label className="vc-stx-check"><input type="checkbox" checked={settings?.discordEnabled ?? false} disabled={!ready || busy} onChange={e => void setDiscordReminders(e.currentTarget.checked)} />Напоминать в Discord</label><small>Общий переключатель для всех серверов</small></div>
                 {phase === "loading" && <p className="vc-stx-muted" role="status">Загружаем настройки…</p>}
-                {!!settings?.projects.length && <ul className="vc-stx-reminder-thresholds" aria-label="Пороги личных напоминаний">{settings.projects.map(p => <li key={p.project}>
+                {!children && !!settings?.projects.length && <ul className="vc-stx-reminder-thresholds" aria-label="Пороги личных напоминаний">{settings.projects.map(p => <li key={p.project}>
                     <span aria-hidden="true"><ProjectIcon project={p.project === "majestic" ? "mj" : "ro"} size={16} /></span>
                     <span>{p.project === "majestic" ? "Majestic" : "Россия Онлайн"}</span><strong>{p.personalReminderMinutes} мин</strong>
                 </li>)}</ul>}
-                <p className="vc-stx-muted">Порог меняется в Telegram. Звук и громкость — ниже.</p>
+                <p className="vc-stx-muted">Порог меняется в Telegram. Звук и громкость — отдельно для каждого сервера.</p>
+                {children}
                 {busy && <p className="vc-stx-muted" role="status">Сохраняем…</p>}
             </>}
         {(error || deliveryError) && <p className="vc-stx-ticket-error" role="alert">{error || deliveryError}</p>}

@@ -21,7 +21,7 @@ export interface TicketSoundContext {
 export function recordTicketSoundDiagnostic(event: string, data: {
     mode: "ticket" | "test" | "reminder" | "custom"; code?: string; phase?: string;
     volume: number; enabled?: boolean; success?: boolean;
-    configSource?: "global" | "channel" | "preview"; audioState?: string;
+    configSource?: "global" | "channel" | "personal" | "preview"; audioState?: string;
 } & TicketSoundContext) {
     try { diagnosticJournal.record(`runtime.sound_${event}`, { ...data }); } catch { /* Optional diagnostics. */ }
 }
@@ -72,6 +72,14 @@ export interface TicketSoundOptions {
     cooldownMs: number;
     quietWhenVisible: boolean;
     channels?: Record<string, ChannelTicketSoundOptions>;
+    reminders?: Partial<Record<ReminderSoundProject, ReminderSoundOptions>>;
+}
+
+export const REMINDER_SOUND_PROJECTS = ["majestic", "russia-online"] as const;
+export type ReminderSoundProject = typeof REMINDER_SOUND_PROJECTS[number];
+export interface ReminderSoundOptions { enabled: boolean; volume: number; }
+export function reminderTicketSound(options: TicketSoundOptions, project: ReminderSoundProject): ReminderSoundOptions {
+    return options.reminders?.[project] ?? { enabled: true, volume: options.volume };
 }
 
 export type ChannelTicketSoundOptions = Pick<TicketSoundOptions, "enabled" | "volume" | "cooldownMs" | "quietWhenVisible">;
@@ -112,6 +120,14 @@ export function readTicketSound(value: unknown): TicketSoundOptions {
             volume: number(c.volume, 0, 100, result.volume),
             cooldownMs: number(c.cooldownMs, 1000, 30000, result.cooldownMs),
             quietWhenVisible: typeof c.quietWhenVisible === "boolean" ? c.quietWhenVisible : result.quietWhenVisible,
+        };
+    }
+    result.reminders = {};
+    for (const project of REMINDER_SOUND_PROJECTS) {
+        const raw = v.reminders && typeof v.reminders === "object" ? v.reminders[project] : undefined;
+        result.reminders[project] = {
+            enabled: raw && typeof raw.enabled === "boolean" ? raw.enabled : true,
+            volume: number(raw?.volume, 0, 100, result.volume),
         };
     }
     return result;

@@ -9,6 +9,9 @@ import { PROJECTS } from "../src/core/types";
 const code = ts.transpileModule(readFileSync(new URL("../src/vencord/ui/TicketSettings.tsx", import.meta.url), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
 }).outputText;
+const reminderCode = ts.transpileModule(readFileSync(new URL("../src/vencord/ui/ReminderSettings.tsx", import.meta.url), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
+}).outputText;
 type Node = { type: unknown; props: Record<string, any>; };
 const nodes = (node: any): Node[] => Array.isArray(node) ? node.flatMap(nodes)
     : node && typeof node === "object" ? [node, ...nodes(node.props.children)] : [];
@@ -16,12 +19,23 @@ const text = (node: any): string => Array.isArray(node) ? node.map(text).join(""
     : node && typeof node === "object" ? text(node.props.children) : node == null || typeof node === "boolean" ? "" : String(node);
 
 function harness(patch: Partial<TicketSoundOptions> = {}) {
-    const state = { options: soundCore.readTicketSound({ ...defaultTicketSound(), ...patch }), loaded: true, testing: false, playing: false, playbackStatus: "", canReset: false, error: "", customName: "", loadingSound: false, channelAudio: {} as Record<string, { customName: string; loadingSound: boolean; canReset: boolean; error: string; }> };
+    type Audio = { customName: string; loadingSound: boolean; canReset: boolean; error: string; };
+    const state = { options: soundCore.readTicketSound({ ...defaultTicketSound(), ...patch }), loaded: true, testing: false, playing: false, playbackStatus: "", canReset: false, error: "", customName: "", loadingSound: false, channelAudio: {} as Record<string, Audio>, reminderAudio: {} as Partial<Record<soundCore.ReminderSoundProject, Audio>> };
+    const reminders: {
+        phase: "idle" | "permission" | "loading" | "ready" | "offline";
+        settings: { discordEnabled: boolean; projects: { project: soundCore.ReminderSoundProject; personalReminderMinutes: number; }[]; } | null;
+        busy: boolean; error: string; deliveryError: string;
+    } = { phase: "ready", settings: { discordEnabled: true, projects: [
+        { project: "majestic", personalReminderMinutes: 5 },
+        { project: "russia-online", personalReminderMinutes: 15 },
+    ] }, busy: false, error: "", deliveryError: "" };
     const channels = new Map<string, { name?: string; guild_id?: string; }>();
     const ChannelStore = { getChannel: (id: string) => channels.get(id) };
     const useStateFromStores = vi.fn((_stores, read: () => unknown) => read());
     const setTicketSound = vi.fn(), testTicketSound = vi.fn(), setChannelTicketSound = vi.fn();
     const chooseTicketSound = vi.fn(), resetTicketSound = vi.fn();
+    const setReminderTicketSound = vi.fn(), chooseReminderSound = vi.fn(), resetReminderSound = vi.fn(), testReminderSound = vi.fn();
+    const setDiscordReminders = vi.fn(), refreshTicketReminders = vi.fn(), authorizePanelReminders = vi.fn();
     const retryTicketSoundSettings = vi.fn();
     const stopTicketSoundPlayback = vi.fn();
     const dependencies: Record<string, unknown> = {
@@ -32,16 +46,24 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
         "./Select": { Select: "Select" },
         "./ProjectIcon": { ProjectIcon: "ProjectIcon" },
         "./svg": { IconBell: "IconBell" },
-        "./ReminderSettings": { ReminderSettings: "ReminderSettings" },
-        "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback },
+        "./panel": { authorizePanelReminders },
+        "./ticketReminders": { ticketRemindersState: { use: () => reminders }, setDiscordReminders, refreshTicketReminders },
+        "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound },
     };
-    const exports: any = {};
-    runInNewContext(code, {
-        exports,
+    const context = {
         require: (id: string) => { if (!(id in dependencies)) throw new Error(`Unexpected import: ${id}`); return dependencies[id]; },
-        React: { createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props: { ...props as object, children } }) },
-    });
-    return { state, channels, ChannelStore, useStateFromStores, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback, render: () => exports.TicketSettings() };
+        React: { Fragment: "Fragment", createElement: (type: unknown, props: unknown, ...children: unknown[]) => {
+            const next = { ...props as object, children };
+            return typeof type === "function" ? type(next) : { type, props: next };
+        } },
+    };
+    // Execute the actual child too: idle/permission must hide its supplied cards.
+    const reminderExports: any = {};
+    runInNewContext(reminderCode, { ...context, exports: reminderExports });
+    dependencies["./ReminderSettings"] = reminderExports;
+    const exports: any = {};
+    runInNewContext(code, { ...context, exports });
+    return { state, reminders, channels, ChannelStore, useStateFromStores, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound, setDiscordReminders, refreshTicketReminders, authorizePanelReminders, render: () => exports.TicketSettings() };
 }
 
 describe("A24 ticket and personal reminder audio settings", () => {
@@ -54,12 +76,12 @@ describe("A24 ticket and personal reminder audio settings", () => {
     it("explains all new tickets versus assigned personal reminders, with one audio set per parent", () => {
         const h = harness(); const tree = h.render();
         expect(text(tree)).toContain("не только назначенные вам");
-        expect(text(tree)).toContain("Общий звук для ваших тикетов");
-        expect(text(tree)).toContain("Не зависит от настроек новых тикетов");
-        expect(fields(h)).toHaveLength(3);
-        expect(nodes(tree).filter(n => n.type === "ReminderSettings")).toHaveLength(1);
-        expect(nodes(tree).filter(n => n.type === "input" && n.props.type === "file")).toHaveLength(3);
-        expect(checks(fields(h)[2])).toHaveLength(0);
+        expect(text(tree)).toContain("Только назначенные вам тикеты");
+        expect(text(tree)).toContain("Звук и громкость — отдельно для каждого сервера.");
+        expect(fields(h)).toHaveLength(4);
+        expect(nodes(tree).filter(n => n.type === "section" && n.props["aria-label"] === "Личные напоминания")).toHaveLength(1);
+        expect(nodes(tree).filter(n => n.type === "input" && n.props.type === "file")).toHaveLength(4);
+        expect(checks(fields(h)[2])).toHaveLength(1);
     });
 
     it("subscribes to live channel metadata without exposing raw IDs or inferring project by position", () => {
@@ -92,17 +114,21 @@ describe("A24 ticket and personal reminder audio settings", () => {
         select.props.onChange({ currentTarget: { value: "5000" } });
         expect(h.setChannelTicketSound.mock.calls).toEqual([[id, { enabled: true }], [id, { quietWhenVisible: false }], [id, { volume: 55 }], [id, { cooldownMs: 5000 }]]);
         expect(h.setTicketSound).not.toHaveBeenCalled();
+        expect(h.setReminderTicketSound).not.toHaveBeenCalled();
+        expect(h.setDiscordReminders).not.toHaveBeenCalled();
     });
 
-    it("keeps global volume solely in the personal reminder section", () => {
+    it("routes personal volume to the selected project without changing the channel or global API toggle", () => {
         const h = harness({ volume: 83.9506 }); const personal = fields(h)[2];
-        expect(range(personal).props).toMatchObject({ "aria-label": "Громкость личных напоминаний", "aria-valuetext": "84%", min: 0, max: 100, step: 1, value: 83.9506 });
+        expect(range(personal).props).toMatchObject({ "aria-label": "Громкость личных напоминаний · Majestic", "aria-valuetext": "84%", min: 0, max: 100, step: 1, value: 83.9506 });
         range(personal).props.onChange({ currentTarget: { value: "85" } });
-        expect(h.setTicketSound).toHaveBeenCalledExactlyOnceWith({ volume: 85 });
+        expect(h.setReminderTicketSound).toHaveBeenCalledExactlyOnceWith("majestic", { volume: 85 });
+        expect(h.setTicketSound).not.toHaveBeenCalled();
+        expect(h.setDiscordReminders).not.toHaveBeenCalled();
         expect(h.setChannelTicketSound).not.toHaveBeenCalled();
     });
 
-    it("allows explicitly labelled channel previews at mute/zero while personal zero remains silent", () => {
+    it("allows explicitly labelled channel and personal previews at mute/zero without enabling either", () => {
         const h = harness({ enabled: false, volume: 0 });
         const [first, , personal] = fields(h);
         const preview = button(first, "Проверить звук");
@@ -110,7 +136,13 @@ describe("A24 ticket and personal reminder audio settings", () => {
         expect(text(first)).toContain("Проверка: 30%, без включения канала.");
         preview.props.onClick();
         expect(h.testTicketSound).toHaveBeenCalledExactlyOnceWith(h.state.options.channelIds[0]);
-        expect(button(personal, "Проверить звук").props.disabled).toBe(true);
+        expect(button(personal, "Проверить звук").props.disabled).toBe(false);
+        expect(text(personal)).toContain("Проверка: 30%, без включения напоминаний.");
+        button(personal, "Проверить звук").props.onClick();
+        expect(h.testReminderSound).toHaveBeenCalledExactlyOnceWith("majestic");
+        expect(h.setReminderTicketSound).not.toHaveBeenCalled();
+        expect(h.setChannelTicketSound).not.toHaveBeenCalled();
+        expect(h.setDiscordReminders).not.toHaveBeenCalled();
     });
 
     it("dispatches file selection and reset with parent context, clears picker, and keeps reminders separate", () => {
@@ -126,13 +158,15 @@ describe("A24 ticket and personal reminder audio settings", () => {
         button(first, "Проверить звук").props.onClick();
         expect(h.testTicketSound).toHaveBeenCalledWith(id);
         picker(personal).props.onChange({ currentTarget: { files: [file], value: "x" } });
-        expect(h.chooseTicketSound).toHaveBeenLastCalledWith(file, undefined);
+        expect(h.chooseReminderSound).toHaveBeenCalledExactlyOnceWith(file, "majestic");
+        expect(h.chooseTicketSound).toHaveBeenCalledTimes(1);
     });
 
     it.each([[], null, undefined])("ignores empty file selections (%j)", files => {
         const h = harness(); const currentTarget = { files, value: "old" };
-        picker(fields(h)[0]).props.onChange({ currentTarget });
+        for (const field of fields(h)) picker(field).props.onChange({ currentTarget });
         expect(currentTarget.value).toBe(""); expect(h.chooseTicketSound).not.toHaveBeenCalled();
+        expect(h.chooseReminderSound).not.toHaveBeenCalled();
     });
 
     it("keeps upload failures scoped and permits reset retry/cancellation in that channel", () => {
@@ -148,7 +182,8 @@ describe("A24 ticket and personal reminder audio settings", () => {
 
     it("offers settings read retry outside disabled controls and hides unloaded channel guesses", () => {
         const h = harness(); h.state.loaded = false;
-        expect(fields(h)).toHaveLength(1); expect(fields(h)[0].props.disabled).toBe(true);
+        expect(fields(h)).toHaveLength(2);
+        for (const field of fields(h)) expect(field.props.disabled).toBe(true);
         expect(text(h.render())).toContain("Загрузка каналов…");
         h.state.error = "Не удалось прочитать настройки звука.";
         const retry = nodes(h.render()).find(n => n.type === "button" && text(n) === "Повторить загрузку настроек")!;
@@ -164,6 +199,112 @@ describe("A24 ticket and personal reminder audio settings", () => {
         expect(stops).toHaveLength(1); stops[0].props.onClick();
         expect(h.stopTicketSoundPlayback).toHaveBeenCalledOnce();
     });
+
+    it.each(["majestic", "russia-online"] as const)("routes every local personal control independently for %s, without writing API thresholds", project => {
+        const h = harness({ reminders: {
+            majestic: { enabled: false, volume: 23 },
+            "russia-online": { enabled: true, volume: 67 },
+        } });
+        const saved = h.reminders.settings!;
+        saved.projects.forEach(Object.freeze); Object.freeze(saved.projects); Object.freeze(saved);
+        const before = structuredClone(saved);
+        const optionsBefore = structuredClone(h.state.options);
+        h.state.reminderAudio[project] = { customName: `${project}.wav`, canReset: true, loadingSound: false, error: "" };
+        const personal = fields(h)[project === "majestic" ? 2 : 3];
+        expect(checks(personal)[0].props.checked).toBe(project === "russia-online");
+        expect(range(personal).props.value).toBe(project === "majestic" ? 23 : 67);
+        expect(text(personal)).toContain(project === "majestic" ? "5 мин" : "15 мин");
+        expect(nodes(personal).filter(n => ["select", "Select", "textarea"].includes(n.type as string) || n.props.type === "number" || n.props.contentEditable)).toHaveLength(0);
+        checks(personal)[0].props.onChange({ currentTarget: { checked: project === "majestic" } });
+        range(personal).props.onChange({ currentTarget: { value: "42" } });
+        const file = { name: `${project}-new.wav` };
+        const currentTarget = { files: [file], value: file.name };
+        picker(personal).props.onChange({ currentTarget });
+        button(personal, "Вернуть стандартный").props.onClick();
+        button(personal, "Проверить звук").props.onClick();
+        expect(currentTarget.value).toBe("");
+        expect(h.setReminderTicketSound.mock.calls).toEqual([[project, { enabled: project === "majestic" }], [project, { volume: 42 }]]);
+        expect(h.chooseReminderSound).toHaveBeenCalledExactlyOnceWith(file, project);
+        expect(h.resetReminderSound).toHaveBeenCalledExactlyOnceWith(project);
+        expect(h.testReminderSound).toHaveBeenCalledExactlyOnceWith(project);
+        for (const other of [h.setTicketSound, h.setChannelTicketSound, h.chooseTicketSound, h.resetTicketSound, h.testTicketSound, h.setDiscordReminders, h.refreshTicketReminders, h.authorizePanelReminders]) expect(other).not.toHaveBeenCalled();
+        expect(saved).toEqual(before);
+        expect(h.state.options).toEqual(optionsBefore);
+    });
+
+    it.each(["majestic", "russia-online"] as const)("renders only the authorized %s personal project despite both local profiles", project => {
+        const h = harness();
+        h.reminders.settings!.projects = h.reminders.settings!.projects.filter(p => p.project === project);
+        const personal = fields(h).slice(2);
+        expect(personal).toHaveLength(1);
+        expect(personal[0].props["aria-label"]).toBe(`Личные напоминания · ${project === "majestic" ? "Majestic" : "Россия Онлайн"}`);
+        expect(nodes(personal[0]).find(n => n.type === "ProjectIcon")!.props.project).toBe(project === "majestic" ? "mj" : "ro");
+        button(personal[0], "Проверить звук").props.onClick();
+        expect(h.testReminderSound).toHaveBeenCalledExactlyOnceWith(project);
+        h.reminders.settings!.projects = [];
+        expect(fields(h)).toHaveLength(2);
+    });
+
+    it.each(["idle", "permission", "loading", "offline", "ready"] as const)("does not invent personal cards without settings in %s", phase => {
+        const h = harness(); h.reminders.phase = phase; h.reminders.settings = null;
+        expect(fields(h)).toHaveLength(2);
+        expect(text(h.render())).not.toContain("Игрок ждёт ответа ·");
+        expect(h.setReminderTicketSound).not.toHaveBeenCalled();
+        expect(h.testReminderSound).not.toHaveBeenCalled();
+    });
+
+    it.each(["idle", "permission"] as const)("hides personal children after auth changes to %s even while old settings are present", phase => {
+        const h = harness(); expect(fields(h)).toHaveLength(4);
+        h.reminders.phase = phase;
+        expect(fields(h)).toHaveLength(2);
+        expect(text(h.render())).not.toContain("Игрок ждёт ответа ·");
+    });
+
+    it("renders server identity and thresholds from projects rather than card position", () => {
+        const h = harness(); h.reminders.settings!.projects.reverse();
+        const personal = fields(h).slice(2);
+        expect(personal.map(n => n.props["aria-label"])).toEqual(["Личные напоминания · Россия Онлайн", "Личные напоминания · Majestic"]);
+        expect(text(personal[0])).toContain("15 мин");
+        expect(text(personal[1])).toContain("5 мин");
+        range(personal[0]).props.onChange({ currentTarget: { value: "64" } });
+        expect(h.setReminderTicketSound).toHaveBeenCalledExactlyOnceWith("russia-online", { volume: 64 });
+    });
+
+    it("shows master-off status for both servers and permits manual preview without changing the API toggle", () => {
+        const h = harness(); h.reminders.settings!.discordEnabled = false;
+        for (const personal of fields(h).slice(2)) {
+            expect(text(personal)).toContain("Общий переключатель напоминаний выключен.");
+            expect(text(personal)).toContain("Проверка: 30%, без включения напоминаний.");
+            expect(button(personal, "Проверить звук").props.disabled).toBe(false);
+            button(personal, "Проверить звук").props.onClick();
+        }
+        expect(h.testReminderSound.mock.calls).toEqual([["majestic"], ["russia-online"]]);
+        expect(h.setReminderTicketSound).not.toHaveBeenCalled();
+        expect(h.setDiscordReminders).not.toHaveBeenCalled();
+        const section = nodes(h.render()).find(n => n.type === "section" && n.props["aria-label"] === "Личные напоминания")!;
+        const master = checks(section)[0];
+        expect(master.props).toMatchObject({ checked: false, disabled: false });
+        master.props.onChange({ currentTarget: { checked: true } });
+        expect(h.setDiscordReminders).toHaveBeenCalledExactlyOnceWith(true);
+        expect(h.setReminderTicketSound).not.toHaveBeenCalled();
+    });
+
+    it.each(["majestic", "russia-online"] as const)("keeps %s upload errors and reset cancellation local to that card", project => {
+        const h = harness();
+        h.state.reminderAudio[project] = { customName: "", loadingSound: true, canReset: true, error: "Не удалось сохранить личный звук." };
+        const all = fields(h);
+        const affected = all[project === "majestic" ? 2 : 3];
+        expect(picker(affected).props.disabled).toBe(true);
+        expect(button(affected, "Проверить звук").props.disabled).toBe(true);
+        expect(button(affected, "Вернуть стандартный").props.disabled).toBe(false);
+        expect(nodes(affected).filter(n => n.props.role === "alert").map(text)).toEqual(["Не удалось сохранить личный звук."]);
+        button(affected, "Вернуть стандартный").props.onClick();
+        expect(h.resetReminderSound).toHaveBeenCalledExactlyOnceWith(project);
+        for (const other of all.filter(n => n !== affected)) {
+            expect(picker(other).props.disabled).toBe(false);
+            expect(nodes(other).some(n => n.props.role === "alert")).toBe(false);
+        }
+    });
 });
 
 
@@ -173,31 +314,32 @@ describe("A25 compact sound controls", () => {
         h.state.playbackStatus = `Проверка при выключенном канале: ${volume}%, настройки не изменены.`;
         const tree = h.render();
         const ranges = nodes(tree).filter(n => n.type === "input" && n.props.type === "range");
-        expect(ranges).toHaveLength(3);
+        expect(ranges).toHaveLength(4);
         for (const range of ranges) expect(range.props).toMatchObject({ value: volume, "aria-valuetext": `${Math.round(volume)}%` });
         const labels = text(tree).match(/\d+(?:\.\d+)?%/g)!;
         expect(labels.length).toBeGreaterThan(3);
         for (const label of labels) expect(label).toMatch(/^\d+%$/);
         expect(text(tree)).toContain(`Проверка: ${Math.round(volume || 30)}%, без включения канала.`);
         const previews = nodes(tree).filter(n => n.type === "button" && text(n) === "Проверить звук");
-        expect(previews).toHaveLength(3);
+        expect(previews).toHaveLength(4);
         expect(h.state.options.volume).toBe(volume);
         expect(h.setChannelTicketSound).not.toHaveBeenCalled();
         expect(h.setTicketSound).not.toHaveBeenCalled();
+        expect(h.setReminderTicketSound).not.toHaveBeenCalled();
     });
 
     it("keeps preview labels stable for custom files and pending tests without changing keyboard access", () => {
         const h = harness({ enabled: true });
-        h.state.customName = "very-long-personal-notification.wav";
+        h.state.reminderAudio.majestic = { customName: "very-long-personal-notification.wav", canReset: true, loadingSound: false, error: "" };
         const id = h.state.options.channelIds[0];
         h.state.channelAudio[id] = { customName: "channel.wav", canReset: true, loadingSound: false, error: "" };
         for (const testing of [false, true]) {
             h.state.testing = testing;
             const all = nodes(h.render());
             const previews = all.filter(n => n.type === "button" && text(n) === "Проверить звук");
-            expect(previews).toHaveLength(3);
+            expect(previews).toHaveLength(4);
             for (const preview of previews) expect(preview.props).toMatchObject({ type: "button", disabled: testing, "aria-busy": testing });
-            expect(all.filter(n => n.type === "input" && n.props.type === "file")).toHaveLength(3);
+            expect(all.filter(n => n.type === "input" && n.props.type === "file")).toHaveLength(4);
             expect(all.some(n => n.props.tabIndex === -1)).toBe(false);
         }
     });

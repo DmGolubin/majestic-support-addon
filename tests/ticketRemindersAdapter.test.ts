@@ -78,6 +78,7 @@ function harness() {
     };
     const storage = { get: vi.fn(async (_key: string): Promise<unknown> => undefined), set: vi.fn(async (_key: string, _value: unknown) => {}) };
     const toast = vi.fn();
+    const reminderSoundPolicy = vi.fn<NonNullable<EngineOptions["projectSound"]>>(() => ({ enabled: true, revision: 0 }));
     const playTicketReminder = vi.fn(async (valid: () => boolean, _ticket?: ReminderPlaybackTicket) => valid());
     const prepareTicketSound = vi.fn(), stopTicketReminderSound = vi.fn();
     const engines: {
@@ -102,7 +103,7 @@ function harness() {
         "../core/panelClient": { PanelError },
         "../core/panelReminders": { createReminderController, parseNotificationSettings },
         "../platform": { storage, toast },
-        "./ticketSound": { playTicketReminder, prepareTicketSound, stopTicketReminderSound },
+        "./ticketSound": { reminderSoundPolicy, playTicketReminder, prepareTicketSound, stopTicketReminderSound },
         "./observable": {
             createObservable<T extends object>(initial: T) {
                 let value = initial;
@@ -124,11 +125,36 @@ function harness() {
         await exports.refreshTicketReminders();
         expect(exports.ticketRemindersState.get()).toMatchObject({ phase: "ready", settings: initial, busy: false });
     }
-    return { ...exports, client, binding, storage, toast, playTicketReminder, prepareTicketSound, stopTicketReminderSound, createReminderController, engines, running, ready,
+    return { ...exports, client, binding, storage, toast, reminderSoundPolicy, playTicketReminder, prepareTicketSound, stopTicketReminderSound, createReminderController, engines, running, ready,
         state: () => exports.ticketRemindersState.get() };
 }
 
 describe("ticket reminder adapter", () => {
+    it("passes local project eligibility into selection without changing API master settings", async () => {
+        const h = harness(); await h.ready();
+        h.reminderSoundPolicy.mockImplementation(project => ({ enabled: project === "russia-online", revision: 2 }));
+        expect(h.running()[0].options.projectSound?.("majestic")).toEqual({ enabled: false, revision: 2 });
+        const ticket: ReminderPlaybackTicket = { ticketId: "42", channelId: null, guildId: null, project: "majestic", waitingCycleId: "cycle", reminderId: "reminder", cycle: 1 };
+        expect(await h.running()[0].options.play(() => true, ticket)).toBe(false);
+        expect(await h.running()[0].options.play(() => true, { ...ticket, project: "russia-online" })).toBe(true);
+        expect(h.state().settings?.discordEnabled).toBe(true);
+        expect(h.client.mutate).not.toHaveBeenCalled();
+    });
+
+    it("global API disable invalidates a project playback awaiting decode before PATCH resolves", async () => {
+        const h = harness(); await h.ready();
+        const decode = deferred<void>(), patch = deferred<unknown>(); let started = false;
+        h.playTicketReminder.mockImplementationOnce(async valid => { await decode.promise; started = valid(); return started; });
+        const ticket: ReminderPlaybackTicket = { ticketId: "42", channelId: null, guildId: null, project: "russia-online", waitingCycleId: "cycle", reminderId: "reminder", cycle: 1 };
+        const playing = h.running()[0].options.play(() => true, ticket);
+        h.client.mutate.mockReturnValueOnce(patch.promise);
+        const disabling = h.setDiscordReminders(false);
+        decode.resolve(); expect(await playing).toBe(false); expect(started).toBe(false);
+        expect(h.stopTicketReminderSound).toHaveBeenCalled();
+        expect(h.toast).not.toHaveBeenCalled();
+        patch.resolve(settings(false, "v2")); await disabling;
+    });
+
     it("passes the chosen technical ticket context to the guarded audio call", async () => {
         const h = harness(); await h.ready();
         const ticket: ReminderPlaybackTicket = { ticketId: "regional:42", channelId: null, guildId: null, project: "majestic",

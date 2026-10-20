@@ -6,7 +6,7 @@
 
 import { ChannelStore, FluxDispatcher, SelectedChannelStore } from "@webpack/common";
 
-import { channelTicketSound, ChannelTicketSoundOptions, CustomTicketSound, defaultTicketSound, MAX_TICKET_SOUND_BYTES, MAX_TICKET_SOUND_SECONDS, readCustomTicketSound, readTicketSound, recordTicketSoundDiagnostic, resumeTicketAudio, ticketSoundFileName, TicketSoundContext, TicketSoundGate, TicketSoundOptions } from "../core/ticketSound";
+import { channelTicketSound, ChannelTicketSoundOptions, reminderTicketSound, REMINDER_SOUND_PROJECTS, ReminderSoundProject, ReminderSoundOptions, CustomTicketSound, defaultTicketSound, MAX_TICKET_SOUND_BYTES, MAX_TICKET_SOUND_SECONDS, readCustomTicketSound, readTicketSound, recordTicketSoundDiagnostic, resumeTicketAudio, ticketSoundFileName, TicketSoundContext, TicketSoundGate, TicketSoundOptions } from "../core/ticketSound";
 import { storage, toast } from "../platform";
 import { createObservable } from "./observable";
 
@@ -14,7 +14,8 @@ const KEY = "SupportTemplates_ticketSound_v1";
 const AUDIO_KEY = "SupportTemplates_ticketSoundAudio_v1";
 interface ChannelAudioState { customName: string; loadingSound: boolean; canReset: boolean; error: string; }
 const emptyChannelAudio = (): ChannelAudioState => ({ customName: "", loadingSound: false, canReset: false, error: "" });
-export const ticketSoundState = createObservable({ options: defaultTicketSound(), loaded: false, error: "", testing: false, playing: false, playbackStatus: "", customName: "", loadingSound: false, canReset: false, channelAudio: {} as Record<string, ChannelAudioState> });
+const emptyReminderAudio = (): Record<ReminderSoundProject, ChannelAudioState> => ({ majestic: emptyChannelAudio(), "russia-online": emptyChannelAudio() });
+export const ticketSoundState = createObservable({ options: defaultTicketSound(), loaded: false, error: "", testing: false, playing: false, playbackStatus: "", customName: "", loadingSound: false, canReset: false, channelAudio: {} as Record<string, ChannelAudioState>, reminderAudio: emptyReminderAudio() });
 const channelBuffers = new Map<string, AudioBuffer>();
 const channelRevisions = new Map<string, number>();
 const channelImports = new Map<string, number>();
@@ -22,12 +23,31 @@ const inheritedChannelAudio = new Map<string, CustomTicketSound | null>();
 // Successful writes, including those drained after shutdown, outrank migration snapshots.
 const channelPersistenceVersions = new Map<string, number>();
 let channelWrites: Promise<void> = Promise.resolve();
-const channelAudioKey = (id: string) => `${AUDIO_KEY}_channel_${id}`;
+const reminderScope = (project: ReminderSoundProject) => `reminder:${project}`;
+const scopeProject = (id?: string): ReminderSoundProject | undefined => REMINDER_SOUND_PROJECTS.find(project => reminderScope(project) === id);
+const channelAudioKey = (id: string) => scopeProject(id) ? `${AUDIO_KEY}_reminder_${scopeProject(id)}` : `${AUDIO_KEY}_channel_${id}`;
+function scopeOptions(id?: string) {
+    const options = ticketSoundState.get().options;
+    const project = scopeProject(id);
+    return project ? reminderTicketSound(options, project) : id ? channelTicketSound(options, id) : options;
+}
+function scopeAudio(id: string) {
+    const state = ticketSoundState.get(), project = scopeProject(id);
+    return project ? state.reminderAudio[project] : state.channelAudio[id];
+}
+const audioScopes = () => [...ticketSoundState.get().options.channelIds, ...REMINDER_SOUND_PROJECTS.map(reminderScope)];
 function updateChannelAudio(id: string, patch: Partial<ChannelAudioState>) {
+    const project = scopeProject(id);
+    if (project) {
+        const { reminderAudio } = ticketSoundState.get();
+        ticketSoundState.set({ reminderAudio: { ...reminderAudio, [project]: { ...(reminderAudio[project] ?? emptyChannelAudio()), ...patch } } });
+        return;
+    }
     const { channelAudio } = ticketSoundState.get();
     ticketSoundState.set({ channelAudio: { ...channelAudio, [id]: { ...(channelAudio[id] ?? emptyChannelAudio()), ...patch } } });
 }
 function knownChannel(id: string): boolean { return ticketSoundState.get().options.channelIds.includes(id) && /^\d{17,20}$/.test(id); }
+const knownAudioScope = (id: string) => !!scopeProject(id) || knownChannel(id);
 let gate = new TicketSoundGate(Date.now());
 let audio: AudioContext | null = null;
 let customBuffer: AudioBuffer | null = null;
@@ -48,10 +68,10 @@ let testParentId: string | undefined;
 type SoundMode = "ticket" | "test" | "reminder";
 const activeSources = new Map<() => void, { mode: SoundMode; parentId?: string; }>();
 function diagnostic(event: string, mode: SoundMode | "custom", code?: string, success?: boolean, phase?: string, context: TicketSoundContext = {}, parentId?: string, preview = false) {
-    const options = parentId ? channelTicketSound(ticketSoundState.get().options, parentId) : ticketSoundState.get().options;
+    const options = scopeOptions(parentId);
     try { recordTicketSoundDiagnostic(event, { mode, ...(code ? { code } : {}), ...(phase ? { phase } : {}), ...(success === undefined ? {} : { success }),
-        ticketId: context.ticketId, channelId: context.channelId, guildId: context.guildId, waitingCycleId: context.waitingCycleId,
-        reminderId: context.reminderId, cycle: context.cycle, project: context.project, configSource: preview ? "preview" : parentId ? "channel" : "global",
+        ticketId: context.ticketId, channelId: scopeProject(context.channelId ?? undefined) ? undefined : context.channelId, guildId: context.guildId, waitingCycleId: context.waitingCycleId,
+        reminderId: context.reminderId, cycle: context.cycle, project: scopeProject(parentId) ?? context.project, configSource: preview ? "preview" : scopeProject(parentId) ? "personal" : parentId ? "channel" : "global",
         audioState: audio?.state ?? "absent", volume: preview && options.volume === 0 ? 30 : options.volume,
         ...(parentId || mode === "ticket" ? { enabled: options.enabled } : {}) }); } catch { /* Diagnostics cannot break audio. */ }
 }
@@ -62,7 +82,7 @@ class SoundError extends Error {
 function stopPlayback(parentId?: string, all = false) {
     if (parentId) channelRevisions.set(parentId, (channelRevisions.get(parentId) ?? 0) + 1);
     else playbackRevision++;
-    if (all) for (const id of ticketSoundState.get().options.channelIds) channelRevisions.set(id, (channelRevisions.get(id) ?? 0) + 1);
+    if (all) for (const id of audioScopes()) channelRevisions.set(id, (channelRevisions.get(id) ?? 0) + 1);
     for (const [stop, source] of [...activeSources]) if (all || source.parentId === parentId) stop();
     if (all || parentId === testParentId) ticketSoundState.set({ playing: false, testing: false });
 }
@@ -72,28 +92,38 @@ export function stopTicketSoundPlayback() {
     diagnostic("test", "test", "sound_stopped");
 }
 export function stopTicketReminderSound() {
+    for (const project of REMINDER_SOUND_PROJECTS) stopPlayback(reminderScope(project));
     for (const [stop, source] of [...activeSources]) if (source.mode === "reminder") stop();
 }
 
 /** Called directly from a user gesture; automatic events never resume stale audio. */
 export function prepareTicketSound(mode: "ticket" | "reminder" = "ticket", parentId?: string): void {
-    const options = parentId ? channelTicketSound(ticketSoundState.get().options, parentId) : ticketSoundState.get().options;
+    if (mode === "reminder" && !parentId) {
+        const project = REMINDER_SOUND_PROJECTS.find(project => {
+            const config = reminderTicketSound(ticketSoundState.get().options, project);
+            return config.enabled && config.volume > 0;
+        });
+        if (!project) return;
+        parentId = reminderScope(project);
+    }
+    const options = scopeOptions(parentId);
     if (!running || !ticketSoundState.get().loaded || options.volume === 0) return;
-    const gen = lifecycle, revision = playbackRevision;
+    const gen = lifecycle, revision = parentId ? channelRevisions.get(parentId) ?? 0 : playbackRevision;
+    const current = () => running && gen === lifecycle && revision === (parentId ? channelRevisions.get(parentId) ?? 0 : playbackRevision);
     try {
         const ctx = audio ??= new AudioContext();
         void resumeTicketAudio(ctx).then(() => {
-            if (!running || gen !== lifecycle || revision !== playbackRevision) return;
+            if (!current()) return;
             if (ctx.state !== "running") throw new Error("Audio unavailable");
             playbackError = ""; publishError();
         }).catch(() => {
-            if (!running || gen !== lifecycle || revision !== playbackRevision) return;
+            if (!current()) return;
             playbackError = "Звук заблокирован. Нажмите «Проверить звук» в настройках тикетов.";
-            diagnostic("error", mode, "sound_suspended"); publishError();
+            diagnostic("error", mode, "sound_suspended", false, undefined, {}, parentId); publishError();
         });
     } catch {
         playbackError = "Не удалось включить звук. Проверьте устройство вывода Discord.";
-        diagnostic("error", mode, "sound_unavailable"); publishError();
+        diagnostic("error", mode, "sound_unavailable", false, undefined, {}, parentId); publishError();
     }
 }
 
@@ -171,6 +201,38 @@ export function setChannelTicketSound(parentId: string, patch: Partial<ChannelTi
     void saveSettings();
 }
 
+/** Local audio eligibility only; the reminder controller separately owns API/session guards. */
+export function reminderSoundPolicy(project: ReminderSoundProject) {
+    const state = ticketSoundState.get(), scope = reminderScope(project);
+    const config = reminderTicketSound(state.options, project);
+    return {
+        enabled: REMINDER_SOUND_PROJECTS.includes(project) && running && state.loaded && config.enabled && config.volume > 0 && !scopeAudio(scope)?.loadingSound,
+        revision: `${lifecycle}:${channelRevisions.get(scope) ?? 0}`,
+    };
+}
+
+export function setReminderTicketSound(project: ReminderSoundProject, patch: Partial<ReminderSoundOptions>): void {
+    const state = ticketSoundState.get();
+    if (!running || !state.loaded || !REMINDER_SOUND_PROJECTS.includes(project)) return;
+    const options = readTicketSound({ ...state.options, reminders: {
+        ...state.options.reminders, [project]: { ...reminderTicketSound(state.options, project), ...patch },
+    } });
+    stopPlayback(reminderScope(project));
+    ticketSoundState.set({ options, playbackStatus: "" });
+    if (patch.enabled === true) prepareTicketSound("reminder", reminderScope(project));
+    void saveSettings();
+}
+
+export function chooseReminderSound(file: File, project: ReminderSoundProject): Promise<void> {
+    return REMINDER_SOUND_PROJECTS.includes(project) ? chooseChannelSound(file, reminderScope(project)) : Promise.resolve();
+}
+export function resetReminderSound(project: ReminderSoundProject): void {
+    if (REMINDER_SOUND_PROJECTS.includes(project)) resetTicketSound(reminderScope(project));
+}
+export function testReminderSound(project: ReminderSoundProject): Promise<void> {
+    return REMINDER_SOUND_PROJECTS.includes(project) ? testTicketSound(reminderScope(project)) : Promise.resolve();
+}
+
 function encodeBytes(bytes: Uint8Array): string {
     let binary = "";
     for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
@@ -241,7 +303,7 @@ export async function chooseTicketSound(file: File, parentId?: string): Promise<
 /** Cancels an in-progress import immediately and persists the standard sound. */
 export function resetTicketSound(parentId?: string): void {
     if (parentId !== undefined) {
-        if (!running || !ticketSoundState.get().loaded || !knownChannel(parentId)) return;
+        if (!running || !ticketSoundState.get().loaded || !knownAudioScope(parentId)) return;
         channelImports.set(parentId, (channelImports.get(parentId) ?? 0) + 1);
         stopPlayback(parentId);
         channelBuffers.delete(parentId);
@@ -281,7 +343,7 @@ async function saveChannelAudio(parentId: string, sound: CustomTicketSound | nul
 }
 
 async function chooseChannelSound(file: File, parentId: string): Promise<void> {
-    if (!running || !ticketSoundState.get().loaded || !knownChannel(parentId)) return;
+    if (!running || !ticketSoundState.get().loaded || !knownAudioScope(parentId)) return;
     const gen = lifecycle, revision = (channelImports.get(parentId) ?? 0) + 1;
     channelImports.set(parentId, revision);
     stopPlayback(parentId);
@@ -342,8 +404,8 @@ async function beep(mode: SoundMode = "ticket", current: () => boolean = () => t
     const revision = parentId ? channelRevisions.get(parentId) ?? 0 : playbackRevision;
     const unchanged = () => revision === (parentId ? channelRevisions.get(parentId) ?? 0 : playbackRevision) && (parentId || selection === soundRevision);
     const state = ticketSoundState.get();
-    const options = parentId ? channelTicketSound(state.options, parentId) : state.options;
-    const loadingSound = parentId ? state.channelAudio[parentId]?.loadingSound : state.loadingSound;
+    const options = scopeOptions(parentId);
+    const loadingSound = parentId ? scopeAudio(parentId)?.loadingSound : state.loadingSound;
     const preview = mode === "test" && !!parentId;
     const trace = (event: string, code?: string, success?: boolean, phase?: string) => diagnostic(event, mode, code, success, phase, context, parentId, preview);
     trace("request");
@@ -367,9 +429,8 @@ async function beep(mode: SoundMode = "ticket", current: () => boolean = () => t
             playbackError = "Звук недоступен. Нажмите «Проверить звук» или проверьте устройство вывода Discord.";
             publishError(); return skip("sound_unavailable");
         }
-        const latestState = ticketSoundState.get();
-        const latest = parentId ? channelTicketSound(latestState.options, parentId) : latestState.options;
-        if (mode === "ticket" && !latest.enabled) return skip("sound_disabled");
+        const latest = scopeOptions(parentId);
+        if ((mode === "ticket" || mode === "reminder" && !!scopeProject(parentId)) && !latest.enabled) return skip("sound_disabled");
         if (latest.volume === 0 && !preview) return skip("sound_muted");
         const volume = latest.volume === 0 && preview ? 30 : latest.volume;
         const buffer = parentId ? channelBuffers.get(parentId) : customBuffer;
@@ -400,7 +461,7 @@ async function beep(mode: SoundMode = "ticket", current: () => boolean = () => t
         }
         playbackError = "";
         trace("played", undefined, true, "start");
-        if (mode === "test") ticketSoundState.set({ playing: true, playbackStatus: `${buffer ? "Воспроизводится свой звук." : "Воспроизводится стандартный звук."}${preview && (!latest.enabled || latest.volume === 0) ? ` Проверка при выключенном канале: ${volume}%, настройки не изменены.` : ""} Если его не слышно, проверьте громкость Discord.` });
+        if (mode === "test") ticketSoundState.set({ playing: true, playbackStatus: `${buffer ? "Воспроизводится свой звук." : "Воспроизводится стандартный звук."}${preview && (!latest.enabled || latest.volume === 0) ? ` Проверка при выключенном ${scopeProject(parentId) ? "проекте" : "канале"}: ${Math.round(volume)}%, настройки не изменены.` : ""} Если его не слышно, проверьте громкость Discord.` });
         publishError();
         return true;
     } catch {
@@ -415,7 +476,7 @@ async function beep(mode: SoundMode = "ticket", current: () => boolean = () => t
 
 export async function testTicketSound(parentId?: string) {
     if (!running || ticketSoundState.get().testing) return;
-    if (parentId !== undefined && !knownChannel(parentId)) return;
+    if (parentId !== undefined && !knownAudioScope(parentId)) return;
     const gen = lifecycle;
     stopPlayback(parentId);
     testParentId = parentId;
@@ -429,7 +490,9 @@ export async function testTicketSound(parentId?: string) {
 
 /** True means a sound was scheduled on a running context; never resumes or shows a toast. */
 export function playTicketReminder(current?: () => boolean, ticket?: TicketSoundContext): Promise<boolean> {
-    return beep("reminder", current, ticket);
+    const project = ticket?.project;
+    if (project !== undefined && !REMINDER_SOUND_PROJECTS.includes(project)) return Promise.resolve(false);
+    return beep("reminder", current, ticket, project ? reminderScope(project) : undefined);
 }
 
 interface ThreadEvent {
@@ -506,8 +569,8 @@ async function loadSettings(gen: number) {
                 if (!running || gen !== lifecycle) return;
                 channelBuffers.clear();
                 inheritedChannelAudio.clear();
-                ticketSoundState.set({ channelAudio: {} });
-                for (const id of ticketSoundState.get().options.channelIds) {
+                ticketSoundState.set({ channelAudio: {}, reminderAudio: emptyReminderAudio() });
+                for (const id of audioScopes()) {
                     const stored = await storage.get(channelAudioKey(id));
                     if (!running || gen !== lifecycle) return;
                     updateChannelAudio(id, emptyChannelAudio());

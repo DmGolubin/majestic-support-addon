@@ -69,6 +69,8 @@ export interface ReminderOptions {
     /** Check stillValid after decode/resume awaits and immediately before starting audio. */
     play: (stillValid: () => boolean, ticket?: ReminderPlaybackTicket) => Promise<boolean>;
     current: () => ReminderContext | null;
+    /** Local project mute/volume and revision; API discordEnabled remains the global gate. */
+    projectSound?: (project: ReminderProject) => { enabled: boolean; revision: string | number; };
     onState?: (state: ReminderState) => void;
     clock?: {
         /** Monotonic elapsed milliseconds, including suspended time where available. */
@@ -306,6 +308,7 @@ export function createReminderController(options: ReminderOptions): ReminderCont
         if (snapshot?.discordEnabled && fresh(snapshot)) {
             const serverNow = snapshot.serverTime + Math.max(0, now - receivedAt);
             for (const ticket of snapshot.tickets) {
+                if (options.projectSound && !options.projectSound(ticket.project).enabled) continue;
                 if (ticket.state !== "waiting_support" || ticket.reminderAt === null || receipts.has(key(ticket))) continue;
                 const untilDue = ticket.reminderAt - serverNow;
                 delay = Math.min(delay, untilDue <= 0 ? OVERDUE_RETRY_MS : Math.max(1, untilDue));
@@ -366,6 +369,8 @@ export function createReminderController(options: ReminderOptions): ReminderCont
             }
 
             phase = "receipt_read";
+            let claimedSoundRevision: string | number | undefined;
+            const projectSound = (project: ReminderProject) => options.projectSound?.(project) ?? { enabled: true, revision: 0 };
             const claimed = await withStorage(options.storage, async () => {
                 if (!valid(g) || !fresh(s)) return undefined;
                 const saved = parseReceipts(await options.storage.get(RECEIPT_KEY));
@@ -376,7 +381,8 @@ export function createReminderController(options: ReminderOptions): ReminderCont
                 let ticket: PanelAssignedTicket | undefined, eligibleCount = 0;
                 for (let index = 0; index < s.tickets.length; index++) {
                     const t = s.tickets[index];
-                    const reason = t.state !== "waiting_support" ? "waiting_player"
+                    const reason = !projectSound(t.project).enabled ? "sound_disabled"
+                        : t.state !== "waiting_support" ? "waiting_player"
                         : t.reminderAt === null || t.reminderAt > serverNow ? "not_due"
                             : receipts.has(key(t)) ? "receipt_duplicate" : "eligible";
                     if (reason === "eligible") { eligibleCount++; ticket ??= t; }
@@ -390,6 +396,9 @@ export function createReminderController(options: ReminderOptions): ReminderCont
                 // No expiry is promised by the contract, even when tickets leave a snapshot.
                 if (saved.length >= RECEIPT_LIMIT) return invalid("receipt_limit");
                 trace("chosen", { cycle, ...ticketTrace(ticket), ownAssignee: true, eligible: true, serverNow });
+                const policy = projectSound(ticket.project);
+                if (!policy.enabled) return undefined;
+                claimedSoundRevision = policy.revision;
                 const receipt: Receipt = [accountId, ticket.project, ticket.ticketId, ticket.reminderId!];
                 phase = "receipt_write";
                 await options.storage.set(RECEIPT_KEY, { v: 1, receipts: [...saved, receipt] });
@@ -405,13 +414,15 @@ export function createReminderController(options: ReminderOptions): ReminderCont
                 // Log only guard transitions; audio may call this several times.
                 let previousGuard: boolean | undefined;
                 const stillValid = () => {
-                    const ok = valid(g) && snapshot === s && s.discordEnabled && fresh(s);
+                    const localSound = projectSound(claimed.project);
+                    const localValid = localSound.enabled && localSound.revision === claimedSoundRevision;
+                    const ok = valid(g) && snapshot === s && s.discordEnabled && fresh(s) && localValid;
                     if (ok !== previousGuard) {
                         previousGuard = ok;
                         trace("guard", { cycle, ...ticketTrace(claimed), currentGuard: ok,
                             reason: ok ? "guard_valid" : generation !== g ? "generation_changed"
                                 : snapshot !== s ? "snapshot_changed" : !s.discordEnabled ? "settings_disabled"
-                                    : !fresh(s) ? "stale_snapshot" : "context_invalid" });
+                                    : !fresh(s) ? "stale_snapshot" : !localValid ? "sound_cancelled" : "context_invalid" });
                     }
                     return ok;
                 };
