@@ -3,11 +3,7 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (2)
-
-### A26 · Рабочая папка логов и отдельные напоминания серверов
-
-A · Интерфейс. Исходники заморожены: 2331 тест, обе проверки типов и 279 UI-проверок прошли. Native physical path подтверждён через Electron/Explorer; исходная ошибка отдельно не воспроизвелась. Готовятся три .34 и actual Canary renderer-проверка.
+## В работе (1)
 
 ### C06 · Двусторонние личные шаблоны
 
@@ -15,7 +11,13 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (40)
+## Реализовано · нужна приёмка (41)
+
+### A26 · Рабочая папка логов и отдельные напоминания серверов
+
+A · Интерфейс. Все три .34 собраны из 9c2ba122; Lite установлен в Canary. 2331 тест, обе проверки типов, 279 UI, 74 пакетных и 13 BD runtime проходят. Actual trusted renderer открыл физическую папку, Explorer подтвердил main.log; история сохранена, loss5 без роста. Приёмка видимого UI/звука владельцем и отдельные живые BD/full остаются.
+
+Основание: [2026-10-20-project-reminders-and-log-folder.md](docs/audits/2026-10-20-project-reminders-and-log-folder.md).
 
 ### A25 · Полировка настроек, доступ к журналу и поиск с опечатками
 

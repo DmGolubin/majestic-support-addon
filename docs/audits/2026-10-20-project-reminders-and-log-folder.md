@@ -26,3 +26,16 @@
 Подтверждено перенаправление логического LocalAppData в физический каталог MSIX `OpenAI.Codex…/LocalCache/Local`. Новый resolver использует `realpathSync.native`, когда он доступен, и сверяет тип каталога и dev/ino. Стандартный мост BetterDiscord без native-метода сохраняет canonical JS fallback; путь пакета не угадывается. Прежние проверки владельца/профиля/origin остаются.
 
 Изолированный Electron 42.7.1 и Explorer COM подтвердили открытие физического каталога с main.log и совпадение идентичности папки. Исходная ошибка со скриншота в отдельном Electron 42.7.1/44.9.0 не воспроизведена; несовпадение путей — подтверждённый фактор, но не доказанная единственная причина исходного сбоя. Evidence: `scripts/qa/runs/a26-native-folder/explorer.json`, `checks.json`. Actual renderer после установки проверяется отдельно.
+
+## Сборки и установленный Canary
+
+- Все три .34 собраны из `9c2ba122212f0a1d01d09a86a552ce5ce08f7531`. Lite/BetterDiscord: `artifacts/distribution/1.0.1-canary.34`; полный личный Vencord: `artifacts/private-vencord/1.0.1-canary.34`. Публикации не было.
+- 8 файлов выпуска и 74/74 упакованных проверок проходят. BD runtime 13/13; SHA256 проверенного и выдаваемого JS совпал: `4075be2abb334b7ec0e760c40c11c31aca4d5013c2360275bb9f8ec75cf5bb93`.
+- Lite установлен штатным Install, Status подтвердил .34 в Canary app-1.0.1259. Stable не изменён.
+- **Actual native endpoint проверен в установленной .34**: временный DevTools только на localhost, вызов `VencordNative.pluginHelpers.SupportTemplates.diagnosticsOpenFolder()` из доверенного renderer `https://canary.discord.com` завершился успешно. Explorer COM подтвердил тот же физический каталог и наличие main.log. Проверялся обработчик кнопки, не физическое нажатие пользователем. Evidence: `scripts/qa/runs/a26-live-folder34.json`, `a26-live-explorer34.json`.
+- В первой обвязке post-check возникла ошибка кавычек PowerShell → Node; сам endpoint до неё уже выполнился успешно. Проверка пути вынесена в отдельный CJS и Explorer подтверждён. finally перезапустил Canary нормально; debug listener удалён, Canary оставлен работающим.
+- После обычного запуска .34 build9c2ba122: ready=true, persistent=true, stale=false; `/me`, `/snapshot`, `/notification-settings`, `/tickets/assigned` — 200. sync=retrying в снимке: это не заявление об исправности непрерывного SSE.
+- main.log вырос с 3 240 936 до 3 271 400 байт; прежний префикс, старый TXT и legacy сохранились побайтно. recording/continuous=true, storageFailed=false; deliveryLost без роста: 5→5. Evidence: `scripts/qa/runs/a26-live-update34.json`.
+- `graphify update .`: 4465 узлов, 8915 связей, 310 сообществ.
+
+Живая приёмка видимого UI и слышимости остаётся за владельцем; отдельные клиенты BetterDiscord/полного Vencord в этой задаче не запускались. Более длительное наблюдение сохранности журнала и SSE — отдельная проверка.
