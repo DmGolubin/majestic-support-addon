@@ -11,6 +11,7 @@ if (process.versions.electron) {
     const config = JSON.parse(raw.readFileSync(process.argv[2], 'utf8'));
     app.setPath('userData', path.join(config.root, 'userData'));
     const report = { electron: process.versions.electron, checks: [] };
+    (async () => {
     try {
         const { readPackage } = require(config.validator);
         const check = (name, fn) => { fn(); report.checks.push(name); };
@@ -43,6 +44,48 @@ if (process.versions.electron) {
         check('incorrect archive size fails', () => assert.throws(() => readPackage(stored, true), /integrity/));
         raw.writeFileSync(manifestFile, manifestBytes);
         check('restored package passes', () => readPackage(stored, true));
+        // Replace only the updater in this disposable fixture. Delay it until
+        // Electron is really ready; never touch the network or run Discord.
+        const engineFile = path.join(stored, 'runtime/updater/index.cjs');
+        raw.writeFileSync(engineFile, `exports.createUpdater=()=>({
+            async applyPending(){await require('electron').app.whenReady();},
+            start(){},async stop(){}
+        });`);
+        const fixtureManifest = JSON.parse(manifestBytes);
+        const engineEntry = fixtureManifest.files.find(entry => entry.path === 'payload/runtime/updater/index.cjs');
+        const engineBytes = raw.readFileSync(engineFile);
+        engineEntry.size = engineBytes.length;
+        engineEntry.sha256 = require('crypto').createHash('sha256').update(engineBytes).digest('hex');
+        raw.writeFileSync(manifestFile, JSON.stringify(fixtureManifest));
+        const { launch } = require(path.join(path.dirname(config.validator), 'launch.cjs'));
+        let nativeCalls = 0;
+        const originalEmit = app.emit;
+        const startup = launch({ channelRoot: config.root, baseRoot: stored, app,
+            loadNative() {
+                assert.equal(app.isReady(), false, 'native must initialize before Electron ready');
+                nativeCalls++;
+            },
+            onError(...args) { throw Error(args.join(' ')); }
+        });
+        check('native initializes on the initial synchronous stack', () => assert.equal(nativeCalls, 1));
+        check('Electron event emitter stays intact', () => assert.equal(app.emit, originalEmit));
+        await startup;
+        check('real Electron ready occurs after native initialization', () => {
+            assert.equal(app.isReady(), true); assert.equal(nativeCalls, 1);
+        });
+        const { createAdapter } = require(path.join(path.dirname(config.validator), 'adapter.cjs'));
+        const base = readPackage(stored, true);
+        const adapter = createAdapter({ channelRoot: config.root, base, prepareNextStartup: () => true,
+            extractArchive: (_, destination) => raw.cpSync(incoming, path.join(destination, 'package'), { recursive: true })
+        });
+        const published = await adapter.apply({ phase: 'next-startup', version: base.manifest.version,
+            assetPath: path.join(config.root, 'fixture.zip'), asset: { kind: 'native' } });
+        check('Electron publishes physical ASAR bytes for the next launch', () => {
+            assert.equal(published.applied, true);
+            readPackage(path.join(config.root, 'versions', base.manifest.version), true);
+            assert.deepEqual(raw.readFileSync(path.join(config.root, 'versions', base.manifest.version, 'loader.asar')), original);
+        });
+        check('preparation does not load native twice', () => assert.equal(nativeCalls, 1));
         report.passed = true;
     } catch (error) {
         report.passed = false;
@@ -50,6 +93,7 @@ if (process.versions.electron) {
     }
     raw.writeFileSync(config.output, JSON.stringify(report, null, 2));
     app.exit(report.passed ? 0 : 1);
+    })();
 } else {
     // Usage: node script.cjs electron.exe package-directory validator.cjs report.json
     if (process.argv.length !== 6) throw Error('Four arguments required');

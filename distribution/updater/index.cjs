@@ -209,7 +209,8 @@ function createUpdater(options) {
         start() { if (running || !repo) return; running = true; void tick(++generation); },
         async stop() { running = false; generation++; clearTimeout(timer); timer = null; active?.abort(); await queue; },
         applyPending({ phase = 'runtime' } = {}) {
-            v.assert(['runtime', 'startup', 'app-closed'].includes(phase), 'INVALID_PHASE');
+            v.assert(['runtime', 'startup', 'app-closed'].includes(phase)
+                || (variant === 'vencord' && phase === 'next-startup'), 'INVALID_PHASE');
             const token = generation;
             return repo ? serialized(() => apply(phase, token)) : Promise.resolve(result('disabled'));
         },

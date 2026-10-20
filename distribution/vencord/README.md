@@ -64,14 +64,14 @@ repository and downloads/stages complete native ZIPs. Null repository disables
 checks; unavailable/private repositories are nonfatal background errors. No
 token is embedded and no authentication prompt is used.
 
-On the next normal launch, before loading Vencord native code, the startup
-adapter verifies the staged ZIP, validates paths, rejects duplicate/special ZIP
-entries and verifies every package payload hash. It installs a new immutable
-version directory and atomically writes the channel's `active.json`, bound to
-the manually installed base manifest. It then loads that version's patcher.
-Already running instances retain their old immutable files. This is a pre-load
-startup barrier, not a plugin start callback; no forced reload, quit or relaunch
-occurs. Incomplete/invalid updates leave the previous verified runtime usable.
+Startup synchronously verifies and loads the already selected native runtime,
+before Electron becomes ready. After native initialization, the updater verifies
+staged ZIPs, validates paths, rejects duplicate/special ZIP entries and verifies
+every package payload hash. It installs a new immutable version directory and
+atomically writes the channel's `active.json`, bound to the manually installed
+base manifest. The next normal launch uses that version's patcher. Already
+running instances retain their old immutable files; no forced reload, quit or
+relaunch occurs. Incomplete/invalid updates leave the previous verified runtime usable.
 Manually installed upgrades change the base binding and supersede old pointers.
 `rollback.bat` restores the previous manually installed base; automatic versions
 remain in cache. To select the original base again after an automatic update,

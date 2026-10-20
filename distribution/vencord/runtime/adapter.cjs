@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 SupportTemplates contributors. GPL-3.0-or-later. */
 'use strict';
-const fs = require('fs');
+const fs = process.versions.electron ? require('original-fs') : require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
@@ -9,11 +9,13 @@ function extract(archive, destination) {
     const powershell = path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe');
     execFileSync(powershell, ['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(__dirname,'extract.ps1'),'-Archive',archive,'-Destination',destination], { windowsHide: true, timeout: 120000, stdio: 'pipe' });
 }
-function createAdapter({ channelRoot, base, startupBarrier, extractArchive = extract }) {
+function createAdapter({ channelRoot, base, startupBarrier = () => false, prepareNextStartup = () => false, extractArchive = extract }) {
+    const permitted = context => (context.phase === 'startup' && startupBarrier())
+        || (context.phase === 'next-startup' && prepareNextStartup());
     return {
-        canApplyNative: async context => context.phase === 'startup' && startupBarrier(),
+        canApplyNative: async context => permitted(context),
         async apply(context) {
-            if (context.phase !== 'startup' || !startupBarrier() || context.asset.kind !== 'native') return { applied: false, reason: 'Full Vencord applies only before native startup' };
+            if (!permitted(context) || context.asset.kind !== 'native') return { applied: false, reason: 'Full Vencord requires an explicit startup or next-startup preparation gate' };
             version(context.version);
             safe(channelRoot); safe(context.assetPath);
             const unpack = path.join(channelRoot, '.unpack-' + crypto.randomBytes(16).toString('hex'));

@@ -119,14 +119,16 @@ test('ZIP traversal and existing extraction targets are refused', { skip: proces
     assert.equal(fs.existsSync(path.join(dir,'outside')),false);
     assert.throws(() => extract(path.join(dir,'bad.zip'),tree));
 });
-test('startup awaits apply before loading native and only then starts polling', async t => {
+test('native starts synchronously; updates prepare only the next startup then poll', async t => {
     const dir=temp(t), log=path.join(dir,'events.json');
-    const engine=`const fs=require('fs'); const log=${JSON.stringify(log)}; function mark(x){let a=fs.existsSync(log)?JSON.parse(fs.readFileSync(log)):[];a.push(x);fs.writeFileSync(log,JSON.stringify(a));} exports.createUpdater=opts=>({async applyPending(c){if(c.phase!=='startup'||!await opts.adapter.canApplyNative(c))throw Error('barrier');await new Promise(r=>setTimeout(r,10));mark('applied');},start(){mark('poll');},async stop(){mark('stop');}});`;
+    const engine=`const fs=require('fs'); const log=${JSON.stringify(log)}; function mark(x){let a=fs.existsSync(log)?JSON.parse(fs.readFileSync(log)):[];a.push(x);fs.writeFileSync(log,JSON.stringify(a));} exports.createUpdater=opts=>({async applyPending(c){if(c.phase!=='next-startup'||!await opts.adapter.canApplyNative(c))throw Error('barrier');await new Promise(r=>setTimeout(r,10));mark('applied');},start(){mark('poll');},async stop(){mark('stop');}});`;
     const base=stored(path.join(dir,'channel'),packageAt(path.join(dir,'pkg'),oldVersion,{engine}));
     const app=new EventEmitter();
-    await launch({channelRoot:path.dirname(path.dirname(base.root)),baseRoot:base.root,app,loadNative(){assert.deepEqual(JSON.parse(fs.readFileSync(log)),['applied']);put(log,JSON.stringify(['applied','native']));}});
-    assert.deepEqual(JSON.parse(fs.readFileSync(log)),['applied','native','poll']); app.emit('will-quit');
-    assert.deepEqual(JSON.parse(fs.readFileSync(log)),['applied','native','poll','stop']);
+    const pending=launch({channelRoot:path.dirname(path.dirname(base.root)),baseRoot:base.root,app,loadNative(){put(log,JSON.stringify(['native']));}});
+    assert.deepEqual(JSON.parse(fs.readFileSync(log)),['native']);
+    await pending;
+    assert.deepEqual(JSON.parse(fs.readFileSync(log)),['native','applied','poll']); app.emit('will-quit');
+    assert.deepEqual(JSON.parse(fs.readFileSync(log)),['native','applied','poll','stop']);
 });
 test('failed pending update still starts the verified base without relaunch', async t => {
     const dir=temp(t), base=stored(path.join(dir,'channel'),packageAt(path.join(dir,'pkg'),oldVersion,{engine:`exports.createUpdater=()=>({async applyPending(){throw Error('fixture failure')},start(){},async stop(){}})`}));
@@ -134,7 +136,7 @@ test('failed pending update still starts the verified base without relaunch', as
     await launch({channelRoot:path.dirname(path.dirname(base.root)),baseRoot:base.root,app:new EventEmitter(),loadNative(){native++},onError(){errors++}});
     assert.equal(native,1); assert.equal(errors,1);
 });
-test('async startup preserves Electron ready events for original Discord listeners', async t => {
+test('updater never intercepts Electron ready events and native registers listeners synchronously', async t => {
     const dir=temp(t), base=stored(path.join(dir,'channel'),packageAt(path.join(dir,'pkg'),oldVersion,{engine:`exports.createUpdater=()=>({async applyPending(){await new Promise(r=>setTimeout(r,30))},start(){},async stop(){}})`}));
     const app=new EventEmitter(), originalEmit=app.emit, events=[];
     const promise=launch({channelRoot:path.dirname(path.dirname(base.root)),baseRoot:base.root,app,loadNative(){
@@ -142,11 +144,38 @@ test('async startup preserves Electron ready events for original Discord listene
         app.on('ready',()=>events.push('ready'));
         events.push('native');
     }});
+    assert.deepEqual(events,['native']); assert.equal(app.emit,originalEmit);
     app.emit('will-finish-launching'); app.emit('ready');
     await promise;
     assert.deepEqual(events,['native','will-finish-launching','ready']); assert.equal(app.emit,originalEmit);
 });
-test('real shared engine downloads and stages, then adapter applies offline on next startup', { skip: process.platform !== 'win32', timeout: 60000 }, async t => {
+test('quitting during preparation never starts updater polling', async t => {
+    const dir=temp(t), log=path.join(dir,'poll');
+    const base=stored(path.join(dir,'channel'),packageAt(path.join(dir,'pkg'),oldVersion,{engine:`exports.createUpdater=()=>({async applyPending(){await new Promise(r=>setTimeout(r,30))},start(){require('fs').writeFileSync(${JSON.stringify(log)},'polled')},async stop(){}})`}));
+    const app=new EventEmitter();
+    const pending=launch({channelRoot:path.dirname(path.dirname(base.root)),baseRoot:base.root,app,loadNative(){}});
+    app.emit('will-quit');
+    await pending;
+    assert.equal(fs.existsSync(log),false);
+});
+test('next-startup publication does not change loaded files and respects its own gate', async t => {
+    const dir=temp(t), channelRoot=path.join(dir,'channel');
+    const base=stored(channelRoot,packageAt(path.join(dir,'base')));
+    const next=packageAt(path.join(dir,'next'),newVersion);
+    const before=fs.readFileSync(path.join(base.root,'runtime/patcher.js'));
+    let allowed=false;
+    const adapter=createAdapter({channelRoot,base,prepareNextStartup:()=>allowed,extractArchive:(_,to)=>fs.cpSync(next.root,path.join(to,'release'),{recursive:true})});
+    const nextContext=context(path.join(dir,'release.zip'),'next-startup');
+    assert.equal(await adapter.canApplyNative(nextContext),false);
+    assert.equal((await adapter.apply(nextContext)).applied,false);
+    allowed=true;
+    assert.equal(await adapter.canApplyNative(context(nextContext.assetPath,'runtime')),false);
+    assert.equal(await adapter.canApplyNative(nextContext),true);
+    assert.equal((await adapter.apply(nextContext)).applied,true);
+    assert.deepEqual(fs.readFileSync(path.join(base.root,'runtime/patcher.js')),before);
+    assert.equal(selected(channelRoot,base).manifest.version,newVersion);
+});
+test('real shared engine prepares verified next-startup files offline without changing running native', { skip: process.platform !== 'win32', timeout: 60000 }, async t => {
     const dir=temp(t), channelRoot=path.join(dir,'channel'),base=stored(channelRoot,packageAt(path.join(dir,'base')));
     const next=packageAt(path.join(dir,'new'),newVersion), zip=path.join(dir,'release.zip'); writeZip(next.root,zip);
     const bytes=fs.readFileSync(zip), name=`SupportTemplates-vencord-${newVersion}.zip`, tag='v'+newVersion;
@@ -155,13 +184,15 @@ test('real shared engine downloads and stages, then adapter applies offline on n
     const url=n=>`https://github.com/owner/release/releases/download/${tag}/${n}`;
     const releases=Buffer.from(JSON.stringify([{draft:false,tag_name:tag,prerelease:true,assets:[{name:'support-templates-update.json',state:'uploaded',size:manifest.length,browser_download_url:url('support-templates-update.json')},{name,state:'uploaded',size:bytes.length,browser_download_url:url(name)}]}]));
     let network=0,barrier=false;
-    const opts={config:config(oldVersion),variant:'vencord',stagingDir:path.join(channelRoot,'updates'),adapter:createAdapter({channelRoot,base,startupBarrier:()=>barrier}),transport:async url=>{network++;return {status:200,body:Readable.from([url.includes('api.github.com')?releases:url.endsWith('.json')?manifest:bytes])}}};
+    const opts={config:config(oldVersion),variant:'vencord',stagingDir:path.join(channelRoot,'updates'),adapter:createAdapter({channelRoot,base,prepareNextStartup:()=>barrier}),transport:async url=>{network++;return {status:200,body:Readable.from([url.includes('api.github.com')?releases:url.endsWith('.json')?manifest:bytes])}}};
     const running=createUpdater(opts); assert.equal((await running.check()).status,'staged');
     assert.equal(fs.existsSync(path.join(channelRoot,'active.json')),false);
     assert.equal((await running.applyPending({phase:'runtime'})).status,'pending-restart'); await running.stop();
     barrier=true;
     const restart=createUpdater({...opts,transport:()=>{throw Error('must apply without network')}});
-    assert.equal((await restart.applyPending({phase:'startup'})).status,'applied');
+    const nativeBytes=fs.readFileSync(path.join(base.root,'runtime/patcher.js'));
+    assert.equal((await restart.applyPending({phase:'next-startup'})).status,'applied');
+    assert.deepEqual(fs.readFileSync(path.join(base.root,'runtime/patcher.js')),nativeBytes);
     assert.equal(selected(channelRoot,base).manifest.version,newVersion); assert.equal(network,3); await restart.stop();
 });
 test('null repository does not request network and private 404 is harmless', async t => {
