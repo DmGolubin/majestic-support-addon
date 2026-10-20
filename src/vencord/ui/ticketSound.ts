@@ -7,7 +7,7 @@
 import { ChannelStore, FluxDispatcher, SelectedChannelStore } from "@webpack/common";
 
 import { channelTicketSound, ChannelTicketSoundOptions, reminderTicketSound, REMINDER_SOUND_PROJECTS, ReminderSoundProject, ReminderSoundOptions, CustomTicketSound, defaultTicketSound, MAX_TICKET_SOUND_BYTES, MAX_TICKET_SOUND_SECONDS, readCustomTicketSound, readTicketSound, recordTicketSoundDiagnostic, resumeTicketAudio, ticketSoundFileName, TicketSoundContext, TicketSoundGate, TicketSoundOptions } from "../core/ticketSound";
-import { storage, toast } from "../platform";
+import { storage } from "../platform";
 import { createObservable } from "./observable";
 
 const KEY = "SupportTemplates_ticketSound_v1";
@@ -515,7 +515,6 @@ function onThread(e: ThreadEvent) {
     const reason = gate.decide({ id: c.id, parentId: c.parent_id, guildId, newlyCreated: e.newlyCreated ?? e.newly_created ?? c.newly_created, archived: c.thread_metadata?.archived }, ticketSoundState.get().options, Date.now(), visible);
     if (reason) { skip(reason); return; }
     void beep("ticket", undefined, context, c.parent_id);
-    try { toast("Новый тикет в техподдержке", "message"); } catch { /* Host toast failure must not escape dispatch. */ }
 }
 
 async function loadSettings(gen: number) {

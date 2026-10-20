@@ -639,6 +639,18 @@ describe("A24 independent parent-channel audio", () => {
     }, newlyCreated: true });
     const enabled = () => ({ ...core.defaultTicketSound(), enabled: true, quietWhenVisible: false });
 
+    it.each([mj, ro])("A29 new tickets in %s remain sound-only without a toast or reminder card", async parentId => {
+        const h = await harness(enabled());
+        const event = threadFor(parentId);
+        h.thread(event); await flush();
+        expect(h.oscillatorStart).toHaveBeenCalledTimes(3);
+        expect(h.toast).not.toHaveBeenCalled();
+        // The runtime's strict imports also prohibit adding a notification-store side effect.
+        h.thread(event); await flush();
+        expect(h.oscillatorStart).toHaveBeenCalledTimes(3);
+        expect(h.toast).not.toHaveBeenCalled();
+    });
+
     it("materializes missing install preferences before the first personal volume edit", async () => {
         const h = await harness(null);
         h.setTicketSound({ volume: 81 }); await flush(); await h.restart();

@@ -25,7 +25,8 @@ function aliasFS(root: string) {
     const writes = vi.fn(fs.writeFileSync);
     const host = { ...fs, writeFileSync: writes,
         realpathSync: Object.assign((target: string) => fs.realpathSync(target), { native }),
-        statSync: (target: string) => fs.statSync(target === physical ? root : target) };
+        statSync: (target: string, options?: { bigint: true; }) => options
+            ? fs.statSync(target === physical ? root : target, options) : fs.statSync(target === physical ? root : target) };
     return { host, physical, native, writes };
 }
 
@@ -79,7 +80,11 @@ describe("A28 diagnostic display path", () => {
         if (failure === "native-error") alias.native.mockImplementation(() => { throw Error("private host error"); });
         else alias.host.statSync = target => {
             const info = fs.statSync(target === alias.physical ? root : target);
-            if (target === alias.physical) return new Proxy(info, { get: (value, key) => key === "ino" ? value.ino + 1 : Reflect.get(value, key) });
+            // NTFS inode values can exceed Number.MAX_SAFE_INTEGER, where ino + 1
+            // may equal ino. Model distinct identities without filesystem arithmetic.
+            if (target === root || target === alias.physical) return new Proxy(info, {
+                get: (value, key) => key === "ino" ? target === root ? 41 : 42 : Reflect.get(value, key)
+            });
             return info;
         };
         const store = api.createDiagnosticFileStorage({ root, fs: alias.host }), path = join(root, api.DIAGNOSTIC_FILE_NAME);

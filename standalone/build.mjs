@@ -14,6 +14,7 @@ const work = fs.mkdtempSync(path.join(os.tmpdir(), 'support-templates-standalone
 const frozen = path.join(work, 'inputs'); fs.mkdirSync(frozen);
 extractBuildSnapshot(root, pluginCommit, frozen);
 const { createLoaderAsar } = await import(pathToFileURL(path.join(frozen, 'standalone/asar.mjs')).href);
+const { copyInstaller } = await import(pathToFileURL(path.join(frozen, 'standalone/package-installer.mjs')).href);
 const config = JSON.parse(fs.readFileSync(path.join(frozen, 'standalone/config.json'), 'utf8'));
 const { readConfig } = await import(pathToFileURL(path.join(frozen, 'distribution/config.mjs')).href);
 const updateConfig = readConfig();
@@ -81,7 +82,7 @@ function manifestFiles(dir) {
 manifestFiles(payload);
 fs.writeFileSync(path.join(output, 'manifest.json'), JSON.stringify({ schema: 1, product: config.product, version: config.version, upstreamCommit: config.upstreamCommit, pluginCommit, files }, null, 2));
 fs.cpSync(path.join(source, 'build-evidence'), path.join(output, 'build-evidence'), { recursive: true });
-for (const entry of fs.readdirSync(path.join(frozen, 'standalone/installer'))) fs.cpSync(path.join(frozen, 'standalone/installer', entry), path.join(output, entry), { recursive: true });
+copyInstaller(path.join(frozen, 'standalone/installer'), output);
 fs.copyFileSync(path.join(source, 'LICENSE'), path.join(output, 'LICENSE-Vencord'));
 fs.copyFileSync(path.join(frozen, 'standalone/README.md'), path.join(output, 'README.md'));
 fs.cpSync(path.join(frozen, 'standalone'), path.join(output, 'build-recipe'), { recursive: true });

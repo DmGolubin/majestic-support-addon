@@ -1,3 +1,4 @@
+import { reminderDestination } from "../src/core/reminderDestination";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
@@ -79,7 +80,8 @@ function harness() {
         permissionsRevision: "permissions-v1", current: vi.fn(() => true), onAuthError: vi.fn(),
     };
     const storage = { get: vi.fn(async (_key: string): Promise<unknown> => undefined), set: vi.fn(async (_key: string, _value: unknown) => {}) };
-    const toast = vi.fn();
+    const showReminderNotification = vi.fn();
+    const openReminderChannel = vi.fn(() => true);
     const reminderSoundPolicy = vi.fn(() => ({ enabled: true, revision: 0 }));
     const playTicketReminder = vi.fn(async (valid: () => boolean) => valid());
     const engines: {
@@ -103,7 +105,10 @@ function harness() {
     const dependencies: Record<string, unknown> = {
         "../core/panelClient": { PanelError },
         "../core/panelReminders": { createReminderController, parseNotificationSettings },
-        "../platform": { storage, toast },
+        "../platform": { storage },
+        "../core/reminderDestination": { reminderDestination },
+        "../reminderNavigation": { openReminderChannel },
+        "./reminderNoticeStore": { showReminderNotification, clearReminderNotifications: vi.fn() },
         "./ticketSound": { reminderSoundPolicy, playTicketReminder, prepareTicketSound: vi.fn(), stopTicketReminderSound: vi.fn() },
         "./observable": {
             createObservable<T extends object>(initial: T) {
@@ -125,7 +130,7 @@ function harness() {
         await exports.refreshTicketReminders();
         expect(exports.ticketRemindersState.get()).toMatchObject({ phase: "ready", settings: initial, busy: false });
     }
-    return { ...exports, client, binding, storage, toast, reminderSoundPolicy, playTicketReminder, createReminderController, engines, running, ready,
+    return { ...exports, client, binding, storage, showReminderNotification, reminderSoundPolicy, playTicketReminder, createReminderController, engines, running, ready,
         state: () => exports.ticketRemindersState.get() };
 }
 

@@ -518,11 +518,21 @@ function WindowView(connectionNotice: string) {
                     : view === "personal" ? "Личных шаблонов нет — создайте их в «Мои шаблоны и настройки»"
                     : "Шаблонов нет";
     const filtered = !!query.trim() || !!cat || view !== "all";
+    // Position/size changes do not change rows. Reuse the elements as well as
+    // memoized Row components to avoid rebuilding/reconciling the entire catalog.
+    const renderedRows = useMemo(() => {
+        if (!items.length) return <div className="vc-stx-empty">{empty}</div>;
+        if (res || view !== "all") return items.map((t, i) => row(t, i));
+        let idx = 0;
+        return secs.map(sec => <div key={sec.key}>
+            <div className="vc-stx-sec">{sec.key === "fav" && <IconStar size={11} filled />}{sec.title}</div>
+            {sec.items.map(t => row(t, idx++))}
+        </div>);
+    }, [data, view, selIdx, menuId, version, empty, startHover, moveHover, leaveHover, stopHover]);
     const count = scope ? <span className="vc-stx-n" aria-live="polite">{filtered
         ? `${items.length} из ${data.total}`
         : `${data.total} ${plural(data.total, "шаблон", "шаблона", "шаблонов")}`}</span> : null;
 
-    let idx = 0;
     return (
         <>
             <div
@@ -614,14 +624,7 @@ function WindowView(connectionNotice: string) {
                         {res?.fuzzy && <div className="vc-stx-hint">Точных совпадений нет — похожие</div>}
                     </div>
                     <div className="vc-stx-list" ref={listRef}>
-                        {!items.length && <div className="vc-stx-empty">{empty}</div>}
-                        {res || view !== "all"
-                            ? items.map((t, i) => row(t, i))
-                            : secs.map(sec => (
-                                <div key={sec.key}>
-                                    <div className="vc-stx-sec">{sec.key === "fav" && <IconStar size={11} filled />}{sec.title}</div>
-                                    {sec.items.map(t => row(t, idx++))}
-                                </div>))}
+                        {renderedRows}
                     </div>
                     <div className="vc-stx-foot" title={"Enter — вставить · Ctrl+клик — без приветствия · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — элементы управления · Ctrl+Tab — вкладки · Alt+↓ — категории · Ctrl+D — избранное · ПКМ / Shift+F10 — меню"}>
                         <span><span className="vc-stx-kb"><IconEnter size={11} /></span>{!footKeys && "вставить"}</span>

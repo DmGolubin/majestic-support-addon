@@ -57,6 +57,18 @@ const checkbox = (tree: Node) => nodes(tree).find(n => n.type === "input" && n.p
 const button = (tree: Node, label: string) => nodes(tree).find(n => n.type === "button" && text(n) === label);
 
 describe("reminder settings", () => {
+    it.each(["idle", "permission", "loading"] as const)("keeps explicit project previews local and available during %s", phase => {
+        const h = harness({ phase }), tree = h.render();
+        expect(h.previewTicketReminderNotification).not.toHaveBeenCalled();
+        const previews = nodes(tree).filter(n => n.type === "button" && text(n).startsWith("Показать уведомление"));
+        expect(previews.map(text)).toEqual(["Показать уведомление · Majestic", "Показать уведомление · Россия Онлайн"]);
+        previews.forEach(n => { expect(n.props.disabled).not.toBe(true); n.props.onClick(); });
+        expect(h.previewTicketReminderNotification.mock.calls).toEqual([["majestic"], ["russia-online"]]);
+        expect(h.authorizePanelReminders).not.toHaveBeenCalled();
+        expect(h.refreshTicketReminders).not.toHaveBeenCalled();
+        expect(h.setDiscordReminders).not.toHaveBeenCalled();
+    });
+
     it("asks an idle user to sign in without presenting an enabled reminder or fabricated threshold", () => {
         const h = harness();
         const tree = h.render();
@@ -120,7 +132,7 @@ describe("reminder settings", () => {
         expect(text(tree)).toContain("Порог меняется в Telegram.");
         expect(text(tree)).toContain("Звук и громкость — отдельно для каждого сервера.");
         expect(text(tree)).toContain("Только назначенные вам тикеты, где игрок ждёт ответа.");
-        const controls = nodes(tree).filter(n => (["input", "select", "Select", "textarea", "button"].includes(n.type as string) || n.props.contentEditable) && text(n) !== "Показать уведомление");
+        const controls = nodes(tree).filter(n => ["input", "select", "Select", "textarea", "button"].includes(n.type as string) || n.props.contentEditable);
         expect(controls).toHaveLength(1);
         expect(controls[0].props.type).toBe("checkbox");
     });

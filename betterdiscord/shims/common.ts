@@ -8,6 +8,13 @@ export const SelectedChannelStore = hostStore("SelectedChannelStore");
 export const SelectedGuildStore = hostStore("SelectedGuildStore");
 export const GuildStore = hostStore("GuildStore");
 export const UserStore = hostStore("UserStore");
+export const PermissionStore = hostStore("PermissionStore");
+export const NavigationRouter = lazy(() => {
+    // Discord mangles the router's export name; use the same narrow signature as Vencord.
+    const transitionTo = api().Webpack.getModule((value: any) => typeof value === "function"
+        && Function.prototype.toString.call(value).includes("transitionTo -"), { searchExports: true });
+    return typeof transitionTo === "function" ? { transitionTo } : undefined;
+}, "NavigationRouter");
 export const AccessibilityStore = hostStore("AccessibilityStore");
 export const LocaleStore = hostStore("LocaleStore");
 export const ThemeStore = hostStore("ThemeStore");

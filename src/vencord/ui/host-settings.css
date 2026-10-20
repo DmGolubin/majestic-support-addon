@@ -1,0 +1,29 @@
+/* Only Discord/BD service panels: the main plugin modal keeps its own theme. */
+.vc-stx-native-settings.vc-stx-host-settings, .stx-bd-service.vc-stx-host-settings {
+    --stx-tx: var(--text-normal, #dbdee1);
+    --stx-mu: var(--text-muted, #949ba4);
+    --stx-bd: var(--background-modifier-accent, #4e50584d);
+    --stx-pr: var(--brand-500, #5865f2);
+    --stx-ring: var(--focus-primary, #00a8fc);
+    --stx-r: 4px;
+    color: var(--stx-tx);
+    font-family: var(--font-primary, inherit);
+    font-size: 14px;
+    line-height: 1.5;
+    min-width: 0;
+}
+.vc-stx-host-settings .vc-stx-build-identity { margin: 0 0 16px; padding: 0; font-size: 14px; color: var(--stx-tx); overflow-wrap: anywhere; }
+.vc-stx-host-settings .vc-stx-host-action { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; }
+.vc-stx-host-settings .vc-stx-host-action > span, .vc-stx-host-settings .vc-stx-host-handoff { color: var(--stx-mu); font-size: 13px; }
+.vc-stx-host-settings .vc-stx-host-handoff { margin: 10px 0 0; }
+.vc-stx-host-settings .vc-stx-diagnostics { margin-top: 24px; padding: 20px 0 0; border: 0; border-top: 1px solid var(--stx-bd); border-radius: 0; background: transparent; }
+.vc-stx-host-settings .vc-stx-diagnostic-heading h3 { color: var(--text-normal, #dbdee1); font-size: 16px; font-weight: 600; }
+.vc-stx-host-settings .vc-stx-record-toggle { font-size: 14px; font-weight: 400; cursor: pointer; }
+.vc-stx-host-settings .vc-stx-record-toggle input { width: 18px; height: 18px; margin: 0; flex-shrink: 0; }
+.vc-stx-host-settings [role=alert] { color: var(--text-danger, #f23f43); }
+.vc-stx-host-settings .vc-stx-btn { min-height: 32px; height: auto; padding: 6px 14px; justify-content: center; max-width: 100%; white-space: normal; overflow-wrap: anywhere; border-radius: 4px; background: var(--button-secondary-background, #4e5058); color: var(--button-secondary-text, #fff); font: inherit; font-size: 14px; }
+.vc-stx-host-settings .vc-stx-btn:hover { background: var(--button-secondary-background-hover, #6d6f78); }
+.vc-stx-host-settings .vc-stx-host-action > .vc-stx-btn { background: var(--brand-500, #5865f2); color: var(--white, #fff); }
+.vc-stx-host-settings .vc-stx-host-action > .vc-stx-btn:hover { background: var(--brand-560, #4752c4); }
+.vc-stx-host-settings .vc-stx-btn:disabled { opacity: .5; cursor: not-allowed; }
+.vc-stx-host-settings .vc-stx-btn:focus-visible, .vc-stx-host-settings input:focus-visible { outline: 2px solid var(--stx-ring); outline-offset: 3px; }

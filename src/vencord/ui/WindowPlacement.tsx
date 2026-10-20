@@ -31,6 +31,11 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
         pointerId: number; el: HTMLButtonElement; x: number; y: number; edge: WindowEdge | null;
         box: FloatingBox; before: WindowPosition | null; size: WindowSize | null; next: FloatingBox; side: boolean;
     } | null>(null);
+    const frame = useRef<number | null>(null);
+    const cancelFrame = () => {
+        if (frame.current !== null) cancelAnimationFrame(frame.current);
+        frame.current = null;
+    };
     const sizeFor = (b: FloatingBox, original: WindowSize | null, useSide = side) => {
         const base = original ?? DEFAULT_WINDOW_SIZE;
         return { ...base, height: b.height, ...(useSide ? { previewWidth: Math.max(360, b.width - base.width) } : { width: b.width }) };
@@ -38,19 +43,23 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
     const finish = (commit: boolean) => {
         const d = drag.current; if (!d) return;
         drag.current = null;
+        cancelFrame();
         if (d.el.hasPointerCapture?.(d.pointerId)) d.el.releasePointerCapture(d.pointerId);
         const moved = d.next.right !== d.box.right || d.next.bottom !== d.box.bottom || d.next.width !== d.box.width || d.next.height !== d.box.height;
         if (commit && !moved) { placement.set(d.before, false); if (d.edge) setSize(d.size); return; }
         if (commit) {
             placement.set({ right: d.next.right, bottom: d.next.bottom, pinned: false });
-            if (d.edge) saveSize(sizeFor(d.next, d.size, d.side));
+            if (d.edge) {
+                const nextSize = sizeFor(d.next, d.size, d.side);
+                setSize(nextSize); saveSize(nextSize);
+            }
         } else { placement.set(d.before, false); if (d.edge) setSize(d.size); }
     };
     const latestFinish = useRef(finish); latestFinish.current = finish;
     useEffect(() => {
         const cancel = () => latestFinish.current(false);
         window.addEventListener("blur", cancel);
-        return () => { window.removeEventListener("blur", cancel); const d = drag.current; drag.current = null;
+        return () => { window.removeEventListener("blur", cancel); const d = drag.current; drag.current = null; cancelFrame();
             if (d?.el.hasPointerCapture?.(d.pointerId)) d.el.releasePointerCapture(d.pointerId); };
     }, []);
     const start = (e: React.PointerEvent<HTMLButtonElement>, edge: WindowEdge | null) => {
@@ -69,7 +78,12 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
         const minWidth = d.side ? (d.size?.width ?? DEFAULT_WINDOW_SIZE.width) + 360 : 320;
         d.next = d.edge ? resizeFloatingBox(d.box, d.edge, e.clientX - d.x, e.clientY - d.y, window.innerWidth, window.innerHeight, d.side ? (d.size?.width ?? DEFAULT_WINDOW_SIZE.width) + 900 : 720, minWidth)
             : moveFloatingBox(d.box, e.clientX - d.x, e.clientY - d.y, window.innerWidth, window.innerHeight);
-        apply(d.next, d.edge, d.size, false, d.side);
+        // High-frequency pointers can deliver several samples per paint. Keep the
+        // final geometry synchronously, but render the catalog at most once/frame.
+        if (frame.current === null) frame.current = requestAnimationFrame(() => {
+            frame.current = null;
+            if (drag.current === d) apply(d.next, d.edge, d.size, false, d.side);
+        });
     };
     const key = (e: React.KeyboardEvent, edge: WindowEdge | null) => {
         if (e.key === "Escape" && drag.current) { e.preventDefault(); e.stopPropagation(); finish(false); return; }

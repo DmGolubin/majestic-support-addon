@@ -121,9 +121,16 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
             if (!windowHandlers.get(name)?.size) { windowHandlers.delete(name); delete windowListeners[name]; }
         }) };
     let geometryChange = () => {};
+    let nextFrame = 0;
+    const frames = new Map<number, () => void>();
+    const frameGlobals = {
+        window: viewport,
+        requestAnimationFrame: (fn: () => void) => { frames.set(++nextFrame, fn); return nextFrame; },
+        cancelAnimationFrame: (id: number) => { frames.delete(id); },
+    };
     const placementDeps = { "../core/layout": layout, "../core/windowPlacement": windowPlacement, "../platform": { storage }, "./window-placement.css": {} };
     const placementHooks = load(placementCode, { ...placementDeps, "@webpack/common": h.api }, { window: viewport });
-    const placementControls = load(placementCode, { ...placementDeps, "@webpack/common": frame.api }, { window: viewport });
+    const placementControls = load(placementCode, { ...placementDeps, "@webpack/common": frame.api }, frameGlobals);
     const exports = load(windowCode, {
         "@webpack/common": h.api, "../core/keys": keys, "../core/layout": layout, "../core/rank": rank,
         "../core/search": search, "../core/types": types, "../core/text": {}, "../core/windowPlacement": windowPlacement,
@@ -137,7 +144,9 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
         "./svg": { IconSettings: "IconSettings" }, "./menu-refinement.css": {},
         "./uiState": { store, ui, useStore: () => 0, activeScope: () => "mj", listedProject: () => "mj", poolFor: () => pool, watchChatArea: (fn: () => void) => { geometryChange = fn; return () => {}; } },
     }, { document, window: viewport });
-    const render = () => h.render(exports.Window, tree => {
+    const render = () => {
+        const pending = [...frames.values()]; frames.clear(); pending.forEach(fn => fn());
+        return h.render(exports.Window, tree => {
         const controls = nodes(tree).find(n => n.type === placementControls.WindowPlacementControls);
         if (controls) {
             const rendered = frame.render(() => placementControls.WindowPlacementControls(controls.props));
@@ -146,7 +155,8 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
         for (const node of nodes(tree)) {
             if (node.props.ref) node.props.ref.current = node.type === "input" ? input : node.props.className?.includes("vc-stx-win") ? win : list;
         }
-    });
+        });
+    };
     let captured: number | null = null;
     const grip = { focus: vi.fn(), setPointerCapture: vi.fn((id: number) => { captured = id; }),
         hasPointerCapture: (id: number) => captured === id, releasePointerCapture: vi.fn(() => { captured = null; }) };

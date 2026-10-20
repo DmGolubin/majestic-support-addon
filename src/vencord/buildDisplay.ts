@@ -9,12 +9,10 @@ export const DISTRIBUTION_LABELS = {
 export type Distribution = keyof typeof DISTRIBUTION_LABELS;
 
 export function humanBuildVersion(version: string): string {
-    // Only translate the known release channel. Preserve other prereleases rather
-    // than accidentally presenting them as stable; retain metadata in the tooltip.
-    const canary = /^(\d+\.\d+\.\d+)-canary\.(\d+)(?:\+[0-9A-Za-z.-]+)?$/.exec(version);
-    return canary ? `${canary[1]} · тестовая` : version;
+    // Support needs the exact installed build, including prerelease and metadata.
+    return version;
 }
 
-export function distributionDisplay(distribution: Distribution, version: string): string {
-    return `${DISTRIBUTION_LABELS[distribution]} · ${humanBuildVersion(version)}`;
+export function distributionDisplay(_distribution: Distribution, version: string): string {
+    return `SupportTemplates · Версия ${humanBuildVersion(version)}`;
 }

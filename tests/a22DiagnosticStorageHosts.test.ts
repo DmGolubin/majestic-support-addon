@@ -175,7 +175,8 @@ describe("A22 lazy renderer and BD host bridges", () => {
             "../../src/vencord/diagnosticFileNative": storageModule });
         await expect(bridge.saveDiagnosticStorage(report())).resolves.toHaveProperty("path");
     });
-    it("actual BD build alias bundles lazily with bare supported modules and no fs/promises", async () => {
+    it.each(["node-object", "bd-constructor"] as const)(
+        "actual BD build alias bundles lazily with bare supported modules and no fs/promises (%s)", async bufferShape => {
         // In-memory build only: do not write distributions or plugin artifacts.
         const { adapterPlugin } = await import(pathToFileURL(join(root, "betterdiscord/build.mjs")).href);
         const { build } = bdRequire("esbuild");
@@ -190,19 +191,24 @@ describe("A22 lazy renderer and BD host bridges", () => {
                 } }, adapterPlugin()
             ] });
         const external = Object.values(result.metafile.outputs).flatMap((o: any) => o.imports.filter((i: any) => i.external).map((i: any) => i.path));
-        expect(external.every((name: string) => ["fs", "path", "crypto", "electron"].includes(name))).toBe(true);
+        expect(external.every((name: string) => ["fs", "path", "crypto", "buffer", "electron"].includes(name))).toBe(true);
         expect(Object.keys(result.metafile.inputs).some(p => p.endsWith("betterdiscord/native/diagnosticStorage.ts"))).toBe(true);
         const unavailable = new Proxy({}, { get: () => { throw Error("unsupported fs"); } });
-        const imported = evaluate(result.outputFiles[0].text, { fs: unavailable, crypto: unavailable, path: unavailable });
+        // A real plugin has CommonJS function scope. Evaluating bundle `var
+        // crypto = require("crypto")` at global scope would overwrite browser
+        // Web Crypto and create a fixture-only getRandomValues failure.
+        const code = `(function () {\n${result.outputFiles[0].text}\n})();`;
+        const imported = evaluate(code, { fs: unavailable, crypto: unavailable, path: unavailable });
         // Import itself is safe. Invoking either operation fails without leaking host errors.
         await expect(imported.loadDiagnosticStorage()).rejects.toThrow(ERROR);
         await expect(imported.saveDiagnosticStorage(report())).rejects.toThrow(ERROR);
         // Actual installationPaths + the standard bridge's stat-backed lstat.
         const base = temporary(), plugins = join(base, "plugins"); fs.mkdirSync(plugins);
-        const supported = evaluate(result.outputFiles[0].text, {
+        const supported = evaluate(code, {
             fs: { ...bridgeFS(), lstatSync: fs.statSync },
+            buffer: bufferShape === "node-object" ? { Buffer } : Buffer,
             crypto: { createHash: crypto.createHash, randomBytes: crypto.randomBytes }, path
-        }, { BdApi: { Plugins: { folder: plugins } }, location: { origin: "https://canary.discord.com" } });
+        }, { Buffer: undefined, crypto: crypto.webcrypto, BdApi: { Plugins: { folder: plugins } }, location: { origin: "https://canary.discord.com" } });
         const saved = await supported.saveDiagnosticStorage(report());
         expect(saved.path).toMatch(/SupportTemplates[\\/][a-f0-9]{64}[\\/]diagnostics[\\/]main\.log$/);
         expect(JSON.parse((await supported.loadDiagnosticStorage()).state).campaign).toBe("mvp-file-2026-10");

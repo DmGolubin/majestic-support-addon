@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..').replaceAll('\\','/');
 const require=createRequire(root+'/betterdiscord/package.json');
 const { build }=require('esbuild');
-const a27 = process.argv.includes('--a27');
+const a29 = process.argv.includes('--a29');
+const a27 = process.argv.includes('--a27') || a29;
 const a26 = process.argv.includes('--a26') || a27;
 const a25 = process.argv.includes('--a25') || a26;
 const a24 = process.argv.includes('--a24') || a25;
@@ -133,10 +134,83 @@ panelPersonal.set({catalog:{...a27Catalog,personalRecords:[
     stubs.reminders += `export {previewTicketReminderNotification} from '${root}/src/vencord/ui/ticketReminders.ts';`;
     stubs.platform += `window.a27ToastBoundary={kind:'platform.toast',realController:true,realHost:false};`;
 }
-const hostImport = a24 ? `import {Host} from '${root}/src/vencord/ui/Host.tsx';` : '';
+if (a29) {
+    const version = JSON.parse(fs.readFileSync(root+'/distribution/config.json','utf8')).version;
+    stubs.identity = stubs.identity.replace("'1.0.1-canary.21'", JSON.stringify(version));
+    stubs.common += `
+export const PermissionStore={can:()=>window.a29Permission!==false};
+export const NavigationRouter={transitionTo:path=>(window.a29Navigation??=[]).push(path)};
+const a29Channel=ChannelStore.getChannel;
+ChannelStore.getChannel=id=>id==='323456789012345678'?window.a29Channel:a29Channel(id);
+`;
+    // The delivery scheduler/receipt engine is a controlled driver. Keep the actual
+    // parsers, adapter, sound controller, notice store/component and route guard.
+    stubs.a29Engine = `
+export {parseAssignedSnapshot,parseNotificationSettings} from '${root}/src/core/panelReminders.ts';
+export const createReminderController=options=>{
+ window.a29Engine=options;
+ return {start(){},stop(){},invalidate(){}};
+};`;
+    map['../core/panelReminders']='a29Engine';
+    stubs.reminders = `export * from '${root}/src/vencord/ui/ticketReminders.ts';`;
+    stubs.soundBoot += `
+import * as reminders from '${root}/src/vencord/ui/ticketReminders.ts';
+import * as notices from '${root}/src/vencord/ui/reminderNoticeStore.ts';
+import {prepareTicketSound,setTicketSound,setReminderTicketSound} from '${root}/src/vencord/ui/ticketSound.ts';
+window.a29PrepareSound=prepareTicketSound;window.a29SetSound=setTicketSound;
+window.a29SetReminderSound=setReminderTicketSound;
+window.previewReminders=reminders.ticketRemindersState;
+window.a29Notices=notices;window.a29Navigation=[];window.a29Api=[];
+const accountId='111111111111111111';
+const notificationSettings={version:'settings-v1',discordEnabled:true,thresholdSource:'telegram',projects:[
+ {project:'majestic',personalReminderMinutes:5,telegramEnabled:true},
+ {project:'russia-online',personalReminderMinutes:15,telegramEnabled:false}]};
+const client={connectionId:'fixture-session',async get(path){
+ window.a29Api.push({method:'GET',path});
+ if(path==='/notification-settings')return structuredClone(notificationSettings);
+ if(path==='/tickets/assigned'){
+  if(window.a29Pending)await new Promise(resolve=>window.a29Release=resolve);
+  if(window.a29GetFailure)throw Error('PRIVATE_FIXTURE_DETAIL');
+  return structuredClone(window.a29Assigned);
+ }
+ throw Error('Unexpected fixture GET');
+},async mutate(request,guard){
+ guard();window.a29Api.push(request);
+ if(request.path!=='/notification-settings'||request.method!=='PATCH')throw Error('Unexpected mutation');
+ notificationSettings.discordEnabled=request.body.discordEnabled;
+ return structuredClone(notificationSettings);
+}};
+window.a29Bind=async()=>{
+ reminders.stopTicketReminders();window.a29Valid=true;window.a29Permission=true;
+ window.a29Pending=false;window.a29GetFailure=false;
+ reminders.syncTicketReminders({client,accountId,projects:['majestic','russia-online'],
+  permissionsRevision:'p1',scopes:['tickets:assigned:read','notifications:settings:read','notifications:settings:write'],
+  current:()=>window.a29Valid,onAuthError:()=>{window.a29Valid=false}});
+ await reminders.refreshTicketReminders();
+};
+window.a29Deliver=async(project='majestic',route=true)=>{
+ const snapshot=window.a29Snapshot=(window.a29Snapshot??0)+1;
+ const guildId=project==='majestic'?'530693013622489088':'1089530150540034181';
+ const ticket={ticketId:'panel:opaque:42',project,guildId,channelId:route?'323456789012345678':undefined,
+  waitingCycleId:'cycle-1',reminderId:'reminder-1',cycle:1};
+ window.a29Channel={id:ticket.channelId,guild_id:guildId};
+ const now=Date.now();
+ window.a29Assigned={accountId,revision:'assigned-1',serverTime:new Date(now).toISOString(),
+  checkedAt:new Date(now).toISOString(),maxAgeSeconds:75,discordEnabled:true,
+  tickets:[{...ticket,assigneeAccountId:accountId,state:'waiting_support',
+   waitingSince:new Date(now-600000).toISOString(),reminderAt:new Date(now-300000).toISOString()}]};
+ prepareTicketSound('reminder');
+ await Promise.resolve();
+ return window.a29Engine.play(()=>window.a29Valid&&window.a29Snapshot===snapshot,ticket);
+};
+window.a29Stop=reminders.stopTicketReminders;
+window.a29Ready=window.a29Bind();
+`;
+}
+const hostImport = a24 ? `import {Host} from '${root}/src/vencord/ui/Host.tsx';${a29 ? `import {NativeServiceSettings} from '${root}/src/vencord/ui/NativeServiceSettings.tsx';` : ''}` : '';
 const hostTree = a24 ? '<Host/>' : '<div className="vc-stx-root">{s.management&&<Management/>}{s.windowOpen&&(p.phase==="ready"?<Window/>:<LoginWindow/>)}</div>';
 if(!fs.existsSync(root+'/src/vencord/ui/PanelPersonalLibrary.tsx'))map['./PanelPersonalLibrary']='personal';
-await build({stdin:{contents:`${hostImport}${a23 ? "import 'a23-sound-boot';" : ''}import '${root}/src/vencord/styles.css';import {React} from '@webpack/common';import {createRoot} from 'react-dom/client';import '${root}/betterdiscord/adapter.css';import {ServiceSettings} from '${root}/betterdiscord/ServiceSettings.tsx';import {BuildIdentity} from '${root}/src/vencord/ui/BuildIdentity.tsx';import {LoginWindow} from '${root}/src/vencord/ui/LoginWindow.tsx';import {panel} from './panel';import {Management} from '${root}/src/vencord/ui/Management.tsx';import {Window} from '${root}/src/vencord/ui/Window.tsx';import {ui} from './uiState';function App(){const s=ui.use();const p=panel.use();const [service,setService]=React.useState(false);window.previewService=setService;return <><div className="review-controls"><button onClick={()=>ui.set({management:true,windowOpen:false})}>Settings</button><button onClick={()=>ui.set({management:false,windowOpen:true})}>Menu</button></div><div id="service" className="stx-bd-settings" style={{display:service?undefined:"none",maxWidth:600,margin:"20px auto",padding:16}}>{service&&<><BuildIdentity/><ServiceSettings active={service!=="inactive"}/></>}</div><div id="vc-stx-host">${hostTree}</div></>}createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:here,loader:'tsx'},bundle:true,outfile:here+'/app.js',nodePaths:[root+'/betterdiscord/node_modules'],inject:[here+'/react-shim.js'],plugins:[{name:'review-alias',setup(b){b.onResolve({filter:/.*/},args=>{if(args.path==='./menu-refinement.css' && !fs.existsSync(root+'/src/vencord/ui/menu-refinement.css'))return {path:'empty',namespace:'stub'};if(map[args.path])return {path:map[args.path],namespace:'stub'};if(args.path.includes('/core/')&&args.importer.replaceAll('\\','/').includes('/src/vencord/'))return {path:path.join(root,'src/core',path.basename(args.path)+(path.extname(args.path)?'':'.ts'))};});b.onLoad({filter:/.*/,namespace:'stub'},args=>({contents:stubs[args.path]??'',loader:'tsx',resolveDir:here}));}}]});
+await build({stdin:{contents:`${hostImport}${a23 ? "import 'a23-sound-boot';" : ''}import '${root}/src/vencord/styles.css';import {React} from '@webpack/common';import {createRoot} from 'react-dom/client';import '${root}/betterdiscord/adapter.css';import {ServiceSettings} from '${root}/betterdiscord/ServiceSettings.tsx';import {BuildIdentity} from '${root}/src/vencord/ui/BuildIdentity.tsx';import {LoginWindow} from '${root}/src/vencord/ui/LoginWindow.tsx';import {panel} from './panel';import {Management} from '${root}/src/vencord/ui/Management.tsx';import {Window} from '${root}/src/vencord/ui/Window.tsx';import {ui} from './uiState';function App(){const s=ui.use();const p=panel.use();const [service,setService]=React.useState(false);window.previewService=setService;return <><div className="review-controls"><button onClick={()=>ui.set({management:true,windowOpen:false})}>Settings</button><button onClick={()=>ui.set({management:false,windowOpen:true})}>Menu</button></div><div id="service" className="stx-bd-settings" style={{display:service?undefined:"none",maxWidth:${a29 ? 900 : 600},margin:"20px auto",padding:16}}>{service&&${a29 ? '(service==="native"?<NativeServiceSettings/>:<><BuildIdentity/><ServiceSettings active={service!=="inactive"}/></>)' : '<><BuildIdentity/><ServiceSettings active={service!=="inactive"}/></>'}}</div><div id="vc-stx-host">${hostTree}</div></>}createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:here,loader:'tsx'},bundle:true,outfile:here+'/app.js',nodePaths:[root+'/betterdiscord/node_modules'],inject:[here+'/react-shim.js'],plugins:[{name:'review-alias',setup(b){b.onResolve({filter:/.*/},args=>{if(args.path==='./menu-refinement.css' && !fs.existsSync(root+'/src/vencord/ui/menu-refinement.css'))return {path:'empty',namespace:'stub'};if(map[args.path])return {path:map[args.path],namespace:'stub'};if(args.path.includes('/core/')&&args.importer.replaceAll('\\','/').includes('/src/vencord/'))return {path:path.join(root,'src/core',path.basename(args.path)+(path.extname(args.path)?'':'.ts'))};});b.onLoad({filter:/.*/,namespace:'stub'},args=>({contents:stubs[args.path]??'',loader:'tsx',resolveDir:here}));}}]});
 fs.writeFileSync(here+'/index.html',`<!doctype html><meta charset="utf-8"><title>SupportTemplates — UI review</title><link rel="stylesheet" href="app.css"><style>body{margin:0;background:#25272e;font-family:Segoe UI,sans-serif;color:#e6e6e8}.review-controls{position:fixed;top:54px;left:5px;z-index:100000;opacity:.2}.review-controls:hover{opacity:1}</style><div id="chat-text" style="position:fixed;top:8px;left:8px;max-width:160px">Текст сообщения игрока</div><input id="chat-draft" aria-label="Черновик чата" style="position:fixed;bottom:8px;left:16px" value="Не отправлять"><div id="root"></div><script src="app.js"></script>`);
 const sourceHashes={};
 for(const dir of ['src/vencord/ui','betterdiscord']) for(const file of fs.readdirSync(root+'/'+dir)) {

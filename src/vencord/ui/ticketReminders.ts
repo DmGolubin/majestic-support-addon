@@ -5,9 +5,12 @@
  */
 
 import { PanelClient, PanelError } from "../core/panelClient";
-import { createReminderController, parseNotificationSettings } from "../core/panelReminders";
-import { storage, toast } from "../platform";
+import { createReminderController, parseAssignedSnapshot, parseNotificationSettings, ReminderPlaybackTicket, ReminderProject } from "../core/panelReminders";
+import { reminderDestination } from "../core/reminderDestination";
+import { storage } from "../platform";
+import { openReminderChannel } from "../reminderNavigation";
 import { createObservable } from "./observable";
+import { clearReminderNotifications, showReminderNotification } from "./reminderNoticeStore";
 import { playTicketReminder, prepareTicketSound, reminderSoundPolicy, stopTicketReminderSound } from "./ticketSound";
 
 type Settings = ReturnType<typeof parseNotificationSettings>;
@@ -24,15 +27,38 @@ let settingsRead: Promise<void> | null = null;
 let settingsRevision = 0;
 let settingsRetryAt = 0;
 let settingsFailures = 0;
+let navigationRetryAt = 0;
 
-function showReminderToast(test = false): void {
-    try { toast(`${test ? "Тестовое уведомление: " : ""}Игрок ждёт ответа в назначенном вам тикете`, "message"); }
-    catch { /* A host toast must not invalidate playback or escape a preview click. */ }
+/** A fresh read only; no delivery claim/receipt or notification-settings mutation. */
+async function openAssignedTicket(b: Binding, own: number, ticket: ReminderPlaybackTicket, currentNotice: () => boolean): Promise<boolean> {
+    const currentBinding = () => current(b, own) && REQUIRED.every(scope => b.scopes.includes(scope))
+        && b.projects.includes(ticket.project) && currentNotice();
+    if (!currentBinding() || Date.now() < navigationRetryAt || !reminderDestination(ticket)) return false;
+    const started = performance.now();
+    // Coalesce rapid clicks across the bounded set of cards; transport Retry-After is shared.
+    navigationRetryAt = Date.now() + 1000;
+    try {
+        const snapshot = parseAssignedSnapshot(await get(b, "/tickets/assigned"), b.accountId, b.projects);
+        const elapsed = performance.now() - started;
+        if (!currentBinding() || !snapshot.discordEnabled || elapsed < 0 || !Number.isFinite(elapsed)
+            || snapshot.serverTime - snapshot.checkedAt + elapsed > 75000) return false;
+        const assigned = snapshot.tickets.find(row => row.project === ticket.project && row.ticketId === ticket.ticketId
+            && row.state === "waiting_support" && row.waitingCycleId === ticket.waitingCycleId
+            && row.reminderId === ticket.reminderId && row.guildId === ticket.guildId && row.channelId === ticket.channelId);
+        return !!assigned && openReminderChannel(ticket, currentBinding);
+    } catch (error) {
+        if (current(b, own)) {
+            const retry = error instanceof PanelError ? error.retryAfterMs : undefined;
+            navigationRetryAt = Date.now() + Math.max(5000, typeof retry === "number" && Number.isFinite(retry) ? retry : 0,
+                error instanceof PanelError && error.status === 429 ? 60000 : 0);
+        }
+        return false;
+    }
 }
 
 /** Manual appearance preview only: no controller, API, sound, receipt or history access. */
-export function previewTicketReminderNotification(): void {
-    showReminderToast(true);
+export function previewTicketReminderNotification(project: ReminderProject = "majestic"): void {
+    try { showReminderNotification(project); } catch { /* UI is observational. */ }
 }
 
 function deferSettings(error: unknown, failedRead = false) {
@@ -51,6 +77,8 @@ function deferSettings(error: unknown, failedRead = false) {
 }
 
 export function stopTicketReminders() {
+    clearReminderNotifications();
+    navigationRetryAt = 0;
     stopTicketReminderSound();
     revision++; settingsRevision++;
     settingsRetryAt = 0;
@@ -97,12 +125,29 @@ export function syncTicketReminders(next: Binding) {
                 && (!ticket || reminderSoundPolicy(ticket.project).enabled);
             if (!canPlay()) return false;
             const played = await playTicketReminder(canPlay, ticket);
-            if (played && canPlay()) {
-                showReminderToast();
+            if (played && ticket && canPlay()) {
+                // Keep the exact technical record selected by the receipt/audio gate.
+                const target = { ...ticket };
+                const sessionId = next.client.connectionId, accountId = next.accountId, permissions = next.permissionsRevision;
+                const soundRevision = reminderSoundPolicy(target.project).revision;
+                // Playback validity belongs to one snapshot. Delivered cards outlive routine
+                // polling; navigation separately requires a fresh matching assignment.
+                const noticeValid = () => {
+                    const state = ticketRemindersState.get(), sound = reminderSoundPolicy(target.project);
+                    return current(next, own) && next.client.connectionId === sessionId && next.accountId === accountId
+                        && next.permissionsRevision === permissions && next.projects.includes(target.project)
+                        && REQUIRED.every(scope => next.scopes.includes(scope)) && state.phase === "ready"
+                        && !state.busy && state.settings?.discordEnabled === true && sound.enabled && sound.revision === soundRevision;
+                };
+                try {
+                    showReminderNotification(target.project, { valid: noticeValid,
+                        ...(reminderDestination(target) ? { open: (live: () => boolean) => openAssignedTicket(next, own, target, live) } : {}) });
+                } catch { /* Notification UI cannot undo a successful audio receipt. */ }
             }
             return played;
         },
         onState: state => {
+            if (current(next, own) && (state.status === "unavailable" || state.status === "stopped")) clearReminderNotifications();
             if (current(next, own) && state.status !== "refreshing") ticketRemindersState.set({
                 deliveryError: state.status === "unavailable" ? "Не удалось проверить назначенные тикеты. Напоминания приостановлены." : "",
             });
@@ -147,6 +192,7 @@ export async function setDiscordReminders(enabled: boolean): Promise<void> {
     // Unlock while the checkbox's user gesture is still on the stack, before PATCH.
     if (enabled) prepareTicketSound("reminder");
     else stopTicketReminderSound();
+    clearReminderNotifications();
     settingsRevision++; settingsRead = null;
     controller?.stop();
     ticketRemindersState.set({ busy: true, error: "" });
@@ -174,4 +220,7 @@ export async function setDiscordReminders(enabled: boolean): Promise<void> {
     }
 }
 
-export function invalidateTicketReminders(event?: string) { controller?.invalidate(event); }
+export function invalidateTicketReminders(event?: string) {
+    clearReminderNotifications();
+    controller?.invalidate(event);
+}

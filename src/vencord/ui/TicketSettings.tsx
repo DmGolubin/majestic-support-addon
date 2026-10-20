@@ -15,7 +15,7 @@ import { ProjectIcon } from "./ProjectIcon";
 import { IconBell } from "./svg";
 import { chooseTicketSound, resetTicketSound, retryTicketSoundSettings, setChannelTicketSound, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound, stopTicketSoundPlayback, testTicketSound, ticketSoundState } from "./ticketSound";
 import { ReminderSettings } from "./ReminderSettings";
-import { ticketRemindersState } from "./ticketReminders";
+import { previewTicketReminderNotification, ticketRemindersState } from "./ticketReminders";
 
 const percent = (value: number) => `${Math.round(value)}%`;
 
@@ -116,6 +116,10 @@ export function TicketSettings() {
                     </label>
                     {config.volume === 0 && <small className="vc-stx-muted">0% — напоминания этого сервера без звука.</small>}
                     {audioControls(undefined, project)}
+                    <div className="vc-stx-reminder-preview">
+                        <button type="button" className="vc-stx-btn vc-stx-ghost" title={`Тестовое уведомление · ${name}`}
+                            onClick={() => previewTicketReminderNotification(project)}>Показать уведомление</button>
+                    </div>
                 </fieldset>;
             })}</div>
         </ReminderSettings>

@@ -11,7 +11,7 @@ const text = (node: any): string => Array.isArray(node) ? node.map(text).join(""
 
 // Render the actual component with persistent hook state and explicit effect cleanup.
 // Native Settings and plugin host lifetimes are independent; no Discord/API calls occur.
-function harness(active = true) {
+function hostHarness(active = true, variant = "native") {
     let host: object | null = active ? {} : null;
     let phase = "ready";
     let cursor = 0;
@@ -36,28 +36,33 @@ function harness(active = true) {
     };
     const BuildIdentity = vi.fn(), DiagnosticControls = vi.fn(), set = vi.fn();
     const deps: Record<string, any> = {
-        "./settings-layout.css": {},
+        "./host-settings.css": {},
+        "../src/vencord/ui/host-settings.css": {},
         "@webpack/common": hooks,
+        "./shims/common": hooks,
         "./BuildIdentity": { BuildIdentity },
         "./DiagnosticControls": { DiagnosticControls },
         "./panel": { panel: { useSelect: (select: any) => select({ phase }) } },
         "./uiState": { ui: { set } },
     };
+    for (const name of ["DiagnosticControls", "panel", "uiState"]) deps[`../src/vencord/ui/${name}`] = deps[`./${name}`];
     const exports: any = {};
-    const source = readFileSync(new URL("../src/vencord/ui/NativeServiceSettings.tsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL(variant === "native" ? "../src/vencord/ui/NativeServiceSettings.tsx" : "../betterdiscord/ServiceSettings.tsx", import.meta.url), "utf8");
     const code = ts.transpileModule(source, {
         compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
     }).outputText;
+    const React = { createElement: (type: unknown, props: any, ...children: any[]) => ({ type, props: { ...props, children } }) };
+    deps["./shims/common"] = { ...hooks, React };
     runInNewContext(code, {
         exports,
-        React: { createElement: (type: unknown, props: any, ...children: any[]) => ({ type, props: { ...props, children } }) },
+        React,
         document: { getElementById: (id: string) => { expect(id).toBe("vc-stx-host"); return host; } },
         require: (id: string) => {
             if (!(id in deps)) throw new Error(`Unexpected import: ${id}`);
             return deps[id];
         },
     });
-    const render = () => { cursor = 0; return exports.NativeServiceSettings(); };
+    const render = () => { cursor = 0; return variant === "native" ? exports.NativeServiceSettings() : exports.ServiceSettings({ active: !!host }); };
     const unmount = () => effects.forEach(effect => effect.cleanup?.());
     const replayMountEffects = () => effects.forEach(effect => { effect.cleanup?.(); effect.cleanup = effect.setup(); });
     return {
@@ -72,18 +77,21 @@ const phases = [
     ["loading", "Загрузка библиотеки"], ["ready", "Подключено"], ["offline", "Нет связи с панелью"], ["error", "Ошибка подключения"],
 ];
 
-describe("Q18 native service settings", () => {
-    it("contains root build identity, status and diagnostics without editor or settings tabs", () => {
+describe.each(["native", "betterdiscord"])("%s host service settings", variant => {
+    const harness = (active = true) => hostHarness(active, variant);
+    it("keeps the direct action and diagnostics without redundant connection cards", () => {
         const h = harness(), tree = h.render();
         const all = nodes(tree);
-        expect(tree.props.children.some((child: Node) => child?.type === h.BuildIdentity)).toBe(true);
+        expect(tree.props.className).toContain("vc-stx-host-settings");
         expect(all.find(node => node.type === h.DiagnosticControls)?.props.available).toBe(true);
         expect(all.filter(node => node.type === "button")).toHaveLength(1);
-        expect(text(button(tree))).toBe("Перейти в SupportTemplates");
-        expect(text(tree)).toContain("Шаблоны, звук и параметры работы находятся в основном окне SupportTemplates.");
+        expect(text(button(tree))).toBe("Открыть SupportTemplates");
+        expect(text(tree)).not.toContain("Шаблоны, звук и параметры работы");
+        expect(text(tree)).not.toContain("Подключение");
+        expect(text(tree)).not.toContain("Подключено");
         expect(all.some(node => ["nav", "form", "input", "textarea"].includes(node.type as string)
             || ["tab", "tablist", "tabpanel"].includes(node.props.role) || node.props.contentEditable)).toBe(false);
-        expect(all.filter(node => typeof node.type === "function").map(node => node.type)).toEqual([h.BuildIdentity, h.DiagnosticControls]);
+        expect(all.filter(node => typeof node.type === "function").map(node => node.type)).toEqual(variant === "native" ? [h.BuildIdentity, h.DiagnosticControls] : [h.DiagnosticControls]);
         h.unmount();
         expect(h.set).not.toHaveBeenCalled();
     });
@@ -92,7 +100,8 @@ describe("Q18 native service settings", () => {
         const h = harness();
         h.render();
         h.setPhase(phase);
-        expect(nodes(h.render()).some(node => node.props.role === "status" && text(node) === label)).toBe(true);
+        expect(nodes(h.render()).some(node => node.props.role === "status" && text(node) === label)).toBe(phase !== "ready");
+        expect(button(h.render()).props.disabled).toBe(false);
         h.unmount();
         expect(h.set).not.toHaveBeenCalled();
     });
@@ -115,7 +124,7 @@ describe("Q18 native service settings", () => {
         button(tree).props.onClick();
         const queued = h.render();
         expect(button(queued).props.disabled).toBe(true);
-        expect(text(queued)).toContain("Закройте настройки Discord — откроется SupportTemplates.");
+        expect(text(queued)).toContain(variant === "native" ? "Закройте настройки Discord — откроется SupportTemplates." : "Нажмите Done (Готово) внизу этого окна — откроется SupportTemplates.");
         expect(h.set).not.toHaveBeenCalled();
         h.unmount();
         expect(h.set).toHaveBeenCalledExactlyOnceWith({ management: true, windowOpen: false, menu: null, inline: null });

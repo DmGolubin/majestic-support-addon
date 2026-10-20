@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Host-owned fixed destination. No renderer path is ever accepted.
 import { createHash, randomBytes } from "crypto";
+import * as bufferModule from "buffer";
 import { dirname, isAbsolute, join, posix, resolve, win32 } from "path";
 
 import { diagnosticData } from "./core/diagnosticJournal";
+
+// Node exports { Buffer }; standard BD exports the constructor directly.
+// Bundlers may wrap that direct CommonJS export as a default namespace member.
+type Buffer = import("buffer").Buffer;
+const Buffer: typeof import("buffer").Buffer = typeof bufferModule === "function" ? bufferModule
+    : bufferModule.Buffer ?? (bufferModule as unknown as { default: typeof import("buffer").Buffer; }).default;
 
 export const DIAGNOSTIC_FILE_NAME = "main.log";
 export const DIAGNOSTIC_FILE_MAX_BYTES = 10 * 1024 * 1024;
@@ -156,6 +163,35 @@ export function diagnosticShellDirectory(fs: DiagnosticFileSystem, directory: st
     // Same directory, not a separately chosen folder that happens to exist.
     for (const key of ["dev", "ino"] as const)
         if (before[key] !== undefined && after[key] !== undefined && before[key] !== after[key]) throw fail();
+    const exact = (value: unknown): bigint | null => typeof value === "bigint" && value >= 0n ? value
+        : typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? BigInt(value) : null;
+    const identity = (info: { dev?: unknown; ino?: unknown; }) => {
+        const dev = exact(info.dev), ino = exact(info.ino);
+        return dev !== null && ino !== null ? `${dev}:${ino}` : null;
+    };
+    const initial = identity(before);
+    if (initial !== null && initial === identity(after)) return physical;
+    // NTFS IDs can exceed JS's safe integer range. Probe the optional Node
+    // capability; standard BD may ignore options and still return rounded numbers.
+    let preciseBefore, preciseAfter;
+    try {
+        preciseBefore = Reflect.apply(fs.statSync, fs, [directory, { bigint: true }]);
+        preciseAfter = Reflect.apply(fs.statSync, fs, [physical, { bigint: true }]);
+    } catch { /* Older bridges may reject stat options. */ }
+    if (preciseBefore && preciseAfter) {
+        if (!preciseBefore.isDirectory() || !preciseAfter.isDirectory()) throw fail();
+        for (const key of ["dev", "ino"] as const) {
+            const first = exact(preciseBefore[key]), second = exact(preciseAfter[key]);
+            if (first !== null && second !== null && first !== second) throw fail();
+        }
+        const first = identity(preciseBefore);
+        if (first !== null && first === identity(preciseAfter)) return physical;
+    }
+    // A bridge without exact identities can still open the same canonical path.
+    // A differently named alias needs exact stat proof; never trust rounded IDs.
+    const logicalCanonical = fs.realpathSync(directory), physicalCanonical = fs.realpathSync(physical);
+    if (typeof logicalCanonical !== "string" || !isAbsolute(logicalCanonical)
+        || /[\u0000-\u001f]/.test(logicalCanonical) || logicalCanonical !== physicalCanonical) throw fail();
     return physical;
 }
 
@@ -238,14 +274,33 @@ export function createDiagnosticFileStorage(deps: {
         [join(root, "SupportTemplates-diagnostics.legacy.txt"), legacyPath], [oldPath, path]
     ];
     const platform = deps.platform ?? process.platform;
-    const normalized = (p: string) => platform === "win32" ? resolve(p).toLowerCase() : resolve(p);
+    // BD bridges even path helpers into preload. Only cache pure parsing of
+    // absolute strings, never a filesystem result or a relative/CWD resolution.
+    const normalizedPaths = new Map<string, string>();
+    const normalized = (p: string) => {
+        const cached = normalizedPaths.get(p);
+        if (cached !== undefined) return cached;
+        const value = platform === "win32" ? resolve(p).toLowerCase() : resolve(p);
+        if (isAbsolute(p)) {
+            if (normalizedPaths.size >= 128) normalizedPaths.clear();
+            normalizedPaths.set(p, value);
+        }
+        return value;
+    };
+    const ancestors: string[] = [];
+    for (let current = root;;) {
+        ancestors.push(current);
+        const parent = dirname(current);
+        if (parent === current) break;
+        current = parent;
+    }
     const randomId = deps.randomId ?? (() => randomBytes(16).toString("hex"));
     const TAIL_BYTES = 64 * 1024;
     type LogCache = { signature: string; size: number; tail: Buffer; legacy: boolean; };
     let logCache: LogCache | undefined;
     let stateCache: { signature: string; value: Checkpoint; } | undefined;
     const tombstone = () => JSON.stringify({ schema: 1, continuous: true, enabled: false, optedOut: true,
-        sessionId: randomBytes(16).toString("hex"), sequence: 0, clearGeneration: 0, campaign: null, campaignUntil: 0,
+        sessionId: randomId(), sequence: 0, clearGeneration: 0, campaign: null, campaignUntil: 0,
         savedAt: Date.now(), until: 0, dropped: 0, events: [], deliveryLost: 0 });
     const serialize = <T>(action: () => T): Promise<T> => {
         const key = normalized(root);
@@ -285,10 +340,9 @@ export function createDiagnosticFileStorage(deps: {
     }
     function safeDirectories() {
         // Check every ancestor before mkdir, and again before commit; reject junctions.
-        for (let current = root;; current = dirname(current)) {
+        for (const current of ancestors) {
             const info = inspect(current);
             if (info && !info.isDirectory()) throw fail();
-            if (dirname(current) === current) break;
         }
     }
     function safeFile(target: string) {

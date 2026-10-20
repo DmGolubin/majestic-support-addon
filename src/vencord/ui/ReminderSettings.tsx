@@ -34,8 +34,11 @@ export function ReminderSettings({ children }: { children?: React.ReactNode; } =
             </>}
         {(error || deliveryError) && <p className="vc-stx-ticket-error" role="alert">{error || deliveryError}</p>}
         {(error || deliveryError) && phase !== "permission" && phase !== "idle" && <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy || phase === "loading"} onClick={() => void refreshTicketReminders()}>Повторить проверку</button>}
-        <div className="vc-stx-reminder-preview">
-            <button type="button" className="vc-stx-btn vc-stx-ghost" title="Локальное тестовое уведомление" onClick={previewTicketReminderNotification}>Показать уведомление</button>
-        </div>
+        {!settings?.projects.length && <div className="vc-stx-reminder-preview">
+            {(["majestic", "russia-online"] as const).map(project => <button key={project} type="button" className="vc-stx-btn vc-stx-ghost"
+                title="Локальное тестовое уведомление" onClick={() => previewTicketReminderNotification(project)}>
+                Показать уведомление · {project === "majestic" ? "Majestic" : "Россия Онлайн"}
+            </button>)}
+        </div>}
     </section>;
 }

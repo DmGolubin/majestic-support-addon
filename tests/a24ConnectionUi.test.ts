@@ -28,7 +28,8 @@ it("keeps the template window mounted with a notice during retained access, but 
         "./panel": { panel: { use: () => state } },
         "./uiState": { ui: { useSelect: (fn: any) => fn({ windowOpen: true, dialog: null, management: false }) } },
         "./debug": { debugState: { useSelect: () => false } }, "./demo": { demo: { useSelect: () => false } }, "./flow": {} };
-    for (const name of ["ComposeBar", "ContextMenu", "DebugPanel", "DemoBanner", "Dialogs", "InlinePop", "LoginWindow", "Management", "Window"])
+    deps["./reminderNoticeStore"] = { clearReminderNotifications() {} };
+    for (const name of ["ComposeBar", "ContextMenu", "DebugPanel", "DemoBanner", "Dialogs", "InlinePop", "LoginWindow", "Management", "Window", "ReminderNotifications"])
         deps[`./${name}`] = { [name === "InlinePop" ? "Inline" : name]: name };
     const { Host } = load("Host", deps);
     let tree = Host();

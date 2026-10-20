@@ -68,7 +68,7 @@ function filePerformance(now: number, elapsed: number) {
         totalMs: meter.total(now), windowMs: meter.windowMs(now),
         keysMs: sums.keys.ms, inlineMs: sums.inline.ms, renderMs: sums.render.ms,
         searchMs: sums.search.ms, debugMs: sums.debug.ms,
-    });
+    }, false, true); // Telemetry must not schedule a write that generates more telemetry.
 }
 
 function fileGeometry() {
@@ -141,7 +141,7 @@ function applyVerbose() {
  * and counts repeats (held keys, hover, typing) instead of flooding the ring.
  */
 export function dlog(type: string, data: Record<string, unknown> = {}, coalesce?: string) {
-    journal.record("debug", { ...data, event: type }, type === "error");
+    journal.record("debug", { ...data, event: type }, type === "error", type === "longtask");
     if (!enabled) return;
     ring.push(Date.now(), type, data, coalesce);
     console.debug("[SupportTemplates]", type, data);

@@ -16,6 +16,44 @@ afterEach(() => {
     }
 });
 describe("A26 shell directory identity", () => {
+    it.each(["native", "bd-native"])("uses exact inode proof for MSIX aliases through %s", adapter => {
+        const base = temporary(), logical = join(base, "logical"), physical = join(base, "physical");
+        const ino = 2n ** 55n;
+        let physicalIno = ino;
+        const statSync = vi.fn((target: string, options?: { bigint: true }) => {
+            const id = target === logical ? ino : physicalIno;
+            return { mode: options?.bigint ? 0o40700n : 0o40700, isDirectory: () => true,
+                dev: options?.bigint ? 1n : 1, ino: options?.bigint ? id : Number(id) };
+        });
+        const host = { statSync, realpathSync: Object.assign((target: string) => target, { native: () => physical }) };
+        const { diagnosticFileSystem } = sourceModule("betterdiscord/native/diagnosticStorage.ts", {});
+        const filesystem = adapter === "native" ? host : diagnosticFileSystem(host);
+        expect(api.diagnosticShellDirectory(filesystem, logical)).toBe(physical);
+        expect(statSync).toHaveBeenCalledWith(logical, { bigint: true });
+        expect(statSync).toHaveBeenCalledWith(physical, { bigint: true });
+        physicalIno = ino + 1n;
+        expect(Number(physicalIno)).toBe(Number(ino)); // The old production comparison accepted this.
+        expect(() => api.diagnosticShellDirectory(filesystem, logical)).toThrow(ERROR);
+    });
+
+    it.each(["ignored", "rejected", "missing"] as const)("requires canonical path equality when precise stat is %s", capability => {
+        const base = temporary(), logical = join(base, "logical"), physical = join(base, "physical");
+        let destination = logical;
+        const host = {
+            statSync: (_target: string, options?: { bigint: true }) => {
+                if (options && capability === "rejected") throw Error("Unsupported option");
+                return { isDirectory: () => true, ...(capability === "missing" ? {} : { dev: 1, ino: Number(2n ** 55n) }) };
+            },
+            realpathSync: Object.assign((target: string) => target, { native: () => destination })
+        };
+        expect(api.diagnosticShellDirectory(host, logical)).toBe(logical);
+        destination = physical;
+        expect(() => api.diagnosticShellDirectory(host, logical)).toThrow(ERROR);
+        // A JS bridge that resolves both aliases identically needs no bigint support.
+        host.realpathSync = Object.assign(() => physical, { native: () => physical });
+        expect(api.diagnosticShellDirectory(host, logical)).toBe(physical);
+    });
+
     it("uses the native backing path when JS realpath retains a virtual AppData alias", () => {
         const root = temporary(), logical = join(root, "logical"), backing = join(root, "package-cache");
         const stat = { isDirectory: () => true, dev: 1, ino: 42 };

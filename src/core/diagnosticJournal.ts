@@ -219,13 +219,17 @@ export class DiagnosticJournal {
             this.until = 0; this.flush();
         }, Math.max(1, this.until - this.now()));
     }
-    record(event: string, data: Record<string, unknown> = {}, urgent = false): number {
+    record(event: string, data: Record<string, unknown> = {}, urgent = false, passive = false): number {
         if (!this.active) return 0;
         if (this.continuous && event === "debug" && ["key", "keydown", "keyup", "input", "search", "wheel"].includes(String(data.event))) return 0;
         const entry = { seq: ++this.sequence, time: this.now(), event: EVENT.test(event) ? event : "debug", data: diagnosticData(data) };
         this.entries.push(entry);
         while (this.entries.length > DIAGNOSTIC_LIMIT) { this.entries.shift(); this.dropped++; }
         this.unflushed++;
+        // Observer telemetry can describe this journal's own persistence cost.
+        // Keep it in sequence/history, but let ordinary events, export or stop
+        // flush it instead of creating an idle save -> longtask -> save loop.
+        if (passive && !urgent) return entry.seq;
         if (urgent || (this.continuous && this.unflushed >= 100)) this.flush();
         else this.timer ??= setTimeout(() => { this.timer = undefined; this.flush(); }, this.continuous ? 1000 : 5000);
         return entry.seq;

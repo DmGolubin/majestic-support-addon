@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import * as path from "node:path";
+import * as buffer from "node:buffer";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { diagnosticData } from "../src/core/diagnosticJournal";
@@ -12,14 +13,14 @@ export function sourceModule(relative: string, modules: Record<string, unknown>,
         target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS
     } }).outputText;
     const exports: Record<string, any> = {};
-    runInNewContext(code, { exports, Buffer, process, URL, ...globals, require: (id: string) => {
+    runInNewContext(code, { exports, Buffer, process, URL, crypto: crypto.webcrypto, ...globals, require: (id: string) => {
         if (!(id in modules)) throw new Error("Unexpected dependency: " + id);
         return modules[id];
     } });
     return exports;
 }
 export const storageModule = sourceModule("src/vencord/diagnosticFileNative.ts", {
-    crypto, path, "./core/diagnosticJournal": { diagnosticData }
+    crypto, path, buffer, "./core/diagnosticJournal": { diagnosticData }
 });
 export const NOW = 1_800_000_000_000;
 export function payload(patch: Record<string, unknown> = {}) {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { performance } from "node:perf_hooks";
 import { bdRequire, loadAdapter } from "./betterdiscordHarness";
 
 const { JSDOM } = bdRequire("jsdom");
@@ -33,6 +34,26 @@ function fixture() {
 }
 
 describe("BetterDiscord targeted insertion", () => {
+    it("A30 delivers synchronously without a timer/network turn even with an existing draft", () => {
+        const f = fixture(), samples: number[] = [];
+        for (let i = 0; i < 100; i++) {
+            f.slate.children[0].children[0].text = "existing draft ".repeat(100);
+            f.slate.operations.length = 0;
+            const start = performance.now();
+            const result = f.insert("template answer ".repeat(50));
+            samples.push(performance.now() - start);
+            expect(result).toBeUndefined();
+            expect(f.slate.children[0].children[0].text.endsWith("template answer ".repeat(50))).toBe(true);
+        }
+        samples.sort((a, b) => a - b);
+        console.info("A30 BD insertion shim benchmark (mock composer, no browser paint)", {
+            inserts: 100, medianMs: Number(samples[50].toFixed(3)), p95Ms: Number(samples[95].toFixed(3)),
+        });
+        expect(f.owner.handleInsertText).toHaveBeenCalledTimes(100);
+        expect(f.dispatcher.dispatchToLastSubscribed).not.toHaveBeenCalled();
+        f.dom.window.close();
+    });
+
     it("delivers once to the focused composer's own handler, not the global last subscriber", () => {
         const f = fixture();
         f.insert("answer\n**bold**");

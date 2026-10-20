@@ -20,6 +20,8 @@ import { Inline } from "./InlinePop";
 import { LoginWindow } from "./LoginWindow";
 import { Management } from "./Management";
 import { panel } from "./panel";
+import { ReminderNotifications } from "./ReminderNotifications";
+import { clearReminderNotifications } from "./reminderNoticeStore";
 import { ui, UiState } from "./uiState";
 import { Window } from "./Window";
 
@@ -35,6 +37,7 @@ const RESET: Record<string, () => Partial<UiState>> = {
     // The debug panel is not essential: after an error it is switched off (until re-enabled in the settings),
     // a snapshot that keeps throwing would otherwise remount and fail again in a loop.
     debug: () => { setDebugEnabled(false); return {}; },
+    reminders: () => { clearReminderNotifications(); return {}; },
 };
 
 export function Host() {
@@ -71,6 +74,7 @@ export function Host() {
             {safe("dialog", <Dialogs />, dialog ? idOf(dialog) : 0)}
             {debugOn && safe("debug", <DebugPanel />)}
             {management && safe("management", <Management />)}
+            {safe("reminders", <ReminderNotifications />)}
         </div>
     );
 }

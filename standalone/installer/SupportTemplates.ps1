@@ -3,8 +3,10 @@
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Install', 'Repair', 'Uninstall', 'Rollback', 'Status', 'UpdateRenderer')][string]$Action,
+    [ValidateSet('Install', 'Repair', 'Uninstall', 'Rollback', 'Status', 'UpdateRenderer', 'Detect')][string]$Action,
     [ValidateSet('Canary', 'Stable')][string]$Channel,
+    # GUI subprocess pipe encoding; does not affect operation or ownership.
+    [switch]$Utf8Output,
     # Fixture-only overrides: require a marked, specifically named directory under TEMP.
     [string]$TestRoot,
     [string]$LocalAppDataRoot,
@@ -16,6 +18,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
 $script:Utf8 = New-Object Text.UTF8Encoding($false, $true)
+if ($Utf8Output) { [Console]::OutputEncoding = $script:Utf8; $OutputEncoding = $script:Utf8 }
 $script:Fixture = $false
 $script:SimulatedCrash = $false
 $script:Mutex = $null
@@ -293,7 +296,7 @@ function Compare-AppVersion([string]$Left, [string]$Right) {
     }
     return $lp.Length.CompareTo($rp.Length)
 }
-function Select-DiscordChannel([string]$LocalRoot) {
+function Get-DiscordClients([string]$LocalRoot) {
     # Discovery is read-only. Selection never implies permission to close Discord;
     # the existing installer validates ownership, paths and stopped state afterwards.
     $choices = @()
@@ -315,6 +318,10 @@ function Select-DiscordChannel([string]$LocalRoot) {
         }
         if ($found) { $choices += [pscustomobject]@{Channel=$candidate.Channel;Label=$candidate.Label;Path=$client} }
     }
+    return $choices
+}
+function Select-DiscordChannel([string]$LocalRoot) {
+    $choices = @(Get-DiscordClients $LocalRoot)
     Require ($choices.Count -gt 0) 'No supported Discord installation found. Install Discord or Discord Canary first. PTB and portable locations are not supported.'
     Write-Host ''
     Write-Host 'SupportTemplates Lite - Select Discord'
@@ -646,6 +653,10 @@ try {
     }
     Safe-Directory $script:LocalRoot
     Safe-Directory $script:PackageRoot
+    if ($Action -eq 'Detect') {
+        ConvertTo-Json -InputObject @(Get-DiscordClients $script:LocalRoot) -Depth 4 -Compress
+        return
+    }
     if (-not $PSBoundParameters.ContainsKey('Channel')) {
         $selectedChannel = Select-DiscordChannel $script:LocalRoot
         if ([string]::IsNullOrWhiteSpace($selectedChannel)) { Write-Host 'Cancelled. No files changed.'; return }

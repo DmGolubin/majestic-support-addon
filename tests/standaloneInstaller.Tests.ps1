@@ -1,6 +1,6 @@
 # Run with Windows PowerShell 5.1: powershell -NoProfile -File tests/standaloneInstaller.Tests.ps1
 # Every resource, package and runtime path is under a fresh TEMP fixture. No Discord is launched.
-param([string]$PayloadPackageRoot, [string]$Only = '*')
+param([string]$PayloadPackageRoot, [string]$Only = '*', [string]$GuiEvidenceRoot)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
 $installer = Join-Path (Split-Path $PSScriptRoot -Parent) 'standalone/installer'
@@ -126,6 +126,111 @@ function Assert-RendererRecord($f, [string]$version, [string]$previousHash) {
 }
 
 try {
+    Test 'GUI: hidden WPF real backend install/status/remove and responsive controls' {
+        $f = Fixture; $original = Hash "$($f.Resources)/app.asar"
+        Import-Module "$($f.Package)/InstallerGui.psm1" -Force
+        $model = New-InstallerGui $f.Package $f.Root
+        function Wait-Gui($m) {
+            $deadline = [DateTime]::UtcNow.AddSeconds(45)
+            while ($null -ne $m.Job) {
+                Assert ([DateTime]::UtcNow -lt $deadline) 'GUI backend timeout'
+                Update-InstallerOperation $m
+                [Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [Windows.Threading.DispatcherPriority]::Background)
+                Start-Sleep -Milliseconds 30
+            }
+        }
+        try {
+            Assert ($model.Controls.PackageVersion.Text -match '0.1.0-canary.1') 'GUI did not read package version'
+            Assert (-not $model.Controls.Install.IsEnabled) 'GUI selected a default client'
+            $model.Window.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.FrameworkElement]::LoadedEvent)))
+            Assert ($null -ne $model.Job -and -not $model.Controls.Refresh.IsEnabled) 'Operation did not return asynchronously'
+            Assert (-not (Start-InstallerOperation $model Install)) 'Concurrent operation allowed'
+            Wait-Gui $model
+            Assert ($model.LastResult.ExitCode -eq 0) $model.LastResult.Text
+            Assert ($model.Controls.Clients.Items.Count -eq 1 -and $model.Controls.Clients.SelectedIndex -eq -1) 'Detection selected the single client implicitly'
+            $model.Controls.Clients.SelectedIndex = 0
+            Assert $model.Controls.Install.IsEnabled 'Selection event did not enable controls'
+            foreach ($action in @('Status', 'Install', 'Repair', 'Status', 'Uninstall')) {
+                # Exercise the actual WPF callback closure, not a substitute operation.
+                $model.Controls[$action].RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Button]::ClickEvent)))
+                Assert ($null -ne $model.Job -and $model.Job.Action -eq $action) "Wrong button binding: $action"
+                Wait-Gui $model
+                Assert ($model.LastResult.ExitCode -eq 0) $model.LastResult.Text
+                Assert ($model.LastResult.Channel -eq 'Canary') 'Backend channel not explicit'
+            }
+            Assert ((Hash "$($f.Resources)/app.asar") -eq $original) 'GUI uninstall failed to restore original'
+            Assert (Test-Path -LiteralPath "$($f.Local)/SupportTemplates/channels/canary") 'GUI uninstall removed retained data'
+            $stable = "$($f.Local)/Discord/app-1.2.3"
+            Put "$stable/Discord.exe" 'fixture, never executed'
+            [IO.Directory]::CreateDirectory("$stable/resources") | Out-Null
+            New-Asar "$stable/resources/app.asar"
+            $model.Controls.Refresh.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Button]::ClickEvent)))
+            Wait-Gui $model
+            Assert ($model.Controls.Clients.Items.Count -eq 2 -and $model.Controls.Clients.SelectedIndex -eq -1) 'Two-client GUI discovery/explicit choice failed'
+            Assert ($model.Controls.Clients.Items[0].Channel -eq 'Stable') 'Detected client array was nested'
+            $model.Controls.Clients.SelectedIndex = 0
+            Start-InstallerOperation $model Status | Out-Null; Wait-Gui $model
+            Assert ($model.LastResult.Channel -eq 'Stable' -and $model.LastResult.ExitCode -eq 0) 'Stable selection did not reach backend'
+            $model.Controls.Clients.SelectedIndex = 1
+            # Corrupt package: failure must reach the GUI and must not replace original.
+            Put "$($f.Package)/payload/runtime/renderer.js" 'tampered'
+            Start-InstallerOperation $model Install | Out-Null; Wait-Gui $model
+            Assert ($model.LastResult.ExitCode -ne 0 -and $model.Controls.LogDetails.IsExpanded) 'GUI hid backend failure'
+            Assert ((Hash "$($f.Resources)/app.asar") -eq $original) 'GUI bypassed package hash guard'
+            Assert ($model.Controls.Install.IsEnabled -and -not $model.Controls.Progress.IsIndeterminate) 'GUI did not recover controls after failure'
+            if ($GuiEvidenceRoot) {
+                $evidence = [IO.Path]::GetFullPath($GuiEvidenceRoot)
+                Assert ($evidence.StartsWith([IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) 'GUI evidence must stay in TEMP'
+                [IO.Directory]::CreateDirectory($evidence) | Out-Null
+                # Render the owned WPF content directly, without showing a desktop window.
+                $content = $model.Window.Content
+                foreach ($view in @('error', 'ready')) {
+                  if ($view -eq 'ready') { Start-InstallerOperation $model Status | Out-Null; Wait-Gui $model }
+                  foreach ($scale in @(1.0, 1.25)) {
+                    $content.Measure((New-Object Windows.Size(764, 571)))
+                    $content.Arrange((New-Object Windows.Rect(0, 0, 764, 571))); $content.UpdateLayout()
+                    $bitmap = New-Object Windows.Media.Imaging.RenderTargetBitmap([int](764*$scale), [int](571*$scale), (96*$scale), (96*$scale), [Windows.Media.PixelFormats]::Pbgra32)
+                    $bitmap.Render($content)
+                    $encoder = New-Object Windows.Media.Imaging.PngBitmapEncoder
+                    $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
+                    $file = Join-Path $evidence ("gui-{0}-{1}.png" -f $view, [int]($scale*100))
+                    $stream = [IO.File]::Create($file)
+                    try { $encoder.Save($stream) } finally { $stream.Dispose() }
+                    Write-Host "GUI screenshot: $file"
+                  }
+                }
+            }
+            foreach ($exe in @("$stable/Discord.exe", "$($f.Local)/DiscordCanary/app-1.0.9/DiscordCanary.exe")) {
+                Assert ([IO.Path]::GetFullPath($exe).StartsWith([IO.Path]::GetFullPath($f.Root) + '\')) 'Unsafe GUI empty-list fixture'
+                Remove-Item -LiteralPath $exe
+            }
+            Start-InstallerOperation $model Detect | Out-Null; Wait-Gui $model
+            Assert ($model.Controls.Clients.Items.Count -eq 0 -and -not $model.Controls.Install.IsEnabled -and $model.Controls.Refresh.IsEnabled) 'No-clients GUI must disable install and permit retry'
+        } finally { $model.Timer.Stop(); $model.Window.Close() }
+    }
+    Test 'GUI: read-only detection returns both supported channels and empty array without a picker' {
+        $f = Fixture
+        $stable = "$($f.Local)/Discord/app-1.2.3"
+        Put "$stable/Discord.exe" 'fixture, never executed'
+        [IO.Directory]::CreateDirectory("$stable/resources") | Out-Null
+        $before = Tree-State $f.Root
+        $found = Run $f Detect | ConvertFrom-Json
+        Assert ($found.Count -eq 2 -and $found[0].Channel -eq 'Stable' -and $found[1].Channel -eq 'Canary') 'Detect channels incorrect'
+        Assert ((Tree-State $f.Root) -ceq $before) 'Detect wrote files'
+        $empty = Fixture
+        # Remove only fixture executables to make neither app eligible.
+        $exe = [IO.Path]::GetFullPath("$($empty.Local)/DiscordCanary/app-1.0.9/DiscordCanary.exe")
+        Assert ($exe.StartsWith([IO.Path]::GetFullPath($empty.Root) + '\')) 'Unsafe fixture executable'
+        Remove-Item -LiteralPath $exe
+        Assert ((Run $empty Detect).Trim() -eq '[]') 'Empty discovery did not return JSON array'
+    }
+    Test 'GUI: install BAT arguments retain the CLI and WhatIf makes no writes' {
+        $f = Fixture; $before = Tree-State $f.Root
+        $output = & "$($f.Package)/install.bat" -Channel Canary -WhatIf -TestRoot $f.Root -LocalAppDataRoot $f.Local 2>&1
+        Assert ($LASTEXITCODE -eq 0) "BAT CLI failed: $output"
+        Assert (($output -join "`n") -match 'What if:') 'Arguments unexpectedly opened the GUI'
+        Assert ((Tree-State $f.Root) -ceq $before) 'BAT WhatIf changed files'
+    }
     Test 'picker: one client still requires selection; cancel writes nothing' {
         $f = Fixture; $before = Tree-State $f.Root
         $output = Run $f Install -Interactive -Answers @('0')

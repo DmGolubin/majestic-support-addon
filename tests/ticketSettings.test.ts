@@ -386,10 +386,15 @@ describe("A27 playback and notification preview", () => {
     it("triggers notification preview only on its button and preserves both new-ticket checkboxes", () => {
         const h = harness(); const tree = h.render();
         expect(h.previewTicketReminderNotification).not.toHaveBeenCalled();
-        const preview = nodes(tree).find(n => n.type === "button" && text(n) === "Показать уведомление")!;
-        expect(preview.props).toMatchObject({ type: "button", title: "Локальное тестовое уведомление" });
-        preview.props.onClick();
-        expect(h.previewTicketReminderNotification).toHaveBeenCalledOnce();
+        const cards = nodes(tree).filter(n => n.type === "fieldset" && n.props["aria-label"]?.startsWith("Личные напоминания"));
+        expect(cards).toHaveLength(2);
+        for (const card of cards) {
+            const preview = nodes(card).find(n => n.type === "button" && text(n) === "Показать уведомление")!;
+            expect(preview.props.type).toBe("button");
+            expect(preview.props.title).toContain("Тестовое уведомление");
+            preview.props.onClick();
+        }
+        expect(h.previewTicketReminderNotification.mock.calls).toEqual([["majestic"], ["russia-online"]]);
         expect(h.setDiscordReminders).not.toHaveBeenCalled();
         expect(h.testTicketSound).not.toHaveBeenCalled(); expect(h.testReminderSound).not.toHaveBeenCalled();
         const channel = nodes(tree).find(n => n.type === "fieldset")!;

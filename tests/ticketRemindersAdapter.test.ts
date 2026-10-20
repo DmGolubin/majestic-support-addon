@@ -1,10 +1,11 @@
+import { reminderDestination } from "../src/core/reminderDestination";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PanelError } from "../src/core/panelClient";
-import { parseNotificationSettings, type PanelNotificationSettings, type ReminderOptions, type ReminderPlaybackTicket } from "../src/core/panelReminders";
+import { parseAssignedSnapshot, parseNotificationSettings, type PanelNotificationSettings, type ReminderOptions, type ReminderPlaybackTicket } from "../src/core/panelReminders";
 import type { PanelMutation } from "../src/core/panelProtocol";
 
 // Run the actual adapter; replace the engine and host services, retaining the real settings parser.
@@ -59,7 +60,7 @@ interface State {
     deliveryError: string;
 }
 interface Runtime {
-    previewTicketReminderNotification(): void;
+    previewTicketReminderNotification(project?: "majestic" | "russia-online"): void;
     ticketRemindersState: { get(): State; set(patch: Partial<State>): void; };
     syncTicketReminders(binding: Binding): void;
     refreshTicketReminders(): Promise<void>;
@@ -78,7 +79,8 @@ function harness() {
         permissionsRevision: "permissions-v1", current: vi.fn(() => true), onAuthError: vi.fn(),
     };
     const storage = { get: vi.fn(async (_key: string): Promise<unknown> => undefined), set: vi.fn(async (_key: string, _value: unknown) => {}) };
-    const toast = vi.fn();
+    const showReminderNotification = vi.fn();
+    const openReminderChannel = vi.fn(() => true);
     const reminderSoundPolicy = vi.fn<NonNullable<EngineOptions["projectSound"]>>(() => ({ enabled: true, revision: 0 }));
     const playTicketReminder = vi.fn(async (valid: () => boolean, _ticket?: ReminderPlaybackTicket) => valid());
     const prepareTicketSound = vi.fn(), stopTicketReminderSound = vi.fn();
@@ -102,8 +104,11 @@ function harness() {
     });
     const dependencies: Record<string, unknown> = {
         "../core/panelClient": { PanelError },
-        "../core/panelReminders": { createReminderController, parseNotificationSettings },
-        "../platform": { storage, toast },
+        "../core/panelReminders": { createReminderController, parseNotificationSettings, parseAssignedSnapshot },
+        "../platform": { storage },
+        "../core/reminderDestination": { reminderDestination },
+        "../reminderNavigation": { openReminderChannel },
+        "./reminderNoticeStore": { showReminderNotification, clearReminderNotifications: vi.fn() },
         "./ticketSound": { reminderSoundPolicy, playTicketReminder, prepareTicketSound, stopTicketReminderSound },
         "./observable": {
             createObservable<T extends object>(initial: T) {
@@ -116,6 +121,7 @@ function harness() {
     runInNewContext(code, {
         exports,
         Date,
+        performance,
         require: (id: string) => { if (!(id in dependencies)) throw new Error(`Unexpected import: ${id}`); return dependencies[id]; },
     });
     cleanups.push(exports.stopTicketReminders);
@@ -126,25 +132,121 @@ function harness() {
         await exports.refreshTicketReminders();
         expect(exports.ticketRemindersState.get()).toMatchObject({ phase: "ready", settings: initial, busy: false });
     }
-    return { ...exports, client, binding, storage, toast, reminderSoundPolicy, playTicketReminder, prepareTicketSound, stopTicketReminderSound, createReminderController, engines, running, ready,
+    return { ...exports, client, binding, storage, showReminderNotification, openReminderChannel, reminderSoundPolicy, playTicketReminder, prepareTicketSound, stopTicketReminderSound, createReminderController, engines, running, ready,
         state: () => exports.ticketRemindersState.get() };
 }
 
 describe("ticket reminder adapter", () => {
-    it.each([false, true])("manually previews the real toast without API/audio/controller/storage mutations (connected=%s)", async connected => {
+    const mappedTicket = (project: "majestic" | "russia-online" = "majestic"): ReminderPlaybackTicket => ({
+        ticketId: "panel:opaque:42", project, guildId: project === "majestic" ? "530693013622489088" : "1089530150540034181",
+        channelId: "323456789012345678", waitingCycleId: "cycle-1", reminderId: "reminder-1", cycle: 1,
+    });
+    const assigned = (ticket = mappedTicket()) => ({
+        accountId, revision: "assigned-1", serverTime: "2026-10-20T12:00:00Z", checkedAt: "2026-10-20T12:00:00Z",
+        maxAgeSeconds: 75, discordEnabled: true, tickets: [{
+            ...ticket, assigneeAccountId: accountId, state: "waiting_support", waitingSince: "2026-10-20T11:50:00Z", reminderAt: "2026-10-20T11:55:00Z",
+        }],
+    });
+    it.each(["majestic", "russia-online"] as const)("A29 displays %s and opens only the freshly verified exact assignment", async project => {
+        const h = harness(); await h.ready();
+        const ticket = mappedTicket(project);
+        await h.running()[0].options.play(() => true, ticket);
+        const [shownProject, options] = h.showReminderNotification.mock.calls[0];
+        expect(shownProject).toBe(project);
+        expect(options.valid()).toBe(true);
+        h.client.get.mockClear(); h.client.get.mockResolvedValueOnce(assigned(ticket));
+        expect(await options.open(() => true)).toBe(true);
+        expect(h.client.get).toHaveBeenCalledExactlyOnceWith("/tickets/assigned");
+        expect(h.openReminderChannel).toHaveBeenCalledExactlyOnceWith(ticket, expect.any(Function));
+        expect(h.client.mutate).not.toHaveBeenCalled();
+        expect(h.storage.set).not.toHaveBeenCalled();
+    });
+    it.each(["missing", "guild mismatch", "opaque channel"] as const)("A29 shows a non-clickable card when mapping is %s", async reason => {
+        const h = harness(); await h.ready();
+        const ticket = mappedTicket();
+        if (reason === "missing") ticket.channelId = null;
+        if (reason === "guild mismatch") ticket.guildId = "1089530150540034181";
+        if (reason === "opaque channel") ticket.channelId = "42";
+        await h.running()[0].options.play(() => true, ticket);
+        expect(h.showReminderNotification.mock.calls[0][1].open).toBeUndefined();
+        expect(h.openReminderChannel).not.toHaveBeenCalled();
+    });
+    it.each(["account", "assignee", "answered", "cycle", "channel", "guild", "missing", "disabled", "stale"] as const)("A29 refuses click after %s changes", async reason => {
+        const h = harness(); await h.ready();
+        await h.running()[0].options.play(() => true, mappedTicket());
+        const options = h.showReminderNotification.mock.calls[0][1];
+        const data = assigned();
+        if (reason === "account") data.accountId = otherAccountId;
+        if (reason === "assignee") data.tickets[0].assigneeAccountId = otherAccountId;
+        if (reason === "answered") Object.assign(data.tickets[0], { state: "waiting_player", waitingSince: null, waitingCycleId: null, reminderAt: null, reminderId: null });
+        if (reason === "cycle") data.tickets[0].waitingCycleId = "new-cycle";
+        if (reason === "channel") data.tickets[0].channelId = "423456789012345678";
+        if (reason === "guild") data.tickets[0].guildId = "1089530150540034181";
+        if (reason === "missing") data.tickets = [];
+        if (reason === "disabled") data.discordEnabled = false;
+        if (reason === "stale") data.checkedAt = "2026-10-20T11:58:00Z";
+        h.client.get.mockResolvedValueOnce(data);
+        expect(await options.open(() => true)).toBe(false);
+        expect(h.openReminderChannel).not.toHaveBeenCalled();
+        expect(h.client.mutate).not.toHaveBeenCalled();
+    });
+    it.each(["dismiss", "logout", "account", "permissions"] as const)("A29 cancels an in-flight click on %s", async reason => {
+        const h = harness(); await h.ready();
+        await h.running()[0].options.play(() => true, mappedTicket());
+        const options = h.showReminderNotification.mock.calls[0][1];
+        const response = deferred<unknown>(); h.client.get.mockReturnValueOnce(response.promise);
+        let live = true;
+        const pending = options.open(() => live);
+        if (reason === "dismiss") live = false;
+        if (reason === "logout") h.stopTicketReminders();
+        if (reason === "account") (h.binding.current as ReturnType<typeof vi.fn>).mockReturnValue(false);
+        if (reason === "permissions") h.binding.scopes = [];
+        response.resolve(assigned());
+        expect(await pending).toBe(false);
+        expect(h.openReminderChannel).not.toHaveBeenCalled();
+    });
+    it("A29 honors navigation Retry-After without repeated reads", async () => {
+        const h = harness(); await h.ready();
+        await h.running()[0].options.play(() => true, mappedTicket());
+        const options = h.showReminderNotification.mock.calls[0][1];
+        h.client.get.mockClear();
+        h.client.get.mockRejectedValueOnce(new PanelError("rate_limited", 429, 120000));
+        expect(await options.open(() => true)).toBe(false);
+        expect(await options.open(() => true)).toBe(false);
+        expect(h.client.get).toHaveBeenCalledOnce();
+        expect(h.openReminderChannel).not.toHaveBeenCalled();
+    });
+    it("A29 routes a click's 401 through existing auth invalidation without navigation", async () => {
+        const h = harness(); await h.ready();
+        await h.running()[0].options.play(() => true, mappedTicket());
+        const failure = new PanelError("session_revoked", 401);
+        h.client.get.mockRejectedValueOnce(failure);
+        expect(await h.showReminderNotification.mock.calls[0][1].open(() => true)).toBe(false);
+        expect(h.binding.onAuthError).toHaveBeenCalledExactlyOnceWith(failure);
+        expect(h.openReminderChannel).not.toHaveBeenCalled();
+    });
+    it.each(["majestic", "russia-online"] as const)("A29 manual %s preview passes no navigation closure or fake record", project => {
+        const h = harness();
+        h.previewTicketReminderNotification(project);
+        expect(h.showReminderNotification).toHaveBeenCalledExactlyOnceWith(project);
+        expect(h.client.get).not.toHaveBeenCalled();
+        expect(h.playTicketReminder).not.toHaveBeenCalled();
+        expect(h.openReminderChannel).not.toHaveBeenCalled();
+    });
+    it.each([false, true])("manually previews the real showReminderNotification without API/audio/controller/storage mutations (connected=%s)", async connected => {
         const h = harness(); if (connected) await h.ready();
         const before = structuredClone(h.state());
         for (const spy of [h.client.get, h.client.mutate, h.storage.get, h.storage.set, h.createReminderController, h.stopTicketReminderSound, h.prepareTicketSound]) spy.mockClear();
-        expect(h.toast).not.toHaveBeenCalled();
+        expect(h.showReminderNotification).not.toHaveBeenCalled();
         h.previewTicketReminderNotification();
-        expect(h.toast).toHaveBeenCalledExactlyOnceWith("Тестовое уведомление: Игрок ждёт ответа в назначенном вам тикете", "message");
+        expect(h.showReminderNotification).toHaveBeenCalledExactlyOnceWith("majestic");
         expect(h.state()).toEqual(before);
         for (const spy of [h.client.get, h.client.mutate, h.storage.get, h.storage.set, h.createReminderController, h.stopTicketReminderSound, h.prepareTicketSound, h.playTicketReminder]) expect(spy).not.toHaveBeenCalled();
     });
 
-    it("contains host toast failures during manual preview without changing reminder state", () => {
+    it("contains host showReminderNotification failures during manual preview without changing reminder state", () => {
         const h = harness(); const before = structuredClone(h.state());
-        h.toast.mockImplementationOnce(() => { throw Error("host unavailable"); });
+        h.showReminderNotification.mockImplementationOnce(() => { throw Error("host unavailable"); });
         expect(() => h.previewTicketReminderNotification()).not.toThrow();
         expect(h.state()).toEqual(before); expect(h.client.get).not.toHaveBeenCalled();
     });
@@ -170,7 +272,7 @@ describe("ticket reminder adapter", () => {
         const disabling = h.setDiscordReminders(false);
         decode.resolve(); expect(await playing).toBe(false); expect(started).toBe(false);
         expect(h.stopTicketReminderSound).toHaveBeenCalled();
-        expect(h.toast).not.toHaveBeenCalled();
+        expect(h.showReminderNotification).not.toHaveBeenCalled();
         patch.resolve(settings(false, "v2")); await disabling;
     });
 
@@ -193,10 +295,11 @@ describe("ticket reminder adapter", () => {
         expect(h.stopTicketReminderSound).toHaveBeenCalledOnce();
         write.resolve(settings(false, "v3")); await disabling;
     });
-    it("does not reject a successful audio receipt when the host toast fails", async () => {
+    it("does not reject a successful audio receipt when the host showReminderNotification fails", async () => {
         const h = harness(); await h.ready();
-        h.toast.mockImplementation(() => { throw Error("host disposed"); });
-        await expect(h.running()[0].options.play(() => true)).resolves.toBe(true);
+        h.showReminderNotification.mockImplementation(() => { throw Error("host disposed"); });
+        await expect(h.running()[0].options.play(() => true, { ticketId: "42", project: "majestic", guildId: null, channelId: null,
+            waitingCycleId: "cycle", reminderId: "reminder", cycle: 1 })).resolves.toBe(true);
     });
     it.each([[], ...scopes.map(missing => scopes.filter(scope => scope !== missing))].map(granted => ({ granted })))(
         "requires every requested scope before reading or mutating ($granted)", async ({ granted }) => {
@@ -416,7 +519,7 @@ describe("ticket reminder adapter", () => {
         await expect(engine.options.play(() => true)).resolves.toBe(false);
         expect(h.state()).toEqual(idle);
         expect(h.playTicketReminder).not.toHaveBeenCalled();
-        expect(h.toast).not.toHaveBeenCalled();
+        expect(h.showReminderNotification).not.toHaveBeenCalled();
     });
 
     it.each(["read", "patch"] as const)("switching accounts clears state and rejects the previous account's late %s", async operation => {
@@ -483,7 +586,7 @@ describe("ticket reminder adapter", () => {
         });
         await expect(h.engines[0].options.play(() => true)).resolves.toBe(false);
         expect(h.playTicketReminder).not.toHaveBeenCalled();
-        expect(h.toast).not.toHaveBeenCalled();
+        expect(h.showReminderNotification).not.toHaveBeenCalled();
     });
 
     it("disables the engine context and never plays after switching Discord reminders off", async () => {
@@ -496,7 +599,7 @@ describe("ticket reminder adapter", () => {
         await expect(engine.options.play(() => true)).resolves.toBe(false);
         for (const e of h.engines) await expect(e.options.play(() => true)).resolves.toBe(false);
         expect(h.playTicketReminder).not.toHaveBeenCalled();
-        expect(h.toast).not.toHaveBeenCalled();
+        expect(h.showReminderNotification).not.toHaveBeenCalled();
     });
 
     it("checks the engine validity guard before invoking sound", async () => {
@@ -505,9 +608,10 @@ describe("ticket reminder adapter", () => {
         const play = h.running()[0].options.play;
         await expect(play(() => false)).resolves.toBe(false);
         expect(h.playTicketReminder).not.toHaveBeenCalled();
-        await expect(play(() => true)).resolves.toBe(true);
+        await expect(play(() => true, { ticketId: "42", project: "majestic", guildId: null, channelId: null,
+            waitingCycleId: "cycle", reminderId: "reminder", cycle: 1 })).resolves.toBe(true);
         expect(h.playTicketReminder).toHaveBeenCalledOnce();
-        expect(h.toast).toHaveBeenCalledExactlyOnceWith("Игрок ждёт ответа в назначенном вам тикете", "message");
+        expect(h.showReminderNotification).toHaveBeenCalledExactlyOnceWith("majestic", { valid: expect.any(Function) });
     });
 
     it.each(["engine", "stop", "busy", "disabled"] as const)("rechecks %s validity inside deferred audio playback", async invalidation => {
@@ -529,7 +633,7 @@ describe("ticket reminder adapter", () => {
         }
         audio.resolve();
         await expect(playing).resolves.toBe(false);
-        expect(h.toast).not.toHaveBeenCalled();
+        expect(h.showReminderNotification).not.toHaveBeenCalled();
         if (invalidation === "busy") { write.resolve(settings(false, "disabled-v2")); await updating; }
     });
 
