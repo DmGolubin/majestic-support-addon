@@ -33,9 +33,9 @@ C · Панель. Владелец сообщил о неподтверждён
 
 ### D16 · Выбор установленного Discord при запуске полного Vencord
 
-D · Доставка. 20.10: пользователь выбрал Stable; обнаружена прежняя dev-установка Vencord. После закрытия Discord сделана локальная резервная копия, штатный Vencord CLI снял прежнюю инъекцию; .24-setup2 Install/Status успешны для Stable. 35 payload-хешей и installer SHA проверены, 3 файла профиля не изменились, оригинал Discord совпал с резервной копией. Клиент запущен; отображение плагина/вставка/вход требуют живой приёмки. Автоматическая миграция чужих установок не добавлялась.
+D · Доставка. 20.10: живой запуск выявил два блокера .24/.25: Electron fs считает ASAR папкой, асинхронная подготовка обновления пропускает раннюю инициализацию Discord/Sentry. В полном Vencord .26 исправлены физические проверки original-fs и синхронный native startup; новые версии готовятся отдельно для следующего запуска. 14 Node, 95 updater, 12 реальных Electron проверок и TEMP-установка финального payload прошли. .26 установлена в Stable, свежий журнал 11:19:36 подтверждает Starting plugin SupportTemplates и остальные включённые плагины. Canary/BD не изменены; UI/вставка после обновления ещё требуют приёмки, GitHub-публикации нет.
 
-Основание: [2026-10-20-installer-picker.md](audits/2026-10-20-installer-picker.md), [2026-10-20-installer-picker-results.json](audits/2026-10-20-installer-picker-results.json).
+Основание: [2026-10-20-installer-picker.md](audits/2026-10-20-installer-picker.md), [2026-10-20-installer-picker-results.json](audits/2026-10-20-installer-picker-results.json), [2026-10-20-vencord-startup.md](audits/2026-10-20-vencord-startup.md).
 
 ### Q19 · Закрыть блокер QuickCSS и подготовить три сборки .24
 
