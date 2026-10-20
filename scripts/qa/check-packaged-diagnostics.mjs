@@ -21,6 +21,16 @@ const releaseManifest = JSON.parse(fs.readFileSync(path.join(release, 'support-t
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const results = [];
 const normalize = value => value.replaceAll('\r\n', '\n');
+// Public releases contain Lite + BetterDiscord. The owner's full build can be
+// checked explicitly without copying it into the public release directory.
+const nativeAssets = releaseManifest.assets.filter(a => a.variant === 'standalone' || a.variant === 'vencord')
+    .map(asset => ({ asset, archive: memberPath(release, asset.name) }));
+assert.ok(nativeAssets.some(({ asset }) => asset.variant === 'standalone'), 'Lite package is required');
+if (process.argv[4]) {
+    assert.ok(!nativeAssets.some(({ asset }) => asset.variant === 'vencord'), 'Duplicate full Vencord package');
+    const archive = path.resolve(process.argv[4]);
+    nativeAssets.push({ archive, asset: { variant: 'vencord', name: path.basename(archive), sha256: sha(fs.readFileSync(archive)) } });
+}
 function memberPath(base, name) {
     if (typeof name !== 'string' || !name || /[\\:\u0000-\u001f\u007f]/.test(name)
         || name.split('/').some(part => !part || part === '.' || part === '..')) throw Error('Unsafe package member path');
@@ -29,11 +39,10 @@ function memberPath(base, name) {
     return resolved;
 }
 
-for (const variant of ['vencord', 'standalone']) {
+for (const { asset, archive } of nativeAssets) {
+    const variant = asset.variant;
     const assertions = [];
     const check = (name, condition) => { assert.ok(condition, `${variant}: ${name}`); assertions.push(name); };
-    const asset = releaseManifest.assets.find(a => a.variant === variant);
-    const archive = memberPath(release, asset.name);
     check('release archive hash', sha(fs.readFileSync(archive)) === asset.sha256);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'support-templates-package-qa-'));
     try {
@@ -150,6 +159,7 @@ for (const variant of ['vencord', 'standalone']) {
     const exported = await downloaded.text();
     const report = JSON.parse(exported);
     check('JSON download', clicked && report.version === manifest.version);
+    check('diagnostic export identifies distribution', report.distribution === variant);
     check('request failure records status and reason', report.journal.events.some(e => e.event === 'request.failure' && e.data.status === 401 && e.data.code === 'session_revoked'));
     check('no token or response body in export', !exported.includes('PRIVATE_'));
     api.stopDiagnostics(); api.startDiagnostics();

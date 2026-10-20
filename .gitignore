@@ -1,6 +1,7 @@
 node_modules
 /artifacts/standalone/
 /artifacts/distribution/
+/artifacts/private-vencord/
 /artifacts/ui18/
 /artifacts/memory19/
 __pycache__/
