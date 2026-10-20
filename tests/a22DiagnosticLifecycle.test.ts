@@ -2,34 +2,84 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ts from "typescript";
 import { DiagnosticJournal, diagnosticData } from "../src/core/diagnosticJournal";
 import { createDiagnosticPersistence } from "../src/core/diagnosticPersistence";
+import { createDiagnosticBackup } from "../src/core/diagnosticBackup";
 import { evaluate, source } from "./betterdiscordHarness";
 
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(1_800_000_000_000); });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
-function fixture(load?: () => Promise<{ path: string; state: string | null }>) {
+function fixture(load?: () => Promise<{ path: string; state: string | null }>, localAvailable = true, hostValues = new Map<string, unknown>()) {
     const journal = new DiagnosticJournal(), local = new Map(), listeners = new Set(), subscribers = new Set();
     let disk: string | null = null;
     const save = vi.fn(async (report: string) => { disk = report; return { path: "fixture/main.log" }; });
     const open = vi.fn(async () => {});
     const subscribe = (fn: unknown) => { subscribers.add(fn); return () => subscribers.delete(fn); };
     const events = { addEventListener: (_name: string, fn: unknown) => listeners.add(fn), removeEventListener: (_name: string, fn: unknown) => listeners.delete(fn) };
+    const hostStorage = { get: vi.fn(async (key: string) => hostValues.get(key)),
+        set: vi.fn(async (key: string, value: unknown) => { hostValues.set(key, value); }) };
+    const window = { ...events, innerWidth: 1000, innerHeight: 800,
+        ...(localAvailable ? { localStorage: { getItem: (key: string) => local.get(key) ?? null, setItem: (key: string, value: string) => local.set(key, value) } } : {}) };
+    const backup = evaluate(ts.transpileModule(source("src/vencord/ui/diagnosticBackup.ts"), {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+    }).outputText, {
+        "../core/diagnosticBackup": { createDiagnosticBackup },
+        "../core/interactionIdle": { waitForInteractionIdle: async () => {} },
+        "../platform": { storage: hostStorage }
+    }, { window });
     const api = evaluate(ts.transpileModule(source("src/vencord/ui/diagnostics.ts"), {
         compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
     }).outputText, {
         "../buildInfo": { PLUGIN_VERSION: "1.0.1-canary.28", PLUGIN_BUILD: "test", PLUGIN_DISTRIBUTION: "standalone" },
         "../core/diagnosticJournal": { diagnosticJournal: journal, diagnosticData },
         "../core/diagnosticPersistence": { createDiagnosticPersistence },
+        "./diagnosticBackup": backup,
         "../diagnosticStorage": { openDiagnosticStorageFolder: open, loadDiagnosticStorage: load ?? (async () => ({ path: "fixture/main.log", state: disk ? JSON.stringify(JSON.parse(disk).journal) : null })), saveDiagnosticStorage: save },
         "./debug": { debugFileSnapshot: () => ({}) },
         "./panel": { panel: { get: () => ({ phase: "ready", sync: "live", persistent: true }), subscribe } },
         "./uiState": { ui: { get: () => ({ compose: [], windowOpen: false, management: false }), subscribe },
             store: { data: { favorites: [], recent: [], binds: {} }, templates: [], subscribe } }
-    }, { Date, navigator: { onLine: true }, window: { ...events, innerWidth: 1000, innerHeight: 800,
-        localStorage: { getItem: (key: string) => local.get(key) ?? null, setItem: (key: string, value: string) => local.set(key, value) } },
+    }, { Date, navigator: { onLine: true }, window,
     document: { ...events, visibilityState: "visible" } });
-    return { api, journal, save, open, local, listeners, subscribers, disk: () => disk };
+    return { api, journal, save, open, local, listeners, subscribers, hostStorage, hostValues, disk: () => disk };
 }
 describe("file diagnostics plugin lifecycle", () => {
+    it("keeps a working backup when the Discord host removes window.localStorage", async () => {
+        const h = fixture(undefined, false);
+        await h.api.startDiagnostics();
+        expect(h.api.diagnosticStorageStatus().localError).toBe(false);
+        h.api.setRecording(false);
+        h.api.stopDiagnostics();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(h.api.diagnosticStorageStatus().localError).toBe(false);
+        expect(h.hostStorage.set).toHaveBeenCalled();
+        expect(JSON.parse(h.hostValues.get("SupportTemplates_diagnostics_v1") as string).optedOut).toBe(true);
+        await h.api.startDiagnostics();
+        expect(h.journal.active).toBe(false);
+        h.api.stopDiagnostics(); await vi.advanceTimersByTimeAsync(0);
+        const restarted = fixture(undefined, false, h.hostValues);
+        await restarted.api.startDiagnostics();
+        expect(restarted.journal.active).toBe(false); // Restore from host storage, not queue memory.
+        restarted.api.stopDiagnostics(); await vi.advanceTimersByTimeAsync(0);
+    });
+    it("migrates a legacy browser opt-out only when the host has no backup", async () => {
+        const h = fixture();
+        h.local.set("SupportTemplates_diagnostics_v1", JSON.stringify({ schema: 1, continuous: true,
+            optedOut: true, enabled: false, savedAt: Date.now(), events: [] }));
+        await h.api.startDiagnostics(); expect(h.journal.active).toBe(false);
+        h.api.stopDiagnostics(); await vi.advanceTimersByTimeAsync(0);
+        expect(JSON.parse(h.hostValues.get("SupportTemplates_diagnostics_v1") as string).optedOut).toBe(true);
+        expect(h.local.size).toBe(1); // Legacy history is not deleted.
+    });
+    it("reports a rejected host write while primary logging works, then clears only on successful retry", async () => {
+        const h = fixture(undefined, false);
+        h.hostStorage.set.mockRejectedValueOnce(Error("backup write failed"));
+        await h.api.startDiagnostics(); await vi.advanceTimersByTimeAsync(1000);
+        expect(h.api.diagnosticStorageStatus()).toMatchObject({ fileError: false, localError: true, deliveryLost: 0 });
+        expect(h.disk()).not.toBeNull();
+        h.api.retryDiagnosticFile(); await vi.advanceTimersByTimeAsync(0);
+        expect(h.api.diagnosticStorageStatus().localError).toBe(false);
+        expect(h.hostValues.has("SupportTemplates_diagnostics_v1")).toBe(true);
+        h.api.stopDiagnostics(); await vi.advanceTimersByTimeAsync(0);
+    });
     it("opens prior logs before recording starts and propagates bridge failures for actionable UI", async () => {
         const h = fixture();
         await h.api.openDiagnosticFolder();

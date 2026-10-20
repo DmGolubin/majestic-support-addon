@@ -5,6 +5,7 @@ import * as buffer from "node:buffer";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { diagnosticData } from "../src/core/diagnosticJournal";
+import * as interactionIdle from "../src/core/interactionIdle";
 
 export const ERROR = "Diagnostic storage operation failed.";
 export function sourceModule(relative: string, modules: Record<string, unknown>, globals: Record<string, unknown> = {}) {
@@ -14,6 +15,7 @@ export function sourceModule(relative: string, modules: Record<string, unknown>,
     } }).outputText;
     const exports: Record<string, any> = {};
     runInNewContext(code, { exports, Buffer, process, URL, crypto: crypto.webcrypto, ...globals, require: (id: string) => {
+        if (!(id in modules) && id === "../../src/core/interactionIdle") return interactionIdle;
         if (!(id in modules)) throw new Error("Unexpected dependency: " + id);
         return modules[id];
     } });

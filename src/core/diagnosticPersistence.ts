@@ -2,6 +2,7 @@
 // Bounded, coalesced local-file persistence. Disk/network failures never escape
 // into plugin actions. No timers run while the journal is idle.
 import { diagnosticOptOut } from "./diagnosticJournal";
+import { DiagnosticBackup } from "./diagnosticBackup";
 
 export const DIAGNOSTIC_QUEUE_LIMIT = 10_000;
 const QUEUE_BYTES = 4 * 1024 * 1024;
@@ -14,15 +15,18 @@ export interface DiagnosticFileStatus {
     deliveryLost: number;
 }
 export function createDiagnosticPersistence(options: {
-    localRead(): string | null;
-    localWrite(value: string): void;
+    localRead?(): string | null;
+    localWrite?(value: string): void;
+    backup?: DiagnosticBackup;
     load(): Promise<{ path: string; state: string | null; }>;
     save(report: string): Promise<{ path: string; }>;
     report(state: string): string;
     now?: () => number;
 }) {
     const now = options.now ?? Date.now;
-    const status: DiagnosticFileStatus = { path: "", initializing: true, fileError: false, localError: false, lastSavedAt: 0, deliveryLost: 0 };
+    let localError = false, backupControl = "";
+    const status: DiagnosticFileStatus = { path: "", initializing: true, fileError: false,
+        get localError() { return options.backup?.failed ?? localError; }, lastSavedAt: 0, deliveryLost: 0 };
     let pending: string | null = null, writing = false, finishing = false, retryAt = 0;
     type Saved = { continuous: boolean; sessionId: string; clearGeneration: number; events: { seq: number; [key: string]: unknown }[]; [key: string]: unknown };
     let latest: Saved | null = null, stream = "", seen = 0, dirty = false, historyThrough = 0;
@@ -77,7 +81,10 @@ export function createDiagnosticPersistence(options: {
         status,
         async read() {
             let local: string | null = null, file: string | null = null;
-            try { local = options.localRead(); } catch { status.localError = true; }
+            const localRead = (async () => {
+                try { local = options.backup ? await options.backup.read() : options.localRead?.() ?? null; }
+                catch { localError = true; }
+            })();
             let timeout: ReturnType<typeof setTimeout> | undefined;
             try {
                 const loaded = await Promise.race([
@@ -86,7 +93,9 @@ export function createDiagnosticPersistence(options: {
                 ]);
                 status.path = loaded.path; file = loaded.state;
             } catch { status.fileError = true; retryAt = now() + 30_000; }
-            finally { clearTimeout(timeout); status.initializing = false; }
+            finally { clearTimeout(timeout); }
+            await localRead;
+            status.initializing = false;
             // A failed file write must not revive an older opt-in after reload.
             const stamp = (raw: string | null) => {
                 try {
@@ -140,8 +149,11 @@ export function createDiagnosticPersistence(options: {
             return selected;
         },
         write(state: string) {
+            let important = false;
             try {
                 const data = JSON.parse(state) as Saved;
+                const control = JSON.stringify([data.continuous, data.enabled, data.optedOut, data.until, data.clearGeneration]);
+                important = control !== backupControl; backupControl = control;
                 if (data.continuous && /^[a-f0-9]{32}$/.test(data.sessionId) && Number.isSafeInteger(data.clearGeneration)) {
                     const nextStream = `${data.sessionId}:${data.clearGeneration}`;
                     if (stream !== nextStream) {
@@ -164,14 +176,16 @@ export function createDiagnosticPersistence(options: {
                     state = JSON.stringify({ ...data, deliveryLost: status.deliveryLost });
                 } else pending = options.report(state);
             } catch { status.fileError = true; return; }
-            try { options.localWrite(state); status.localError = false; } catch { status.localError = true; }
+            if (options.backup) options.backup.write(state, important);
+            else try { options.localWrite?.(state); localError = false; } catch { localError = true; }
             schedule();
         },
         finish() {
             finishing = true;
             clearTimeout(timer); timer = undefined;
             pump();
+            options.backup?.finish();
         },
-        retry() { retryAt = 0; schedule(); },
+        retry() { retryAt = 0; schedule(); options.backup?.retry(); },
     };
 }

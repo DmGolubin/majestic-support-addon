@@ -3,7 +3,13 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (1)
+## В работе (2)
+
+### A30 · Проверить задержки BetterDiscord
+
+A · Интерфейс. Продолжение по запросу владельца: профиль живого BetterDiscord, устранение задержек перетаскивания и рабочая резервная копия логов вместо localStorage. Изменения через PR для проверки Дмитрием.
+
+Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md).
 
 ### C06 · Двусторонние личные шаблоны
 
@@ -11,17 +17,11 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (46)
+## Реализовано · нужна приёмка (45)
 
 ### A29 · Уведомления по серверам и настройки Discord
 
 A · Интерфейс. .37 собрана из ab04485f и установлена в BetterDiscord Canary. Карточки Majestic/РО с проверяемым переходом, отдельные preview; новые тикеты — только звук. Убрана карточка Подключение, оформление Discord и единая подпись версии. 2479 тестов, обе проверки типов, 197 browser checks и живые preview прошли. Реальный просроченный тикет/переход и звук остаются приёмкой; отдельные пороги Discord ждут API Дмитрия.
-
-Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md).
-
-### A30 · Проверить задержки BetterDiscord
-
-A · Интерфейс. RAF, переиспользование строк, сокращение native bridge-вызовов и устранение цикла диагностических записей реализованы. Точная .37 в активном Canary: вставки до кадра 26/381/13 мс; в другом прогоне DOM 10–16 мс, кадр около 1 с, Playwright около 3 с — причина различия не доказана. При drag сохраняются кадры до 196 мс; полное устранение зависаний не заявляется. Черновик восстановлен, сообщения не отправлялись. main.log исправен, loss0, резервная localStorage-копия в BD недоступна. Нужна приёмка владельца.
 
 Основание: [2026-10-20-notifications-bd-and-distribution.md](docs/audits/2026-10-20-notifications-bd-and-distribution.md).
 

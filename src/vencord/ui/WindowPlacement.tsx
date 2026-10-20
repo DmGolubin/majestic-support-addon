@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { React, useEffect, useRef, useState } from "@webpack/common";
 import { DEFAULT_WINDOW_SIZE, WindowSize } from "../core/layout";
+import { beginInteraction } from "../core/interactionIdle";
 import { FloatingBox, moveFloatingBox, readWindowPosition, resizeFloatingBox, WINDOW_EDGES, WindowEdge, WindowPosition } from "../core/windowPlacement";
 import { storage } from "../platform";
 
@@ -30,6 +31,7 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
     const drag = useRef<{
         pointerId: number; el: HTMLButtonElement; x: number; y: number; edge: WindowEdge | null;
         box: FloatingBox; before: WindowPosition | null; size: WindowSize | null; next: FloatingBox; side: boolean;
+        endInteraction(): void;
     } | null>(null);
     const frame = useRef<number | null>(null);
     const cancelFrame = () => {
@@ -44,6 +46,7 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
         const d = drag.current; if (!d) return;
         drag.current = null;
         cancelFrame();
+        d.endInteraction();
         if (d.el.hasPointerCapture?.(d.pointerId)) d.el.releasePointerCapture(d.pointerId);
         const moved = d.next.right !== d.box.right || d.next.bottom !== d.box.bottom || d.next.width !== d.box.width || d.next.height !== d.box.height;
         if (commit && !moved) { placement.set(d.before, false); if (d.edge) setSize(d.size); return; }
@@ -60,6 +63,7 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
         const cancel = () => latestFinish.current(false);
         window.addEventListener("blur", cancel);
         return () => { window.removeEventListener("blur", cancel); const d = drag.current; drag.current = null; cancelFrame();
+            d?.endInteraction();
             if (d?.el.hasPointerCapture?.(d.pointerId)) d.el.releasePointerCapture(d.pointerId); };
     }, []);
     const start = (e: React.PointerEvent<HTMLButtonElement>, edge: WindowEdge | null) => {
@@ -67,7 +71,7 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
         e.preventDefault(); e.stopPropagation(); e.currentTarget.focus();
         e.currentTarget.setPointerCapture(e.pointerId);
         drag.current = { pointerId: e.pointerId, el: e.currentTarget, x: e.clientX, y: e.clientY, edge,
-            box, before: placement.position, size, next: box, side };
+            box, before: placement.position, size, next: box, side, endInteraction: beginInteraction() };
     };
     const apply = (b: FloatingBox, edge: WindowEdge | null, original: WindowSize | null, persist: boolean, useSide = side) => {
         placement.set({ right: b.right, bottom: b.bottom, pinned: false }, persist);

@@ -6,8 +6,8 @@ import { loadDiagnosticStorage, saveDiagnosticStorage, openDiagnosticStorageFold
 import { debugFileSnapshot } from "./debug";
 import { panel } from "./panel";
 import { store, ui } from "./uiState";
+import { diagnosticBackup } from "./diagnosticBackup";
 
-const KEY = "SupportTemplates_diagnostics_v1";
 let cleanup: (() => void) | null = null;
 let watches: (() => void)[] = [];
 let generation = 0;
@@ -61,8 +61,7 @@ export function startDiagnostics(): Promise<void> {
 async function initializeDiagnostics() {
     const gen = ++generation;
     const disk = createDiagnosticPersistence({
-        localRead: () => window.localStorage.getItem(KEY),
-        localWrite: value => window.localStorage.setItem(KEY, value),
+        backup: diagnosticBackup,
         load: loadDiagnosticStorage, save: saveDiagnosticStorage,
         report: state => report(JSON.parse(state)),
     });

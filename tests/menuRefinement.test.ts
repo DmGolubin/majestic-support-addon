@@ -7,6 +7,7 @@ import * as layout from "../src/core/layout";
 import * as rank from "../src/core/rank";
 import * as search from "../src/core/search";
 import * as windowPlacement from "../src/core/windowPlacement";
+import * as interactionIdle from "../src/core/interactionIdle";
 import * as types from "../src/core/types";
 import { PROJECTS, Template } from "../src/core/types";
 
@@ -128,7 +129,8 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
         requestAnimationFrame: (fn: () => void) => { frames.set(++nextFrame, fn); return nextFrame; },
         cancelAnimationFrame: (id: number) => { frames.delete(id); },
     };
-    const placementDeps = { "../core/layout": layout, "../core/windowPlacement": windowPlacement, "../platform": { storage }, "./window-placement.css": {} };
+    const placementDeps = { "../core/layout": layout, "../core/windowPlacement": windowPlacement,
+        "../core/interactionIdle": interactionIdle, "../platform": { storage }, "./window-placement.css": {} };
     const placementHooks = load(placementCode, { ...placementDeps, "@webpack/common": h.api }, { window: viewport });
     const placementControls = load(placementCode, { ...placementDeps, "@webpack/common": frame.api }, frameGlobals);
     const exports = load(windowCode, {

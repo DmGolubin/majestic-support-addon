@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { bdRequire, evaluate, root } from "./betterdiscordHarness";
 import { bridgeFS, ERROR, report, sourceModule, storageModule } from "./a22DiagnosticStorageHarness";
+import { createInteractionIdle } from "../src/core/interactionIdle";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -166,6 +167,25 @@ describe("A22 lazy renderer and BD host bridges", () => {
         const saved = await bridge.saveDiagnosticStorage(report());
         expect(saved.path).toBe(join(base, "diagnostics", "main.log"));
         expect(JSON.parse((await bridge.loadDiagnosticStorage()).state).schema).toBe(1);
+    });
+    it("BD leaves native files untouched during a pointer gesture and writes the report afterwards", async () => {
+        vi.useFakeTimers();
+        try {
+            const base = temporary(), gate = createInteractionIdle();
+            const bridge = sourceModule("betterdiscord/native/diagnosticStorage.ts", {
+                fs: bridgeFS(), path: { join }, "./paths": { installationPaths: () => ({ root: base }) },
+                "../../src/vencord/diagnosticFileNative": storageModule,
+                "../../src/core/interactionIdle": gate,
+            });
+            const end = gate.beginInteraction();
+            const saved = bridge.saveDiagnosticStorage(report());
+            await vi.advanceTimersByTimeAsync(30_000);
+            expect(fs.existsSync(join(base, "diagnostics", "main.log"))).toBe(false);
+            end();
+            await vi.advanceTimersByTimeAsync(150);
+            await saved;
+            expect(fs.readFileSync(join(base, "diagnostics", "main.log"), "utf8")).toContain("request.start");
+        } finally { vi.useRealTimers(); }
     });
     it("BD unsupported imports stay lazy and failed initialization can retry", async () => {
         const modules: Record<string, unknown> = {};

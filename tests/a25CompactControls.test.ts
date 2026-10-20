@@ -6,6 +6,7 @@ import { Store } from "../src/core/state";
 import * as types from "../src/core/types";
 import * as layout from "../src/core/layout";
 import * as geometry from "../src/core/windowPlacement";
+import * as interactionIdle from "../src/core/interactionIdle";
 
 type Node = { type: any; props: Record<string, any> };
 const nodes = (n: any): Node[] => Array.isArray(n) ? n.flatMap(nodes)
@@ -38,6 +39,7 @@ function harness(name: keyof typeof compiled) {
     };
     const deps: Record<string, any> = {
         "@webpack/common": hooks, "../core/types": types, "../core/layout": layout, "../core/windowPlacement": geometry,
+        "../core/interactionIdle": interactionIdle,
         "../platform": { storage }, "../core/trigger": { validPrefix: () => true },
         "./uiState": { store, useStore() {} }, "./panel": { panel: { use: () => ({ phase }) } },
         "./svg": { IconBell: "IconBell", IconSettings: "IconSettings", IconTemplates: "IconTemplates" },

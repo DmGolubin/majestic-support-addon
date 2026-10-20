@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { waitForInteractionIdle } from "../../src/core/interactionIdle";
 // No host modules are evaluated until a storage operation is actually requested.
 let storage: Promise<ReturnType<typeof import("../../src/vencord/diagnosticFileNative").createDiagnosticFileStorage>> | undefined;
 const failed = () => new Error("Diagnostic storage operation failed.");
@@ -40,7 +41,11 @@ export async function loadDiagnosticStorage(): Promise<{ path: string; state: st
     try { return await (await current()).load(); } catch { throw failed(); }
 }
 export async function saveDiagnosticStorage(report: string): Promise<{ path: string; }> {
-    try { return await (await current()).save(report); } catch { throw failed(); }
+    try {
+        const currentStorage = await current();
+        await waitForInteractionIdle();
+        return await currentStorage.save(report);
+    } catch { throw failed(); }
 }
 export async function openDiagnosticStorageFolder(): Promise<void> {
     try {

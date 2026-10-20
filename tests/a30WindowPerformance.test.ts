@@ -59,12 +59,14 @@ function placement() {
     let sequence = 0, position: geometry.WindowPosition | null = null;
     const set = vi.fn((value: geometry.WindowPosition | null, _persist?: boolean) => { position = value; });
     const setSize = vi.fn(), saveSize = vi.fn();
+    const endInteraction = vi.fn(), beginInteraction = vi.fn(() => endInteraction);
     const requestAnimationFrame = (fn: () => void) => { frames.set(++sequence, fn); return sequence; };
     const cancelAnimationFrame = (id: number) => { frames.delete(id); };
     const window = { innerWidth: 1600, innerHeight: 1000, requestAnimationFrame, cancelAnimationFrame,
         addEventListener: (name: string, fn: () => void) => listeners.set(name, fn), removeEventListener: (name: string) => listeners.delete(name) };
     const module = load(code.WindowPlacement, { "@webpack/common": h.api, "../core/layout": layout,
-        "../core/windowPlacement": geometry, "../platform": { storage: {} } }, { window, requestAnimationFrame, cancelAnimationFrame });
+        "../core/windowPlacement": geometry, "../core/interactionIdle": { beginInteraction },
+        "../platform": { storage: {} } }, { window, requestAnimationFrame, cancelAnimationFrame });
     const render = () => h.render(() => module.WindowPlacementControls({
         placement: { position, set }, box: { right: 200, bottom: 100, width: 400, height: 500 },
         size: null, side: false, setSize, saveSize,
@@ -72,11 +74,28 @@ function placement() {
     const el = { focus() {}, setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture: vi.fn() };
     const pointer = (x: number, y = 0) => ({ button: 0, pointerId: 1, clientX: x, clientY: y, currentTarget: el, preventDefault() {}, stopPropagation() {} });
     const grip = (edge = false) => nodes(render()).find(n => n.props.className === (edge ? "vc-stx-frame-resize edge-nw" : "vc-stx-drag-window")).props;
-    return { ...h, grip, pointer, set, setSize, saveSize, frames, listeners, el,
+    return { ...h, grip, pointer, set, setSize, saveSize, frames, listeners, el, beginInteraction, endInteraction,
         frame() { const pending = [...frames.values()]; frames.clear(); pending.forEach(fn => fn()); } };
 }
 
 describe("A30 placement rendering budget and gesture safety", () => {
+    it.each(["up", "escape", "cancel", "lost", "blur", "unmount"])("defers blocking storage during a gesture and releases it on %s", action => {
+        const h = placement(), grip = h.grip();
+        grip.onPointerDown(h.pointer(0));
+        expect(h.beginInteraction).toHaveBeenCalledOnce();
+        grip.onPointerMove(h.pointer(-75, -40)); h.frame();
+        expect(h.endInteraction).not.toHaveBeenCalled();
+        if (action === "up") grip.onPointerUp(h.pointer(-75));
+        if (action === "escape") grip.onKeyDown({ key: "Escape", preventDefault() {}, stopPropagation() {} });
+        if (action === "cancel") grip.onPointerCancel(h.pointer(-75));
+        if (action === "lost") grip.onLostPointerCapture(h.pointer(-75));
+        if (action === "blur") h.listeners.get("blur")!();
+        if (action === "unmount") h.unmount();
+        expect(h.endInteraction).toHaveBeenCalledOnce();
+        if (action !== "unmount") h.unmount();
+        expect(h.endInteraction).toHaveBeenCalledOnce();
+    });
+
     it("coalesces 240 pointer samples into 60 visual updates, with only one persistent commit", () => {
         const h = placement(), grip = h.grip(); grip.onPointerDown(h.pointer(0));
         const start = performance.now();
