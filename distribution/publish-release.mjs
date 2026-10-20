@@ -28,9 +28,11 @@ for (const { variant, name, kind } of publicAssets) {
     if (asset.name !== name || asset.kind !== kind) throw new Error(`Unexpected public asset contract: ${variant}`);
 }
 // Checksums establish integrity, not permission to publish an extra package.
-const requiredNames = [...publicAssets.map(asset => asset.name), config.manifestAsset,
-    'SupportTemplates-source.zip', 'build-evidence.json', 'INSTALL-RU.md', 'SHA256SUMS.txt'];
-const allowedNames = new Set([...requiredNames, `SupportTemplates-betterdiscord-${config.version}.zip`]);
+const publishedNames = [...publicAssets.map(asset => asset.name), config.manifestAsset,
+    'SupportTemplates-source.zip', 'SHA256SUMS.txt'];
+const requiredNames = [...publishedNames, 'build-evidence.json', 'INSTALL-RU.md'];
+const allowedNames = new Set(requiredNames);
+const checksumNames = new Set(publishedNames.filter(name => name !== 'SHA256SUMS.txt'));
 const names = fs.readdirSync(directory);
 if (requiredNames.some(name => !names.includes(name))) throw new Error('Missing required public release file');
 if (names.some(name => !allowedNames.has(name) || !fs.lstatSync(path.join(directory, name)).isFile())) throw new Error('Unverified file in public release directory');
@@ -46,12 +48,12 @@ const checksumLines = fs.readFileSync(path.join(directory, 'SHA256SUMS.txt'), 'u
 const covered = new Set();
 for (const line of checksumLines) {
     const match = /^([a-f0-9]{64})  ([A-Za-z0-9_.-]+)$/.exec(line.trim());
-    if (!match || covered.has(match[2]) || !allowedNames.has(match[2]) || match[2] === 'SHA256SUMS.txt') throw new Error('Invalid checksum list');
+    if (!match || covered.has(match[2]) || !checksumNames.has(match[2])) throw new Error('Invalid checksum list');
     covered.add(match[2]);
     if (createHash('sha256').update(fs.readFileSync(path.join(directory, match[2]))).digest('hex') !== match[1]) throw new Error(`Damaged release file: ${match[2]}`);
 }
-if (names.some(name => !fs.statSync(path.join(directory, name)).isFile() || (name !== 'SHA256SUMS.txt' && !covered.has(name)))) throw new Error('Unverified file in release directory');
-if (args.includes('--check')) { console.log(`Verified ${names.length} release files; no publication performed.`); process.exit(0); }
+if ([...checksumNames].some(name => !covered.has(name))) throw new Error('Unverified file in release directory');
+if (args.includes('--check')) { console.log(`Verified ${publishedNames.length} published assets and 2 local release files; no publication performed.`); process.exit(0); }
 const metadata = JSON.parse(execFileSync('gh', ['repo', 'view', config.releaseRepository, '--json', 'visibility'], { encoding: 'utf8' }));
 if (args.includes('--publish') && metadata.visibility !== 'PUBLIC') {
     console.warn('Publishing for repository members only. Anonymous automatic updates remain unavailable while the repository is private.');
@@ -60,5 +62,5 @@ const ghArgs = ['release', 'create', `v${config.version}`, '--repo', config.rele
     '--target', evidence.commit, '--notes-file', path.join(directory, 'INSTALL-RU.md')];
 if (config.channel === 'canary') ghArgs.push('--prerelease');
 if (!args.includes('--publish')) ghArgs.push('--draft');
-ghArgs.push(...names.map(name => path.join(directory, name)));
+ghArgs.push(...publishedNames.map(name => path.join(directory, name)));
 execFileSync('gh', ghArgs, { stdio: 'inherit' });

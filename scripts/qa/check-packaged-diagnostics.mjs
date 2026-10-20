@@ -54,7 +54,9 @@ for (const { asset, archive } of nativeAssets) {
     const types = execFileSync('tar', ['-tvf', archive], {encoding: 'utf8'}).trim().split(/\r?\n/);
     check('archive has only regular files and directories', types.every(line => /^[d-]/.test(line)));
     execFileSync('tar', ['-xf', archive, '-C', dir]);
-    const pkg = memberPath(dir, [...roots][0]);
+    const bundle = memberPath(dir, [...roots][0]);
+    assert.ok(!(fs.existsSync(path.join(bundle, 'SupportTemplates')) && fs.existsSync(path.join(bundle, 'manifest.json'))), 'Ambiguous package layout');
+    const pkg = fs.existsSync(path.join(bundle, 'SupportTemplates')) ? path.join(bundle, 'SupportTemplates') : bundle;
     const manifest = JSON.parse(fs.readFileSync(path.join(pkg, 'manifest.json')));
     check('version matches release manifest', manifest.version === releaseManifest.version);
     for (const item of manifest.files) {
@@ -62,7 +64,7 @@ for (const { asset, archive } of nativeAssets) {
         assert.equal(bytes.length, item.size); assert.equal(sha(bytes), item.sha256);
     }
     check('all payload hashes', manifest.files.length > 0);
-    check('BAT installer, no EXE', fs.readdirSync(pkg).some(n => n.endsWith('.bat')) && !manifest.files.some(f => /\.exe$/i.test(f.path)));
+    check('BAT installer, no EXE', fs.readdirSync(bundle).some(n => n.endsWith('.bat')) && !manifest.files.some(f => /\.exe$/i.test(f.path)));
     const runtime = path.join(pkg, 'payload/runtime');
     const map = JSON.parse(fs.readFileSync(path.join(runtime, 'renderer.js.map')));
     const sources = new Map();

@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Used from the frozen build snapshot; the existing root CLI/update contract stays intact.
+// The console launchers are the only files beside the service directory.
 export function copyInstaller(installerRoot, packageRoot) {
-    for (const name of ['SupportTemplates.ps1', 'RendererUpdate.ps1', 'install.bat',
-        'SupportTemplates.Gui.ps1', 'InstallerGui.psm1', 'InstallerGui.xaml']) {
+    const launchers = ['install.bat', 'uninstall.bat'];
+    const helpers = ['SupportTemplates.ps1', 'RendererUpdate.ps1', 'PackageUpdate.ps1'];
+    for (const name of [...launchers, ...helpers]) {
         if (!fs.statSync(path.join(installerRoot, name)).isFile()) throw new Error(`Missing installer entry: ${name}`);
+        const target = launchers.includes(name) ? path.dirname(packageRoot) : packageRoot;
+        fs.copyFileSync(path.join(installerRoot, name), path.join(target, name));
     }
-    for (const entry of fs.readdirSync(installerRoot))
-        fs.cpSync(path.join(installerRoot, entry), path.join(packageRoot, entry), { recursive: true });
 }

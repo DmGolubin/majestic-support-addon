@@ -9,10 +9,10 @@
 | Вариант | Что скачать | Кому подходит |
 |---|---|---|
 | **BetterDiscord** | `SupportTemplates.plugin.js` | BetterDiscord уже установлен |
-| **Lite + SupportTemplates** | `SupportTemplates-standalone-1.0.1.zip` | Нужна отдельная сборка с графическим установщиком |
+| **Lite + SupportTemplates** | `SupportTemplates-standalone-<версия>.zip` | Нужна отдельная сборка с консольным установщиком |
 
-Версия первого выпуска — **1.0.1**. Оба варианта поддерживают Discord Stable и Discord Canary на Windows.
-В архиве Lite сборка находится в `payload/`, а GUI-установщик запускается через `install.bat` рядом с ней.
+Первый выпуск — **1.0.1**; компактный консольный установщик подготовлен в **1.0.2**. Оба варианта поддерживают Discord Stable и Discord Canary на Windows.
+В новом архиве Lite снаружи находятся `install.bat`, `uninstall.bat` и папка `SupportTemplates/` со всеми служебными файлами. BAT открывает ASCII-меню с выбором клиента и проверкой обновлений.
 
 [Инструкция установки](distribution/INSTALL-RU.md)
 

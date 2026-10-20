@@ -22,7 +22,8 @@ const updateConfig = readConfig();
 // the product, upstream source and reduced plugin set.
 config.version = updateConfig.version;
 const source = path.join(work, 'source'); fs.mkdirSync(source);
-const output = path.join(work, `SupportTemplates-${config.version}`); fs.mkdirSync(output);
+const packageRoot = path.join(work, `SupportTemplates-${config.version}`); fs.mkdirSync(packageRoot);
+const output = path.join(packageRoot, 'SupportTemplates'); fs.mkdirSync(output);
 const exec = (command, args, cwd = source) => execFileSync(command, args, { cwd, stdio: 'pipe', maxBuffer: 32 * 1024 * 1024 });
 const put = (file, value) => { const dest = path.join(source, file); fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.writeFileSync(dest, value); };
 const alter = (file, needle, replacement) => {
@@ -89,6 +90,6 @@ fs.cpSync(path.join(frozen, 'standalone'), path.join(output, 'build-recipe'), { 
 fs.cpSync(path.join(frozen, 'distribution'), path.join(output, 'build-recipe/distribution'), { recursive: true });
 // Exact modified sources and lockfile; no node_modules, Git history, credentials or user settings.
 exec('tar', ['-cf', path.join(output, 'source.tar'), 'src', 'distribution', 'scripts', 'packages', 'patches', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.json', 'LICENSE', 'compile.mjs', 'standalone-config.json']);
-const zip = output + '.zip';
-exec('tar', ['-a', '-cf', zip, '-C', work, path.basename(output)]);
-console.log(JSON.stringify({ package: output, zip, source }));
+const zip = packageRoot + '.zip';
+exec('tar', ['-a', '-cf', zip, '-C', work, path.basename(packageRoot)]);
+console.log(JSON.stringify({ package: packageRoot, data: output, zip, source }));

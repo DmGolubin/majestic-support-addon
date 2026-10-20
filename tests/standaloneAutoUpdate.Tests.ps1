@@ -84,6 +84,24 @@ try {
         $out = Expand-VerifiedUpdate $request (Join-Path $cache 'valid-extraction')
         Assert ([IO.File]::Exists((Join-Path $out 'SupportTemplates.ps1'))) 'Installer missing'
     }
+    Test 'compact ZIP resolves the nested service directory' {
+        $bundle = Join-Path $testRoot 'compact'
+        Package (Join-Path $bundle 'SupportTemplates') '1.0.2'
+        Put (Join-Path $bundle 'install.bat') '@echo off'
+        Put (Join-Path $bundle 'uninstall.bat') '@echo off'
+        $compact = Zip-Package $bundle (Join-Path $cache 'compact.zip') '1.0.2'
+        $out = Expand-VerifiedUpdate $compact (Join-Path $cache 'compact-extraction')
+        Assert ((Split-Path $out -Leaf) -ceq 'SupportTemplates') 'Wrong service directory'
+        Assert ([IO.File]::Exists((Join-Path $out 'SupportTemplates.ps1'))) 'Nested installer missing'
+        Assert ([IO.File]::Exists((Join-Path $out 'manifest.json'))) 'Nested manifest missing'
+    }
+    Test 'ambiguous flat and nested manifests are rejected' {
+        $bundle = Join-Path $testRoot 'ambiguous'
+        Package $bundle '1.0.2'
+        Package (Join-Path $bundle 'SupportTemplates') '1.0.2'
+        $ambiguous = Zip-Package $bundle (Join-Path $cache 'ambiguous.zip') '1.0.2'
+        Reject { Expand-VerifiedUpdate $ambiguous (Join-Path $cache 'ambiguous-extraction') } 'Ambiguous package'
+    }
     Test 'corrupted ZIP rejected before extraction' {
         $bad = $request | Select-Object *; $bad.sha256 = '0' * 64
         $target = Join-Path $cache 'bad-hash'

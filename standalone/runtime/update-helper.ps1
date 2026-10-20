@@ -168,6 +168,11 @@ function Expand-VerifiedUpdate($Request, [string]$Destination) {
             } finally { $inputStream.Dispose() }
         }
         $package = Join-Path $Destination $prefix
+        $nested = Join-Path $package 'SupportTemplates'
+        if ([IO.Directory]::Exists($nested)) {
+            Assert-Update (-not [IO.File]::Exists((Join-Path $package 'manifest.json'))) 'Ambiguous package layout'
+            $package = $nested
+        }
         $manifest = [IO.File]::ReadAllText((Join-Path $package 'manifest.json')) | ConvertFrom-Json
         Assert-Update ($manifest.schema -eq 1 -and $manifest.product -ceq 'SupportTemplates' -and $manifest.version -ceq $Request.version) 'Package manifest identity mismatch'
         foreach ($file in @('SupportTemplates.ps1', 'RendererUpdate.ps1')) {

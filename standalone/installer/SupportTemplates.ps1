@@ -1,11 +1,11 @@
-# Windows PowerShell 5.1. Package layout: manifest.json, payload/, and these scripts at root.
+﻿# Windows PowerShell 5.1. Service directory contains manifest.json, payload/ and native scripts.
 # Local hashes detect corruption, not authenticity. No downloads, updater, elevation or process control.
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('Install', 'Repair', 'Uninstall', 'Rollback', 'Status', 'UpdateRenderer', 'Detect')][string]$Action,
     [ValidateSet('Canary', 'Stable')][string]$Channel,
-    # GUI subprocess pipe encoding; does not affect operation or ownership.
+    # Optional redirected console encoding; does not affect operation or ownership.
     [switch]$Utf8Output,
     # Fixture-only overrides: require a marked, specifically named directory under TEMP.
     [string]$TestRoot,
@@ -91,6 +91,33 @@ function Write-New([string]$Path, [byte[]]$Bytes) {
 }
 function Valid-Version([string]$Version) {
     Require ($Version.Length -le 120 -and $Version -cmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$') 'Invalid package version'
+}
+function Compare-PackageVersion([string]$Left, [string]$Right) {
+    $pattern = '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z.-]+)?$'
+    $a = [regex]::Match($Left, $pattern); $b = [regex]::Match($Right, $pattern)
+    Require ($a.Success -and $b.Success) 'Invalid installed version'
+    for ($i = 1; $i -le 3; $i++) {
+        $x = $a.Groups[$i].Value; $y = $b.Groups[$i].Value
+        if ($x.Length -ne $y.Length) { return [Math]::Sign($x.Length - $y.Length) }
+        $order = [string]::CompareOrdinal($x, $y)
+        if ($order -ne 0) { return [Math]::Sign($order) }
+    }
+    $x = $a.Groups[4].Value; $y = $b.Groups[4].Value
+    if (-not $x -or -not $y) {
+        if ($x -ceq $y) { return 0 }
+        if (-not $x) { return 1 }; return -1
+    }
+    $xs = $x.Split('.'); $ys = $y.Split('.')
+    for ($i = 0; $i -lt [Math]::Max($xs.Count, $ys.Count); $i++) {
+        if ($i -eq $xs.Count) { return -1 }; if ($i -eq $ys.Count) { return 1 }
+        $x = $xs[$i]; $y = $ys[$i]
+        if ($x -ceq $y) { continue }
+        $xn = $x -match '^\d+$'; $yn = $y -match '^\d+$'
+        if ($xn -and $yn -and $x.Length -ne $y.Length) { return [Math]::Sign($x.Length - $y.Length) }
+        if ($xn -ne $yn) { if ($xn) { return -1 }; return 1 }
+        return [Math]::Sign([string]::CompareOrdinal($x, $y))
+    }
+    return 0
 }
 function Valid-Relative([string]$Path) {
     Require ($Path.Length -le 220 -and $Path -cmatch '^payload/(loader\.asar|runtime/[A-Za-z0-9_@+.-]+(/[A-Za-z0-9_@+.-]+)*)$') "Invalid payload path: $Path"
@@ -642,7 +669,8 @@ try {
         Safe-File (Join-Path $root '.support-templates-fixture')
         Require ([IO.File]::ReadAllText((Join-Path $root '.support-templates-fixture')) -ceq 'SupportTemplates installer TEMP fixture') 'Missing fixture marker'
         Require ($LocalAppDataRoot -and (Full $LocalAppDataRoot) -ieq (Full (Join-Path $root 'localappdata'))) 'Fixture LocalAppDataRoot must equal TestRoot/localappdata'
-        Require ((Full $script:PackageRoot) -ieq (Full (Join-Path $root 'package'))) 'Fixture installer must run from TestRoot/package'
+        $fixturePackages = @((Full (Join-Path $root 'package')), (Full (Join-Path $root 'package/SupportTemplates')))
+        Require ((Full $script:PackageRoot) -iin $fixturePackages) 'Fixture installer must run from TestRoot/package or its SupportTemplates directory'
         $script:Fixture = $true
         $script:LocalRoot = Full $LocalAppDataRoot
     }
@@ -720,6 +748,9 @@ try {
     }
     else { $package = Read-Package $script:PackageRoot }
     $version = $package.Manifest.version
+    if ($Action -eq 'Repair' -and $null -ne $state) {
+        Require ((Compare-PackageVersion $version $state.version) -ge 0) 'Repair cannot downgrade the installed version; refresh the package first'
+    }
     $manifestHash = Hash-File (Join-Path $package.Base 'manifest.json')
     $oldOverlayVersion = $null
     if ($null -ne $state -and $null -ne (Read-RendererOverlay $state.version)) {

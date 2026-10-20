@@ -45,10 +45,13 @@ function fixture() {
     saveManifest();
     fs.writeFileSync(path.join(output, 'SupportTemplates-source.zip'), 'source-fixture');
     fs.writeFileSync(path.join(output, 'INSTALL-RU.md'), 'Public employee instructions');
-    const checksums = () => fs.writeFileSync(path.join(output, 'SHA256SUMS.txt'), fs.readdirSync(output).filter(name => name !== 'SHA256SUMS.txt').map(name => `${hash(fs.readFileSync(path.join(output, name)))}  ${name}`).join('\n') + '\n');
+    const publishedNames = [...assets.map(asset => asset.name), config.manifestAsset, 'SupportTemplates-source.zip', 'SHA256SUMS.txt'];
+    const checksums = () => fs.writeFileSync(path.join(output, 'SHA256SUMS.txt'), fs.readdirSync(output)
+        .filter(name => !['SHA256SUMS.txt', 'build-evidence.json', 'INSTALL-RU.md'].includes(name))
+        .map(name => `${hash(fs.readFileSync(path.join(output, name)))}  ${name}`).join('\n') + '\n');
     checksums();
     const check = () => spawnSync(process.execPath, [path.join(dir, 'publish-release.mjs'), '--check'], { encoding: 'utf8', timeout: 10000 });
-    return { root, config, output, manifest, evidence, saveManifest, checksums, check };
+    return { root, config, output, manifest, evidence, publishedNames, saveManifest, checksums, check };
 }
 afterEach(() => {
     for (const root of fixtures.splice(0)) {
@@ -91,11 +94,11 @@ describe('release verification without publishing', () => {
         const f = fixture(); fs.writeFileSync(path.join(f.output, 'SupportTemplates-source.zip'), 'damaged');
         expect(f.check().stderr).toContain('Damaged release file');
     });
-    it('accepts the optional BetterDiscord archive when checksummed', () => {
+    it('rejects the old optional BetterDiscord archive even when checksummed', () => {
         const f = fixture();
         fs.writeFileSync(path.join(f.output, `SupportTemplates-betterdiscord-${f.config.version}.zip`), 'bd-source-package');
         f.checksums();
-        expect(f.check().status).toBe(0);
+        expect(f.check().stderr).toContain('Unverified file');
     });
     it.each(['standalone', 'betterdiscord'])('rejects a missing %s variant', variant => {
         const f = fixture(); f.manifest.assets = f.manifest.assets.filter(asset => asset.variant !== variant);
@@ -147,10 +150,33 @@ describe('release verification without publishing', () => {
         f.checksums();
         expect(f.check().stderr).toContain('Build evidence differs');
     });
-    it('requires checksum coverage of every public file', () => {
+    it.each(['SupportTemplates.plugin.js', 'SupportTemplates-standalone-0.1.0-canary.14.zip',
+        'SupportTemplates-source.zip', 'support-templates-update.json'])('requires checksum coverage of published file %s', name => {
         const f = fixture(); const sums = path.join(f.output, 'SHA256SUMS.txt');
-        fs.writeFileSync(sums, fs.readFileSync(sums, 'utf8').split('\n').filter(line => !line.endsWith('INSTALL-RU.md')).join('\n'));
+        fs.writeFileSync(sums, fs.readFileSync(sums, 'utf8').split('\n').filter(line => !line.endsWith(name)).join('\n'));
         expect(f.check().stderr).toContain('Unverified file');
+    });
+    it.each(['INSTALL-RU.md', 'build-evidence.json', 'SHA256SUMS.txt'])('rejects checksum entry for non-payload file %s', name => {
+        const f = fixture();
+        fs.appendFileSync(path.join(f.output, 'SHA256SUMS.txt'), `${hash(fs.readFileSync(path.join(f.output, name)))}  ${name}\n`);
+        expect(f.check().stderr).toContain('Invalid checksum list');
+    });
+    it('keeps local notes editable without including them in published checksums', () => {
+        const f = fixture();
+        fs.writeFileSync(path.join(f.output, 'INSTALL-RU.md'), 'Updated release notes');
+        const result = f.check();
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stdout).toContain('5 published assets and 2 local release files');
+    });
+    it.each([undefined, 'a'.repeat(7), 'z'.repeat(40)])('rejects invalid local source commit %s', commit => {
+        const f = fixture();
+        fs.writeFileSync(path.join(f.output, 'build-evidence.json'), JSON.stringify({ ...f.evidence, commit }));
+        expect(f.check().stderr).toContain('Build evidence differs');
+    });
+    it('verifies updater JSON bytes as well as the manifest contract', () => {
+        const f = fixture();
+        fs.appendFileSync(path.join(f.output, f.config.manifestAsset), '\n');
+        expect(f.check().stderr).toContain('Damaged release file');
     });
     it.each([{ args: [] }, { args: ['--publish'] }])('uses the same public-only gate in publication mode $args', ({ args }) => {
         const f = fixture(); const calls: string[] = [];
@@ -160,7 +186,7 @@ describe('release verification without publishing', () => {
             .toThrow('Unverified file');
         expect(calls).toEqual([]);
     });
-    it.each([{ args: [] }, { args: ['--publish'] }])('prepares only the two public variants for gh in mode $args', ({ args }) => {
+    it.each([{ args: [] }, { args: ['--publish'] }])('prepares exactly five assets with local notes for gh in mode $args', ({ args }) => {
         const f = fixture(); const calls: { command: string; args: string[] }[] = [];
         runScript('publish-release.mjs', f.root, f.config, (command, argv) => {
             calls.push({ command, args: argv }); return JSON.stringify({ visibility: 'PUBLIC' });
@@ -172,6 +198,12 @@ describe('release verification without publishing', () => {
         expect(release).toContain(path.join(f.output, f.manifest.assets[0].name));
         expect(release).toContain(path.join(f.output, 'SupportTemplates.plugin.js'));
         expect(release.some(arg => arg.includes('vencord'))).toBe(false);
+        expect(release[release.indexOf('--notes-file') + 1]).toBe(path.join(f.output, 'INSTALL-RU.md'));
+        const uploads = release.filter((arg, index) => arg.startsWith(f.output + path.sep) && release[index - 1] !== '--notes-file');
+        expect(uploads.sort()).toEqual(f.publishedNames.map(name => path.join(f.output, name)).sort());
+        expect(uploads).not.toContain(path.join(f.output, 'INSTALL-RU.md'));
+        expect(uploads).not.toContain(path.join(f.output, 'build-evidence.json'));
+        expect(release).not.toContain(path.join(f.output, 'build-evidence.json'));
     });
 });
 
@@ -219,6 +251,14 @@ describe('public release orchestration without running builds', () => {
         expect(manifest.assets.map((asset: any) => asset.variant)).toEqual(['standalone', 'betterdiscord']);
         expect(fs.readdirSync(output).some(name => name.includes('vencord'))).toBe(false);
         expect(fs.readFileSync(path.join(output, 'build-evidence.json'), 'utf8')).not.toContain('private');
+        const notes = fs.readFileSync(path.join(output, 'INSTALL-RU.md'), 'utf8');
+        expect(notes).toContain('консольным BAT-установщиком');
+        expect(notes).toContain('`install.bat`, `uninstall.bat` и папка `SupportTemplates/`');
+        expect(notes).toContain('`SupportTemplates/payload/`');
+        expect(notes).not.toContain('GUI');
+        const expectedSums = [...manifest.assets.map((asset: any) => asset.name), config.manifestAsset, 'SupportTemplates-source.zip']
+            .sort().map(name => `${hash(fs.readFileSync(path.join(output, name)))}  ${name}`).join('\n') + '\n';
+        expect(fs.readFileSync(path.join(output, 'SHA256SUMS.txt'), 'utf8')).toBe(expectedSums);
         fs.writeFileSync(path.join(f.root, 'distribution/config.json'), JSON.stringify(config));
         const result = f.check();
         expect(result.status, result.stderr).toBe(0);

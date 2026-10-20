@@ -57,10 +57,11 @@ const releaseIntro = `# SupportTemplates ${config.version}
 | Вариант | Скачать | Установка |
 |---|---|---|
 | **BetterDiscord** — если он уже установлен | [SupportTemplates.plugin.js](${downloadBase}/SupportTemplates.plugin.js) | Положить в папку плагинов и включить |
-| **Lite + SupportTemplates** — отдельная сборка с GUI | [SupportTemplates Lite ${config.version}.zip](${downloadBase}/SupportTemplates-standalone-${config.version}.zip) | Распаковать целиком и запустить install.bat |
+| **Lite + SupportTemplates** — отдельная сборка с консольным BAT-установщиком | [SupportTemplates Lite ${config.version}.zip](${downloadBase}/SupportTemplates-standalone-${config.version}.zip) | Распаковать целиком и запустить install.bat |
 
 Оба варианта работают с Discord Stable и Discord Canary на Windows.
-В Lite файлы сборки находятся в \`payload/\`, GUI-установщик — рядом.
+В корне архива Lite находятся \`install.bat\`, \`uninstall.bat\` и папка \`SupportTemplates/\`.
+Файлы сборки находятся внутри \`SupportTemplates/payload/\`. Установщик работает в консоли.
 Устанавливайте один вариант в выбранный клиент Discord.
 
 Остальные вложения — исходники, контрольные суммы и данные для автоматического обновления.
@@ -70,7 +71,9 @@ const releaseIntro = `# SupportTemplates ${config.version}
 
 `;
 fs.writeFileSync(path.join(destination, 'INSTALL-RU.md'), releaseIntro + fs.readFileSync(path.join(root, 'distribution/INSTALL-RU.md'), 'utf8'));
-const checksums = fs.readdirSync(destination).filter(name => fs.statSync(path.join(destination, name)).isFile()).sort()
+// Evidence and release notes remain local inputs, not downloadable assets.
+// SHA256SUMS cannot include itself; cover the other four published files.
+const checksums = [...assets.map(asset => asset.name), 'SupportTemplates-source.zip', config.manifestAsset].sort()
     .map(name => `${createHash('sha256').update(fs.readFileSync(path.join(destination, name))).digest('hex')}  ${name}`).join('\n') + '\n';
 fs.writeFileSync(path.join(destination, 'SHA256SUMS.txt'), checksums);
 console.log(JSON.stringify({ release: destination, commit, version: config.version, published: false }, null, 2));

@@ -48,6 +48,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
           powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneAutoUpdate.Tests.ps1
           if ($LASTEXITCODE -ne 0) { throw 'Standalone helper fixtures failed' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneConsole.Tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Console launcher fixtures failed' }
       - name: Build Lite then BetterDiscord and verify public release files
         shell: pwsh
         run: |
