@@ -6,7 +6,8 @@ import { dirname, isAbsolute, join, posix, resolve, win32 } from "path";
 import { diagnosticData } from "./core/diagnosticJournal";
 
 export const DIAGNOSTIC_FILE_NAME = "SupportTemplates-diagnostics.txt";
-export const DIAGNOSTIC_FILE_MAX_BYTES = 1024 * 1024;
+export const DIAGNOSTIC_FILE_MAX_BYTES = 512 * 1024;
+const MAX_INPUT_BYTES = 1024 * 1024;
 export const DIAGNOSTIC_STORAGE_ERROR = "Diagnostic storage operation failed.";
 const fail = () => new Error(DIAGNOSTIC_STORAGE_ERROR);
 const EVENT = /^(?:request|http|auth|stream|panel|runtime|user|ui|debug|recorder|environment|settings)(?:\.[a-z_]{1,24})?$/;
@@ -42,8 +43,8 @@ function debugSnapshot(input: unknown) {
 
 /** Parse and reconstruct, never persist caller objects or free-form strings. */
 export function sanitizeDiagnosticReport(report: unknown) {
-    if (typeof report !== "string" || report.length > DIAGNOSTIC_FILE_MAX_BYTES
-        || Buffer.byteLength(report, "utf8") > DIAGNOSTIC_FILE_MAX_BYTES) throw fail();
+    if (typeof report !== "string" || report.length > MAX_INPUT_BYTES
+        || Buffer.byteLength(report, "utf8") > MAX_INPUT_BYTES) throw fail();
     let raw: Record<string, any>;
     try { raw = object(JSON.parse(report)); } catch { throw fail(); }
     const j = object(raw.journal);
@@ -181,7 +182,16 @@ export function createDiagnosticFileStorage(deps: {
             // Validate and snapshot before queuing. No file is touched on bad input.
             let text: string;
             try {
-                text = JSON.stringify(sanitizeDiagnosticReport(report)) + "\n";
+                const clean = sanitizeDiagnosticReport(report);
+                text = JSON.stringify(clean) + "\n";
+                // The bound includes the report envelope and performance snapshot,
+                // not only the journal. Keep the latest evidence and fixed deadline.
+                while (Buffer.byteLength(text, "utf8") > DIAGNOSTIC_FILE_MAX_BYTES && clean.journal.events.length) {
+                    const removed = Math.min(100, clean.journal.events.length);
+                    clean.journal.events.splice(0, removed);
+                    clean.journal.dropped = Math.min(Number.MAX_SAFE_INTEGER, clean.journal.dropped + removed);
+                    text = JSON.stringify(clean) + "\n";
+                }
                 if (Buffer.byteLength(text, "utf8") > DIAGNOSTIC_FILE_MAX_BYTES) throw fail();
             } catch { return Promise.reject(fail()); }
             return serialize(() => {

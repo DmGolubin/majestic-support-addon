@@ -30,7 +30,23 @@ describe("A22 bounded fixed diagnostic snapshots", () => {
         expect(disk.split("\n")).toHaveLength(2); // compact bounded JSON in a TXT
         expect(JSON.parse((await f.make().load()).state)).toEqual(JSON.parse(disk).journal);
         expect(fs.readdirSync(f.root)).toEqual(["SupportTemplates-diagnostics.txt"]);
-        expect(Buffer.byteLength(disk)).toBeLessThanOrEqual(1024 * 1024);
+        expect(Buffer.byteLength(disk)).toBeLessThanOrEqual(512 * 1024);
+    });
+    it("bounds the entire file including metadata, preserving the newest events and deadline", async () => {
+        const f = fixture(), p = payload();
+        p.journal.events = Array.from({ length: 2000 }, (_, i) => ({ seq: i + 1, time: NOW, event: "request.failure", data: {
+            route: "/notification-settings", method: "GET", status: 429, durationMs: 12345, retryAfterMs: 12345,
+            requestId: 12345, attempt: 12345, count: 12345, elapsedMs: 12345, templates: 12345, personal: 12345,
+            folders: 12345, favoriteCount: 12345, recentCount: 12345, bindCount: 12345, resultCount: 12345, matched: 12345
+        } }));
+        expect(Buffer.byteLength(JSON.stringify(p))).toBeGreaterThan(512 * 1024);
+        await f.make().save(JSON.stringify(p));
+        const raw = fs.readFileSync(f.path, "utf8"), saved = JSON.parse(raw);
+        expect(Buffer.byteLength(raw)).toBeLessThanOrEqual(512 * 1024);
+        expect(saved.journal.dropped).toBeGreaterThan(p.journal.dropped);
+        expect(saved.journal.events.at(-1).seq).toBe(2000);
+        expect(saved.journal.campaignUntil).toBe(p.journal.campaignUntil);
+        expect(saved.journal.until).toBe(p.journal.until);
     });
     it("preserves absolute campaign and savedAt through disabled, clear and expired snapshots", async () => {
         const f = fixture();
