@@ -26,12 +26,13 @@ function harness(patch: Partial<State> = {}) {
         use: vi.fn(() => state),
         set: (next: Partial<State>) => { state = { ...state, ...next }; },
     };
+    const previewTicketReminderNotification = vi.fn();
     const authorizePanelReminders = vi.fn(), refreshTicketReminders = vi.fn(), setDiscordReminders = vi.fn();
     // Unknown imports fail: UI uses the existing project icon and reminder adapters.
     const dependencies: Record<string, unknown> = {
         "./panel": { authorizePanelReminders },
         "./ProjectIcon": { ProjectIcon: "ProjectIcon" },
-        "./ticketReminders": { ticketRemindersState, refreshTicketReminders, setDiscordReminders },
+        "./ticketReminders": { ticketRemindersState, refreshTicketReminders, setDiscordReminders, previewTicketReminderNotification },
     };
     const exports: any = {};
     runInNewContext(code, {
@@ -42,7 +43,7 @@ function harness(patch: Partial<State> = {}) {
             createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props: { ...props as object, children } }),
         },
     });
-    return { ticketRemindersState, authorizePanelReminders, refreshTicketReminders, setDiscordReminders, render: (children?: Node) => exports.ReminderSettings({ children }) };
+    return { previewTicketReminderNotification, ticketRemindersState, authorizePanelReminders, refreshTicketReminders, setDiscordReminders, render: (children?: Node) => exports.ReminderSettings({ children }) };
 }
 
 const settings = (discordEnabled = true): NonNullable<State["settings"]> => ({
@@ -62,7 +63,7 @@ describe("reminder settings", () => {
         expect(tree.props["aria-label"]).toBe("Личные напоминания");
         expect(nodes(tree).filter(n => n.type === "h3").map(text)).toEqual(["Личные напоминания"]);
         expect(text(tree)).toContain("Войдите в аккаунт панели");
-        expect(nodes(tree).filter(n => ["input", "button", "select"].includes(n.type as string))).toHaveLength(0);
+        expect(nodes(tree).filter(n => ["input", "select"].includes(n.type as string))).toHaveLength(0);
         expect(text(tree)).not.toContain(" мин");
         expect(h.ticketRemindersState.use).toHaveBeenCalledOnce();
         expect(h.authorizePanelReminders).not.toHaveBeenCalled();
@@ -119,7 +120,7 @@ describe("reminder settings", () => {
         expect(text(tree)).toContain("Порог меняется в Telegram.");
         expect(text(tree)).toContain("Звук и громкость — отдельно для каждого сервера.");
         expect(text(tree)).toContain("Только назначенные вам тикеты, где игрок ждёт ответа.");
-        const controls = nodes(tree).filter(n => ["input", "select", "Select", "textarea", "button"].includes(n.type as string) || n.props.contentEditable);
+        const controls = nodes(tree).filter(n => (["input", "select", "Select", "textarea", "button"].includes(n.type as string) || n.props.contentEditable) && text(n) !== "Показать уведомление");
         expect(controls).toHaveLength(1);
         expect(controls[0].props.type).toBe("checkbox");
     });
@@ -131,7 +132,7 @@ describe("reminder settings", () => {
         expect(nodes(tree).filter(n => n === children)).toHaveLength(1);
         expect(nodes(tree).filter(n => n.type === "li" || n.props["aria-label"] === "Пороги личных напоминаний")).toHaveLength(0);
         expect(nodes(tree).indexOf(checkbox(tree)!)).toBeLessThan(nodes(tree).indexOf(children));
-        expect(text(tree)).toContain("Общий переключатель для всех серверов");
+        expect(text(tree)).not.toContain("Общий переключатель для всех серверов");
         expect(text(tree)).toContain("Порог меняется в Telegram.");
         expect(text(tree)).toContain("Звук и громкость — отдельно для каждого сервера.");
         expect(h.setDiscordReminders).not.toHaveBeenCalled();

@@ -25,6 +25,16 @@ let settingsRevision = 0;
 let settingsRetryAt = 0;
 let settingsFailures = 0;
 
+function showReminderToast(test = false): void {
+    try { toast(`${test ? "Тестовое уведомление: " : ""}Игрок ждёт ответа в назначенном вам тикете`, "message"); }
+    catch { /* A host toast must not invalidate playback or escape a preview click. */ }
+}
+
+/** Manual appearance preview only: no controller, API, sound, receipt or history access. */
+export function previewTicketReminderNotification(): void {
+    showReminderToast(true);
+}
+
 function deferSettings(error: unknown, failedRead = false) {
     const failure = error instanceof PanelError ? error : null;
     const retryAfter = failure?.retryAfterMs;
@@ -88,7 +98,7 @@ export function syncTicketReminders(next: Binding) {
             if (!canPlay()) return false;
             const played = await playTicketReminder(canPlay, ticket);
             if (played && canPlay()) {
-                try { toast("Игрок ждёт ответа в назначенном вам тикете", "message"); } catch { /* A host toast must not invalidate successful playback. */ }
+                showReminderToast();
             }
             return played;
         },

@@ -3,6 +3,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
 import { joinPieces } from "../src/core/compose";
+import { templateFitsProject } from "../src/core/guard";
 import { splitGreeting } from "../src/core/text";
 
 // Actual components and latch. The host fixture models native button activation followed
@@ -37,7 +38,7 @@ function harness() {
     const insert = vi.fn((value: string) => { focus = "chat"; draft += value; return true; });
     const deps: Record<string, any> = {
         "@webpack/common": hooks, "./debug": debug,
-        "../core/compose": { joinPieces }, "../core/text": { splitGreeting }, "../core/types": {},
+        "../core/compose": { joinPieces }, "../core/guard": { templateFitsProject }, "../core/text": { splitGreeting }, "../core/types": {},
         "../platform": { insertText: insert, toast: vi.fn() },
         "./ProjectIcon": {}, "./svg": {}, "./markdown": {},
         "./op": { composeEditor: () => null, composeTargetNow: () => ({}), resetComposeTarget() {} },

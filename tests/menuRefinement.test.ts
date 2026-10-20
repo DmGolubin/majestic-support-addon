@@ -95,7 +95,7 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
         bindFor: () => undefined, toggleFavorite: vi.fn(),
         setPreviewOpen: vi.fn(open => { store.data.previewOpen = open; }),
     };
-    const insertTemplate = vi.fn(), addToCompose = vi.fn();
+    const insertTemplate = vi.fn(), addToCompose = vi.fn(), openMenu = vi.fn();
     const document: any = {
         activeElement: null, addEventListener: (name: string, fn: Function) => { listeners[name] = fn; },
         removeEventListener: vi.fn((name: string) => { delete listeners[name]; }),
@@ -103,7 +103,8 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
     const input: any = { value: "", selectionStart: 0, selectionEnd: 0, closest: () => null, focus: vi.fn(() => { document.activeElement = input; }) };
     const categoryButton = { focus: vi.fn(), click: vi.fn() };
     const win = { contains: (target: any) => [input, control, dropdown].includes(target), querySelector: (s: string) => s.includes("combobox") ? categoryButton : null, addEventListener: vi.fn(), removeEventListener: vi.fn() };
-    const list = { querySelector: () => null, addEventListener: vi.fn(), removeEventListener: vi.fn() };
+    const selectedRow = { getBoundingClientRect: () => ({ left: 240, bottom: 360 }), scrollIntoView: vi.fn() };
+    const list = { querySelector: () => selectedRow, addEventListener: vi.fn(), removeEventListener: vi.fn() };
     const debug = Object.fromEntries([
         "costEnd", "costStart", "debugEnabled", "debugVerbose", "dlog", "keyDesc", "logGeometry", "noteKey",
         "noteRender", "noteSearch", "noteWheel", "setDebugHover", "setDebugWindow",
@@ -129,7 +130,7 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
         "./WindowPlacement": { useWindowPlacement: placementHooks.useWindowPlacement, WindowPlacementControls: placementControls.WindowPlacementControls },
         "./window-placement.css": {}, "./window-tabs.css": {},
         "../platform": { storage, chatAreaRect: () => ({ right: viewport.innerWidth - 240, top: viewport.innerHeight - 150 }) },
-        "./ContextMenu": {}, "./debug": { ...debug, debugState: { useSelect: () => false } },
+        "./ContextMenu": { openMenu }, "./debug": { ...debug, debugState: { useSelect: () => false } },
         "./flow": { insertTemplate, addToCompose }, "./highlight": {}, "./keylatch": { latchKey: vi.fn() },
         "./op": { windowEditor: () => null }, "./Preview": { Preview: "Preview", plural: () => "шаблонов" },
         "./ProjectIcon": { ProjectIcon: "ProjectIcon" }, "./Select": { Select: "Select" },
@@ -150,7 +151,7 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
     const grip = { focus: vi.fn(), setPointerCapture: vi.fn((id: number) => { captured = id; }),
         hasPointerCapture: (id: number) => captured === id, releasePointerCapture: vi.fn(() => { captured = null; }) };
     const pointer = (clientX: number, clientY: number, pointerId = 1) => ({ currentTarget: grip, pointerId, button: 0, clientX, clientY, preventDefault() {}, stopPropagation() {} });
-    return { render, state, store, ui, pool, input, listeners, categoryButton, insertTemplate, addToCompose,
+    return { render, state, store, ui, pool, input, listeners, categoryButton, insertTemplate, addToCompose, openMenu,
         document, viewport, windowListeners, storage, grip, pointer, unmount: () => { frame.unmount(); h.unmount(); },
         resizeViewport(w: number, height: number) { viewport.innerWidth = w; viewport.innerHeight = height; geometryChange(); return render(); } };
 }
@@ -263,6 +264,41 @@ describe("template menu refinement", () => {
         }
         expect(h.insertTemplate).not.toHaveBeenCalled();
         expect(h.addToCompose).not.toHaveBeenCalled();
+    });
+
+    it.each(["ContextMenu", "F10"])("A27 opens the selected template menu with %s without inserting", name => {
+        const h = windowHarness();
+        byClass(h.render(), "vc-stx-win").props.onKeyDown(key("ArrowDown", h.input));
+        const tree = h.render(), parent = byClass(tree, "vc-stx-win");
+        const selected = nodes(tree).find(n => n.props.t && n.props.sel)!;
+        const event = key(name, h.input, { shiftKey: name === "F10" });
+        parent.props.onKeyDown(event);
+        expect(event.defaultPrevented).toBe(true);
+        expect(event.stopped).toBe(true);
+        expect(h.openMenu).toHaveBeenCalledExactlyOnceWith(selected.props.t.id, 240, 360);
+        parent.props.onKeyDown(key(name, h.input, { shiftKey: name === "F10", repeat: true }));
+        expect(h.openMenu).toHaveBeenCalledOnce();
+        expect(h.insertTemplate).not.toHaveBeenCalled();
+        expect(h.addToCompose).not.toHaveBeenCalled();
+        expect(byClass(tree, "vc-stx-sinput").props["aria-keyshortcuts"]).toContain("Shift+F10");
+    });
+
+    it("A27 leaves controls, IME, unrelated modifiers and an empty list alone", () => {
+        const h = windowHarness(), parent = byClass(h.render(), "vc-stx-win");
+        for (const event of [
+            key("F10", h.input), key("F10", h.input, { shiftKey: true, ctrlKey: true }),
+            key("ContextMenu", h.input, { altKey: true }), key("ContextMenu", h.input, { metaKey: true }),
+            key("ContextMenu", h.input, { nativeEvent: { isComposing: true } }),
+            key("ContextMenu", h.input, { keyCode: 229 }), key("ContextMenu", control),
+            key("F10", dropdown, { shiftKey: true }),
+        ]) {
+            parent.props.onKeyDown(event);
+            expect(event.defaultPrevented).toBe(false);
+        }
+        byClass(h.render(), "vc-stx-sinput").props.onChange({ currentTarget: { value: "zzzzzzzzzz" } });
+        byClass(h.render(), "vc-stx-win").props.onKeyDown(key("ContextMenu", h.input));
+        expect(h.openMenu).not.toHaveBeenCalled();
+        expect(h.insertTemplate).not.toHaveBeenCalled();
     });
 
     it("retains search Enter/Shift+Enter and Escape while ignoring composition", () => {

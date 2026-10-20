@@ -106,19 +106,6 @@ function RowImpl({ t, sel, ctx, alt, bind, icon, tokens, line, onHover, onMove, 
                 {t.status !== "actual" && <span className={"vc-stx-badge " + t.status}>{t.status === "outdated" ? "устарел" : "на проверке"}</span>}
                 {bind && <span className="vc-stx-kb">{comboLabel(bind)}</span>}
                 {alt > 0 && <span className="vc-stx-kb">Alt {alt}</span>}
-                <button type="button" className="vc-stx-btn vc-stx-ghost" data-stx-menu-control
-                    style={{ width: 24, height: 24, padding: 0, justifyContent: "center", flexShrink: 0 }}
-                    aria-label={`Действия шаблона «${t.title}»`} aria-haspopup="menu" aria-expanded={ctx}
-                    title="Действия шаблона"
-                    onClick={e => {
-                        e.stopPropagation(); onHide();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        openMenu(t.id, rect.left, rect.bottom);
-                    }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" focusable="false">
-                        <path d="M8 6h12M8 12h12M8 18h12" /><path d="M4 6h.01M4 12h.01M4 18h.01" strokeWidth="3" />
-                    </svg>
-                </button>
             </div>
             <div className="vc-stx-sn">{line ? nqHighlight(line, tokens) : snippetOf(t)}</div>
         </div>
@@ -438,7 +425,16 @@ function WindowView(connectionNotice: string) {
             if (debugEnabled()) dlog("key", { h: "window", key: keyDesc(e), what, ...data }, "win:" + keyDesc(e) + what);
         };
         // Shift alone (peek) is handled at document level, see onShift.
-        if (e.altKey && e.key === "ArrowDown" && e.target === input) {
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && (e.key === "ContextMenu" || e.key === "F10" && e.shiftKey)) {
+            if (!current) return;
+            eat();
+            if (e.repeat) return;
+            stopHover();
+            setPeek(false);
+            const anchor = listRef.current?.querySelector<HTMLElement>(".vc-stx-it.sel") ?? e.currentTarget;
+            const rect = anchor.getBoundingClientRect();
+            openMenu(current.id, rect.left, rect.bottom);
+        } else if (e.altKey && e.key === "ArrowDown" && e.target === input) {
             const category = winRef.current?.querySelector<HTMLButtonElement>(".vc-stx-category-filter [role=combobox]");
             if (category) { eat(); category.focus(); category.click(); }
         } else if (e.key === "Escape" && ui.get().menu) {
@@ -556,7 +552,7 @@ function WindowView(connectionNotice: string) {
                                     className="vc-stx-sinput"
                                     placeholder="Поиск: название, текст или «снр», «фпс»…"
                                     aria-label="Поиск шаблонов"
-                                    aria-keyshortcuts="Alt+ArrowDown"
+                                    aria-keyshortcuts="Alt+ArrowDown ContextMenu Shift+F10"
                                     value={query}
                                     onChange={e => setQuery(e.currentTarget.value)}
                                 />
@@ -586,7 +582,7 @@ function WindowView(connectionNotice: string) {
                         <div className="vc-stx-tabs" role="group" aria-label="Разделы шаблонов">
                             {tabOrder.map(v => (
                                 <button key={v} type="button" data-stx-menu-control aria-pressed={view === v}
-                                    draggable title={`${WINDOW_TAB_LABELS[v]} · Перетащите для изменения порядка; кнопки перемещения — в настройках`}
+                                    draggable title="Перетащите для изменения порядка"
                                     className={"vc-stx-tab" + (view === v ? " on" : "") + (dropTab === v ? " vc-stx-tab-drop" : "")}
                                     onDragStart={e => { draggingTab.current = v; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", v); stopHover(); }}
                                     onDragOver={e => { if (draggingTab.current) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropTab(v); } }}
@@ -627,7 +623,7 @@ function WindowView(connectionNotice: string) {
                                     {sec.items.map(t => row(t, idx++))}
                                 </div>))}
                     </div>
-                    <div className="vc-stx-foot" title={"Enter — вставить · Ctrl+клик — без приветствия · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — элементы управления · Ctrl+Tab — вкладки · Alt+↓ — категории · Ctrl+D — избранное · ПКМ — меню"}>
+                    <div className="vc-stx-foot" title={"Enter — вставить · Ctrl+клик — без приветствия · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — элементы управления · Ctrl+Tab — вкладки · Alt+↓ — категории · Ctrl+D — избранное · ПКМ / Shift+F10 — меню"}>
                         <span><span className="vc-stx-kb"><IconEnter size={11} /></span>{!footKeys && "вставить"}</span>
                         <span><span className="vc-stx-kb"><IconShift size={11} /><IconEnter size={11} /></span>{!footKeys && "в ответ"}</span>
                         <span><span className="vc-stx-kb">Tab</span>{!footKeys && "фокус"}</span>

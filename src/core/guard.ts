@@ -34,15 +34,21 @@ export type Scope = ProjectId | "all";
  */
 export const listProject = (scope: Scope, techProject: ProjectId): ProjectId => scope === "all" ? techProject : scope;
 
-/** Templates visible in a scope: the listed project's own + common (no project); none when off (null). */
+/** Validated personal visibility does not change the record's source project or API write scope. */
+export function templateFitsProject(t: Template, project: ProjectId): boolean {
+    if (t.source === "personal" && t.personalVisibleIn) return t.personalVisibleIn.includes(project);
+    return !t.project || t.project === project;
+}
+
+/** Project FAQ/common plus the account's fetched personal records; none when off (null). */
 export function poolOf(templates: Template[], scope: Scope | null, techProject: ProjectId): Template[] {
     if (scope === null) return [];
     const p = listProject(scope, techProject);
-    return templates.filter(t => !t.project || t.project === p);
+    return templates.filter(t => templateFitsProject(t, p));
 }
 
 export function findMirror(t: Template, pool: Template[], project: ProjectId): Template | null {
-    if (!t.project || t.project === project) return null;
+    if (templateFitsProject(t, project)) return null;
     const k = titleKey(t.title);
     if (!k) return null; // Unrelated emoji/punctuation titles must not become the same mirror identity.
     return pool.find(x => x.project === project && titleKey(x.title) === k) ?? null;
@@ -55,7 +61,7 @@ export type Decision =
 
 /** What to insert when template t is picked in a channel of `project`. */
 export function decide(t: Template, project: ProjectId, pool: Template[]): Decision {
-    if (!t.project || t.project === project) return { kind: "ok", t };
+    if (templateFitsProject(t, project)) return { kind: "ok", t };
     const m = findMirror(t, pool, project);
     return m ? { kind: "mirror", t: m, from: t } : { kind: "foreign", t };
 }

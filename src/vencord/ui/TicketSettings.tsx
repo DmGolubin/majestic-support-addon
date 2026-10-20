@@ -6,7 +6,7 @@
 
 import "./ticket-settings.css";
 
-import { ChannelStore, useStateFromStores } from "@webpack/common";
+import { ChannelStore, useState, useStateFromStores } from "@webpack/common";
 
 import { channelTicketSound, reminderTicketSound, ReminderSoundProject } from "../core/ticketSound";
 import { PROJECTS } from "../core/types";
@@ -23,6 +23,13 @@ export function TicketSettings() {
     const state = ticketSoundState.use();
     const reminders = ticketRemindersState.use();
     const { options, loaded, error, testing, playing, playbackStatus } = state;
+    const [previewLabel, setPreviewLabel] = useState<string | null>(null);
+    const playbackLabel = testing ? "Подготовка звука…" : playing
+        ? previewLabel ?? (playbackStatus.startsWith("Воспроизводится свой звук.") ? "Свой звук" : "Стандартный звук")
+        : playbackStatus.startsWith("Тест завершён.") ? "Проверка завершена"
+            : playbackStatus.startsWith("Воспроизведение остановлено.") ? "Остановлено"
+                : playbackStatus.startsWith("Свой звук загружен.") ? "Свой звук загружен"
+                    : playbackStatus.replace(/(\d+(?:\.\d+)?)%/g, (_, value) => percent(Number(value)));
     const channels = useStateFromStores([ChannelStore], () => options.channelIds.map(id => {
         const channel = ChannelStore.getChannel(id);
         const projectId = (["mj", "ro"] as const).find(key => PROJECTS[key].guildId === channel?.guild_id);
@@ -45,11 +52,15 @@ export function TicketSettings() {
                         if (file) void (project ? chooseReminderSound(file, project) : chooseTicketSound(file, parentId));
                     }} />
                 </label>
-                <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={testing || loadingSound} onClick={() => void (project ? testReminderSound(project) : testTicketSound(parentId))} aria-busy={testing}><IconBell />Проверить звук</button>
+                <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={testing || loadingSound}
+                    title={mutedPreview ? `Проверить на ${percent(config.volume || 30)}, не включая уведомления` : undefined}
+                    onClick={() => {
+                        setPreviewLabel(customName ? "Свой звук" : "Стандартный звук");
+                        void (project ? testReminderSound(project) : testTicketSound(parentId));
+                    }} aria-busy={testing}><IconBell />Проверить звук</button>
                 {(customName || sound?.canReset || loadingSound) && <button type="button" className="vc-stx-btn vc-stx-ghost vc-stx-ticket-reset" disabled={testing} onClick={() => project ? resetReminderSound(project) : resetTicketSound(parentId)}>Вернуть стандартный</button>}
             </div>
             <small className="vc-stx-muted">До 5 МБ · до 30 с · хранится локально</small>
-            {mutedPreview && <small className="vc-stx-muted">Проверка: {percent(config.volume || 30)}, без включения {project ? "напоминаний" : "канала"}.</small>}
             {(parentId || project) && sound?.error && <p className="vc-stx-ticket-error" role="alert">{sound.error}</p>}
         </div>;
     };
@@ -108,8 +119,12 @@ export function TicketSettings() {
                 </fieldset>;
             })}</div>
         </ReminderSettings>
-        {(testing || playing) && <button type="button" className="vc-stx-btn vc-stx-ghost" onClick={stopTicketSoundPlayback}>Остановить звук</button>}
-        {playbackStatus && <p className="vc-stx-ticket-playback" role="status">{playbackStatus.replace(/(\d+(?:\.\d+)?)%/g, (_, value) => percent(Number(value)))}</p>}
+        {(testing || playing || playbackStatus) && <div className="vc-stx-ticket-playback-row">
+            <div className="vc-stx-ticket-playback" role="status"><IconBell size={16} /><span>{playbackLabel}</span></div>
+            {(testing || playing) && <button type="button" className="vc-stx-btn vc-stx-ghost vc-stx-ticket-stop" aria-label="Остановить звук" onClick={stopTicketSoundPlayback}>
+                <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor" /></svg>Остановить
+            </button>}
+        </div>}
         {error && <p className="vc-stx-ticket-error" role="alert">{error}</p>}
         {!loaded && error && <button type="button" className="vc-stx-btn vc-stx-ghost" onClick={retryTicketSoundSettings}>Повторить загрузку настроек</button>}
     </div>;

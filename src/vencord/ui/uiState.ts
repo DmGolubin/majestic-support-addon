@@ -82,7 +82,7 @@ export function activeScope(): Scope | null {
     return m === "off" ? null : m;
 }
 
-/** Templates visible in a scope: the listed project's own + common; Tech lists its switch's project; none when off. */
+/** Project FAQ/common and authorized personal records; Tech uses its switch; none when off. */
 export const poolFor = (scope: Scope | null): Template[] => poolOf(store.templates, scope, store.data.techProject);
 
 /** The project a scope lists (Tech: the switch), null when off. */

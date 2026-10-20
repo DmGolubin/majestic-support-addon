@@ -6,7 +6,7 @@
 
 import { ProjectIcon } from "./ProjectIcon";
 import { authorizePanelReminders } from "./panel";
-import { refreshTicketReminders, setDiscordReminders, ticketRemindersState } from "./ticketReminders";
+import { previewTicketReminderNotification, refreshTicketReminders, setDiscordReminders, ticketRemindersState } from "./ticketReminders";
 
 export function ReminderSettings({ children }: { children?: React.ReactNode; } = {}) {
     const { phase, settings, busy, error, deliveryError } = ticketRemindersState.use();
@@ -22,7 +22,7 @@ export function ReminderSettings({ children }: { children?: React.ReactNode; } =
                 <p className="vc-stx-muted">Разрешите панели доступ к вашим тикетам и настройкам напоминаний.</p>
                 <button type="button" className="vc-stx-btn vc-stx-ghost" onClick={() => void authorizePanelReminders()}>Подключить напоминания</button>
             </> : <>
-                <div className="vc-stx-reminder-master"><label className="vc-stx-check"><input type="checkbox" checked={settings?.discordEnabled ?? false} disabled={!ready || busy} onChange={e => void setDiscordReminders(e.currentTarget.checked)} />Напоминать в Discord</label><small>Общий переключатель для всех серверов</small></div>
+                <div className="vc-stx-reminder-master"><label className="vc-stx-check"><input type="checkbox" checked={settings?.discordEnabled ?? false} disabled={!ready || busy} onChange={e => void setDiscordReminders(e.currentTarget.checked)} />Напоминать в Discord</label></div>
                 {phase === "loading" && <p className="vc-stx-muted" role="status">Загружаем настройки…</p>}
                 {!children && !!settings?.projects.length && <ul className="vc-stx-reminder-thresholds" aria-label="Пороги личных напоминаний">{settings.projects.map(p => <li key={p.project}>
                     <span aria-hidden="true"><ProjectIcon project={p.project === "majestic" ? "mj" : "ro"} size={16} /></span>
@@ -34,5 +34,8 @@ export function ReminderSettings({ children }: { children?: React.ReactNode; } =
             </>}
         {(error || deliveryError) && <p className="vc-stx-ticket-error" role="alert">{error || deliveryError}</p>}
         {(error || deliveryError) && phase !== "permission" && phase !== "idle" && <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy || phase === "loading"} onClick={() => void refreshTicketReminders()}>Повторить проверку</button>}
+        <div className="vc-stx-reminder-preview">
+            <button type="button" className="vc-stx-btn vc-stx-ghost" title="Локальное тестовое уведомление" onClick={previewTicketReminderNotification}>Показать уведомление</button>
+        </div>
     </section>;
 }

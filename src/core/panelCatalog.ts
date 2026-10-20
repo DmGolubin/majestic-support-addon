@@ -318,6 +318,7 @@ function parseSnapshotContents(r: Record<string, unknown>, accountId: string, pe
         const folder = folderId === null ? undefined : folderById.get(folderId);
         if (folderId && (!folder || (p !== null && folderProjects.get(folderId) !== p))) return invalid();
         return { id: "personal:panel:" + id, ...metadata(t), text: string(t.text, 20000, true), project: p,
+            personalVisibleIn: [...ps],
             source: "personal", folderId, category: folder?.name ?? "Мои шаблоны", command: command(t.command), color: color(t.color, allowedColors),
             status: "actual", statusNote: null, teamUses: 0 };
     });

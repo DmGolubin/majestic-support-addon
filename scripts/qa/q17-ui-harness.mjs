@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..').replaceAll('\\','/');
 const require=createRequire(root+'/betterdiscord/package.json');
 const { build }=require('esbuild');
-const a26 = process.argv.includes('--a26');
+const a27 = process.argv.includes('--a27');
+const a26 = process.argv.includes('--a26') || a27;
 const a25 = process.argv.includes('--a25') || a26;
 const a24 = process.argv.includes('--a24') || a25;
 const a23 = process.argv.includes('--a23') || a24;
@@ -103,6 +104,34 @@ if (a26) {
         'export const setDiscordReminders=async enabled=>{',
         'export const setDiscordReminders=async enabled=>{(window.a26ReminderApiCalls??=[]).push({discordEnabled:enabled});'
     );
+}
+if (a27) {
+    // Host scope is mocked; filtering and project choice use the actual core/Store.
+    stubs.state = stubs.state
+        .replace("export const activeScope=()=> 'all';export const listedProject=()=> 'mj';export const poolFor=()=>samples;export const pickTechProject=()=>{};",
+            `export const activeScope=()=>window.a27Scope===undefined?'all':window.a27Scope;export const listedProject=scope=>scope===null?null:listProject(scope,store.data.techProject);export const poolFor=scope=>poolOf(store.templates,scope,store.data.techProject);export const pickTechProject=project=>{store.setTechProject(project);ui.set({compose:[]})};`);
+    stubs.state += `
+import {poolOf,listProject} from '${root}/src/core/guard.ts';
+const a27Base=samples[0];
+const a27Templates=[
+ {...a27Base,id:'faq:mj',title:'MJteamonly FAQ',project:'mj',source:'faq'},
+ {...a27Base,id:'faq:ro',title:'ROteamonly FAQ',project:'ro',source:'faq'},
+ {...a27Base,id:'personal:panel:701',title:'MJpersonalneedle',project:'mj',source:'personal',personalVisibleIn:['mj','ro'],category:'Мои шаблоны'},
+ {...a27Base,id:'personal:panel:702',title:'ROpersonalneedle',project:'ro',source:'personal',personalVisibleIn:['mj','ro'],category:'Мои шаблоны'},
+];
+store.replacePanelCatalog({templates:a27Templates,personal:a27Templates.filter(t=>t.source==='personal'),folders:[]});
+window.a27Scope='all';
+window.a27SetScope=scope=>{window.a27Scope=scope;ui.set({channelRevision:(ui.get().channelRevision??0)+1})};
+`;
+    stubs.panel += `
+const a27Catalog=panelPersonal.get().catalog;
+panelPersonal.set({catalog:{...a27Catalog,personalRecords:[
+ {...a27Catalog.personalRecords[0],id:'701',title:'MJpersonalneedle',projects:['mj'],shared:false},
+ {...a27Catalog.personalRecords[1],id:'702',title:'ROpersonalneedle',projects:['ro'],shared:false}
+],folderRecords:[]}});
+`;
+    stubs.reminders += `export {previewTicketReminderNotification} from '${root}/src/vencord/ui/ticketReminders.ts';`;
+    stubs.platform += `window.a27ToastBoundary={kind:'platform.toast',realController:true,realHost:false};`;
 }
 const hostImport = a24 ? `import {Host} from '${root}/src/vencord/ui/Host.tsx';` : '';
 const hostTree = a24 ? '<Host/>' : '<div className="vc-stx-root">{s.management&&<Management/>}{s.windowOpen&&(p.phase==="ready"?<Window/>:<LoginWindow/>)}</div>';

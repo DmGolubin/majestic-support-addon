@@ -3,6 +3,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { joinPieces } from "../src/core/compose";
+import { poolOf, Scope, templateFitsProject } from "../src/core/guard";
 import { orderHits } from "../src/core/rank";
 import { search } from "../src/core/search";
 import { Store } from "../src/core/state";
@@ -86,7 +87,8 @@ async function harness() {
     const toast = vi.fn();
     const latchKey = vi.fn();
     const resetComposeTarget = vi.fn();
-    const snapNow = () => ({ scope: "mj", setVersion: store.setVersion, editor: ed });
+    let scope: Scope | null = "mj";
+    const snapNow = () => ({ scope, setVersion: store.setVersion, editor: ed });
     const flow = {
         prepareText: vi.fn(async (template: any, _target: any, _options: any) => ({ t: template, text: template.text, snap: snapNow() })),
         stillCurrent: vi.fn((snap: any) => snap.setVersion === store.setVersion && ed.isConnected),
@@ -110,12 +112,13 @@ async function harness() {
     };
     const dependencies: Record<string, any> = {
         "@webpack/common": hooks,
+        "../core/guard": { templateFitsProject },
         "../core/rank": { orderHits }, "../core/search": { search }, "../core/trigger": { findTrigger }, "../core/compose": { joinPieces },
         "../platform": { insertText, toast },
         "./debug": { costStart: () => 0, costEnd: () => {}, debugEnabled: () => false, dlog: () => {} },
         "./flow": flow, "./keylatch": { latchKey },
         "./op": { generationNow: () => 1, composeEditor: () => ed, composeTargetNow: () => ({ editor: ed, selection: "" }), resetComposeTarget },
-        "./uiState": { store, ui, libraryIsFresh: () => true, ensureLibraryFresh: async () => true, activeScope: () => "mj", poolFor: () => store.templates, useStore: () => {}, useChatRect: () => ({ left: 0, width: 500, top: 600 }) },
+        "./uiState": { store, ui, libraryIsFresh: () => true, ensureLibraryFresh: async () => true, activeScope: () => scope, poolFor: () => poolOf(store.templates, scope, store.data.techProject), useStore: () => {}, useChatRect: () => ({ left: 0, width: 500, top: 600 }) },
         "./ProjectIcon": {}, "./svg": {},
     };
     const evaluate = (code: string) => {
@@ -130,7 +133,7 @@ async function harness() {
         });
         return module.exports;
     };
-    const inline = evaluate(inlineCode);
+    const inline = evaluate(inlineCode + "\nexports.runCheck = runCheck;");
     const compose = evaluate(composeCode);
     const render = () => {
         cursor = 0;
@@ -141,13 +144,28 @@ async function harness() {
     render(); // Host keeps the component mounted even with an empty reply.
     const openInline = () => ui.set({ inline: { query: "old", length: 4, sel: 0, items: [t], note: "" } });
     const collect = () => { ui.set({ compose: [id] }); return render(); };
-    return { store, id, t, ui, document, ed, makeEditor, setCaret, flow, inline, insertText, toast, latchKey, resetComposeTarget, openInline, collect, render, unmount: () => cleanups.splice(0).forEach(fn => fn()), selection: () => selection };
+    return { store, id, t, ui, document, ed, makeEditor, setCaret, flow, inline, insertText, toast, latchKey, resetComposeTarget, openInline, collect, render, setScope: (next: Scope | null) => { scope = next; }, unmount: () => cleanups.splice(0).forEach(fn => fn()), selection: () => selection };
 }
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("inline cancellation", () => {
+    it("A27 refreshes quick-input suggestions across projects while keeping FAQ scoped and closing on access loss", async () => {
+        const h = await harness();
+        Object.assign(h.t, { project: "ro", personalVisibleIn: ["mj", "ro"] });
+        const faq = { ...h.t, id: "faq:russia-online:1", source: "faq" as const, personalVisibleIn: undefined };
+        h.store.templates.push(faq);
+        h.inline.runCheck();
+        expect(h.ui.get().inline.items).toEqual([h.t]);
+        h.setScope("ro"); h.inline.runCheck();
+        expect(h.ui.get().inline.items).toEqual([h.t, faq]);
+        h.setScope("mj"); h.inline.runCheck();
+        expect(h.ui.get().inline.items).toEqual([h.t]);
+        h.setScope(null); h.inline.runCheck();
+        expect(h.ui.get().inline).toBeNull();
+        h.unmount();
+    });
     it.each(["ArrowDown", "ArrowUp", "Enter", "Tab"])("does not consume %s after focus leaves its editor", async key => {
         const h = await harness(); h.openInline();
         h.document.activeElement = { closest: () => null };
@@ -244,6 +262,14 @@ describe("inline cancellation", () => {
 });
 
 describe("compose cancellation", () => {
+    it.each(["personal", "faq"] as const)("A27 accepts fetched cross-project personal composition but blocks foreign FAQ (%s)", async source => {
+        const h = await harness();
+        Object.assign(h.t, { project: "ro", source, personalVisibleIn: ["mj", "ro"] });
+        await h.collect().props.onClick();
+        if (source === "personal") expect(h.insertText).toHaveBeenCalledExactlyOnceWith("Answer");
+        else expect(h.insertText).not.toHaveBeenCalled();
+        h.unmount();
+    });
     it("releases a disconnected target before preparation while retaining the collected reply", async () => {
         const h = await harness(); const b = h.collect();
         h.ed.isConnected = false;

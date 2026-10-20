@@ -222,7 +222,7 @@ describe("A24 per-template shortcut UI", () => {
 });
 
 describe("A24 row actions and existing global bind handler", () => {
-    it.each(["faq", "personal"] as const)("opens the row menu without inserting (%s)", sourceKind => {
+    it.each(["faq", "personal"] as const)("keeps right-click menu access without a row action button or insertion (%s)", sourceKind => {
         const file = source("ui/Window.tsx");
         const code = compile(file.slice(file.indexOf("function RowImpl("), file.indexOf("// React from @webpack/common")) + "\nexports.RowImpl = RowImpl;");
         const openMenu = vi.fn(), insertTemplate = vi.fn(), hide = vi.fn(), exports: any = {};
@@ -230,14 +230,11 @@ describe("A24 row actions and existing global bind handler", () => {
         runInNewContext(code, { exports, React, openMenu, insertTemplate, nqHighlight: (s: string) => s, snippetOf: () => "Ответ" });
         const t = template("target", sourceKind);
         const tree = exports.RowImpl({ t, tokens: [], onHide: hide, alt: 0 });
-        const action = all(tree).find(n => n.type === "button");
-        expect(action.props["aria-haspopup"]).toBe("menu");
-        expect(action.props["aria-label"]).toContain(t.title);
-        expect(action.props.title).toBe("Действия шаблона");
-        expect(all(action).find(n => n.type === "svg").props["aria-hidden"]).toBe("true");
-        const event = { stopPropagation: vi.fn(), currentTarget: { getBoundingClientRect: () => ({ left: 80, bottom: 90 }) } };
-        action.props.onClick(event);
-        expect(event.stopPropagation).toHaveBeenCalledOnce();
+        expect(all(tree).filter(n => n.type === "button")).toHaveLength(0);
+        const event = { preventDefault: vi.fn(), clientX: 80, clientY: 90 };
+        tree.props.onContextMenu(event);
+        expect(event.preventDefault).toHaveBeenCalledOnce();
+        expect(hide).toHaveBeenCalledOnce();
         expect(openMenu).toHaveBeenCalledExactlyOnceWith(t.id, 80, 90);
         expect(insertTemplate).not.toHaveBeenCalled();
     });

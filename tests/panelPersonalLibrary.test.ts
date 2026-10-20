@@ -113,6 +113,34 @@ function harness() {
 }
 
 describe("panel personal editor lifecycle and retries", () => {
+    it.each([false, true])("A27 retains source project, folder, version and shared=%s on edit without exposing a visibility toggle", async shared => {
+        const h = harness();
+        Object.assign(h.row, { projects: shared ? ["ro", "mj"] : ["ro"], shared, folderId: "8" });
+        expect(h.text()).toContain("Личные шаблоны доступны на обоих серверах.");
+        expect(h.prepare).not.toHaveBeenCalled();
+        h.open();
+        expect(h.find(n => n.type === "select" && n.props["aria-label"] === "Проект").props.value).toBe("ro");
+        expect(h.find(n => n.type === "select" && n.props["aria-label"] === "Папка шаблона").props.value).toBe("8");
+        expect(h.text()).toContain("Проект на панели");
+        expect(h.text()).not.toContain("Общий для двух проектов");
+        expect(all(h.render(), n => n.type === "input" && n.props.type === "checkbox")).toEqual([]);
+        h.change("Название", "Edited source record"); await h.submit();
+        expect(h.prepare).toHaveBeenCalledExactlyOnceWith({
+            method: "PATCH", path: "/personal-templates/7", version: "old-version",
+            body: { title: "Edited source record", text: h.row.text, project: "russia-online", shared, folderId: "8", command: "cmd", color: "amber" },
+        });
+        h.unmount();
+    });
+    it("A27 keeps new records source-scoped and omits the two-server hint with one authorized project", async () => {
+        const h = harness();
+        h.personal.set({ catalog: { ...h.personal.get().catalog, projects: ["mj"], folderRecords: [] } });
+        expect(h.text()).not.toContain("Личные шаблоны доступны на обоих серверах.");
+        h.click("Добавить шаблон"); h.change("Название", "New own record"); await h.submit();
+        expect(h.prepare).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+            method: "POST", path: "/personal-templates", body: expect.objectContaining({ project: "majestic", shared: false, folderId: null }),
+        }));
+        h.unmount();
+    });
     it("retains an unsaved draft across direct Settings unmount, and explicit discard clears it", () => {
         const h = harness(); h.open(); h.change("Название", "Unsaved"); h.unmount(); h.render();
         expect(h.value("Название")).toBe("Unsaved"); expect(h.props.onDirty).toHaveBeenLastCalledWith(true);

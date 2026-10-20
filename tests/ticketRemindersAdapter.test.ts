@@ -59,6 +59,7 @@ interface State {
     deliveryError: string;
 }
 interface Runtime {
+    previewTicketReminderNotification(): void;
     ticketRemindersState: { get(): State; set(patch: Partial<State>): void; };
     syncTicketReminders(binding: Binding): void;
     refreshTicketReminders(): Promise<void>;
@@ -130,6 +131,24 @@ function harness() {
 }
 
 describe("ticket reminder adapter", () => {
+    it.each([false, true])("manually previews the real toast without API/audio/controller/storage mutations (connected=%s)", async connected => {
+        const h = harness(); if (connected) await h.ready();
+        const before = structuredClone(h.state());
+        for (const spy of [h.client.get, h.client.mutate, h.storage.get, h.storage.set, h.createReminderController, h.stopTicketReminderSound, h.prepareTicketSound]) spy.mockClear();
+        expect(h.toast).not.toHaveBeenCalled();
+        h.previewTicketReminderNotification();
+        expect(h.toast).toHaveBeenCalledExactlyOnceWith("Тестовое уведомление: Игрок ждёт ответа в назначенном вам тикете", "message");
+        expect(h.state()).toEqual(before);
+        for (const spy of [h.client.get, h.client.mutate, h.storage.get, h.storage.set, h.createReminderController, h.stopTicketReminderSound, h.prepareTicketSound, h.playTicketReminder]) expect(spy).not.toHaveBeenCalled();
+    });
+
+    it("contains host toast failures during manual preview without changing reminder state", () => {
+        const h = harness(); const before = structuredClone(h.state());
+        h.toast.mockImplementationOnce(() => { throw Error("host unavailable"); });
+        expect(() => h.previewTicketReminderNotification()).not.toThrow();
+        expect(h.state()).toEqual(before); expect(h.client.get).not.toHaveBeenCalled();
+    });
+
     it("passes local project eligibility into selection without changing API master settings", async () => {
         const h = harness(); await h.ready();
         h.reminderSoundPolicy.mockImplementation(project => ({ enabled: project === "russia-online", revision: 2 }));

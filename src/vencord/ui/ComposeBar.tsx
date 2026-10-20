@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "@webpack/common";
 
 import { joinPieces } from "../core/compose";
+import { templateFitsProject } from "../core/guard";
 import { insertText, toast } from "../platform";
 import { costEnd, costStart, dlog } from "./debug";
 import { confirmedForeign, fillFields, focusTarget, snapNow, stillCurrent } from "./flow";
@@ -93,10 +94,10 @@ function ComposeBarView() {
                 return;
             }
             const items = selection.entries.map(e => e.template!);
-            // Every piece must be common, of the channel's project, or a foreign one the user confirmed for it; on Tech ("all") any piece fits.
+            // Use the same personal/project visibility as the picker; retain explicitly confirmed foreign FAQ.
             const fits = () => {
                 const p = snap.scope;
-                if (p === "all" || items.every(t => !t.project || (p && (t.project === p || confirmedForeign.has(`${p}:${t.id}`))))) return true;
+                if (p === "all" || (p && items.every(t => templateFitsProject(t, p) || confirmedForeign.has(`${p}:${t.id}`)))) return true;
                 dlog("cancel", { reason: "в ответе шаблон другого проекта", scope: p });
                 toast("В ответе есть шаблон другого проекта — вставка отменена", "failure");
                 return false;

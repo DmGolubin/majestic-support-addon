@@ -33,7 +33,10 @@ export function moveWindowTab(order: readonly WindowTab[], from: WindowTab, to: 
 
 export interface Template {
     id: string;
+    /** Source project, retained for editor writes and folder ownership. */
     project: ProjectId | null;
+    /** Memory-only personal visibility from the validated account snapshot; never a write scope. */
+    personalVisibleIn?: readonly ProjectId[];
     title: string;
     text: string;
     category: string | null;

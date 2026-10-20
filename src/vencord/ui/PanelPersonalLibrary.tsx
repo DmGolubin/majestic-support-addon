@@ -185,6 +185,7 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
     return <section className="vc-stx-panel-personal" aria-label="Личная библиотека панели">
         <header><div><h3>Мои шаблоны</h3><p className="vc-stx-muted">На панели · {catalog.personalRecords.length}</p></div>
             {!editor && <button className="vc-stx-btn" disabled={!canWrite || !ready || busy || !catalog.projects.length} onClick={() => begin("template")}>Добавить шаблон</button>}</header>
+        {catalog.projects.length === 2 && <p className="vc-stx-muted">Личные шаблоны доступны на обоих серверах.</p>}
         {(!canWrite || !canFolders) && <div className="vc-stx-pp-note">
             <p>Для редактирования подтвердите права записи на панели. Потребуется новый вход.</p>
             <button className="vc-stx-btn vc-stx-ghost" disabled={busy || !!editor} onClick={() => void authorizePanelEditing()}>Разрешить редактирование</button>
@@ -204,7 +205,7 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
                     <textarea id="vc-stx-panel-personal-text" ref={bodyRef} required maxLength={20000} value={editor.draft.text} onChange={e => change({ text: e.currentTarget.value })} />
                 </>}
                 <div className="vc-stx-pp-grid">
-                    {(!editor.id || editor.kind === "template") && <label>Проект<Select aria-label="Проект" value={editor.draft.project} onChange={e => change({ project: e.currentTarget.value as ProjectId, folderId: null })}>
+                    {(!editor.id || editor.kind === "template") && <label>Проект на панели<Select aria-label="Проект" value={editor.draft.project} onChange={e => change({ project: e.currentTarget.value as ProjectId, folderId: null })}>
                         {catalog.projects.map(project => <option key={project} value={project}>{projectName(project)}</option>)}
                     </Select></label>}
                     {editor.kind === "template" ? <>
@@ -216,7 +217,6 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
                             disabled={locked || state.conflict} onChange={color => change({ color })} />
                     </> : <label>Позиция<input type="number" min={0} max={100000} step={1} required value={editor.draft.position} onChange={e => change({ position: Number(e.currentTarget.value) })} /></label>}
                 </div>
-                {editor.kind === "template" && <label className="vc-stx-pp-check"><input type="checkbox" disabled={catalog.projects.length !== 2} checked={editor.draft.shared} onChange={e => change({ shared: e.currentTarget.checked, folderId: null })} />Общий для двух проектов</label>}
             </fieldset>
             {editor.kind === "template" && <details className="vc-stx-pp-preview" open><summary>Предпросмотр</summary><div><Markdown text={editor.draft.text} /></div><p className="vc-stx-muted">Переменные заполняются при вставке.</p></details>}
             {state.conflict && <div className="vc-stx-pp-note" role="group" aria-label="Конфликт версии">

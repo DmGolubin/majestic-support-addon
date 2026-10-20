@@ -31,23 +31,26 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
     ] }, busy: false, error: "", deliveryError: "" };
     const channels = new Map<string, { name?: string; guild_id?: string; }>();
     const ChannelStore = { getChannel: (id: string) => channels.get(id) };
+    let previewLabel: unknown = null;
+    const useState = (initial: unknown) => [previewLabel ?? initial, (value: unknown) => { previewLabel = value; }];
     const useStateFromStores = vi.fn((_stores, read: () => unknown) => read());
     const setTicketSound = vi.fn(), testTicketSound = vi.fn(), setChannelTicketSound = vi.fn();
     const chooseTicketSound = vi.fn(), resetTicketSound = vi.fn();
     const setReminderTicketSound = vi.fn(), chooseReminderSound = vi.fn(), resetReminderSound = vi.fn(), testReminderSound = vi.fn();
+    const previewTicketReminderNotification = vi.fn();
     const setDiscordReminders = vi.fn(), refreshTicketReminders = vi.fn(), authorizePanelReminders = vi.fn();
     const retryTicketSoundSettings = vi.fn();
     const stopTicketSoundPlayback = vi.fn();
     const dependencies: Record<string, unknown> = {
         "./ticket-settings.css": {},
-        "@webpack/common": { ChannelStore, useStateFromStores },
+        "@webpack/common": { ChannelStore, useState, useStateFromStores },
         "../core/types": { PROJECTS },
         "../core/ticketSound": soundCore,
         "./Select": { Select: "Select" },
         "./ProjectIcon": { ProjectIcon: "ProjectIcon" },
         "./svg": { IconBell: "IconBell" },
         "./panel": { authorizePanelReminders },
-        "./ticketReminders": { ticketRemindersState: { use: () => reminders }, setDiscordReminders, refreshTicketReminders },
+        "./ticketReminders": { ticketRemindersState: { use: () => reminders }, setDiscordReminders, refreshTicketReminders, previewTicketReminderNotification },
         "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound },
     };
     const context = {
@@ -63,7 +66,7 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
     dependencies["./ReminderSettings"] = reminderExports;
     const exports: any = {};
     runInNewContext(code, { ...context, exports });
-    return { state, reminders, channels, ChannelStore, useStateFromStores, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound, setDiscordReminders, refreshTicketReminders, authorizePanelReminders, render: () => exports.TicketSettings() };
+    return { state, reminders, previewTicketReminderNotification, channels, ChannelStore, useStateFromStores, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound, setDiscordReminders, refreshTicketReminders, authorizePanelReminders, render: () => exports.TicketSettings() };
 }
 
 describe("A24 ticket and personal reminder audio settings", () => {
@@ -133,11 +136,13 @@ describe("A24 ticket and personal reminder audio settings", () => {
         const [first, , personal] = fields(h);
         const preview = button(first, "Проверить звук");
         expect(preview.props.disabled).toBe(false);
-        expect(text(first)).toContain("Проверка: 30%, без включения канала.");
+        expect(text(first)).not.toContain("Проверка:");
+        expect(preview.props.title).toBe("Проверить на 30%, не включая уведомления");
         preview.props.onClick();
         expect(h.testTicketSound).toHaveBeenCalledExactlyOnceWith(h.state.options.channelIds[0]);
         expect(button(personal, "Проверить звук").props.disabled).toBe(false);
-        expect(text(personal)).toContain("Проверка: 30%, без включения напоминаний.");
+        expect(text(personal)).not.toContain("Проверка:");
+        expect(button(personal, "Проверить звук").props.title).toBe("Проверить на 30%, не включая уведомления");
         button(personal, "Проверить звук").props.onClick();
         expect(h.testReminderSound).toHaveBeenCalledExactlyOnceWith("majestic");
         expect(h.setReminderTicketSound).not.toHaveBeenCalled();
@@ -194,8 +199,8 @@ describe("A24 ticket and personal reminder audio settings", () => {
     it("displays shared playback feedback and stop control without adding duplicate controls", () => {
         const h = harness(); h.state.playing = true; h.state.playbackStatus = "Воспроизводится свой звук.";
         const tree = h.render();
-        expect(text(nodes(tree).find(n => n.props.role === "status"))).toBe(h.state.playbackStatus);
-        const stops = nodes(tree).filter(n => n.type === "button" && text(n) === "Остановить звук");
+        expect(text(nodes(tree).find(n => n.props.role === "status"))).toBe("Свой звук");
+        const stops = nodes(tree).filter(n => n.type === "button" && n.props["aria-label"] === "Остановить звук");
         expect(stops).toHaveLength(1); stops[0].props.onClick();
         expect(h.stopTicketSoundPlayback).toHaveBeenCalledOnce();
     });
@@ -274,7 +279,8 @@ describe("A24 ticket and personal reminder audio settings", () => {
         const h = harness(); h.reminders.settings!.discordEnabled = false;
         for (const personal of fields(h).slice(2)) {
             expect(text(personal)).toContain("Общий переключатель напоминаний выключен.");
-            expect(text(personal)).toContain("Проверка: 30%, без включения напоминаний.");
+            expect(text(personal)).not.toContain("Проверка:");
+        expect(button(personal, "Проверить звук").props.title).toBe("Проверить на 30%, не включая уведомления");
             expect(button(personal, "Проверить звук").props.disabled).toBe(false);
             button(personal, "Проверить звук").props.onClick();
         }
@@ -319,7 +325,8 @@ describe("A25 compact sound controls", () => {
         const labels = text(tree).match(/\d+(?:\.\d+)?%/g)!;
         expect(labels.length).toBeGreaterThan(3);
         for (const label of labels) expect(label).toMatch(/^\d+%$/);
-        expect(text(tree)).toContain(`Проверка: ${Math.round(volume || 30)}%, без включения канала.`);
+        expect(text(tree)).not.toContain("Проверка:");
+        expect(nodes(tree).find(n => n.type === "button" && text(n) === "Проверить звук")!.props.title).toBe(`Проверить на ${Math.round(volume || 30)}%, не включая уведомления`);
         const previews = nodes(tree).filter(n => n.type === "button" && text(n) === "Проверить звук");
         expect(previews).toHaveLength(4);
         expect(h.state.options.volume).toBe(volume);
@@ -342,5 +349,53 @@ describe("A25 compact sound controls", () => {
             expect(all.filter(n => n.type === "input" && n.props.type === "file")).toHaveLength(4);
             expect(all.some(n => n.props.tabIndex === -1)).toBe(false);
         }
+    });
+});
+
+
+describe("A27 playback and notification preview", () => {
+    it("remembers the selected custom sound during playback without displaying the verbose runtime paragraph", () => {
+        const h = harness(); const id = h.state.options.channelIds[0];
+        h.state.channelAudio[id] = { customName: "selected.wav", canReset: true, loadingSound: false, error: "" };
+        nodes(h.render()).find(n => n.type === "button" && text(n) === "Проверить звук")!.props.onClick();
+        h.state.playing = true;
+        h.state.playbackStatus = "Воспроизводится свой звук. Если его не слышно, проверьте громкость Discord.";
+        const row = nodes(h.render()).find(n => n.props.className === "vc-stx-ticket-playback-row")!;
+        expect(text(nodes(row).find(n => n.props.role === "status"))).toBe("Свой звук");
+        expect(text(row)).not.toMatch(/Discord|громкость|selected/);
+        const stop = nodes(row).find(n => n.type === "button")!;
+        expect(stop.props).toMatchObject({ type: "button", "aria-label": "Остановить звук" });
+        expect(text(stop)).toBe("Остановить"); stop.props.onClick();
+        expect(h.stopTicketSoundPlayback).toHaveBeenCalledOnce();
+        h.state.playing = false; h.state.playbackStatus = "Воспроизведение остановлено.";
+        expect(text(nodes(h.render()).find(n => n.props.role === "status"))).toBe("Остановлено");
+        expect(nodes(h.render()).some(n => n.props["aria-label"] === "Остановить звук")).toBe(false);
+    });
+
+    it("shows concise pending/completed status while retaining actual playback errors", () => {
+        const h = harness(); h.state.testing = true;
+        expect(text(nodes(h.render()).find(n => n.props.role === "status"))).toBe("Подготовка звука…");
+        h.state.testing = false; h.state.playbackStatus = "Тест завершён. Если звука не было, проверьте устройство вывода и громкость Discord.";
+        h.state.error = "Не удалось воспроизвести звук.";
+        const tree = h.render();
+        expect(text(nodes(tree).find(n => n.props.role === "status"))).toBe("Проверка завершена");
+        expect(text(nodes(tree).find(n => n.props.role === "alert"))).toBe(h.state.error);
+        expect(text(tree)).not.toContain("громкость Discord");
+    });
+
+    it("triggers notification preview only on its button and preserves both new-ticket checkboxes", () => {
+        const h = harness(); const tree = h.render();
+        expect(h.previewTicketReminderNotification).not.toHaveBeenCalled();
+        const preview = nodes(tree).find(n => n.type === "button" && text(n) === "Показать уведомление")!;
+        expect(preview.props).toMatchObject({ type: "button", title: "Локальное тестовое уведомление" });
+        preview.props.onClick();
+        expect(h.previewTicketReminderNotification).toHaveBeenCalledOnce();
+        expect(h.setDiscordReminders).not.toHaveBeenCalled();
+        expect(h.testTicketSound).not.toHaveBeenCalled(); expect(h.testReminderSound).not.toHaveBeenCalled();
+        const channel = nodes(tree).find(n => n.type === "fieldset")!;
+        expect(nodes(channel).filter(n => n.type === "input" && n.props.type === "checkbox")).toHaveLength(2);
+        expect(text(channel)).toContain("Звук новых тикетов");
+        expect(text(channel)).toContain("Тихо, если тикет открыт и Discord в фокусе");
+        expect(text(tree)).not.toContain("Общий переключатель для всех серверов");
     });
 });
