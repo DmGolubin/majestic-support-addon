@@ -53,6 +53,17 @@ describe("BetterDiscord panel transport through BdApi.Net", () => {
         await expect(panelFetch(url, { signal: controller.signal })).rejects.toThrow("aborted");
         expect(net).toHaveBeenCalledOnce();
     });
+    it("preserves only a static network failure category across the BetterDiscord bridge", async () => {
+        const { makePanelFetch } = loadAdapter("native/transport.ts");
+        const fetch = makePanelFetch(async () => {
+            throw Object.assign(new Error("PRIVATE token and URL"), { code: "ECONNRESET", response: "PRIVATE response" });
+        });
+        const error = await fetch(url).catch((e: any) => e);
+        expect(error.message).toBe("Panel network request failed");
+        expect(error.networkFailureReason).toBe("connection_reset");
+        expect(JSON.stringify(error)).not.toContain("PRIVATE");
+        expect(error.cause).toBeUndefined();
+    });
 });
 
 describe("BetterDiscord protected session vault", () => {

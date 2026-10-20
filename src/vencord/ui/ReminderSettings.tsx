@@ -23,7 +23,7 @@ export function ReminderSettings() {
                 <label className="vc-stx-check"><input type="checkbox" checked={settings?.discordEnabled ?? false} disabled={!ready || busy} onChange={e => void setDiscordReminders(e.currentTarget.checked)} />Напоминать в Discord</label>
                 {phase === "loading" && <p className="vc-stx-muted" role="status">Загружаем настройки…</p>}
                 {!!settings?.projects.length && <p className="vc-stx-muted">{settings.projects.map(p => `${p.project === "majestic" ? "Majestic" : "Россия Онлайн"} — ${p.personalReminderMinutes} мин`).join(" · ")}. Порог меняется в Telegram.</p>}
-                <p className="vc-stx-muted">Звук и громкость — выбранные выше. Напоминания приходят только по назначенным вам тикетам.</p>
+                <p className="vc-stx-muted">Звук и громкость личных напоминаний — ниже, отдельно от новых тикетов. Напоминания приходят только по назначенным вам тикетам.</p>
                 {busy && <p className="vc-stx-muted" role="status">Сохраняем…</p>}
             </>}
         {(error || deliveryError) && <p className="vc-stx-ticket-error" role="alert">{error || deliveryError}</p>}

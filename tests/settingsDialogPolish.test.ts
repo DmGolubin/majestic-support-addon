@@ -21,7 +21,7 @@ function harness(root = "Management", kind = "fields") {
     const owners = new Map<string, any>(), effects: (() => void)[] = [], listeners = new Set<(e: any) => void>();
     const onDirty = vi.fn(), discard = vi.fn(), resolve = vi.fn();
     const dialog = { kind, templateId: "t1", title: "Title", initial: {}, fields: [{ name: "Name", options: [] }], resolve };
-    const ui = { set: vi.fn(), useSelect: (select: any) => select({ dialog }) };
+    const ui = { set: vi.fn(), get: () => ({ dialog }), useSelect: (select: any) => select({ dialog }) };
     const store = { data: { prefix: ";", previewOpen: true,
         showPersonalInAll: false, generalFirstInSearch: true, windowTabOrder: [...types.WINDOW_TABS] },
         setPrefix: vi.fn((v: string) => { store.data.prefix = v; }),

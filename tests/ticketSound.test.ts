@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultTicketSound, NewTicketEvent, readTicketSound, TicketSoundGate } from "../src/core/ticketSound";
+import { channelTicketSound, defaultTicketSound, NewTicketEvent, readTicketSound, TicketSoundGate } from "../src/core/ticketSound";
 
 const start = 1792100000000;
 const id = (at: number) => String(BigInt(at - 1420070400000) << 22n);
@@ -8,6 +8,28 @@ const event = (at = start + 1000): NewTicketEvent => ({ id: id(at), parentId: "6
 const options = () => ({ ...defaultTicketSound(), enabled: true });
 
 describe("new ticket sound", () => {
+    it.each([undefined, null, false, "invalid"])("seeds independent 30%% channel defaults for missing/invalid preferences (%s)", value => {
+        const parsed = readTicketSound(value);
+        for (const id of parsed.channelIds) expect(parsed.channels?.[id]).toMatchObject({ enabled: false, volume: 30 });
+        const changed = readTicketSound({ ...parsed, volume: 91 });
+        for (const id of changed.channelIds) expect(channelTicketSound(changed, id).volume).toBe(30);
+    });
+    it("bounds channel settings and ignores profiles outside configured parents", () => {
+        const id = event().parentId;
+        const parsed = readTicketSound({ ...options(), channels: {
+            [id]: { enabled: "yes", volume: Infinity, cooldownMs: 999999, quietWhenVisible: "no", data: "never stored" },
+            other: { enabled: true, volume: 100 },
+        } });
+        expect(parsed.channels?.[id]).toEqual({ enabled: false, volume: 30, cooldownMs: 30000, quietWhenVisible: true });
+        expect(parsed.channels).not.toHaveProperty("other");
+        expect(JSON.stringify(parsed)).not.toContain("never stored");
+    });
+    it("consumes disabled channel input so re-enabling does not replay it", () => {
+        const g = new TicketSoundGate(start), parsed = readTicketSound(defaultTicketSound());
+        expect(g.decide(event(), parsed, start + 2000, false)).toBe("sound_disabled");
+        parsed.channels![event().parentId].enabled = true;
+        expect(g.decide(event(), parsed, start + 3000, false)).toBe("sound_duplicate");
+    });
     it("accepts a new configured thread once", () => {
         const g = new TicketSoundGate(start);
         expect(g.accept(event(), options(), start + 2000, false)).toBe(true);

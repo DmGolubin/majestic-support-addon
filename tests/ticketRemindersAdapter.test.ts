@@ -4,7 +4,7 @@ import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PanelError } from "../src/core/panelClient";
-import { parseNotificationSettings, type PanelNotificationSettings, type ReminderOptions } from "../src/core/panelReminders";
+import { parseNotificationSettings, type PanelNotificationSettings, type ReminderOptions, type ReminderPlaybackTicket } from "../src/core/panelReminders";
 import type { PanelMutation } from "../src/core/panelProtocol";
 
 // Run the actual adapter; replace the engine and host services, retaining the real settings parser.
@@ -78,7 +78,7 @@ function harness() {
     };
     const storage = { get: vi.fn(async (_key: string): Promise<unknown> => undefined), set: vi.fn(async (_key: string, _value: unknown) => {}) };
     const toast = vi.fn();
-    const playTicketReminder = vi.fn(async (valid: () => boolean) => valid());
+    const playTicketReminder = vi.fn(async (valid: () => boolean, _ticket?: ReminderPlaybackTicket) => valid());
     const prepareTicketSound = vi.fn(), stopTicketReminderSound = vi.fn();
     const engines: {
         options: EngineOptions;
@@ -129,6 +129,13 @@ function harness() {
 }
 
 describe("ticket reminder adapter", () => {
+    it("passes the chosen technical ticket context to the guarded audio call", async () => {
+        const h = harness(); await h.ready();
+        const ticket: ReminderPlaybackTicket = { ticketId: "regional:42", channelId: null, guildId: null, project: "majestic",
+            waitingCycleId: "cycle-1", reminderId: "reminder-1", cycle: 7 };
+        expect(await h.running()[0].options.play(() => true, ticket)).toBe(true);
+        expect(h.playTicketReminder.mock.calls[0][1]).toEqual(ticket);
+    });
     it("prepares audio in the enable gesture and stops active reminders immediately on disable", async () => {
         const h = harness(); await h.ready(settings(false));
         h.client.mutate.mockResolvedValueOnce(settings(true, "v2"));

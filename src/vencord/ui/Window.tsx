@@ -106,6 +106,15 @@ function RowImpl({ t, sel, ctx, alt, bind, icon, tokens, line, onHover, onMove, 
                 {t.status !== "actual" && <span className={"vc-stx-badge " + t.status}>{t.status === "outdated" ? "устарел" : "на проверке"}</span>}
                 {bind && <span className="vc-stx-kb">{comboLabel(bind)}</span>}
                 {alt > 0 && <span className="vc-stx-kb">Alt {alt}</span>}
+                <button type="button" className="vc-stx-btn vc-stx-ghost" data-stx-menu-control
+                    style={{ width: 24, height: 24, padding: 0, justifyContent: "center", flexShrink: 0 }}
+                    aria-label={`Действия с шаблоном «${t.title}»`} aria-haspopup="menu" aria-expanded={ctx}
+                    title="Действия с шаблоном · назначить сочетание клавиш"
+                    onClick={e => {
+                        e.stopPropagation(); onHide();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        openMenu(t.id, rect.left, rect.bottom);
+                    }}><span aria-hidden="true">⋯</span></button>
             </div>
             <div className="vc-stx-sn">{line ? nqHighlight(line, tokens) : snippetOf(t)}</div>
         </div>
@@ -117,12 +126,12 @@ let MemoRow: React.ComponentType<RowProps> | null = null;
 const getRow = () => MemoRow ??= React.memo(RowImpl);
 
 /** The template window; its render (the component body) is a `render` cost span while debug is on. */
-export function Window() {
+export function Window({ connectionNotice = "" }: { connectionNotice?: string; } = {}) {
     const t0 = costStart();
-    try { return WindowView(); } finally { costEnd("render", t0); }
+    try { return WindowView(connectionNotice); } finally { costEnd("render", t0); }
 }
 
-function WindowView() {
+function WindowView(connectionNotice: string) {
     const version = useStore();
     const channelRevision = ui.useSelect(s => s.channelRevision);
     const composeLen = ui.useSelect(s => s.compose.length);
@@ -552,6 +561,7 @@ function WindowView() {
                                 title="Мои шаблоны и настройки" aria-label="Мои шаблоны и настройки"
                                 onClick={() => ui.set({ management: true, windowOpen: false, menu: null, inline: null })}><IconSettings size={17} /></button>
                         </div>
+                        {connectionNotice && <p className="vc-stx-connection-notice" role="status">{connectionNotice}</p>}
                         <div className="vc-stx-proj">
                             {scope === "all"
                                 // Tech: which project's templates to list (remembered). No project guard here.

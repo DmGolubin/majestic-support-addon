@@ -114,7 +114,7 @@ describe("reminder settings", () => {
     it("displays project thresholds as read-only Telegram settings", () => {
         const tree = harness({ phase: "ready", settings: settings() }).render();
         expect(text(tree)).toContain("Majestic — 5 мин · Россия Онлайн — 15 мин. Порог меняется в Telegram.");
-        expect(text(tree)).toContain("Звук и громкость — выбранные выше.");
+        expect(text(tree)).toContain("Звук и громкость личных напоминаний — ниже, отдельно от новых тикетов.");
         expect(text(tree)).toContain("только по назначенным вам тикетам");
         const controls = nodes(tree).filter(n => ["input", "select", "Select", "textarea", "button"].includes(n.type as string) || n.props.contentEditable);
         expect(controls).toHaveLength(1);

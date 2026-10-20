@@ -154,10 +154,10 @@ describe("request/session robustness regressions", () => {
         await vi.advanceTimersByTimeAsync(300000); // attempts at 0, 10, 30, 70, 150, 270 seconds
         expect(h.clients[0].get).toHaveBeenCalledTimes(6);
         expect(h.clients[0].cancel).not.toHaveBeenCalled();
-        expect(h.api.panel.get().phase).toBe("offline");
+        expect(h.api.panel.get()).toMatchObject({ phase: "ready", stale: true });
         h.state.error = null; await vi.advanceTimersByTimeAsync(90000);
         expect(h.clients[0].get).toHaveBeenCalledTimes(8);
-        expect(h.api.panel.get().phase).toBe("ready"); h.api.disposePanel();
+        expect(h.api.panel.get()).toMatchObject({ phase: "ready", stale: false }); h.api.disposePanel();
     });
 
     it("keeps the longest Retry-After from the initial parallel reads", async () => {
@@ -233,10 +233,10 @@ describe("request/session robustness regressions", () => {
         vi.spyOn(Math, "random").mockReturnValue(0.5);
         const h = harness(); await h.api.connectPanel();
         h.state.error = error; await h.api.reloadPanel();
-        expect(h.api.panel.get().phase).toBe("offline");
+        expect(h.api.panel.get()).toMatchObject({ phase: "ready", stale: true });
         expect(h.clients[0].cancel).not.toHaveBeenCalled();
         h.state.error = null; await vi.advanceTimersByTimeAsync(10000);
-        expect(h.api.panel.get().phase).toBe("ready");
+        expect(h.api.panel.get()).toMatchObject({ phase: "ready", stale: false });
         h.api.disposePanel();
     });
 

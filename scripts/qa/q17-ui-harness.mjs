@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..').replaceAll('\\','/');
 const require=createRequire(root+'/betterdiscord/package.json');
 const { build }=require('esbuild');
-const a23 = process.argv.includes('--a23');
+const a24 = process.argv.includes('--a24');
+const a23 = process.argv.includes('--a23') || a24;
 
 const here=path.resolve(process.argv[2] ?? 'scripts/qa/runs/q17-ui/before').replaceAll('\\','/');
 if(!here.startsWith(root+'/scripts/qa/runs/') || fs.existsSync(here)) throw Error('Use a new directory under scripts/qa/runs');
@@ -55,8 +56,36 @@ window.a23InsertionCalls=[];window.a23ComposeCalls=[];
     stubs.soundBoot = `import {startTicketSound,ticketSoundState} from '${root}/src/vencord/ui/ticketSound.ts';window.a23Sound=ticketSoundState;startTicketSound();`;
     map['a23-sound-boot'] = 'soundBoot';
 }
+if (a24) {
+    // Keep the actual menu/dialog and Store collision/persistence behavior.
+    stubs.state += `
+import {Store} from '${root}/src/core/state.ts';
+const initialPreferences={...store.data};
+const a24StorageKey='A24_fixture_preferences';
+const a24Store=new Store({get:async()=>JSON.parse(localStorage.getItem(a24StorageKey)||'null'),set:async(_,value)=>localStorage.setItem(a24StorageKey,JSON.stringify(value))},true);
+for(const key of Object.keys(store))delete store[key];
+Object.setPrototypeOf(store,Object.getPrototypeOf(a24Store));Object.assign(store,a24Store);
+store.replacePanelCatalog({templates:samples,personal:[],folders:[]});
+store.restorePanelPreferences({...initialPreferences,...JSON.parse(localStorage.getItem(a24StorageKey)||'{}')});
+store.subscribe(()=>tick.set({v:tick.get().v+1}));
+window.previewAccess=panelAccess;
+`;
+    stubs.panel += `panel.set({stale:false,checkedAt:Date.now()});`;
+    stubs.reminders = observable + `const key='A24_fixture_reminders';const settings=JSON.parse(localStorage.getItem(key)||'null')??{discordEnabled:true,projects:[{project:'majestic',personalReminderMinutes:15},{project:'russia-online',personalReminderMinutes:20}]};export const ticketRemindersState=createObservable({phase:'ready',settings,busy:false,error:'',deliveryError:''});export const refreshTicketReminders=async()=>{};export const setDiscordReminders=async enabled=>{const next={...ticketRemindersState.get().settings,discordEnabled:enabled};localStorage.setItem(key,JSON.stringify(next));ticketRemindersState.set({settings:next})};window.previewReminders=ticketRemindersState;`;
+    stubs.flow += `export const supersede=()=>{};`;
+    stubs.debug += `export const setDebugEnabled=on=>debugState.set({on});`;
+    // Real channel IDs from the sound controller defaults, distinct host names.
+    stubs.common += `const previousChannel=ChannelStore.getChannel;ChannelStore.getChannel=id=>id==='696711470783922247'?{id,name:'majestic-support',guild_id:'530693013622489088'}:id==='1534231644842754090'?{id,name:'ro-support',guild_id:'1089530150540034181'}:previousChannel(id);`;
+    delete map['./ContextMenu'];
+    stubs.a24Boundary = `import React from 'react';export default class Boundary extends React.Component{componentDidCatch(error){this.props.onError?.({error})}render(){return this.props.children}}`;
+    stubs.a24Idle = `export const ComposeBar=()=>null;export const Inline=()=>null;export const DebugPanel=()=>null;`;
+    map['@components/ErrorBoundary'] = 'a24Boundary';
+    for (const name of ['./ComposeBar','./InlinePop','./DebugPanel']) map[name] = 'a24Idle';
+}
+const hostImport = a24 ? `import {Host} from '${root}/src/vencord/ui/Host.tsx';` : '';
+const hostTree = a24 ? '<Host/>' : '<div className="vc-stx-root">{s.management&&<Management/>}{s.windowOpen&&(p.phase==="ready"?<Window/>:<LoginWindow/>)}</div>';
 if(!fs.existsSync(root+'/src/vencord/ui/PanelPersonalLibrary.tsx'))map['./PanelPersonalLibrary']='personal';
-await build({stdin:{contents:`${a23 ? "import 'a23-sound-boot';" : ''}import '${root}/src/vencord/styles.css';import {React} from '@webpack/common';import {createRoot} from 'react-dom/client';import '${root}/betterdiscord/adapter.css';import {ServiceSettings} from '${root}/betterdiscord/ServiceSettings.tsx';import {BuildIdentity} from '${root}/src/vencord/ui/BuildIdentity.tsx';import {LoginWindow} from '${root}/src/vencord/ui/LoginWindow.tsx';import {panel} from './panel';import {Management} from '${root}/src/vencord/ui/Management.tsx';import {Window} from '${root}/src/vencord/ui/Window.tsx';import {ui} from './uiState';function App(){const s=ui.use();const p=panel.use();const [service,setService]=React.useState(false);window.previewService=setService;return <><div className="review-controls"><button onClick={()=>ui.set({management:true,windowOpen:false})}>Settings</button><button onClick={()=>ui.set({management:false,windowOpen:true})}>Menu</button></div><div id="service" className="stx-bd-settings" style={{display:service?undefined:"none",maxWidth:600,margin:"20px auto",padding:16}}>{service&&<><BuildIdentity/><ServiceSettings active={service!=="inactive"}/></>}</div><div id="vc-stx-host"><div className="vc-stx-root">{s.management&&<Management/>}{s.windowOpen&&(p.phase==="ready"?<Window/>:<LoginWindow/>)}</div></div></>}createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:here,loader:'tsx'},bundle:true,outfile:here+'/app.js',nodePaths:[root+'/betterdiscord/node_modules'],inject:[here+'/react-shim.js'],plugins:[{name:'review-alias',setup(b){b.onResolve({filter:/.*/},args=>{if(args.path==='./menu-refinement.css' && !fs.existsSync(root+'/src/vencord/ui/menu-refinement.css'))return {path:'empty',namespace:'stub'};if(map[args.path])return {path:map[args.path],namespace:'stub'};if(args.path.includes('/core/')&&args.importer.replaceAll('\\','/').includes('/src/vencord/'))return {path:path.join(root,'src/core',path.basename(args.path)+(path.extname(args.path)?'':'.ts'))};});b.onLoad({filter:/.*/,namespace:'stub'},args=>({contents:stubs[args.path]??'',loader:'tsx',resolveDir:here}));}}]});
+await build({stdin:{contents:`${hostImport}${a23 ? "import 'a23-sound-boot';" : ''}import '${root}/src/vencord/styles.css';import {React} from '@webpack/common';import {createRoot} from 'react-dom/client';import '${root}/betterdiscord/adapter.css';import {ServiceSettings} from '${root}/betterdiscord/ServiceSettings.tsx';import {BuildIdentity} from '${root}/src/vencord/ui/BuildIdentity.tsx';import {LoginWindow} from '${root}/src/vencord/ui/LoginWindow.tsx';import {panel} from './panel';import {Management} from '${root}/src/vencord/ui/Management.tsx';import {Window} from '${root}/src/vencord/ui/Window.tsx';import {ui} from './uiState';function App(){const s=ui.use();const p=panel.use();const [service,setService]=React.useState(false);window.previewService=setService;return <><div className="review-controls"><button onClick={()=>ui.set({management:true,windowOpen:false})}>Settings</button><button onClick={()=>ui.set({management:false,windowOpen:true})}>Menu</button></div><div id="service" className="stx-bd-settings" style={{display:service?undefined:"none",maxWidth:600,margin:"20px auto",padding:16}}>{service&&<><BuildIdentity/><ServiceSettings active={service!=="inactive"}/></>}</div><div id="vc-stx-host">${hostTree}</div></>}createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:here,loader:'tsx'},bundle:true,outfile:here+'/app.js',nodePaths:[root+'/betterdiscord/node_modules'],inject:[here+'/react-shim.js'],plugins:[{name:'review-alias',setup(b){b.onResolve({filter:/.*/},args=>{if(args.path==='./menu-refinement.css' && !fs.existsSync(root+'/src/vencord/ui/menu-refinement.css'))return {path:'empty',namespace:'stub'};if(map[args.path])return {path:map[args.path],namespace:'stub'};if(args.path.includes('/core/')&&args.importer.replaceAll('\\','/').includes('/src/vencord/'))return {path:path.join(root,'src/core',path.basename(args.path)+(path.extname(args.path)?'':'.ts'))};});b.onLoad({filter:/.*/,namespace:'stub'},args=>({contents:stubs[args.path]??'',loader:'tsx',resolveDir:here}));}}]});
 fs.writeFileSync(here+'/index.html',`<!doctype html><meta charset="utf-8"><title>SupportTemplates — UI review</title><link rel="stylesheet" href="app.css"><style>body{margin:0;background:#25272e;font-family:Segoe UI,sans-serif;color:#e6e6e8}.review-controls{position:fixed;top:54px;left:5px;z-index:100000;opacity:.2}.review-controls:hover{opacity:1}</style><div id="chat-text" style="position:fixed;top:8px;left:8px;max-width:160px">Текст сообщения игрока</div><input id="chat-draft" aria-label="Черновик чата" style="position:fixed;bottom:8px;left:16px" value="Не отправлять"><div id="root"></div><script src="app.js"></script>`);
 const sourceHashes={};
 for(const dir of ['src/vencord/ui','betterdiscord']) for(const file of fs.readdirSync(root+'/'+dir)) {

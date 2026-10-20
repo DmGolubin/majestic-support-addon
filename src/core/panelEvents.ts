@@ -6,6 +6,7 @@
 
 import { PanelError } from "./panelClient";
 import { diagnosticJournal as journal } from "./diagnosticJournal";
+import { networkFailureReason } from "./networkDiagnostic";
 import { PANEL_ORIGIN, panelEndpoint } from "./panelProtocol";
 import { createPanelTransport } from "./panelTransport";
 
@@ -116,6 +117,8 @@ export function createPanelEventStream(fetchImpl = globalThis.fetch, trustedOrig
         let cancellation: PanelError | undefined;
         let terminal = false;
         let status = 0;
+        let phase = "headers", reason = "unknown_failure", bytesReceived = 0;
+        const started = Date.now();
         let rejectCancellation!: (error: PanelError) => void;
         const cancelled = new Promise<never>((_, reject) => { rejectCancellation = reject; });
         const abort = (code: string) => {
@@ -139,10 +142,11 @@ export function createPanelEventStream(fetchImpl = globalThis.fetch, trustedOrig
                     signal: controller.signal
                 };
                 response = await fetchImpl(url, init);
-            } catch { throw cancellation ?? new PanelError("network_error"); }
+            } catch (error) { reason = networkFailureReason(error); throw cancellation ?? new PanelError("network_error"); }
             const discard = () => { void response.body?.cancel().catch(() => {}); };
             if (cancellation) { discard(); throw cancellation; }
             status = response.status;
+            phase = "validation";
             journal.record("stream.http", { route: "/sync/events", status });
             if (response.redirected || (status >= 300 && status < 400) || (response.url && response.url !== url)) {
                 discard();
@@ -169,14 +173,16 @@ export function createPanelEventStream(fetchImpl = globalThis.fetch, trustedOrig
                 return terminal;
             });
             reader = response.body.getReader();
+            phase = "body";
             try {
                 while (true) {
                     let chunk: Awaited<ReturnType<typeof reader.read>>;
                     try { chunk = await reader.read(); }
-                    catch { throw cancellation ?? new PanelError("network_error", status); }
+                    catch (error) { reason = networkFailureReason(error); throw cancellation ?? new PanelError("network_error", status); }
                     if (cancellation) throw cancellation;
                     if (chunk.done) { parser.finish(); return; }
                     if (!chunk.value) throw new PanelError("invalid_response", status);
+                    bytesReceived += chunk.value.byteLength;
                     if (parser.push(chunk.value)) return;
                 }
             } finally {
@@ -188,6 +194,10 @@ export function createPanelEventStream(fetchImpl = globalThis.fetch, trustedOrig
 
         try { await Promise.race([request(), cancelled]); }
         catch (error) {
+            journal.record("stream.transport_failure", { route: "/sync/events", status, phase, bytesReceived,
+                durationMs: Date.now() - started,
+                code: cancellation?.code ?? (error instanceof PanelError ? error.code : "invalid_response"),
+                reason: cancellation?.code === "timeout" ? "host_timeout" : cancellation ? "host_aborted" : reason }, true);
             if (cancellation) throw cancellation;
             if (error instanceof PanelError) throw error;
             throw new PanelError("invalid_response", status);

@@ -28,6 +28,7 @@ import { libraryIsFresh, panelAccess, realStore, selectStore, setFreshnessCheck,
 
 type Phase = "idle" | "connecting" | "pending" | "loading" | "ready" | "offline" | "error";
 export const panel = createObservable({ enabled: true, phase: "idle" as Phase, code: "", url: "", error: "", name: "", checkedAt: 0,
+    stale: false, staleUntil: 0,
     persistent: false, preferencesError: "" as "" | "read" | "write", sync: "idle" as "idle" | "connecting" | "live" | "retrying" });
 export const panelPersonal = createObservable({ catalog: null as PanelCatalog | null, connectionId: "", scopes: [] as string[], generation: 0, busy: false });
 function clearPersonal() {
@@ -53,6 +54,48 @@ let stream: AbortController | null = null;
 let streamStartedAt = 0;
 let streamTimer: ReturnType<typeof setTimeout> | undefined;
 let streamFailures = 0;
+// At most 15 minutes from the last validated /me + /snapshot pair in this
+// running session. Failed reads, stream events and UI use never renew the lease.
+export const PANEL_STALE_MAX_MS = 15 * 60 * 1000;
+let validatedAt: number | null = null;
+let staleTimer: ReturnType<typeof setTimeout> | undefined;
+function invalidateRetainedAccess() {
+    validatedAt = null;
+    clearTimeout(staleTimer); staleTimer = undefined;
+    panelAccess.set({ staleUntil: 0 });
+    panel.set({ stale: false, staleUntil: 0 });
+}
+function networkReadError(error: unknown): boolean {
+    return error instanceof PanelError && !terminalReadError(error)
+        && (error.status === 429 || error.status >= 500
+            || ["network_error", "transport_error", "timeout", "request_timeout"].includes(error.code));
+}
+function retainLibrary(active: PanelClient, own: number, revision: number): boolean {
+    const now = Date.now(), access = panelAccess.get();
+    if (own !== epoch || client !== active || revision !== syncRevision || resyncPending
+        || validatedAt === null || now < validatedAt || now >= validatedAt + PANEL_STALE_MAX_MS
+        || !library || !fingerprint || !permissions || !access.ready
+        || !accountId || accountId !== UserStore.getCurrentUser()?.id || accountId !== boundAccountId
+        || !active.connectionId || active.connectionId !== panelPersonal.get().connectionId) return false;
+    const until = validatedAt + PANEL_STALE_MAX_MS;
+    panelAccess.set({ staleUntil: until });
+    panel.set({ phase: "ready", stale: true, staleUntil: until,
+        error: "Восстанавливаем связь с панелью. Загруженные шаблоны временно доступны; редактирование и напоминания приостановлены." });
+    clearTimeout(staleTimer);
+    const expire = () => {
+        if (own !== epoch || client !== active || !panel.get().stale) return;
+        if (Date.now() >= validatedAt! && Date.now() < until) {
+            staleTimer = setTimeout(expire, until - Date.now()); return;
+        }
+        invalidateRetainedAccess();
+        panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
+        clearPersonal(); library?.clearPanelCatalog(); fingerprint = "";
+        panel.set({ phase: "offline", checkedAt: 0,
+            error: "Не удалось подтвердить доступ за 15 минут. Восстановите связь, чтобы продолжить работу с шаблонами." });
+    };
+    staleTimer = setTimeout(expire, until - now);
+    return true;
+}
 const readEvents = createPanelEventStream();
 const cleanups = new Set<Promise<void>>();
 function trackCleanup(task: Promise<void>): Promise<void> {
@@ -76,12 +119,15 @@ function invalidate() {
 
 function wipe() {
     // Invalidate and detach resources before callbacks/host APIs can throw or re-enter.
-    const previousLibrary = library, previousStream = stream, previousTimer = timer, previousStreamTimer = streamTimer;
+    const previousLibrary = library, previousStream = stream, previousTimer = timer, previousStreamTimer = streamTimer,
+        previousStaleTimer = staleTimer;
     library = null; preferences = null; stream = null; timer = streamTimer = undefined;
+    validatedAt = null; staleTimer = undefined;
     epoch++; loading = null; fingerprint = ""; permissions = ""; accountId = null; boundAccountId = null; failures = 0; retryAt = 0;
     streamFailures = 0; syncRevision++; resyncPending = false; resyncQueued = false;
     cleanupPanelStep("library timer", () => clearTimeout(previousTimer));
     cleanupPanelStep("stream timer", () => clearTimeout(previousStreamTimer));
+    cleanupPanelStep("stale timer", () => clearTimeout(previousStaleTimer));
     cleanupPanelStep("event stream", () => previousStream?.abort());
     cleanupPanelStep("personal state", clearPersonal);
     // Let already captured preference writes finish before a later login reads the same account slot.
@@ -89,13 +135,14 @@ function wipe() {
         cleanupPanelStep("close preferences", () => previousLibrary.closePanelPreferences());
         cleanupPanelStep("flush preferences", () => { void trackCleanup(previousLibrary.flush().catch(() => {})); });
     }
-    cleanupPanelStep("access", () => panelAccess.set({ ready: false, accountId: null, projects: [], checkedAt: 0 }));
+    cleanupPanelStep("access", () => panelAccess.set({ ready: false, accountId: null, projects: [], checkedAt: 0, staleUntil: 0 }));
     cleanupPanelStep("insert generation", nextGeneration);
     cleanupPanelStep("pending dialogs", supersede);
     cleanupPanelStep("foreign confirmations", () => confirmedForeign.clear());
     cleanupPanelStep("UI", () => ui.set({ inline: null, menu: null, dialog: null, compose: [], management: false }));
     cleanupPanelStep("catalog", () => previousLibrary?.replacePanelCatalog({ templates: [], personal: [], folders: [] }));
-    cleanupPanelStep("connection state", () => panel.set({ phase: "idle", code: "", url: "", error: "", name: "", checkedAt: 0, persistent: false, preferencesError: "", sync: "idle" }));
+    cleanupPanelStep("connection state", () => panel.set({ phase: "idle", code: "", url: "", error: "", name: "", checkedAt: 0,
+        stale: false, staleUntil: 0, persistent: false, preferencesError: "", sync: "idle" }));
 }
 
 function message(error: unknown): string {
@@ -135,6 +182,7 @@ function terminateSession(active: PanelClient, error: unknown) {
 
 /** Events invalidate in-flight snapshots as well as already displayed templates. */
 function requestResync(clearCatalog: boolean) {
+    invalidateRetainedAccess();
     invalidateTicketReminders();
     syncRevision++; resyncPending = true;
     panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
@@ -181,6 +229,9 @@ function startEvents() {
                         } else if (event.type === "token.expired") {
                             tokenExpired = true;
                             stopTicketReminders();
+                            invalidateRetainedAccess();
+                            panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
+                            panel.set({ phase: "loading", checkedAt: 0 });
                         }
                         else if (["library.changed", "permissions.changed", "resync.required"].includes(event.type)) {
                             requestResync(event.type === "permissions.changed");
@@ -197,8 +248,7 @@ function startEvents() {
         } catch (error) {
             journal.record("stream.failure", { code: error instanceof PanelError ? error.code : "unknown", status: error instanceof PanelError ? error.status : 0 }, true);
             if (own !== epoch || client !== active) return;
-            if (error instanceof PanelError && (["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error", "connection_mismatch"].includes(error.code)
-                || error.status === 401 || error.status === 403)) {
+            if (terminalReadError(error)) {
                 terminateSession(active, error); return;
             }
             retryAfter = error instanceof PanelError ? error.retryAfterMs ?? 0 : 0;
@@ -206,6 +256,9 @@ function startEvents() {
             if (stream === controller) stream = null;
         }
         if (own !== epoch || client !== active || controller.signal.aborted) return;
+        // SSE is only an invalidation hint. Independent assigned-ticket GET
+        // polling checks assignment and freshness before playback; a stream
+        // outage alone must not erase that binding or mark validated reads stale.
         // A rapid successful handshake followed by EOF still backs off: no reconnect storm.
         streamFailures = Date.now() - started >= 30000 ? 0 : Math.min(streamFailures + 1, 6);
         const delay = tokenExpired ? 250 : Math.max(retryAfter, Math.min(60000, 1000 * 2 ** streamFailures) * (0.8 + Math.random() * 0.4));
@@ -242,7 +295,8 @@ function schedule(own: number, retryAfter = 0) {
 
 function terminalReadError(error: unknown): boolean {
     return error instanceof PanelError && (error.status === 401 || error.status === 403
-        || ["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error", "connection_mismatch"].includes(error.code));
+        || ["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error",
+            "connection_mismatch", "account_mismatch", "invalid_token", "invalid_auth", "reauthentication_required", "expired_token"].includes(error.code));
 }
 
 async function loadLibrary(): Promise<boolean> {
@@ -284,6 +338,7 @@ async function loadLibrary(): Promise<boolean> {
                 if (!supportsPanelVersion(PLUGIN_VERSION, profile.minimumPluginVersion)) throw new PanelError("upgrade_required");
                 nextPermissions = JSON.stringify([profile.permissionsRevision, [...profile.projects].sort(), [...profile.scopes].sort()]);
                 if (permissions && nextPermissions !== permissions) {
+                    invalidateRetainedAccess();
                     clearPersonal();
                     // Rights already changed: the old library must disappear BEFORE a slow snapshot completes.
                     panelAccess.set({ ready: false, projects: [], checkedAt: 0 });
@@ -302,6 +357,7 @@ async function loadLibrary(): Promise<boolean> {
                     && typeof snapshot.permissionsRevision === "string" && snapshot.permissionsRevision.trim()
                     && snapshot.permissionsRevision.length <= 512 && !/[\u0000-\u001f\u007f]/.test(snapshot.permissionsRevision)
                     && snapshot.permissionsRevision !== profile.permissionsRevision) {
+                    invalidateRetainedAccess();
                     clearPersonal();
                     panelAccess.set({ ready: false, projects: [], checkedAt: 0 });
                     invalidate(); library.clearPanelCatalog(); fingerprint = "";
@@ -340,12 +396,14 @@ async function loadLibrary(): Promise<boolean> {
                 library.savePanelPreferences();
             }
             accountId = profile.accountId; permissions = nextPermissions; failures = 0; retryAt = 0;
+            invalidateRetainedAccess(); validatedAt = started;
             panelPersonal.set({ catalog, connectionId: profile.connectionId, scopes: profile.scopes });
             panelAccess.set({ ready: true, accountId: profile.accountId, projects: profile.projects, checkedAt: started });
             panel.set({ phase: "ready", name: profile.name, checkedAt: started, error: "", code: "", url: "" });
             syncTicketReminders({ client: active, accountId: profile.accountId, permissionsRevision: profile.permissionsRevision,
                 projects: profile.projects.map(p => p === "mj" ? "majestic" : "russia-online"), scopes: profile.scopes,
-                current: () => own === epoch && client === active && UserStore.getCurrentUser()?.id === profile.accountId && panel.get().phase === "ready",
+                current: () => own === epoch && client === active && UserStore.getCurrentUser()?.id === profile.accountId
+                    && panel.get().phase === "ready" && !panel.get().stale,
                 onAuthError: error => terminateSession(active, error),
             });
             schedule(own);
@@ -361,22 +419,26 @@ async function loadLibrary(): Promise<boolean> {
             const transient = !terminal && ((error instanceof PanelCatalogValidationError && error.kind === "data")
                 || (error instanceof PanelError && (error.status === 429 || error.status >= 500 || ["network_error", "transport_error", "timeout", "request_timeout"].includes(error.code))));
             if (revision !== syncRevision && !terminal && !transient) return false;
-            panelAccess.set({ ready: false }); invalidate();
             stopTicketReminders();
+            const retained = networkReadError(error) && retainLibrary(active, own, revision);
+            if (!retained) {
+                invalidateRetainedAccess();
+                panelAccess.set({ ready: false }); invalidate();
+            }
             if (transient) {
                 failures++;
                 journal.record("panel.recovery", { outcome: "retrying", failures,
                     code: error instanceof PanelError ? error.code : "invalid_response",
                     retryAfterMs: error instanceof PanelError ? error.retryAfterMs ?? 0 : 0,
                     authenticated: !!active.connectionId }, true);
-                panel.set({ phase: "offline", error: message(error) });
+                if (!retained) panel.set({ phase: "offline", error: message(error) });
                 schedule(own, error instanceof PanelError ? error.retryAfterMs : 0);
             } else {
                 journal.record("panel.recovery", { outcome: "failure",
                     code: error instanceof PanelError ? error.code : "invalid_response" }, true);
                 terminateSession(active, error);
             }
-            return false;
+            return retained;
         }
     };
     const task = run(); loading = task;
@@ -497,7 +559,7 @@ export function preparePanelWrite(input: PanelMutation): () => Promise<{ refresh
     let confirmed = false, conflicted = false;
     // Also validates delayed/replayed responses against the palette at first dispatch.
     let submittedColors: string[] | null = null;
-    const guard = () => {
+    const guard = (requireConfirmed = true) => {
         if (!active || client !== active || own !== epoch || generation !== panelPersonal.get().generation
             || !owner || owner !== UserStore.getCurrentUser()?.id) throw new PanelError("cancelled");
         const { catalog, scopes } = panelPersonal.get();
@@ -512,6 +574,7 @@ export function preparePanelWrite(input: PanelMutation): () => Promise<{ refresh
         if ((body?.shared || (existing && "shared" in existing && existing.shared)) && catalog.projects.length !== 2) throw new PanelError("forbidden", 403);
         const project = body?.project === "majestic" ? "mj" : body?.project === "russia-online" ? "ro" : undefined;
         if (project && !catalog.projects.includes(project)) throw new PanelError("forbidden", 403);
+        if (requireConfirmed && panel.get().stale) throw new PanelError("stale_library");
     };
     const validateDraft = () => {
         // Once dispatch is possible, only the server can resolve an uncertain action.
@@ -529,12 +592,12 @@ export function preparePanelWrite(input: PanelMutation): () => Promise<{ refresh
     guard();
     validateDraft();
     return async () => {
-        guard();
+        guard(false);
         if (conflicted) throw new PanelError("version_conflict", 412);
         if (panelPersonal.get().busy) throw new PanelError("write_busy");
         panelPersonal.set({ busy: true });
         try {
-            if (!libraryIsFresh() && !await loadLibrary()) throw new PanelError("stale_library");
+            if ((panel.get().stale || !libraryIsFresh()) && !await loadLibrary()) throw new PanelError("stale_library");
             guard();
             if (!confirmed) {
                 const raw = await active!.mutate(request, () => {
@@ -559,6 +622,7 @@ export function preparePanelWrite(input: PanelMutation): () => Promise<{ refresh
             }
             // Invalidate reads begun before the mutation; publish only a fresh server snapshot.
             syncRevision++; resyncPending = false;
+            invalidateRetainedAccess();
             panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
             panel.set({ phase: "loading", checkedAt: 0 });
             if (loading) await loading;
@@ -570,14 +634,18 @@ export function preparePanelWrite(input: PanelMutation): () => Promise<{ refresh
                 if (error instanceof PanelError && (error.status === 412 || error.code === "version_conflict")) {
                     conflicted = true;
                     syncRevision++; resyncPending = false;
+                    invalidateRetainedAccess();
                     panelAccess.set({ ready: false, checkedAt: 0 }); invalidate();
                     panel.set({ phase: "loading", checkedAt: 0 });
                     if (loading) await loading;
                     await loadLibrary(); // Draft and its original version are never replaced here.
-                } else if (error instanceof PanelError && (error.status === 401
-                    || ["session_revoked", "refresh_uncertain", "not_authenticated", "access_denied", "invalid_grant", "vault_error", "connection_mismatch"].includes(error.code))) {
+                } else if (terminalReadError(error) && (!(error instanceof PanelError) || error.status !== 403)) {
                     terminateSession(active!, error);
-                } else if (error instanceof PanelError && error.status === 403 && error.code !== "insufficient_scope") requestResync(true);
+                } else if (error instanceof PanelError && error.status === 403) requestResync(true);
+                else if (networkReadError(error)) {
+                    stopTicketReminders();
+                    retainLibrary(active!, own, syncRevision);
+                }
             }
             throw error;
         } finally {
@@ -690,7 +758,7 @@ export function startPanel() {
         if (client) {
             if (!client.connectionId) { client.resumeLogin(); return; }
             invalidateTicketReminders();
-            if (!libraryIsFresh()) {
+            if (panel.get().stale || !libraryIsFresh()) {
                 // The contract has no heartbeat. Replace a possibly half-open connection after sleep.
                 // A burst of resume events must not replace the stream just opened while reads are pending.
                 const streamAge = Date.now() - streamStartedAt;

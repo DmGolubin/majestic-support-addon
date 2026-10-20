@@ -228,7 +228,10 @@ describe("Master QA 14: production persistence stress", () => {
         h.resetTicketSound(); await flush();
         expect(storage.data.get(AUDIO_KEY)).toBeNull();
         expect(h.ticketSoundState.get().error).toBe("");
-        expect(storage.set).toHaveBeenCalledTimes(102);
+        expect(storage.set.mock.calls.filter(([key]) => key === KEY)).toHaveLength(100);
+        expect(storage.set).toHaveBeenLastCalledWith(AUDIO_KEY, null);
+        for (const id of soundCore.defaultTicketSound().channelIds)
+            expect(storage.data.get(`${AUDIO_KEY}_channel_${id}`)).toEqual(record());
     });
 
     it.each([null, "bad JSON", [], { volume: Infinity, enabled: "true", channelIds: ["bad"], cooldownMs: NaN }])(
@@ -290,7 +293,9 @@ describe("Master QA 14: production persistence stress", () => {
         h.resetTicketSound();
         expect(h.ticketSoundState.get().customName).toBe("");
         h.stop(); await h.start();
-        expect(storage.set).toHaveBeenCalledExactlyOnceWith(AUDIO_KEY, null);
+        expect(storage.set.mock.calls.filter(([key]) => key === AUDIO_KEY)).toEqual([[AUDIO_KEY, null]]);
+        for (const id of soundCore.defaultTicketSound().channelIds)
+            expect(storage.data.get(`${AUDIO_KEY}_channel_${id}`)).toEqual(record());
         expect(storage.data.get(AUDIO_KEY)).toBeNull();
         expect(h.ticketSoundState.get()).toMatchObject({ customName: "", loaded: true, error: "" });
     });
@@ -311,12 +316,13 @@ describe("Master QA 14: production persistence stress", () => {
         expect(h.ticketSoundState.get()).toMatchObject({ loaded: true, options: original, error: "" });
         expect(storage.set).not.toHaveBeenCalled();
         h.setTicketSound({ volume: 80 }); await flush();
-        expect(storage.set).toHaveBeenCalledExactlyOnceWith(KEY, { ...original, volume: 80 });
+        const migrated = { ...soundCore.readTicketSound(original), volume: 80 };
+        expect(storage.set).toHaveBeenCalledExactlyOnceWith(KEY, migrated);
         expect(h.ticketSoundState.get().error).toBe("");
         h.stop();
         expect(h.ticketSoundState.get().loaded).toBe(false); // Original stop callback remains valid after retry.
         const reloaded = harness(storage); await reloaded.start();
-        expect(reloaded.ticketSoundState.get().options).toEqual({ ...original, volume: 80 });
+        expect(reloaded.ticketSoundState.get().options).toEqual(migrated);
     });
 
     it("deduplicates options retries, keeps repeated failure blocked, and ignores completion after stop", async () => {

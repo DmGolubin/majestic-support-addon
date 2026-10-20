@@ -17,6 +17,11 @@ const WORDS = new Set(("idle connecting pending loading ready offline error live
     "ticket test reminder custom sound_disabled sound_channel sound_guild sound_invalid sound_history sound_duplicate " +
     "sound_muted sound_visible sound_cooldown sound_stopped sound_suspended sound_unavailable sound_save sound_decode " +
     "sound_duration sound_size sound_format sound_read sound_not_ready sound_loading sound_cancelled sound_playback " +
+    "headers body decode validation complete dns_failure connection_reset connection_refused connection_closed tls_error host_timeout host_aborted host_network_error unknown_failure " +
+    "majestic russia-online waiting_support waiting_player eligible not_due receipt_duplicate receipt_saved receipt_limit " +
+    "empty_snapshot foreign_assignment snapshot_account stale_snapshot snapshot_regressed settings_disabled context_invalid generation_changed snapshot_changed " +
+    "receipt_read receipt_write snapshot_read snapshot_validate selection playback guard_valid guard_invalid no_eligible_ticket trace_limited " +
+    "global channel preview absent running suspended closed interrupted ended stopped " +
     "user discord_logout account_changed permissions.changed token.expired snapshot.updated session.revoked library.changed resync.required tickets.changed tickets.unavailable " +
     "refresh expired rejected_access restore login logout cancel reload resume pagehide online offline " +
     "visible hidden personal general tickets all fav recent confirm fields bind mj ro off " +
@@ -25,11 +30,26 @@ const WORDS = new Set(("idle connecting pending loading ready offline error live
 const NUMBERS = new Set(("requestId status durationMs retryAfterMs count items queryLength composeCount " +
     "width height winW previewW avail tipW selIdx ms total storeLoad mount failures attempt " +
     "elapsedMs templates personal folders favoriteCount recentCount bindCount volume " +
-    "resultCount matched inserted requested steps generation expiresIn totalMs windowMs keysMs inlineMs renderMs searchMs debugMs maxMs pluginMs").split(/\s+/));
+    "resultCount matched inserted requested steps generation expiresIn totalMs windowMs keysMs inlineMs renderMs searchMs debugMs maxMs pluginMs " +
+    "bytesReceived cycle snapshotCount ownCount otherCount eligibleCount receiptCount tracedCount thresholdMs dueInMs ageMs").split(/\s+/));
+const TIMES = new Set(["serverTime", "checkedAt", "serverNow", "waitingSince", "reminderAt", "staleUntil"]);
 const BOOLS = new Set(("on verbose ready persistent online visible windowOpen management previewOpen " +
     "peek success hasEditor hadWindow hadDialog serverChanged cancelled debug debugVerbose " +
-    "soundEnabled enabled dirty busy active restored authenticated ok noGreeting already").split(/\s+/));
-const STRINGS = new Set(["phase", "previous", "sync", "method", "code", "reason", "outcome", "source", "view", "mode", "dialog", "event", "where", "via"]);
+    "soundEnabled enabled dirty busy active restored authenticated ok noGreeting already ownAssignee accountMatches fresh due eligible currentGuard played stale").split(/\s+/));
+const STRINGS = new Set(["phase", "previous", "sync", "method", "code", "reason", "outcome", "source", "view", "mode", "dialog", "event", "where", "via", "project", "state", "configSource", "audioState"]);
+// Opaque correlation only, not an authentication or cryptographic identifier.
+// Never retain arbitrary identifier text; native re-sanitization is idempotent.
+function opaqueDiagnosticId(value: string): string {
+    if (/^h:[a-f0-9]{16}$/.test(value)) return value;
+    let a = 0x811c9dc5, b = 0x9e3779b9;
+    for (let i = 0; i < value.length; i++) {
+        a = Math.imul(a ^ value.charCodeAt(i), 0x01000193);
+        b = Math.imul(b ^ value.charCodeAt(i), 0x85ebca6b);
+    }
+    return `h:${(a >>> 0).toString(16).padStart(8, "0")}${(b >>> 0).toString(16).padStart(8, "0")}`;
+}
+const SNOWFLAKE_FIELDS = new Set(["channelId", "guildId"]);
+const OPAQUE_FIELDS = new Set(["waitingCycleId", "reminderId", "snapshotRevision"]);
 export function diagnosticRoute(path: string): string {
     if (["/me", "/snapshot", "/oauth/token", "/oauth/device_authorization", "/oauth/revoke", "/device-requests/cancel", "/sync/events", "/tickets/assigned", "/notification-settings", "/personal", "/folders", "/trash", "/preferences"].includes(path)) return path;
     const m = /^\/(personal|folders|trash)\/[^/?#]+(?:\/(restore))?$/.exec(path);
@@ -39,9 +59,17 @@ export function diagnosticData(input: Record<string, unknown>): Record<string, s
     const out: Record<string, string | number | boolean> = {};
     for (const [key, value] of Object.entries(input).slice(0, 80)) {
         if (NUMBERS.has(key) && typeof value === "number" && Number.isFinite(value)) out[key] = Math.round(Math.max(-1e9, Math.min(1e9, value)) * 100) / 100;
+        else if (TIMES.has(key) && typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 8640000000000000) out[key] = value;
         else if (BOOLS.has(key) && typeof value === "boolean") out[key] = value;
         else if (STRINGS.has(key) && typeof value === "string") out[key] = WORDS.has(value) ? value : "unknown";
         else if (key === "route" && typeof value === "string") out[key] = diagnosticRoute(value);
+        else if (SNOWFLAKE_FIELDS.has(key) && typeof value === "string" && /^[1-9]\d{16,19}$/.test(value)
+            && BigInt(value) <= 18446744073709551615n) out[key] = value;
+        else if ((key === "ticketId" || OPAQUE_FIELDS.has(key)) && typeof value === "string"
+            && value.length > 0 && value.length <= 512 && value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value)) {
+            out[key] = key === "ticketId" && /^(?:[0-9]{1,20}|[a-z]{1,16}:[0-9]{1,20}|[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/i.test(value)
+                ? value : opaqueDiagnosticId(value);
+        }
     }
     return out;
 }

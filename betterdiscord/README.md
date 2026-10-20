@@ -44,6 +44,10 @@ input values, credentials, headers and request/response bodies are excluded.
 When disk writes fail, settings report the problem and manual buffer export remains
 available. Abrupt process termination may lose the most recent few seconds.
 
+Sound traces include technical ticket/channel/guild IDs, eligibility and ownership
+checks (without employee IDs), effective settings and playback/skip decisions.
+Playback success means audio was started, not that a person heard it.
+
 This policy is shared with Lite and the owner's personal full Vencord build.
 BetterDiscord loads updated plugin code on the next runtime load. Native changes in
 Lite/full Vencord require a full package and complete Discord exit/restart.

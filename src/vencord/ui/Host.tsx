@@ -62,7 +62,9 @@ export function Host() {
     return (
         <div className="vc-stx-root">
             <DemoBanner />
-            {windowOpen && safe("window", login ? <LoginWindow /> : <Window />)}
+            {windowOpen && safe("window", login ? <LoginWindow /> : <Window connectionNotice={p.stale
+                ? "Панель недоступна. Используем загруженные шаблоны, связь восстановится автоматически."
+                : ""} />)}
             {safe("compose", <ComposeBar />)}
             {safe("inline", <Inline />)}
             {safe("menu", <ContextMenu />)}

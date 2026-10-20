@@ -61,7 +61,7 @@ function itemsFor(t: Template): Item[] {
     items.push({ key: "compose", label: "+ в ответ", run: () => void addToCompose(t) });
     items.push({ key: "fav", label: <><IconStar size={14} filled={!fav} />{fav ? "Убрать из избранного" : "В избранное"}</>, run: () => store.toggleFavorite(t.id) });
     items.push({
-        key: "bind", label: bind ? `Изменить клавишу (${comboLabel(bind)})` : "Назначить клавишу…",
+        key: "bind", label: bind ? `Изменить сочетание клавиш (${comboLabel(bind)})` : "Назначить сочетание клавиш…",
         run: () => { supersede(); dlog("dialog-open", { kind: "bind", id: t.id }); ui.set({ dialog: { kind: "bind", templateId: t.id } }); },
     });
     if (bind) items.push({ key: "unbind", label: "Снять клавишу", run: () => store.clearBind(t.id) });
@@ -94,8 +94,14 @@ export function ContextMenu() {
         });
     }, [menu, items.length]);
 
+    useLayoutEffect(() => {
+        if (placed) ref.current?.focus();
+    }, [placed, menu]);
+
     useEffect(() => {
         if (!menu) return;
+        const previous = document.activeElement as HTMLElement | null;
+        const element = ref.current;
         const run = (i: number) => {
             const it = itemsRef.current[i];
             ui.set({ menu: null });
@@ -136,19 +142,23 @@ export function ContextMenu() {
             document.removeEventListener("mousedown", down, true);
             document.removeEventListener("keydown", key, true);
             window.removeEventListener("blur", blur);
+            if (!ui.get().dialog && previous?.isConnected && previous !== element
+                && (element?.contains(document.activeElement) || document.activeElement === document.body)) previous.focus({ preventScroll: true });
         };
     }, [menu]);
 
     if (!menu || !t) return null;
     return (
-        // Menu buttons never take focus: it stays in the window's search input after the menu closes.
+        // One focused menu with an announced active descendant; arrow keys choose its action.
         <div
-            ref={ref} className="vc-stx-menu" role="menu" onMouseDown={e => e.preventDefault()}
+            ref={ref} className="vc-stx-menu" role="menu" tabIndex={-1}
+            aria-label={`Действия с шаблоном «${t.title}»`} aria-activedescendant={`stx-template-action-${items[active]?.key ?? items[0]?.key}`}
+            onMouseDown={e => e.preventDefault()}
             style={{ left: placed ? pos!.left : menu.x, top: placed ? pos!.top : menu.y, visibility: placed ? "visible" : "hidden" }}
         >
             {items.map((it, i) => (
                 <button
-                    key={it.key} role="menuitem" tabIndex={-1}
+                    key={it.key} id={`stx-template-action-${it.key}`} type="button" role="menuitem" tabIndex={-1}
                     className={i === active ? "on" : undefined}
                     onMouseEnter={() => setActive(i)}
                     onClick={() => { ui.set({ menu: null }); it.run(); }}

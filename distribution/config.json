@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.0.1-canary.31",
+  "version": "1.0.1-canary.32",
   "channel": "canary",
   "releaseRepository": "skyjacc/support-templates",
   "manifestAsset": "support-templates-update.json",

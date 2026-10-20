@@ -6,6 +6,7 @@
 
 import { PanelError, type PanelTransport } from "./panelClient";
 import { diagnosticJournal as journal } from "./diagnosticJournal";
+import { networkFailureReason } from "./networkDiagnostic";
 import { PANEL_ORIGIN, panelEndpoint, panelMutationScope } from "./panelProtocol";
 
 const TIMEOUT_MS = 15_000;
@@ -90,6 +91,7 @@ export function createPanelTransport(fetchImpl = globalThis.fetch, trustedOrigin
         options.signal?.addEventListener("abort", callerAbort, { once: true });
         const timer = setTimeout(() => abort("timeout"), TIMEOUT_MS);
         let status = 0;
+        let phase = "headers", reason = "unknown_failure", bytesReceived = 0;
         let delay: number | undefined;
         const started = Date.now();
         const requestId = journal.record("request.start", { route: path, method: options.method ?? (body === undefined ? "GET" : "POST") });
@@ -115,11 +117,12 @@ export function createPanelTransport(fetchImpl = globalThis.fetch, trustedOrigin
                     signal: controller.signal
                 };
                 response = await fetchImpl(url, init);
-            } catch { throw cancellation ?? new PanelError("network_error"); }
+            } catch (error) { reason = networkFailureReason(error); throw cancellation ?? new PanelError("network_error"); }
 
             const discard = () => { void response.body?.cancel().catch(() => {}); };
             if (cancellation) { discard(); throw cancellation; }
             status = response.status;
+            phase = "validation";
             delay = retryAfter(response.headers.get("Retry-After"));
             if (response.redirected || (status >= 300 && status < 400) || (response.url && response.url !== url)) {
                 discard();
@@ -141,20 +144,23 @@ export function createPanelTransport(fetchImpl = globalThis.fetch, trustedOrigin
             const pieces: string[] = [];
             let bytes = 0;
             reader = response.body.getReader();
+            phase = "body";
             try {
                 while (true) {
                     let chunk: Awaited<ReturnType<typeof reader.read>>;
                     try { chunk = await reader.read(); }
-                    catch { throw cancellation ?? new PanelError("network_error", status, delay); }
+                    catch (error) { reason = networkFailureReason(error); throw cancellation ?? new PanelError("network_error", status, delay); }
                     if (cancellation) throw cancellation;
                     if (chunk.done) break;
                     if (!chunk.value) throw new PanelError("invalid_response", status, delay);
                     bytes += chunk.value.byteLength;
+                    bytesReceived = bytes;
                     if (bytes > limit) throw new PanelError("response_too_large", status, delay);
                     try { pieces.push(decoder.decode(chunk.value, { stream: true })); }
                     catch { throw new PanelError("invalid_response", status, delay); }
                 }
                 let value: unknown;
+                phase = "decode";
                 try {
                     pieces.push(decoder.decode());
                     value = JSON.parse(pieces.join(""));
@@ -180,7 +186,8 @@ export function createPanelTransport(fetchImpl = globalThis.fetch, trustedOrigin
         }
         catch (error) {
             journal.record("request.failure", { requestId, route: path, status, durationMs: Date.now() - started,
-                code: cancellation?.code ?? (error instanceof PanelError ? error.code : "invalid_response"), retryAfterMs: delay }, true);
+                code: cancellation?.code ?? (error instanceof PanelError ? error.code : "invalid_response"), retryAfterMs: delay,
+                phase, reason: cancellation?.code === "timeout" ? "host_timeout" : cancellation ? "host_aborted" : reason, bytesReceived }, true);
             if (cancellation) throw cancellation;
             if (error instanceof PanelError) throw error;
             throw new PanelError("invalid_response", status, delay);

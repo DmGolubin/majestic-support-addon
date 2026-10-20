@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { PANEL_API_PATH, PANEL_ORIGIN, panelEndpoint } from "../../src/core/panelProtocol";
+import { networkFailureReason } from "../../src/core/networkDiagnostic";
 import { api } from "../shims/host";
 
 /** Use BD's supported streaming network bridge. Renderer require('https') is only
@@ -33,7 +34,9 @@ export function makePanelFetch(netFetch: (input: string, init: any) => Promise<R
                 throw new Error("Unexpected panel redirect");
             }
             return response;
-        } catch { throw new Error("Panel network request failed"); }
+        } catch (error) {
+            throw Object.assign(new Error("Panel network request failed"), { networkFailureReason: networkFailureReason(error) });
+        }
     }) as typeof fetch;
 }
 export const panelFetch = makePanelFetch();

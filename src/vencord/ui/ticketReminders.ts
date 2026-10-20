@@ -79,12 +79,12 @@ export function syncTicketReminders(next: Binding) {
             enabled: ticketRemindersState.get().phase === "ready" && !ticketRemindersState.get().busy
                 && ticketRemindersState.get().settings?.discordEnabled === true,
         } : null,
-        play: async (valid: () => boolean) => {
+        play: async (valid, ticket) => {
             if (!current(next, own)) return false;
             const canPlay = () => valid() && current(next, own) && ticketRemindersState.get().phase === "ready"
                 && !ticketRemindersState.get().busy && ticketRemindersState.get().settings?.discordEnabled === true;
             if (!canPlay()) return false;
-            const played = await playTicketReminder(canPlay);
+            const played = await playTicketReminder(canPlay, ticket);
             if (played && canPlay()) {
                 try { toast("Игрок ждёт ответа в назначенном вам тикете", "message"); } catch { /* A host toast must not invalidate successful playback. */ }
             }

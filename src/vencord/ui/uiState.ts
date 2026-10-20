@@ -27,14 +27,17 @@ export const { store } = routed;
 export const selectStore = routed.select;
 export const getStoreSelection = routed.getSelection;
 export const demoAccess = createObservable({ enabled: false, ready: false });
-export const panelAccess = createObservable<{ enabled: boolean; ready: boolean; accountId: string | null; projects: ProjectId[]; checkedAt: number; }>({ enabled: true, ready: false, accountId: null, projects: [], checkedAt: 0 });
+export const panelAccess = createObservable<{ enabled: boolean; ready: boolean; accountId: string | null; projects: ProjectId[]; checkedAt: number; staleUntil: number; }>({ enabled: true, ready: false, accountId: null, projects: [], checkedAt: 0, staleUntil: 0 });
 let checkFreshness: () => Promise<boolean> = async () => false;
 export const setFreshnessCheck = (check: () => Promise<boolean>) => { checkFreshness = check; };
 export const ensureLibraryFresh = () => panelAccess.get().enabled ? checkFreshness() : Promise.resolve(true);
 export function libraryIsFresh() {
     const p = panelAccess.get();
     const age = Date.now() - p.checkedAt;
-    return !p.enabled || (p.ready && p.accountId === UserStore.getCurrentUser()?.id && age >= 0 && age <= 30000);
+    // The controller grants this memory-only read lease only after a transient
+    // failure. Writes separately require a confirmed, non-stale connection.
+    return !p.enabled || (p.ready && p.accountId === UserStore.getCurrentUser()?.id && age >= 0
+        && (p.staleUntil ? Date.now() < p.staleUntil : age <= 30000));
 }
 
 export type Dialog =
@@ -73,7 +76,9 @@ export function activeScope(): Scope | null {
     if (demoAccess.get().enabled && !demoAccess.get().ready) return null;
     const m = currentMode();
     const access = panelAccess.get();
-    if (access.enabled && (!access.ready || access.accountId !== UserStore.getCurrentUser()?.id || ((m === "mj" || m === "ro") && !access.projects.includes(m)))) return null;
+    if (access.enabled && (!access.ready || access.accountId !== UserStore.getCurrentUser()?.id
+        || (access.staleUntil && (Date.now() < access.checkedAt || Date.now() >= access.staleUntil))
+        || ((m === "mj" || m === "ro") && !access.projects.includes(m)))) return null;
     return m === "off" ? null : m;
 }
 

@@ -15,6 +15,7 @@ type Action = "connect" | "cancel" | "reload" | "logout" | "save";
 export function PanelConnection({ compact = false }: { compact?: boolean; }) {
     const p = panel.use();
     const phase = p.enabled ? p.phase : "idle";
+    const stale = phase === "ready" && p.stale;
     const [busy, setBusy] = useState<Action | null>(null);
     const [actionError, setActionError] = useState("");
     const activeAction = useRef<{ kind: Action; } | null>(null);
@@ -56,16 +57,16 @@ export function PanelConnection({ compact = false }: { compact?: boolean; }) {
         <h3>Аккаунт</h3>
         <div className="vc-stx-account-summary">
             <div><strong>{p.name || "Аккаунт панели"}</strong>
-                <div className={"vc-stx-connection-state" + (phase === "ready" ? " ready" : "")} role="status"><span aria-hidden="true" />
-                    {phase === "offline" ? "Нет связи" : "Подключён"}
+                <div className={"vc-stx-connection-state" + (phase === "ready" && !stale ? " ready" : "")} role="status"><span aria-hidden="true" />
+                    {stale ? "Восстанавливаем связь · шаблоны доступны" : phase === "offline" ? "Нет связи" : "Подключён"}
                 </div>
             </div>
             <div className="vc-stx-account-meta">
-                {phase === "offline" && <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy !== null} onClick={() => run("reload", reloadPanel)}><IconRefresh />{busy === "reload" ? "Подключаемся…" : "Повторить"}</button>}
+                {(phase === "offline" || stale) && <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy !== null} onClick={() => run("reload", reloadPanel)}><IconRefresh />{busy === "reload" ? "Подключаемся…" : "Повторить"}</button>}
                 <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={ending} onClick={() => run("logout", logoutPanel)}><IconLogout />{busy === "logout" ? "Выходим…" : "Выйти"}</button>
             </div>
         </div>
-        {error && <p className="vc-stx-form-error" role="alert">{error}</p>}
+        {error && <p className={stale && !actionError ? "vc-stx-hint" : "vc-stx-form-error"} role={stale && !actionError ? "status" : "alert"}>{error}</p>}
         {p.preferencesError && <p className="vc-stx-form-error" role="alert">{p.preferencesError === "read" ? "Не удалось прочитать настройки списка. Для повторной попытки войдите заново." : "Не удалось сохранить настройки списка."}</p>}
         {p.preferencesError === "write" && <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={busy !== null} onClick={() => run("save", retryPanelPreferences)}>{busy === "save" ? "Сохраняем…" : "Повторить сохранение"}</button>}
         {!p.persistent && <p className="vc-stx-hint">После перезапуска Discord потребуется войти снова.</p>}

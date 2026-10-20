@@ -7,12 +7,23 @@
 import { PROJECTS } from "./types";
 import { diagnosticJournal } from "./diagnosticJournal";
 
-/** Static codes only. Never pass channel IDs, filenames, audio bytes or exception text. */
+export interface TicketSoundContext {
+    ticketId?: string;
+    channelId?: string | null;
+    guildId?: string | null;
+    waitingCycleId?: string | null;
+    reminderId?: string | null;
+    cycle?: number;
+    project?: "majestic" | "russia-online";
+}
+
+/** IDs are sanitized by the journal; never pass content, filenames, audio or exception text. */
 export function recordTicketSoundDiagnostic(event: string, data: {
     mode: "ticket" | "test" | "reminder" | "custom"; code?: string; phase?: string;
-    volume: number; enabled: boolean; success?: boolean;
-}) {
-    try { diagnosticJournal.record(`runtime.sound_${event}`, data); } catch { /* Optional diagnostics. */ }
+    volume: number; enabled?: boolean; success?: boolean;
+    configSource?: "global" | "channel" | "preview"; audioState?: string;
+} & TicketSoundContext) {
+    try { diagnosticJournal.record(`runtime.sound_${event}`, { ...data }); } catch { /* Optional diagnostics. */ }
 }
 
 /** Resume is invoked synchronously in the gesture; a blocked host cannot hang test UI. */
@@ -60,6 +71,16 @@ export interface TicketSoundOptions {
     volume: number;
     cooldownMs: number;
     quietWhenVisible: boolean;
+    channels?: Record<string, ChannelTicketSoundOptions>;
+}
+
+export type ChannelTicketSoundOptions = Pick<TicketSoundOptions, "enabled" | "volume" | "cooldownMs" | "quietWhenVisible">;
+
+/** Legacy preferences seed each parent once; later global reminder edits cannot change it. */
+export function channelTicketSound(options: TicketSoundOptions, channelId: string): ChannelTicketSoundOptions {
+    return options.channels?.[channelId] ?? {
+        enabled: options.enabled, volume: options.volume, cooldownMs: options.cooldownMs, quietWhenVisible: options.quietWhenVisible,
+    };
 }
 
 export const defaultTicketSound = (): TicketSoundOptions => ({
@@ -72,16 +93,28 @@ export const defaultTicketSound = (): TicketSoundOptions => ({
 
 export function readTicketSound(value: unknown): TicketSoundOptions {
     const base = defaultTicketSound();
-    if (!value || typeof value !== "object") return base;
+    if (!value || typeof value !== "object") value = base;
     const v = value as Partial<TicketSoundOptions>;
     const number = (x: unknown, min: number, max: number, fallback: number) => typeof x === "number" && Number.isFinite(x) ? Math.max(min, Math.min(max, x)) : fallback;
-    return {
+    const result: TicketSoundOptions = {
         enabled: v.enabled === true,
         channelIds: Array.isArray(v.channelIds) ? [...new Set(v.channelIds.filter((id): id is string => typeof id === "string" && /^\d{17,20}$/.test(id)))].slice(0, 20) : base.channelIds,
         volume: number(v.volume, 0, 100, base.volume),
         cooldownMs: number(v.cooldownMs, 1000, 30000, base.cooldownMs),
         quietWhenVisible: typeof v.quietWhenVisible === "boolean" ? v.quietWhenVisible : true,
     };
+    result.channels = {};
+    for (const id of result.channelIds) {
+        const raw = v.channels && typeof v.channels === "object" && Object.hasOwn(v.channels, id) ? v.channels[id] : undefined;
+        const c = raw && typeof raw === "object" ? raw : channelTicketSound(result, id);
+        result.channels[id] = {
+            enabled: c.enabled === true,
+            volume: number(c.volume, 0, 100, result.volume),
+            cooldownMs: number(c.cooldownMs, 1000, 30000, result.cooldownMs),
+            quietWhenVisible: typeof c.quietWhenVisible === "boolean" ? c.quietWhenVisible : result.quietWhenVisible,
+        };
+    }
+    return result;
 }
 
 export interface NewTicketEvent {
@@ -98,7 +131,7 @@ export type TicketSoundSkipReason = "sound_disabled" | "sound_channel" | "sound_
 /** No content, authors or ticket ownership inferred here. Fresh snowflakes reject history/replays. */
 export class TicketSoundGate {
     private seen = new Map<string, number>();
-    private lastSound = -Infinity;
+    private lastSound = new Map<string, number>();
     constructor(private startedAt: number) { }
 
     accept(e: NewTicketEvent, options: TicketSoundOptions, now: number, visible: boolean): boolean {
@@ -107,10 +140,10 @@ export class TicketSoundGate {
 
     /** A null reason consumes an accepted event; never call again to inspect that event. */
     decide(e: NewTicketEvent, options: TicketSoundOptions, now: number, visible: boolean): TicketSoundSkipReason | null {
-        if (!options.enabled) return "sound_disabled";
         if (!options.channelIds.includes(e.parentId)) return "sound_channel";
         if (e.guildId !== PROJECTS.mj.guildId && e.guildId !== PROJECTS.ro.guildId) return "sound_guild";
         if (!/^\d{17,20}$/.test(e.id)) return "sound_invalid";
+        const effective = channelTicketSound(options, e.parentId);
         if (e.newlyCreated === false || e.archived) return "sound_history";
         const created = Number(BigInt(e.id) >> 22n) + 1420070400000;
         if (created < this.startedAt || created < now - 30000 || created > now + 5000) return "sound_history";
@@ -118,10 +151,12 @@ export class TicketSoundGate {
         if (this.seen.has(e.id)) return "sound_duplicate";
         this.seen.set(e.id, now);
         if (this.seen.size > 1000) this.seen.delete(this.seen.keys().next().value!);
-        if (options.volume === 0) return "sound_muted";
-        if (visible && options.quietWhenVisible) return "sound_visible";
-        if (now - this.lastSound < options.cooldownMs) return "sound_cooldown";
-        this.lastSound = now;
+        if (!effective.enabled) return "sound_disabled";
+        if (effective.volume === 0) return "sound_muted";
+        if (visible && effective.quietWhenVisible) return "sound_visible";
+        if (now - (this.lastSound.get(e.parentId) ?? -Infinity) < effective.cooldownMs) return "sound_cooldown";
+        this.lastSound.set(e.parentId, now);
+        if (this.lastSound.size > 20) this.lastSound.delete(this.lastSound.keys().next().value!);
         return null;
     }
 }

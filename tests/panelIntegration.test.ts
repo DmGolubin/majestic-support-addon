@@ -786,14 +786,14 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
         h.handlers.get("LOGOUT")!(); expect(h.store.templates).toEqual([]); expect(h.access.get().ready).toBe(false);
         off(); expect(h.handlers.size).toBe(0); h.api.disposePanel();
     });
-    it("deduplicates freshness requests and blocks stale inserts on network failure", async () => {
+    it("deduplicates freshness requests and retains validated reads on temporary network failure", async () => {
         const h = harness(); await h.api.connectPanel(); const active = h.clients[0]; active.get.mockClear();
         vi.setSystemTime(Date.now() + 31000);
         await Promise.all([h.freshness(), h.freshness(), h.freshness()]);
         expect(active.get).toHaveBeenCalledTimes(2);
         vi.setSystemTime(Date.now() + 31000); h.state.error = new PanelError("network_error");
-        expect(await h.freshness()).toBe(false); expect(h.access.get().ready).toBe(false);
-        expect(h.api.panel.get().phase).toBe("offline");
+        expect(await h.freshness()).toBe(true); expect(h.access.get().ready).toBe(true);
+        expect(h.api.panel.get()).toMatchObject({ phase: "ready", stale: true });
     });
     it("honours retry delay even when refresh is clicked repeatedly", async () => {
         const h = harness(); await h.api.connectPanel(); h.state.error = new PanelError("rate_limited", 429, 60000);

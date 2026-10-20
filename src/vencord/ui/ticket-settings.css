@@ -32,3 +32,7 @@
 .vc-stx-sound-file:focus-within { outline: 2px solid var(--stx-ring); outline-offset: 2px; }
 .vc-stx-sound-file:has(input:disabled) { opacity: .5; }
 .vc-stx-ticket-playback { margin: 0; color: var(--stx-mu); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.vc-stx-tickets .vc-stx-ticket-channel { margin-top: 18px; padding: 12px; border: 1px solid var(--stx-bd); border-radius: 8px; }
+.vc-stx-ticket-channel > legend { max-width: 100%; padding: 0 6px; color: var(--stx-tx); font-size: 13px; overflow-wrap: anywhere; }
+.vc-stx-ticket-channel .vc-stx-lib-actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.vc-stx-ticket-custom-sound .vc-stx-lib-actions > .vc-stx-btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { diagnosticData, diagnosticJournal } from "./diagnosticJournal";
+
 export type ReminderProject = "majestic" | "russia-online";
 
 export interface PanelNotificationSettings {
@@ -34,6 +36,8 @@ export interface PanelAssignedTicket {
     reminderAt: number | null;
     reminderId: string | null;
 }
+/** No account/session identity crosses the audio boundary. */
+export type ReminderPlaybackTicket = Pick<PanelAssignedTicket, "ticketId" | "channelId" | "guildId" | "project" | "waitingCycleId" | "reminderId"> & { cycle: number };
 
 /** Parsed timestamps are UTC epoch milliseconds. Revisions and reminder IDs stay opaque. */
 export interface PanelAssignedSnapshot {
@@ -63,7 +67,7 @@ export interface ReminderOptions {
         set(key: string, value: unknown): Promise<void>;
     };
     /** Check stillValid after decode/resume awaits and immediately before starting audio. */
-    play: (stillValid: () => boolean) => Promise<boolean>;
+    play: (stillValid: () => boolean, ticket?: ReminderPlaybackTicket) => Promise<boolean>;
     current: () => ReminderContext | null;
     onState?: (state: ReminderState) => void;
     clock?: {
@@ -88,7 +92,10 @@ const RECEIPT_LIMIT = 10_000;
 const RECEIPT_KEY = "SupportTemplates_panel_reminder_receipts_v1";
 type Receipt = [accountId: string, project: ReminderProject, ticketId: string, reminderId: string];
 
-function invalid(): never { throw new Error("Invalid panel reminder data"); }
+class ReminderDataError extends Error {
+    constructor(readonly reason: string) { super("Invalid panel reminder data"); }
+}
+function invalid(reason = "invalid_response"): never { throw new ReminderDataError(reason); }
 function object(value: unknown): Record<string, unknown> {
     if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
     return value as Record<string, unknown>;
@@ -149,15 +156,17 @@ export function parseNotificationSettings(raw: unknown): PanelNotificationSettin
 export function parseAssignedSnapshot(raw: unknown, accountId: string, allowedProjects: readonly string[]): PanelAssignedSnapshot {
     const allowed = projects(allowedProjects);
     const r = object(raw);
-    if (snowflake(r.accountId) !== snowflake(accountId) || r.maxAgeSeconds !== 75) return invalid();
+    if (snowflake(r.accountId) !== snowflake(accountId)) return invalid("snapshot_account");
+    if (r.maxAgeSeconds !== 75) return invalid();
     const serverTime = timestamp(r.serverTime), checkedAt = timestamp(r.checkedAt);
-    if (checkedAt > serverTime || serverTime - checkedAt > MAX_AGE_MS) return invalid();
+    if (checkedAt > serverTime || serverTime - checkedAt > MAX_AGE_MS) return invalid("stale_snapshot");
     const seen = new Set<string>();
     const tickets = list(r.tickets, 4000).map(value => {
         const row = object(value);
         const p = project(row.project), ticketId = text(row.ticketId);
         const key = JSON.stringify([p, ticketId]);
-        if (!allowed.includes(p) || seen.has(key) || snowflake(row.assigneeAccountId) !== accountId) return invalid();
+        if (!allowed.includes(p) || seen.has(key)) return invalid();
+        if (snowflake(row.assigneeAccountId) !== accountId) return invalid("foreign_assignment");
         seen.add(key);
         const base = { ticketId, project: p, assigneeAccountId: accountId,
             guildId: row.guildId === null ? null : snowflake(row.guildId),
@@ -179,6 +188,18 @@ export function parseAssignedSnapshot(raw: unknown, accountId: string, allowedPr
 // Serialize durable read/modify/write across controllers sharing this storage object. Different
 // processes/devices require an atomic adapter; the API deliberately has no delivery coordination.
 const storageTails = new WeakMap<ReminderOptions["storage"], Promise<void>>();
+let diagnosticCycle = 0;
+function trace(event: string, data: Record<string, unknown>) {
+    try { diagnosticJournal.record(`runtime.reminder_${event}`, data); } catch { /* Diagnostics are observational. */ }
+}
+function ticketTrace(ticket: PanelAssignedTicket | ReminderPlaybackTicket) {
+    return diagnosticData({
+        ticketId: ticket.ticketId, channelId: ticket.channelId, guildId: ticket.guildId, project: ticket.project,
+        waitingCycleId: ticket.waitingCycleId, reminderId: ticket.reminderId,
+        ...("state" in ticket ? { state: ticket.state, waitingSince: ticket.waitingSince, reminderAt: ticket.reminderAt,
+            thresholdMs: ticket.reminderAt !== null && ticket.waitingSince !== null ? ticket.reminderAt - ticket.waitingSince : undefined } : {}),
+    });
+}
 function withStorage<T>(storage: ReminderOptions["storage"], work: () => Promise<T>): Promise<T> {
     const result = (storageTails.get(storage) ?? Promise.resolve()).then(work);
     const tail = result.then(() => {}, () => {});
@@ -216,6 +237,7 @@ export function createReminderController(options: ReminderOptions): ReminderCont
     };
     let active = false;
     let generation = 0;
+    let currentCycle = 0;
     let identity = "";
     let timer: unknown;
     let pending = false;
@@ -247,7 +269,8 @@ export function createReminderController(options: ReminderOptions): ReminderCont
         if (timer !== undefined) clock.clearTimeout(timer);
         timer = undefined;
     }
-    function stop() {
+    function stop(reason = "stop") {
+        if (active) trace("stop", { cycle: currentCycle, generation, reason });
         active = false;
         generation++;
         pending = false;
@@ -257,7 +280,7 @@ export function createReminderController(options: ReminderOptions): ReminderCont
     }
     function valid(g: number): boolean {
         if (!active || generation !== g) return false;
-        if (context() !== identity) { stop(); return false; }
+        if (context() !== identity) { stop("context_invalid"); return false; }
         return true;
     }
     function fresh(s: PanelAssignedSnapshot): boolean {
@@ -294,51 +317,115 @@ export function createReminderController(options: ReminderOptions): ReminderCont
     }
 
     async function run(g: number) {
+        const cycle = ++diagnosticCycle;
+        currentCycle = cycle;
+        let phase = "snapshot_read";
         snapshot = undefined;
         notify({ status: "refreshing" });
         if (!valid(g)) return;
         requestAt = clock.now();
+        trace("refresh", { cycle, generation: g, phase });
         try {
             const raw = await options.get();
             if (!valid(g)) return;
             receivedAt = clock.now();
+            phase = "snapshot_validate";
+            // Counts describe the received (not yet accepted) response. Never
+            // publish assignee/account IDs, revision text or a raw ticket object.
+            if (diagnosticJournal.active && raw && typeof raw === "object" && !Array.isArray(raw)) {
+                const r = raw as Record<string, unknown>;
+                const rows = Array.isArray(r.tickets) ? r.tickets.slice(0, 4000) : [];
+                let ownCount = 0, otherCount = 0, tracedCount = 0;
+                for (const row of rows) {
+                    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+                    if (row.assigneeAccountId === accountId) ownCount++;
+                    else if (typeof row.assigneeAccountId === "string") {
+                        otherCount++;
+                        if (tracedCount++ < 20) trace("ticket", { cycle, phase, ticketId: row.ticketId,
+                            channelId: row.channelId, guildId: row.guildId, project: row.project,
+                            ownAssignee: false, reason: "foreign_assignment", eligible: false });
+                    }
+                }
+                trace("snapshot", { cycle, phase, snapshotCount: rows.length, ownCount, otherCount,
+                    accountMatches: r.accountId === accountId, snapshotRevision: r.revision });
+            }
             const s = parseAssignedSnapshot(raw, accountId, allowed);
-            if (!fresh(s) || s.serverTime < lastServerTime || s.checkedAt < lastCheckedAt) return invalid();
+            if (!fresh(s)) return invalid("stale_snapshot");
+            if (s.serverTime < lastServerTime || s.checkedAt < lastCheckedAt) return invalid("snapshot_regressed");
             lastServerTime = s.serverTime;
             lastCheckedAt = s.checkedAt;
             observedServerTime = Math.max(s.serverTime + receivedAt - requestAt, observedServerTime + receivedAt - observedAt);
             observedAt = receivedAt;
             snapshot = s;
-            if (!s.discordEnabled) { notify({ status: "ready" }); return; }
+            trace("snapshot", { cycle, phase: "complete", snapshotCount: s.tickets.length, ownCount: s.tickets.length,
+                otherCount: 0, fresh: true, enabled: s.discordEnabled, serverTime: s.serverTime, checkedAt: s.checkedAt,
+                ageMs: s.serverTime + receivedAt - requestAt - s.checkedAt, snapshotRevision: s.revision });
+            if (!s.discordEnabled) {
+                trace("skip", { cycle, reason: "settings_disabled" });
+                notify({ status: "ready" }); return;
+            }
 
+            phase = "receipt_read";
             const claimed = await withStorage(options.storage, async () => {
                 if (!valid(g) || !fresh(s)) return undefined;
                 const saved = parseReceipts(await options.storage.get(RECEIPT_KEY));
                 if (!valid(g) || !fresh(s)) return undefined;
                 receipts = new Set(saved.map(row => JSON.stringify(row)));
                 const serverNow = s.serverTime + (clock.now() - receivedAt);
-                const ticket = s.tickets.find(t => t.state === "waiting_support" && t.reminderAt !== null
-                    && t.reminderAt <= serverNow && !receipts.has(key(t)));
+                phase = "selection";
+                let ticket: PanelAssignedTicket | undefined, eligibleCount = 0;
+                for (let index = 0; index < s.tickets.length; index++) {
+                    const t = s.tickets[index];
+                    const reason = t.state !== "waiting_support" ? "waiting_player"
+                        : t.reminderAt === null || t.reminderAt > serverNow ? "not_due"
+                            : receipts.has(key(t)) ? "receipt_duplicate" : "eligible";
+                    if (reason === "eligible") { eligibleCount++; ticket ??= t; }
+                    if (index < 20 && diagnosticJournal.active) trace("ticket", { cycle, ...ticketTrace(t), ownAssignee: true,
+                        eligible: reason === "eligible", reason, serverNow,
+                        dueInMs: t.reminderAt === null ? undefined : t.reminderAt - serverNow });
+                }
+                trace("selection", { cycle, eligibleCount, snapshotCount: s.tickets.length, receiptCount: receipts.size,
+                    tracedCount: Math.min(s.tickets.length, 20), reason: ticket ? "eligible" : s.tickets.length ? "no_eligible_ticket" : "empty_snapshot" });
                 if (!ticket) return undefined;
                 // No expiry is promised by the contract, even when tickets leave a snapshot.
-                if (saved.length >= RECEIPT_LIMIT) return invalid();
+                if (saved.length >= RECEIPT_LIMIT) return invalid("receipt_limit");
+                trace("chosen", { cycle, ...ticketTrace(ticket), ownAssignee: true, eligible: true, serverNow });
                 const receipt: Receipt = [accountId, ticket.project, ticket.ticketId, ticket.reminderId!];
+                phase = "receipt_write";
                 await options.storage.set(RECEIPT_KEY, { v: 1, receipts: [...saved, receipt] });
+                trace("receipt", { cycle, ...ticketTrace(ticket), reason: "receipt_saved" });
                 if (!valid(g) || !fresh(s)) return undefined;
                 receipts.add(JSON.stringify(receipt));
                 return ticket;
             });
             if (!valid(g)) return;
-            if (!fresh(s)) return invalid();
+            if (!fresh(s)) return invalid("stale_snapshot");
             if (claimed) {
-                // No await or callback between this guard and invoking the audio wrapper.
-                const stillValid = () => valid(g) && snapshot === s && s.discordEnabled && fresh(s);
+                phase = "playback";
+                // Log only guard transitions; audio may call this several times.
+                let previousGuard: boolean | undefined;
+                const stillValid = () => {
+                    const ok = valid(g) && snapshot === s && s.discordEnabled && fresh(s);
+                    if (ok !== previousGuard) {
+                        previousGuard = ok;
+                        trace("guard", { cycle, ...ticketTrace(claimed), currentGuard: ok,
+                            reason: ok ? "guard_valid" : generation !== g ? "generation_changed"
+                                : snapshot !== s ? "snapshot_changed" : !s.discordEnabled ? "settings_disabled"
+                                    : !fresh(s) ? "stale_snapshot" : "context_invalid" });
+                    }
+                    return ok;
+                };
                 let played = false;
-                try { played = await options.play(stillValid) === true; } catch { /* attempt stays consumed */ }
+                const playbackTicket: ReminderPlaybackTicket = { ticketId: claimed.ticketId, channelId: claimed.channelId,
+                    guildId: claimed.guildId, project: claimed.project, waitingCycleId: claimed.waitingCycleId,
+                    reminderId: claimed.reminderId, cycle };
+                try { if (stillValid()) played = await options.play(stillValid, playbackTicket) === true; } catch { /* attempt stays consumed */ }
+                trace("play", { cycle, ...ticketTrace(claimed), played, currentGuard: stillValid(), outcome: played ? "success" : "failure" });
                 if (!stillValid()) return;
                 notify({ status: "ready", ticket: { ...claimed }, played });
             } else notify({ status: "ready" });
         } catch (error) {
+            trace("failure", { cycle, phase, reason: error instanceof ReminderDataError ? error.reason : "unknown_failure" });
             // Even an invalidated request's Retry-After applies to the shared endpoint.
             let retry = 0;
             try {
@@ -385,8 +472,9 @@ export function createReminderController(options: ReminderOptions): ReminderCont
         },
         stop,
         invalidate(event = "tickets.changed") {
-            if (["permissions.changed", "session.revoked", "token.expired"].includes(event)) { stop(); return; }
+            if (["permissions.changed", "session.revoked", "token.expired"].includes(event)) { stop(event); return; }
             if (!["tickets.changed", "tickets.unavailable", "resync.required"].includes(event) || !active) return;
+            trace("invalidate", { cycle: currentCycle, generation, reason: event });
             generation++;
             snapshot = undefined;
             cancelTimer();

@@ -20,7 +20,8 @@ export function diagnosticStorageStatus(): DiagnosticFileStatus {
 export function diagnosticSnapshot() {
     const p = panel.get(), u = ui.get(), d = store.data;
     return {
-        connection: diagnosticData({ phase: p.phase, sync: p.sync, persistent: p.persistent, ready: p.phase === "ready" }),
+        connection: diagnosticData({ phase: p.phase, sync: p.sync, persistent: p.persistent, ready: p.phase === "ready",
+            stale: p.stale === true, staleUntil: p.staleUntil ?? 0 }),
         ui: diagnosticData({ windowOpen: u.windowOpen, management: u.management, composeCount: u.compose.length,
             dialog: u.dialog?.kind ?? "idle", items: u.inline?.items.length ?? 0 }),
         settings: diagnosticData({ previewOpen: d.previewOpen, favoriteCount: d.favorites.length, recentCount: d.recent.length,
