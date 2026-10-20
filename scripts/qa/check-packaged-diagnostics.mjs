@@ -152,7 +152,10 @@ for (const { asset, archive } of nativeAssets) {
     vm.runInNewContext(compiled.outputFiles[0].text, box);
     const api = box.module.exports;
     await api.startDiagnostics();
-    check('test campaign recording defaults on', api.diagnosticJournal.active && api.diagnosticJournal.campaignEndsAt > Date.now());
+    const initialJournal = api.diagnosticJournal.snapshot();
+    check('continuous recording defaults on without expiry', api.diagnosticJournal.active
+        && initialJournal.continuous && initialJournal.enabled && !initialJournal.optedOut
+        && initialJournal.until === 0 && initialJournal.campaignUntil === 0);
     const send = api.createPanelTransport(async () => Response.json({code: 'session_revoked', message: 'PRIVATE_BODY_SENTINEL'}, {status: 401}));
     await assert.rejects(send('/me', {token: 'PRIVATE_TOKEN_SENTINEL'}), e => e.code === 'session_revoked');
     api.downloadDiagnostics();

@@ -11,23 +11,28 @@ beforeEach(() => {
 });
 afterEach(() => { journal.stop(); vi.useRealTimers(); });
 
-it("explains an authentication rejection and invalidation without storing credentials", async () => {
+it.each(["session_revoked", "timeout"])("distinguishes %s from an authentication rejection without storing credentials", async code => {
     const transport: PanelTransport = async path => {
         if (path === "/oauth/device_authorization") return { device_code: "PRIVATE_DEVICE", user_code: "PRIVATE_CODE",
             verification_uri: PANEL_ORIGIN + "/connect", expires_in: 600, interval: 5 };
         if (path === "/oauth/token") return { access_token: "PRIVATE_ACCESS", refresh_token: "PRIVATE_REFRESH", token_type: "Bearer",
             expires_in: 900, scope: "profile:read faq:read personal:read folders:read sync:read",
             connectionId: "12345678-1234-1234-1234-123456789abc" };
-        throw new PanelError("session_revoked", 401);
+        throw new PanelError(code, code === "session_revoked" ? 401 : 0);
     };
     const client = new PanelClient(transport);
     const login = client.login(() => {});
     await vi.advanceTimersByTimeAsync(5000); await login;
-    await expect(client.get("/me")).rejects.toMatchObject({ code: "session_revoked" });
+    await expect(client.streamAuthorized(async () => { throw new PanelError(code, code === "session_revoked" ? 401 : 0); })).rejects.toMatchObject({ code });
     const events = journal.snapshot().events;
-    expect(events).toContainEqual(expect.objectContaining({ event: "auth.rejected", data: expect.objectContaining({ code: "session_revoked", status: 401, attempt: 0 }) }));
-    expect(events).toContainEqual(expect.objectContaining({ event: "auth.invalidate", data: expect.objectContaining({ active: true }) }));
-    expect(client.connectionId).toBeNull();
+    if (code === "session_revoked") {
+        expect(events).toContainEqual(expect.objectContaining({ event: "auth.rejected", data: expect.objectContaining({ code: "session_revoked", status: 401, attempt: 0 }) }));
+        expect(events).toContainEqual(expect.objectContaining({ event: "auth.invalidate", data: expect.objectContaining({ active: true }) }));
+        expect(client.connectionId).toBeNull();
+    } else {
+        expect(events.some(e => e.event === "auth.rejected" || e.event === "auth.invalidate")).toBe(false);
+        expect(client.connectionId).not.toBeNull();
+    }
     expect(JSON.stringify(journal.snapshot())).not.toContain("PRIVATE");
     client.dispose();
 });

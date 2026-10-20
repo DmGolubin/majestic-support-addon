@@ -424,7 +424,9 @@ export class PanelClient {
             catch (error) {
                 this.#assert(session);
                 const failure = safeError(error);
-                journal.record("auth.rejected", { code: failure.code, status: failure.status, attempt }, true);
+                // Network/stream failures do not imply rejected credentials.
+                if (failure.status === 401 || failure.code === "session_revoked")
+                    journal.record("auth.rejected", { code: failure.code, status: failure.status, attempt }, true);
                 if (failure.code === "session_revoked") { await this.#terminate(session); throw failure; }
                 if (failure.status !== 401) throw failure;
                 if (attempt) { await this.#terminate(session); throw failure; }
