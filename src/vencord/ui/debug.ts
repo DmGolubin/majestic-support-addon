@@ -52,6 +52,33 @@ let verboseSetting = false;
 let verbose = false;
 const ring = new Ring(CAP);
 const meter = new CostMeter();
+let fileWindow: ReturnType<typeof diagnosticData> | null = null;
+let lastFileGeometry = "", geometryAt = -Infinity, perfAt = -Infinity;
+let pendingCost = 0;
+
+function filePerformance(now: number, elapsed: number) {
+    if (!journal.active) return;
+    pendingCost += Math.max(0, elapsed);
+    // Only actual measured work triggers a summary; no sampling timer, including
+    // while the window is closed. Tiny/idle spans do not produce file traffic.
+    if (pendingCost < 25 || now - perfAt < 5000) return;
+    pendingCost = 0; perfAt = now;
+    const sums = meter.sums(now);
+    journal.record("debug.performance", {
+        totalMs: meter.total(now), windowMs: meter.windowMs(now),
+        keysMs: sums.keys.ms, inlineMs: sums.inline.ms, renderMs: sums.render.ms,
+        searchMs: sums.search.ms, debugMs: sums.debug.ms,
+    });
+}
+
+function fileGeometry() {
+    if (!journal.active) return;
+    const data = diagnosticData({ ...fileWindow, windowOpen: ui.get().windowOpen, width: window.innerWidth, height: window.innerHeight });
+    const signature = JSON.stringify(data), now = performance.now();
+    if (signature === lastFileGeometry || now - geometryAt < 1000) return;
+    lastFileGeometry = signature; geometryAt = now;
+    journal.record("ui.geometry", data);
+}
 
 /** performance.now() when debug is on, else 0 (= not measured). The start of a measured span. */
 export function costStart(): number {
@@ -60,7 +87,11 @@ export function costStart(): number {
 
 /** The end of a span started by costStart(); a no-op for 0. */
 export function costEnd(cat: CostCat, t0: number) {
-    if (t0) meter.record(cat, t0, performance.now());
+    if (t0 && (enabled || journal.active)) {
+        const end = performance.now();
+        meter.record(cat, t0, end);
+        if (!NESTED_CATS.includes(cat)) filePerformance(end, end - t0);
+    }
 }
 
 /** Wraps a listener/callback as a measured `debug` span (verbose listeners, timers, the long task observer). */
@@ -119,7 +150,11 @@ export function dlog(type: string, data: Record<string, unknown> = {}, coalesce?
 
 /** The window publishes its local state (only while debug is on). */
 export function setDebugWindow(win: WinDebug | null) {
-    if (win) journal.record("ui.window", { ...win, queryLength: win.query.length });
+    // Keep only layout metadata for the file. In particular no query, selection,
+    // item/category IDs or hover history survive with visual debug switched off.
+    fileWindow = win && journal.active ? diagnosticData({ peek: win.peek, view: win.view, mode: win.layout,
+        winW: win.winW, previewW: win.previewW, avail: win.avail, tipW: win.tipW }) : null;
+    fileGeometry();
     if (!enabled) return;
     const prev = debugState.get().win;
     if (!shallowEqual(prev, win)) debugState.set({ win });
@@ -287,6 +322,7 @@ const geomEvent = (): Record<string, unknown> => ({
 
 /** Geometry snapshot into the log (window open/close). Verbose only; read after layout. */
 export function logGeometry(what: string) {
+    fileGeometry();
     if (!enabled) return;
     geomEventNow();
     if (!verbose) return;
@@ -332,7 +368,7 @@ function resetLong() {
 
 /** Search + ranking of one list computation [t0, t1] (the window measures it while debug is on). */
 export function noteSearch(t0: number, t1: number, query: string, items: number) {
-    if (!enabled) return;
+    if (!enabled && !journal.active) return;
     meter.record("search", t0, t1);
     if (!verbose) return;
     const ms = t1 - t0;
@@ -458,7 +494,7 @@ export function debugFileSnapshot() {
     const now = performance.now();
     return {
         options: { debug: enabled, debugVerbose: verbose },
-        window: debugState.get().win ? diagnosticData({ ...debugState.get().win, queryLength: debugState.get().win!.query.length }) : null,
+        window: ui.get().windowOpen ? fileWindow : null,
         performance: { measured: enabled || journal.active, totalMs: meter.total(now), windowMs: meter.windowMs(now), categories: meter.sums(now),
             longTasksMeasured: enabled && longSupported, longTasks: { count: long.count, maxMs: long.max, pluginMs: long.pluginMs } },
         load: load ? { total: load.total, storeLoad: load.storeLoad, mount: load.mount } : null,

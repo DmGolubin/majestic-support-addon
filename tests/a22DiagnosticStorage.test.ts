@@ -20,19 +20,20 @@ function fixture(bridged = false, overrides: Record<string, unknown> = {}) {
         make: () => api.createDiagnosticFileStorage({ root, fs: hostFS }) };
 }
 
-describe("A22 bounded fixed diagnostic snapshots", () => {
+describe("A22 legacy compatibility and bounded restart state", () => {
     it.each([false, true])("roundtrips and resumes with %s bridged filesystem", async bridged => {
         const f = fixture(bridged), store = f.make();
         expect(await store.load()).toEqual({ path: f.path, state: null });
         expect(fs.existsSync(f.root)).toBe(false);
         expect(await store.save(report())).toEqual({ path: f.path });
         const disk = fs.readFileSync(f.path, "utf8");
-        expect(disk.split("\n")).toHaveLength(2); // compact bounded JSON in a TXT
-        expect(JSON.parse((await f.make().load()).state)).toEqual(JSON.parse(disk).journal);
-        expect(fs.readdirSync(f.root)).toEqual(["SupportTemplates-diagnostics.txt"]);
-        expect(Buffer.byteLength(disk)).toBeLessThanOrEqual(512 * 1024);
+        expect(disk.trim().split("\n")).toHaveLength(2);
+        expect(disk).toContain("] request.start ");
+        expect(JSON.parse((await f.make().load()).state)).toEqual(api.sanitizeDiagnosticReport(report()).journal);
+        expect(fs.readdirSync(f.root)).toEqual([api.DIAGNOSTIC_STATE_NAME, api.DIAGNOSTIC_FILE_NAME]);
+        expect(Buffer.byteLength(disk)).toBeLessThanOrEqual(api.DIAGNOSTIC_FILE_MAX_BYTES);
     });
-    it("bounds the entire file including metadata, preserving the newest events and deadline", async () => {
+    it("bounds restart report including metadata, preserving newest events and legacy deadline", async () => {
         const f = fixture(), p = payload();
         p.journal.events = Array.from({ length: 2000 }, (_, i) => ({ seq: i + 1, time: NOW, event: "request.failure", data: {
             route: "/notification-settings", method: "GET", status: 429, durationMs: 12345, retryAfterMs: 12345,
@@ -41,14 +42,16 @@ describe("A22 bounded fixed diagnostic snapshots", () => {
         } }));
         expect(Buffer.byteLength(JSON.stringify(p))).toBeGreaterThan(512 * 1024);
         await f.make().save(JSON.stringify(p));
-        const raw = fs.readFileSync(f.path, "utf8"), saved = JSON.parse(raw);
-        expect(Buffer.byteLength(raw)).toBeLessThanOrEqual(512 * 1024);
+        const raw = fs.readFileSync(join(f.root, api.DIAGNOSTIC_STATE_NAME), "utf8"), saved = JSON.parse(raw).report;
+        expect(Buffer.byteLength(JSON.stringify(saved))).toBeLessThanOrEqual(512 * 1024);
+        expect(Buffer.byteLength(raw)).toBeLessThanOrEqual(2 * 1024 * 1024);
+        expect(fs.statSync(f.path).size).toBeLessThanOrEqual(api.DIAGNOSTIC_FILE_MAX_BYTES);
         expect(saved.journal.dropped).toBeGreaterThan(p.journal.dropped);
         expect(saved.journal.events.at(-1).seq).toBe(2000);
         expect(saved.journal.campaignUntil).toBe(p.journal.campaignUntil);
         expect(saved.journal.until).toBe(p.journal.until);
     });
-    it("preserves absolute campaign and savedAt through disabled, clear and expired snapshots", async () => {
+    it("preserves legacy campaign and savedAt; empty delta does not implicitly clear history", async () => {
         const f = fixture();
         const p = payload(); p.recording = false; p.journal.until = 0; p.journal.campaignUntil = NOW - 1;
         await f.make().save(JSON.stringify(p));
@@ -57,7 +60,8 @@ describe("A22 bounded fixed diagnostic snapshots", () => {
         p.journal.savedAt += 42; p.journal.events = []; p.journal.dropped = 0;
         await f.make().save(JSON.stringify(p));
         saved = JSON.parse((await f.make().load()).state);
-        expect(saved).toMatchObject({ campaignUntil: NOW - 1, until: 0, savedAt: NOW + 42, events: [], dropped: 0 });
+        expect(saved).toMatchObject({ campaignUntil: NOW - 1, until: 0, savedAt: NOW + 42, dropped: 0 });
+        expect(saved.events).toHaveLength(1);
     });
     it("serializes concurrent callers in order, including a final opt-out", async () => {
         const f = fixture(), store = f.make();
@@ -65,17 +69,18 @@ describe("A22 bounded fixed diagnostic snapshots", () => {
         off.journal.savedAt = NOW + 1;
         await Promise.all([store.save(report()), store.load(), store.save(JSON.stringify(off))]);
         expect(JSON.parse((await store.load()).state).until).toBe(0);
-        expect(JSON.parse(fs.readFileSync(f.path, "utf8")).recording).toBe(false);
+        expect(JSON.parse(fs.readFileSync(join(f.root, api.DIAGNOSTIC_STATE_NAME), "utf8")).report.recording).toBe(false);
     });
-    it.each(["{broken", "{}", JSON.stringify({ journal: { schema: 999 } }), "x".repeat(1024 * 1024 + 1)])(
-        "corrupt/oversized fixed regular report is recoverable %#", async content => {
+    it.each(["{broken", "{}", JSON.stringify({ journal: { schema: 999 } })])(
+        "corrupt legacy JSON fails closed and is archived without being lost %#", async content => {
             const f = fixture(); fs.mkdirSync(f.root); fs.writeFileSync(f.path, content);
             const saved = await f.make().load();
             expect(saved.path).toBe(f.path);
-            expect(JSON.parse(saved.state)).toMatchObject({ schema: 1, campaign: "mvp-file-2026-10",
+            expect(JSON.parse(saved.state)).toMatchObject({ schema: 1, continuous: true, enabled: false, optedOut: true,
                 campaignUntil: 0, until: 0, events: [], dropped: 0 });
             expect(JSON.parse(saved.state).savedAt).toBeGreaterThan(0);
             await f.make().save(report());
+            expect(fs.readFileSync(join(f.root, api.DIAGNOSTIC_LEGACY_NAME), "utf8")).toBe(content);
             expect(JSON.parse((await f.make().load()).state).campaign).toBe("mvp-file-2026-10");
         });
     it.each([null, {}, "", "{}", "[]", "not JSON", "x".repeat(1024 * 1024 + 1)])(
@@ -110,7 +115,7 @@ describe("A22 bounded fixed diagnostic snapshots", () => {
         const p = payload(); p.journal.until = 0;
         await expect(store.save(JSON.stringify(p))).rejects.toThrow(ERROR);
         expect(fs.readFileSync(f.path, "utf8")).toBe(before);
-        expect(fs.readdirSync(f.root)).toEqual([api.DIAGNOSTIC_FILE_NAME]);
+        expect(fs.readdirSync(f.root)).toEqual([api.DIAGNOSTIC_STATE_NAME, api.DIAGNOSTIC_FILE_NAME]);
         fail = false; await store.save(JSON.stringify(p));
         expect(JSON.parse((await store.load()).state).until).toBe(0);
     });
@@ -141,7 +146,7 @@ describe("A22 bounded fixed diagnostic snapshots", () => {
         const p = payload(); p.recording = false; p.journal.until = 0;
         await f.make().save(JSON.stringify(p));
         expect(timer).not.toHaveBeenCalled(); timer.mockRestore();
-        expect(JSON.parse(fs.readFileSync(f.path, "utf8")).journal.events).toHaveLength(1);
+        expect(JSON.parse((await f.make().load()).state).events).toHaveLength(1);
     });
 });
 
@@ -260,6 +265,6 @@ describe("A22 fixed destination integrity", () => {
         const f = fixture(), escape = join(dirname(f.root), "should-not-exist");
         await f.make().save(JSON.stringify(payload({ path: escape, filename: escape, root: escape })));
         expect(fs.existsSync(escape)).toBe(false);
-        expect(fs.readdirSync(f.root)).toEqual([api.DIAGNOSTIC_FILE_NAME]);
+        expect(fs.readdirSync(f.root)).toEqual([api.DIAGNOSTIC_STATE_NAME, api.DIAGNOSTIC_FILE_NAME]);
     });
 });

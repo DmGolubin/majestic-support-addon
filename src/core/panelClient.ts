@@ -177,6 +177,8 @@ export class PanelClient {
             journal.record("auth.restore", { outcome: "success" }, true);
             return true;
         } catch (error) {
+            const failure = safeError(error);
+            journal.record("auth.restore", { outcome: "failure", code: failure.code, status: failure.status }, true);
             await this.#terminate(session);
             throw safeError(error);
         }
@@ -379,6 +381,7 @@ export class PanelClient {
 
     async #terminate(session: Session): Promise<void> {
         const current = this.#session === session && !session.controller.signal.aborted;
+        journal.record("auth.invalidate", { active: current, authenticated: !!session.tokens }, true);
         this.#drop(session);
         if (current && !session.closing) await this.#clearVault(session.lease);
     }
@@ -409,7 +412,10 @@ export class PanelClient {
     async #authorized<T>(session: Session, operation: (token: string) => Promise<T>): Promise<T> {
         this.#assert(session);
         if (session.refresh) await session.refresh;
-        if (this.#now() >= session.expiresAt) await this.#refresh(session);
+        if (this.#now() >= session.expiresAt) {
+            journal.record("auth.refresh_needed", { reason: "expired" });
+            await this.#refresh(session);
+        }
         this.#assert(session);
         for (let attempt = 0; attempt < 2; attempt++) {
             const token = session.tokens?.accessToken;
@@ -418,6 +424,7 @@ export class PanelClient {
             catch (error) {
                 this.#assert(session);
                 const failure = safeError(error);
+                journal.record("auth.rejected", { code: failure.code, status: failure.status, attempt }, true);
                 if (failure.code === "session_revoked") { await this.#terminate(session); throw failure; }
                 if (failure.status !== 401) throw failure;
                 if (attempt) { await this.#terminate(session); throw failure; }

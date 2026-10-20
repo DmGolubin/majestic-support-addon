@@ -13,7 +13,7 @@ const KEY = "SupportTemplates_ticketSound_v1";
 const AUDIO_KEY = "SupportTemplates_ticketSoundAudio_v1";
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
 const cleanups: (() => void)[] = [];
-afterEach(() => { for (const stop of cleanups.splice(0)) stop(); });
+afterEach(() => { for (const stop of cleanups.splice(0)) stop(); vi.restoreAllMocks(); vi.useRealTimers(); });
 function deferred<T>() {
     let resolve!: (value: T) => void;
     let reject!: (reason: unknown) => void;
@@ -28,6 +28,9 @@ interface SoundState {
     testing: boolean;
     customName: string;
     loadingSound: boolean;
+    playing: boolean;
+    playbackStatus: string;
+    canReset: boolean;
 }
 interface Runtime {
     startTicketSound(): () => void;
@@ -35,6 +38,9 @@ interface Runtime {
     chooseTicketSound(file: File): Promise<void>;
     resetTicketSound(): void;
     testTicketSound(): Promise<void>;
+    prepareTicketSound(): void;
+    stopTicketSoundPlayback(): void;
+    stopTicketReminderSound(): void;
     playTicketReminder(current?: () => boolean): Promise<boolean>;
     ticketSoundState: { get(): SoundState; };
 }
@@ -52,9 +58,10 @@ async function harness(initial: unknown = core.defaultTicketSound(), initialAudi
     const oscillatorStart = vi.fn();
     const gainValue = vi.fn();
     const resume = vi.fn(async () => {});
-    const sources: { stop: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; }[] = [];
+    const sources: { stop: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; onended?: (() => void) | null; }[] = [];
     const contexts: FakeAudioContext[] = [];
     const toast = vi.fn();
+    const dispatcher = { subscribe: vi.fn(), unsubscribe: vi.fn() };
     class FakeAudioContext {
         state = initialAudioState;
         currentTime = 0;
@@ -81,7 +88,7 @@ async function harness(initial: unknown = core.defaultTicketSound(), initialAudi
         "@webpack/common": {
             ChannelStore: { getChannel: vi.fn() },
             SelectedChannelStore: { getChannelId: vi.fn() },
-            FluxDispatcher: { subscribe: vi.fn(), unsubscribe: vi.fn() },
+            FluxDispatcher: dispatcher,
         },
         "../core/ticketSound": core,
         "../platform": { storage, toast },
@@ -100,6 +107,7 @@ async function harness(initial: unknown = core.defaultTicketSound(), initialAudi
             return dependencies[id];
         },
         AudioContext: FakeAudioContext,
+        document: { hasFocus: () => false },
         btoa: (binary: string) => Buffer.from(binary, "binary").toString("base64"),
         atob: (base64: string) => Buffer.from(base64, "base64").toString("binary"),
     });
@@ -113,7 +121,8 @@ async function harness(initial: unknown = core.defaultTicketSound(), initialAudi
         await flush();
         return nextStop;
     };
-    return { ...exports, stop, restart, storage, decode, contexts, sources, bufferStart, oscillatorStart, gainValue, resume, toast, saved: (key = KEY) => saved.get(key) };
+    return { ...exports, stop, restart, storage, decode, contexts, sources, bufferStart, oscillatorStart, gainValue, resume, toast,
+        thread: (event: unknown) => dispatcher.subscribe.mock.calls.at(-1)![1](event), saved: (key = KEY) => saved.get(key) };
 }
 
 describe("custom ticket audio", () => {
@@ -461,5 +470,151 @@ describe("ticket reminder audio receipts", () => {
         expect(h.sources[0].stop).toHaveBeenCalledOnce();
         expect(h.contexts[0].close).toHaveBeenCalledOnce();
         expect(h.ticketSoundState.get().testing).toBe(false);
+    });
+});
+
+describe("A23 sound playback and cancellation", () => {
+    const thread = () => ({ channel: { id: String(BigInt(Date.now() + 1000 - 1420070400000) << 22n),
+        parent_id: "696711470783922247", guild_id: "530693013622489088" }, newlyCreated: true });
+
+    it("unlocks audio in the enable gesture so the next new ticket can play", async () => {
+        const h = await harness(undefined, "suspended");
+        h.resume.mockImplementation(async () => { h.contexts[0].state = "running"; });
+        h.setTicketSound({ enabled: true });
+        expect(h.resume).toHaveBeenCalledOnce();
+        await flush();
+        h.thread(thread());
+        await flush();
+        expect(h.oscillatorStart).toHaveBeenCalledTimes(3);
+        expect(h.ticketSoundState.get().error).toBe("");
+    });
+
+    it("does not queue suspended automatic playback or replay after toggling", async () => {
+        const events = vi.spyOn(core, "recordTicketSoundDiagnostic");
+        const h = await harness({ ...core.defaultTicketSound(), enabled: true }, "suspended");
+        const event = thread();
+        h.thread(event);
+        expect(h.resume).not.toHaveBeenCalled();
+        expect(h.oscillatorStart).not.toHaveBeenCalled();
+        expect(events).toHaveBeenCalledWith("skipped", expect.objectContaining({ code: "sound_suspended" }));
+        h.resume.mockImplementation(async () => { h.contexts[0].state = "running"; });
+        h.setTicketSound({ enabled: false }); h.setTicketSound({ enabled: true });
+        await flush();
+        h.thread(event);
+        expect(h.oscillatorStart).not.toHaveBeenCalled();
+        expect(events).toHaveBeenCalledWith("skipped", expect.objectContaining({ code: "sound_duplicate" }));
+    });
+
+    it.each(["mute", "disable", "stop", "replace"] as const)("cancels pending test playback on %s even if settings later recover", async action => {
+        const h = await harness({ ...core.defaultTicketSound(), enabled: true });
+        const pending = deferred<void>();
+        h.resume.mockReturnValueOnce(pending.promise);
+        const testing = h.testTicketSound();
+        if (action === "mute") { h.setTicketSound({ volume: 0 }); h.setTicketSound({ volume: 50 }); }
+        if (action === "disable") { h.setTicketSound({ enabled: false }); h.setTicketSound({ enabled: true }); }
+        if (action === "stop") h.stop();
+        if (action === "replace") await h.chooseTicketSound(file());
+        pending.resolve(); await testing;
+        expect(h.oscillatorStart).not.toHaveBeenCalled();
+        expect(h.bufferStart).not.toHaveBeenCalled();
+        expect(h.ticketSoundState.get().testing).toBe(false);
+    });
+
+    it("custom test uses the selected buffer and volume and exposes completion feedback", async () => {
+        const h = await harness();
+        h.setTicketSound({ volume: 42 });
+        await h.chooseTicketSound(file("private-name.wav"));
+        await h.testTicketSound();
+        expect(h.bufferStart).toHaveBeenCalledOnce();
+        expect(h.oscillatorStart).not.toHaveBeenCalled();
+        expect(h.gainValue).toHaveBeenCalledWith(0.42, 0);
+        expect(h.ticketSoundState.get()).toMatchObject({ playing: true, testing: false });
+        expect(h.ticketSoundState.get().playbackStatus).toContain("Воспроизводится свой звук");
+        h.sources[0].onended?.();
+        expect(h.ticketSoundState.get().playing).toBe(false);
+        expect(h.ticketSoundState.get().playbackStatus).toContain("Тест завершён");
+    });
+
+    it.each(["mute", "disable", "reset", "stop"] as const)("stops already playing custom audio on %s", async action => {
+        const h = await harness({ ...core.defaultTicketSound(), enabled: true });
+        await h.chooseTicketSound(file()); await h.testTicketSound();
+        if (action === "mute") h.setTicketSound({ volume: 0 });
+        if (action === "disable") h.setTicketSound({ enabled: false });
+        if (action === "reset") h.resetTicketSound();
+        if (action === "stop") h.stopTicketSoundPlayback();
+        expect(h.sources[0].stop).toHaveBeenCalledOnce();
+        expect(h.ticketSoundState.get().playing).toBe(false);
+    });
+
+    it("volume zero keeps all playback modes silent and explains manual testing", async () => {
+        const h = await harness({ ...core.defaultTicketSound(), enabled: true, volume: 0 });
+        h.thread(thread());
+        await h.testTicketSound();
+        expect(await h.playTicketReminder()).toBe(false);
+        h.prepareTicketSound();
+        expect(h.contexts).toHaveLength(0);
+    });
+
+    it("retains reset retry after a failed reset so stale saved custom bytes can be cleared", async () => {
+        const h = await harness();
+        await h.chooseTicketSound(file());
+        h.storage.set.mockRejectedValueOnce(Error("storage failed"));
+        h.resetTicketSound(); await flush();
+        expect(h.ticketSoundState.get()).toMatchObject({ customName: "", canReset: true });
+        h.resetTicketSound(); await flush();
+        expect(h.ticketSoundState.get().canReset).toBe(false);
+        expect(h.saved(AUDIO_KEY)).toBeNull();
+    });
+
+    it("logs static playback and custom-load codes, never filenames, bytes or raw errors", async () => {
+        const events = vi.spyOn(core, "recordTicketSoundDiagnostic");
+        const h = await harness();
+        await h.chooseTicketSound(file("SECRET_NAME.wav"));
+        await h.testTicketSound();
+        h.resume.mockRejectedValueOnce(Error("SECRET_ERROR data:audio/wav;base64,AQIDBA=="));
+        await h.testTicketSound();
+        expect(h.ticketSoundState.get().playing).toBe(false);
+        expect(h.ticketSoundState.get().playbackStatus).not.toContain("Воспроизводится");
+        const input = file("PRIVATE.wav");
+        vi.spyOn(input, "arrayBuffer").mockRejectedValueOnce(Error("SECRET_PATH"));
+        await h.chooseTicketSound(input);
+        const log = JSON.stringify(events.mock.calls);
+        expect(log).not.toMatch(/SECRET|PRIVATE|AQIDBA|data:audio/);
+        expect(events).toHaveBeenCalledWith("played", expect.objectContaining({ mode: "test", success: true }));
+        expect(events).toHaveBeenCalledWith("error", expect.objectContaining({ code: "sound_playback" }));
+        expect(events).toHaveBeenCalledWith("error", expect.objectContaining({ code: "sound_read" }));
+        expect(h.ticketSoundState.get().error).not.toContain("SECRET");
+    });
+
+    it("times out a never-resolving resume without leaving test UI busy", async () => {
+        const h = await harness();
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        h.resume.mockReturnValueOnce(new Promise<void>(() => {}));
+        const testing = h.testTicketSound();
+        await vi.advanceTimersByTimeAsync(5001);
+        await testing;
+        expect(h.ticketSoundState.get()).toMatchObject({ testing: false, playing: false });
+        expect(h.ticketSoundState.get().error).toContain("Не удалось воспроизвести");
+        expect(h.oscillatorStart).not.toHaveBeenCalled();
+    });
+
+    it("continues cleanup if a source disconnect or AudioContext close throws", async () => {
+        const h = await harness();
+        await h.testTicketSound();
+        h.sources[0].disconnect.mockImplementation(() => { throw Error("disposed"); });
+        h.contexts[0].close.mockImplementation(() => { throw Error("disposed"); });
+        expect(h.stop).not.toThrow();
+        for (const source of h.sources) expect(source.disconnect).toHaveBeenCalled();
+        expect(h.ticketSoundState.get().loaded).toBe(false);
+    });
+    it("stopping reminder delivery stops only reminder audio, leaving an explicit test alone", async () => {
+        const h = await harness();
+        await h.chooseTicketSound(file());
+        await h.testTicketSound();
+        await h.playTicketReminder();
+        h.stopTicketReminderSound();
+        expect(h.sources[0].stop).not.toHaveBeenCalled();
+        expect(h.sources[1].stop).toHaveBeenCalledOnce();
+        expect(h.ticketSoundState.get().playing).toBe(true);
     });
 });

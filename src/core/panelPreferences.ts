@@ -7,8 +7,10 @@
 import { isValidBind } from "./keys";
 import { Persisted, StorageLike, STORE_KEY } from "./state";
 import { validPrefix } from "./trigger";
+import { readWindowTabOrder, WINDOW_TABS } from "./types";
 
-type Preferences = Pick<Persisted, "favorites" | "recent" | "usage" | "binds" | "prefix" | "previewOpen" | "techProject"> & { v: 1; };
+type Preferences = Pick<Persisted, "favorites" | "recent" | "usage" | "binds" | "prefix" | "previewOpen" | "techProject">
+    & Partial<Pick<Persisted, "showPersonalInAll" | "generalFirstInSearch" | "windowTabOrder">> & { v: 1; };
 
 const MAX_REFS = 1000;
 const MAX_USAGE = 10000;
@@ -84,6 +86,14 @@ function normalize(value: unknown): Preferences {
     if (validPrefix(prefix) && prefix.length === 1) result.prefix = prefix;
     if (typeof preview === "boolean") result.previewOpen = preview;
     if (project === "mj" || project === "ro") result.techProject = project;
+    // Store only deviations from the new defaults, preserving the compact legacy projection.
+    if (own(value, "showPersonalInAll") === true) result.showPersonalInAll = true;
+    if (own(value, "generalFirstInSearch") === false) result.generalFirstInSearch = false;
+    const tabs = own(value, "windowTabOrder");
+    if (Array.isArray(tabs)) {
+        const order = readWindowTabOrder(tabs);
+        if (order.some((tab, index) => tab !== WINDOW_TABS[index])) result.windowTabOrder = order;
+    }
     return result;
 }
 

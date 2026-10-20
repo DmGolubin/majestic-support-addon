@@ -79,6 +79,7 @@ function harness() {
     const storage = { get: vi.fn(async (_key: string): Promise<unknown> => undefined), set: vi.fn(async (_key: string, _value: unknown) => {}) };
     const toast = vi.fn();
     const playTicketReminder = vi.fn(async (valid: () => boolean) => valid());
+    const prepareTicketSound = vi.fn(), stopTicketReminderSound = vi.fn();
     const engines: {
         options: EngineOptions;
         running: boolean;
@@ -101,7 +102,7 @@ function harness() {
         "../core/panelClient": { PanelError },
         "../core/panelReminders": { createReminderController, parseNotificationSettings },
         "../platform": { storage, toast },
-        "./ticketSound": { playTicketReminder },
+        "./ticketSound": { playTicketReminder, prepareTicketSound, stopTicketReminderSound },
         "./observable": {
             createObservable<T extends object>(initial: T) {
                 let value = initial;
@@ -123,11 +124,28 @@ function harness() {
         await exports.refreshTicketReminders();
         expect(exports.ticketRemindersState.get()).toMatchObject({ phase: "ready", settings: initial, busy: false });
     }
-    return { ...exports, client, binding, storage, toast, playTicketReminder, createReminderController, engines, running, ready,
+    return { ...exports, client, binding, storage, toast, playTicketReminder, prepareTicketSound, stopTicketReminderSound, createReminderController, engines, running, ready,
         state: () => exports.ticketRemindersState.get() };
 }
 
 describe("ticket reminder adapter", () => {
+    it("prepares audio in the enable gesture and stops active reminders immediately on disable", async () => {
+        const h = harness(); await h.ready(settings(false));
+        h.client.mutate.mockResolvedValueOnce(settings(true, "v2"));
+        const enabling = h.setDiscordReminders(true);
+        expect(h.prepareTicketSound).toHaveBeenCalledExactlyOnceWith("reminder");
+        await enabling;
+        h.stopTicketReminderSound.mockClear();
+        const write = deferred<unknown>(); h.client.mutate.mockReturnValueOnce(write.promise);
+        const disabling = h.setDiscordReminders(false);
+        expect(h.stopTicketReminderSound).toHaveBeenCalledOnce();
+        write.resolve(settings(false, "v3")); await disabling;
+    });
+    it("does not reject a successful audio receipt when the host toast fails", async () => {
+        const h = harness(); await h.ready();
+        h.toast.mockImplementation(() => { throw Error("host disposed"); });
+        await expect(h.running()[0].options.play(() => true)).resolves.toBe(true);
+    });
     it.each([[], ...scopes.map(missing => scopes.filter(scope => scope !== missing))].map(granted => ({ granted })))(
         "requires every requested scope before reading or mutating ($granted)", async ({ granted }) => {
             const h = harness();

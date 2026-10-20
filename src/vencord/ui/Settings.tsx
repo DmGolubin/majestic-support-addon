@@ -9,6 +9,7 @@ import "./settings-layout.css";
 import { useRef, useState } from "@webpack/common";
 
 import { validPrefix } from "../core/trigger";
+import { moveWindowTab, WINDOW_TAB_LABELS } from "../core/types";
 import { panel } from "./panel";
 import { DiagnosticControls } from "./DiagnosticControls";
 import { PanelConnection } from "./PanelConnection";
@@ -63,6 +64,34 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
         {tab === "tickets" && <TicketSettings />}
         {tab === "general" && <div className="vc-stx-settings-sections">
             <PanelConnection />
+            <section className="vc-stx-setting-section vc-stx-setting-card" aria-labelledby="stx-window-settings">
+                <h3 id="stx-window-settings">Шаблоны и поиск</h3>
+                <div className="vc-stx-setting-line">
+                    <div><strong>Личные шаблоны во «Все»</strong><span>Вкладка «Мои», избранное и недавние доступны независимо от этой настройки.</span></div>
+                    <label className="vc-stx-switch"><input type="checkbox" aria-label="Показывать личные шаблоны во Все" checked={store.data.showPersonalInAll} disabled={p.phase !== "ready"} onChange={e => store.setShowPersonalInAll(e.currentTarget.checked)} /><span aria-hidden="true" /></label>
+                </div>
+                <div className="vc-stx-setting-line">
+                    <div><strong>Общие шаблоны первыми в поиске</strong><span>Сначала общие, затем личные. Внутри каждой группы сохраняется порядок по точности совпадения.</span></div>
+                    <label className="vc-stx-switch"><input type="checkbox" aria-label="Общие шаблоны первыми в поиске" checked={store.data.generalFirstInSearch} disabled={p.phase !== "ready"} onChange={e => store.setGeneralFirstInSearch(e.currentTarget.checked)} /><span aria-hidden="true" /></label>
+                </div>
+                <h4>Порядок вкладок</h4>
+                <p>Перетащите вкладку в окне шаблонов или используйте кнопки ниже.</p>
+                <ol aria-label="Порядок вкладок">
+                    {store.data.windowTabOrder.map((id, index, order) => <li key={id}>
+                        <div className="vc-stx-setting-line">
+                            <strong>{WINDOW_TAB_LABELS[id]}</strong>
+                            <div className="vc-stx-lib-actions">
+                                <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={p.phase !== "ready" || index === 0}
+                                    aria-label={`Переместить ${WINDOW_TAB_LABELS[id]} раньше`}
+                                    onClick={() => store.setWindowTabOrder(moveWindowTab(order, id, order[index - 1]))}>Раньше</button>
+                                <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={p.phase !== "ready" || index === order.length - 1}
+                                    aria-label={`Переместить ${WINDOW_TAB_LABELS[id]} позже`}
+                                    onClick={() => store.setWindowTabOrder(moveWindowTab(order, id, order[index + 1]))}>Позже</button>
+                            </div>
+                        </div>
+                    </li>)}
+                </ol>
+            </section>
             <section className="vc-stx-setting-section vc-stx-setting-card" aria-labelledby="stx-input-settings">
                 <h3 id="stx-input-settings">Быстрый ввод</h3>
                 <div className="vc-stx-setting-line">

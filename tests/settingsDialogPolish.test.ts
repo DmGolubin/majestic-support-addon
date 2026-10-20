@@ -3,6 +3,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
 import { validPrefix } from "../src/core/trigger";
+import * as types from "../src/core/types";
 
 // Execute actual modules with a hook/commit harness; no Discord, browser or network.
 const codes = Object.fromEntries(["Settings", "Management", "Dialogs"].map(name => [name,
@@ -21,8 +22,12 @@ function harness(root = "Management", kind = "fields") {
     const onDirty = vi.fn(), discard = vi.fn(), resolve = vi.fn();
     const dialog = { kind, templateId: "t1", title: "Title", initial: {}, fields: [{ name: "Name", options: [] }], resolve };
     const ui = { set: vi.fn(), useSelect: (select: any) => select({ dialog }) };
-    const store = { data: { prefix: ";", previewOpen: true },
+    const store = { data: { prefix: ";", previewOpen: true,
+        showPersonalInAll: false, generalFirstInSearch: true, windowTabOrder: [...types.WINDOW_TABS] },
         setPrefix: vi.fn((v: string) => { store.data.prefix = v; }),
+        setShowPersonalInAll: vi.fn((v: boolean) => { store.data.showPersonalInAll = v; }),
+        setGeneralFirstInSearch: vi.fn((v: boolean) => { store.data.generalFirstInSearch = v; }),
+        setWindowTabOrder: vi.fn((v: types.WindowTab[]) => { store.data.windowTabOrder = types.readWindowTabOrder(v); }),
         byId: () => ({ title: "Template" }), clearBind: vi.fn(), setBind: vi.fn() };
     const comboOf = vi.fn(() => "Ctrl+KeyK");
     const hooks = {
@@ -50,7 +55,7 @@ function harness(root = "Management", kind = "fields") {
     const deps: Record<string, any> = {
         "./DiagnosticControls": { DiagnosticControls: empty },
         "@webpack/common": { ...hooks, GuildStore: { getGuild: () => null } },
-        "./settings-layout.css": {}, "../core/trigger": { validPrefix },
+        "./settings-layout.css": {}, "../core/trigger": { validPrefix }, "../core/types": types,
         "./uiState": { ui, store, useStore: empty }, "./panel": { panel: { use: () => ({ phase: "ready" }) } },
         "./PanelPersonalLibrary": { discardPanelDraft: discard, PanelPersonalLibrary: (props: any) => { personal = props; return null; } },
         "./PanelConnection": { PanelConnection: empty }, "./TicketSettings": { TicketSettings: empty },

@@ -103,7 +103,7 @@ function harness() {
         "../core/panelClient": { PanelError },
         "../core/panelReminders": { createReminderController, parseNotificationSettings },
         "../platform": { storage, toast },
-        "./ticketSound": { playTicketReminder },
+        "./ticketSound": { playTicketReminder, prepareTicketSound: vi.fn(), stopTicketReminderSound: vi.fn() },
         "./observable": {
             createObservable<T extends object>(initial: T) {
                 let value = initial;

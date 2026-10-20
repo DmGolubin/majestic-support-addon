@@ -246,11 +246,15 @@ function stopRuntime() {
     } finally { stopping = false; }
 }
 
-/** Channel switch: cancel pending dialogs and drop everything tied to the old channel. */
-function channelChanged(guildId: string | null) {
+/** Keep the library visible on supported servers; never retain an old channel's editor or pending insert. */
+export function channelChanged(guildId: string | null) {
     supersede();
+    nextGeneration();
+    clearTargets();
     const mode = serverMode(guildId);
-    const patch: Partial<UiState> = { compose: [], inline: null, menu: null, windowOpen: false };
+    const patch: Partial<UiState> = { compose: [], inline: null, menu: null, dialog: null,
+        channelRevision: (ui.get().channelRevision ?? 0) + 1,
+        windowOpen: mode !== "off" && ui.get().windowOpen };
     // Into an OFF channel nothing of ours may stay on screen — the bind dialog too (supersede only answers awaiting dialogs).
     if (mode === "off") patch.dialog = null;
     if (debugEnabled()) {

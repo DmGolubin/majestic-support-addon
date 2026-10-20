@@ -5,7 +5,7 @@
  */
 
 import { Hit } from "./search";
-import { Template, Usage } from "./types";
+import { Template, Usage, WindowTab } from "./types";
 
 export interface RankCtx { favorites: string[]; recent: string[]; usage: Record<string, Usage>; }
 export interface Section { key: string; title: string; items: Template[]; }
@@ -54,12 +54,23 @@ export function sections(pool: Template[], ctx: RankCtx): Section[] {
     ].filter(s => s.items.length);
 }
 
-export function orderHits(hits: Hit[], ctx: RankCtx): Hit[] {
+export function orderHits(hits: Hit[], ctx: RankCtx, generalFirst = false): Hit[] {
     const fav = new Set(ctx.favorites);
-    return [...hits].sort((a, b) =>
+    const ranked = [...hits].sort((a, b) =>
         b.level - a.level
         || Number(fav.has(b.t.id)) - Number(fav.has(a.t.id))
         || popularity(b.t, ctx) - popularity(a.t, ctx));
+    return generalFirst
+        ? [...ranked.filter(h => h.t.source !== "personal"), ...ranked.filter(h => h.t.source === "personal")]
+        : ranked;
+}
+
+/** Input is already permission/project scoped. Visibility options never change stored references. */
+export function windowTabPool(pool: Template[], view: WindowTab, ctx: RankCtx, showPersonalInAll: boolean): Template[] {
+    if (view === "personal") return pool.filter(t => t.source === "personal");
+    if (view === "fav") return favoritesOf(pool, ctx);
+    if (view === "recent") return recentOf(pool, ctx, 10);
+    return showPersonalInAll ? pool : pool.filter(t => t.source !== "personal");
 }
 
 /** Last used templates, newest first (the "Недавние" tab). */

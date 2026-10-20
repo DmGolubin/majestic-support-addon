@@ -29,11 +29,12 @@ function fixture(load?: () => Promise<{ path: string; state: string | null }>) {
     return { api, journal, save, local, listeners, subscribers, disk: () => disk };
 }
 describe("file diagnostics plugin lifecycle", () => {
-    it("records startup automatically, saves on stop, restores deadline and honors opt-out across restart", async () => {
+    it("records continuously, saves on stop and honors opt-out across restart", async () => {
         const h = fixture(); await h.api.startDiagnostics();
         expect(h.journal.active).toBe(true);
         const deadline = h.journal.campaignEndsAt;
-        expect(deadline).toBe(Date.now() + 4 * 86400_000);
+        expect(deadline).toBe(0);
+        expect(h.journal.snapshot().continuous).toBe(true);
         h.journal.record("request.failure", { route: "/me", status: 401, code: "session_revoked", token: "SECRET" }, true);
         h.api.stopDiagnostics(); await vi.advanceTimersByTimeAsync(0);
         expect(h.listeners.size).toBe(0); expect(h.subscribers.size).toBe(0); expect(vi.getTimerCount()).toBe(0);

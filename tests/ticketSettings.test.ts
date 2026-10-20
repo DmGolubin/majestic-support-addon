@@ -15,13 +15,14 @@ const text = (node: any): string => Array.isArray(node) ? node.map(text).join(""
     : node && typeof node === "object" ? text(node.props.children) : node == null || typeof node === "boolean" ? "" : String(node);
 
 function harness(patch: Partial<TicketSoundOptions> = {}) {
-    const state = { options: { ...defaultTicketSound(), ...patch }, loaded: true, testing: false, error: "", customName: "", loadingSound: false };
+    const state = { options: { ...defaultTicketSound(), ...patch }, loaded: true, testing: false, playing: false, playbackStatus: "", canReset: false, error: "", customName: "", loadingSound: false };
     const channels = new Map<string, { name?: string; guild_id?: string; }>();
     const ChannelStore = { getChannel: (id: string) => channels.get(id) };
     const useStateFromStores = vi.fn((_stores, read: () => unknown) => read());
     const setTicketSound = vi.fn(), testTicketSound = vi.fn();
     const chooseTicketSound = vi.fn(), resetTicketSound = vi.fn();
     const retryTicketSoundSettings = vi.fn();
+    const stopTicketSoundPlayback = vi.fn();
     const dependencies: Record<string, unknown> = {
         "./ticket-settings.css": {},
         "@webpack/common": { ChannelStore, useStateFromStores },
@@ -29,7 +30,7 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
         "./Select": { Select: "Select" },
         "./svg": { IconBell: "IconBell" },
         "./ReminderSettings": { ReminderSettings: "ReminderSettings" },
-        "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings },
+        "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback },
     };
     const exports: any = {};
     runInNewContext(code, {
@@ -37,7 +38,7 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
         require: (id: string) => { if (!(id in dependencies)) throw new Error(`Unexpected import: ${id}`); return dependencies[id]; },
         React: { createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props: { ...props as object, children } }) },
     });
-    return { state, channels, ChannelStore, useStateFromStores, setTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, render: () => exports.TicketSettings() };
+    return { state, channels, ChannelStore, useStateFromStores, setTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback, render: () => exports.TicketSettings() };
 }
 
 describe("ticket settings", () => {
@@ -209,16 +210,30 @@ describe("ticket settings", () => {
         expect(h.chooseTicketSound).not.toHaveBeenCalled();
     });
 
-    it.each(["loadingSound", "testing"] as const)("disables file selection and reset while %s", flag => {
+    it.each(["loadingSound", "testing"] as const)("disables file selection while %s but allows cancelling a pending import", flag => {
         const h = harness();
         h.state.customName = "notification.ogg";
         h.state[flag] = true;
         const tree = h.render();
         const all = nodes(tree);
         expect(all.find(n => n.type === "input" && n.props.type === "file")!.props.disabled).toBe(true);
-        expect(all.find(n => n.type === "button" && text(n) === "Вернуть стандартный")!.props.disabled).toBe(true);
+        expect(all.find(n => n.type === "button" && text(n) === "Вернуть стандартный")!.props.disabled).toBe(flag === "testing");
         if (flag === "loadingSound") expect(text(tree)).toContain("Загружаем звук…");
         h.state[flag] = false;
         expect(nodes(h.render()).find(n => n.type === "input" && n.props.type === "file")!.props.disabled).toBe(false);
+    });
+    it("keeps reset retry visible after a failed save and labels the selected custom test", () => {
+        const h = harness(); h.state.canReset = true;
+        expect(nodes(h.render()).find(n => n.type === "button" && text(n) === "Вернуть стандартный")).toBeDefined();
+        h.state.customName = "selected.wav";
+        nodes(h.render()).find(n => n.type === "button" && text(n) === "Проверить свой звук")!.props.onClick();
+        expect(h.testTicketSound).toHaveBeenCalledOnce();
+    });
+    it("shows test feedback and an explicit stop control while playing", () => {
+        const h = harness(); h.state.playing = true; h.state.playbackStatus = "Воспроизводится свой звук.";
+        const tree = h.render();
+        expect(text(nodes(tree).find(n => n.props.role === "status"))).toBe(h.state.playbackStatus);
+        nodes(tree).find(n => n.type === "button" && text(n) === "Остановить звук")!.props.onClick();
+        expect(h.stopTicketSoundPlayback).toHaveBeenCalledOnce();
     });
 });

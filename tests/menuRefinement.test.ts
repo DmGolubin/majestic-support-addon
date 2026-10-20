@@ -6,6 +6,8 @@ import * as keys from "../src/core/keys";
 import * as layout from "../src/core/layout";
 import * as rank from "../src/core/rank";
 import * as search from "../src/core/search";
+import * as windowPlacement from "../src/core/windowPlacement";
+import * as types from "../src/core/types";
 import { PROJECTS, Template } from "../src/core/types";
 
 // Run the actual components/handlers using the repo's VM harness pattern; no Discord or DOM install.
@@ -18,7 +20,7 @@ const byClass = (tree: any, name: string) => nodes(tree).find(n => n.props.class
 const compile = (file: string) => ts.transpileModule(readFileSync(new URL(`../src/vencord/ui/${file}`, import.meta.url), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
 }).outputText;
-const windowCode = compile("Window.tsx"), selectCode = compile("Select.tsx");
+const windowCode = compile("Window.tsx"), selectCode = compile("Select.tsx"), placementCode = compile("WindowPlacement.tsx");
 
 function hooks() {
     const slots: any[] = [];
@@ -84,12 +86,12 @@ const template = (id: string, category: string | null): Template => ({
 });
 
 function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async () => undefined as unknown), set: vi.fn(async (_key: string, _value: unknown) => {}) }) {
-    const h = hooks(), listeners: Record<string, Function> = {}, windowListeners: Record<string, Function> = {};
+    const h = hooks(), frame = hooks(), listeners: Record<string, Function> = {}, windowListeners: Record<string, Function> = {};
     const state = { compose: [], dialog: null, menu: null, windowOpen: true, management: false };
     const pool = [template("alpha", "Account"), template("beta", "Account"), template("gamma", "Game"), template("general", null)];
     const ui = { get: () => state, useSelect: (fn: any) => fn(state), set: vi.fn(patch => Object.assign(state, patch)) };
     const store = {
-        templates: pool, data: { previewOpen: pinned }, ctx: () => ({ favorites: ["alpha"], recent: ["gamma"], usage: {} }),
+        templates: pool, data: { previewOpen: pinned, showPersonalInAll: true, generalFirstInSearch: false, windowTabOrder: [...types.WINDOW_TABS] }, ctx: () => ({ favorites: ["alpha"], recent: ["gamma"], usage: {} }),
         bindFor: () => undefined, toggleFavorite: vi.fn(),
         setPreviewOpen: vi.fn(open => { store.data.previewOpen = open; }),
     };
@@ -106,13 +108,26 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
         "costEnd", "costStart", "debugEnabled", "debugVerbose", "dlog", "keyDesc", "logGeometry", "noteKey",
         "noteRender", "noteSearch", "noteWheel", "setDebugHover", "setDebugWindow",
     ].map(n => [n, () => false]));
+    const windowHandlers = new Map<string, Set<Function>>();
     const viewport = { innerWidth: width, innerHeight: 800,
-        addEventListener: (name: string, fn: Function) => { windowListeners[name] = fn; },
-        removeEventListener: vi.fn((name: string) => { delete windowListeners[name]; }) };
+        addEventListener: (name: string, fn: Function) => {
+            if (!windowHandlers.has(name)) windowHandlers.set(name, new Set());
+            windowHandlers.get(name)!.add(fn);
+            windowListeners[name] = (...args: any[]) => windowHandlers.get(name)?.forEach(handler => handler(...args));
+        },
+        removeEventListener: vi.fn((name: string, fn: Function) => {
+            windowHandlers.get(name)?.delete(fn);
+            if (!windowHandlers.get(name)?.size) { windowHandlers.delete(name); delete windowListeners[name]; }
+        }) };
     let geometryChange = () => {};
+    const placementDeps = { "../core/layout": layout, "../core/windowPlacement": windowPlacement, "../platform": { storage }, "./window-placement.css": {} };
+    const placementHooks = load(placementCode, { ...placementDeps, "@webpack/common": h.api }, { window: viewport });
+    const placementControls = load(placementCode, { ...placementDeps, "@webpack/common": frame.api }, { window: viewport });
     const exports = load(windowCode, {
         "@webpack/common": h.api, "../core/keys": keys, "../core/layout": layout, "../core/rank": rank,
-        "../core/search": search, "../core/types": { PROJECTS }, "../core/text": {},
+        "../core/search": search, "../core/types": types, "../core/text": {}, "../core/windowPlacement": windowPlacement,
+        "./WindowPlacement": { useWindowPlacement: placementHooks.useWindowPlacement, WindowPlacementControls: placementControls.WindowPlacementControls },
+        "./window-placement.css": {}, "./window-tabs.css": {},
         "../platform": { storage, chatAreaRect: () => ({ right: viewport.innerWidth - 240, top: viewport.innerHeight - 150 }) },
         "./ContextMenu": {}, "./debug": { ...debug, debugState: { useSelect: () => false } },
         "./flow": { insertTemplate, addToCompose }, "./highlight": {}, "./keylatch": { latchKey: vi.fn() },
@@ -122,6 +137,11 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
         "./uiState": { store, ui, useStore: () => 0, activeScope: () => "mj", listedProject: () => "mj", poolFor: () => pool, watchChatArea: (fn: () => void) => { geometryChange = fn; return () => {}; } },
     }, { document, window: viewport });
     const render = () => h.render(exports.Window, tree => {
+        const controls = nodes(tree).find(n => n.type === placementControls.WindowPlacementControls);
+        if (controls) {
+            const rendered = frame.render(() => placementControls.WindowPlacementControls(controls.props));
+            controls.type = rendered.type; controls.props = rendered.props;
+        }
         for (const node of nodes(tree)) {
             if (node.props.ref) node.props.ref.current = node.type === "input" ? input : node.props.className?.includes("vc-stx-win") ? win : list;
         }
@@ -131,7 +151,7 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
         hasPointerCapture: (id: number) => captured === id, releasePointerCapture: vi.fn(() => { captured = null; }) };
     const pointer = (clientX: number, clientY: number, pointerId = 1) => ({ currentTarget: grip, pointerId, button: 0, clientX, clientY, preventDefault() {}, stopPropagation() {} });
     return { render, state, store, ui, pool, input, listeners, categoryButton, insertTemplate, addToCompose,
-        document, viewport, windowListeners, storage, grip, pointer, unmount: h.unmount,
+        document, viewport, windowListeners, storage, grip, pointer, unmount: () => { frame.unmount(); h.unmount(); },
         resizeViewport(w: number, height: number) { viewport.innerWidth = w; viewport.innerHeight = height; geometryChange(); return render(); } };
 }
 function selectHarness(props: any, bounds = { top: 100, bottom: 600 }, buttonRect = { top: 500, bottom: 530 },
@@ -220,6 +240,8 @@ describe("template menu refinement", () => {
         expect(h.categoryButton.focus).toHaveBeenCalledOnce();
         expect(h.categoryButton.click).toHaveBeenCalledOnce();
         parent.props.onKeyDown(key("Tab", h.input, { ctrlKey: true }));
+        // The new personal tab is between All and Favorites.
+        byClass(h.render(), "vc-stx-win").props.onKeyDown(key("Tab", h.input, { ctrlKey: true }));
         expect(text(byClass(h.render(), "vc-stx-n"))).toBe("1 из 4");
         const settings = byClass(byClass(tree, "vc-stx-search-row"), "vc-stx-menu-settings");
         expect(settings.props["aria-label"]).toBe("Мои шаблоны и настройки");
@@ -298,34 +320,34 @@ describe("persistent nonmodal picker", () => {
     it("resizes larger and smaller, persists only completed gestures, and restores on reopen", async () => {
         const h = windowHarness(1600, false);
         let tree = h.render(); await flushStorage();
-        byClass(tree, "vc-stx-resize").props.onPointerDown(h.pointer(600, 200));
-        byClass(tree, "vc-stx-resize").props.onPointerMove(h.pointer(460, 100));
+        byClass(tree, "edge-nw").props.onPointerDown(h.pointer(600, 200));
+        byClass(tree, "edge-nw").props.onPointerMove(h.pointer(460, 100));
         tree = h.render();
         expect(byClass(tree, "vc-stx-win").props.style).toMatchObject({ width: 500, height: 600 });
         expect(h.storage.set).not.toHaveBeenCalled();
-        byClass(tree, "vc-stx-resize").props.onPointerUp(h.pointer(460, 100));
+        byClass(tree, "edge-nw").props.onPointerUp(h.pointer(460, 100));
         await flushStorage();
-        const saved = h.storage.set.mock.calls[0][1];
+        const saved = h.storage.set.mock.calls.find(([key]) => key === "SupportTemplates_windowSize_v1")![1];
         expect(saved).toEqual({ width: 500, height: 600, previewWidth: 460 });
         expect(h.grip.releasePointerCapture).toHaveBeenCalledWith(1);
         h.unmount();
         const reopened = windowHarness(1600, false, { get: vi.fn(async () => saved), set: vi.fn(async () => {}) });
         reopened.render(); await flushStorage(); tree = reopened.render();
         expect(byClass(tree, "vc-stx-win").props.style).toMatchObject({ width: 500, height: 600 });
-        byClass(tree, "vc-stx-resize").props.onPointerDown(reopened.pointer(400, 100));
-        byClass(tree, "vc-stx-resize").props.onPointerMove(reopened.pointer(500, 200));
+        byClass(tree, "edge-nw").props.onPointerDown(reopened.pointer(400, 100));
+        byClass(tree, "edge-nw").props.onPointerMove(reopened.pointer(500, 200));
         tree = reopened.render();
         expect(byClass(tree, "vc-stx-win").props.style).toMatchObject({ width: 400, height: 500 });
-        byClass(tree, "vc-stx-resize").props.onPointerUp(reopened.pointer(500, 200));
+        byClass(tree, "edge-nw").props.onPointerUp(reopened.pointer(500, 200));
         await flushStorage();
         expect(reopened.storage.set).toHaveBeenCalledWith("SupportTemplates_windowSize_v1", { width: 400, height: 500, previewWidth: 460 });
         reopened.unmount();
     });
     it.each(["escape", "cancel", "lostcapture", "blur", "unmount"])("cancels a drag on %s and cleans up capture/listeners without a write", async reason => {
         const h = windowHarness(1600, false), tree = h.render(), before = byClass(tree, "vc-stx-win").props.style;
-        const grip = byClass(tree, "vc-stx-resize");
+        const grip = byClass(tree, "edge-nw");
         grip.props.onPointerDown(h.pointer(600, 200)); grip.props.onPointerMove(h.pointer(500, 100)); h.render();
-        if (reason === "escape") byClass(h.render(), "vc-stx-win").props.onKeyDown(key("Escape", control));
+        if (reason === "escape") byClass(h.render(), "edge-nw").props.onKeyDown(key("Escape", control));
         if (reason === "cancel") grip.props.onPointerCancel(h.pointer(500, 100));
         if (reason === "lostcapture") grip.props.onLostPointerCapture(h.pointer(500, 100));
         if (reason === "blur") h.windowListeners.blur();
@@ -336,11 +358,24 @@ describe("persistent nonmodal picker", () => {
         expect(h.grip.releasePointerCapture).toHaveBeenCalledOnce();
         expect(Object.keys(h.listeners)).toEqual([]); expect(Object.keys(h.windowListeners)).toEqual([]);
     });
+    it("does not persist keyboard movements inside a cancelled pointer gesture", async () => {
+        const h = windowHarness(1600, false), tree = h.render();
+        const before = byClass(tree, "vc-stx-win").props.style;
+        const grip = byClass(tree, "edge-nw");
+        grip.props.onPointerDown(h.pointer(600, 200));
+        grip.props.onPointerMove(h.pointer(500, 100));
+        byClass(h.render(), "edge-nw").props.onKeyDown(key("ArrowLeft", control));
+        byClass(h.render(), "edge-nw").props.onKeyDown(key("Escape", control));
+        expect(byClass(h.render(), "vc-stx-win").props.style).toEqual(before);
+        await flushStorage();
+        expect(h.storage.set).not.toHaveBeenCalled();
+        h.unmount();
+    });
     it("does not treat a click/foreign pointer as a resize or overwrite preferences when the viewport shrinks", async () => {
         const saved = { width: 500, height: 600, previewWidth: 600 };
         const h = windowHarness(1600, false, { get: vi.fn(async () => saved), set: vi.fn(async () => {}) });
         h.render(); await flushStorage();
-        const grip = byClass(h.render(), "vc-stx-resize");
+        const grip = byClass(h.render(), "edge-nw");
         grip.props.onPointerDown(h.pointer(500, 100)); grip.props.onPointerMove(h.pointer(100, 0, 2));
         grip.props.onPointerUp(h.pointer(500, 100));
         let style = byClass(h.resizeViewport(280, 220), "vc-stx-win").props.style;
@@ -355,7 +390,7 @@ describe("persistent nonmodal picker", () => {
         h.render(); h.listeners.keydown(key("Shift", h.input));
         let tree = h.render();
         const event = key("ArrowLeft", control);
-        byClass(tree, "vc-stx-resize").props.onKeyDown(event); tree = h.render();
+        byClass(tree, "edge-nw").props.onKeyDown(event); tree = h.render();
         expect(event.defaultPrevented).toBe(true);
         expect(byClass(tree, "vc-stx-win").props.style.width).toBe(840);
         expect(byClass(tree, "vc-stx-col").props.style.width).toBe(358);
@@ -371,7 +406,7 @@ describe("persistent nonmodal picker", () => {
         const storage = { get: vi.fn(() => new Promise<unknown>(r => { resolve = r; })), set: vi.fn(async () => { throw Error("disk unavailable"); }) };
         const h = windowHarness(1600, false, storage);
         h.render(); await flushStorage();
-        byClass(h.render(), "vc-stx-resize").props.onKeyDown(key("ArrowLeft", control));
+        byClass(h.render(), "edge-nw").props.onKeyDown(key("ArrowLeft", control));
         resolve({ width: 650, height: 900, previewWidth: 700 }); await flushStorage();
         expect(byClass(h.render(), "vc-stx-win").props.style.width).toBe(380);
         expect(h.state.windowOpen).toBe(true); h.unmount();

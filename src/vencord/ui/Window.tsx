@@ -8,10 +8,11 @@ import { React, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 
 import { comboLabel, startsPeek } from "../core/keys";
 import { clampTop, DEFAULT_WINDOW_SIZE, EDGE, readWindowSize, tipWidth, windowLayout, WindowSize, windowVertical } from "../core/layout";
-import { categoriesOf, favoritesOf, orderHits, recentOf, sections } from "../core/rank";
+import { categoriesOf, favoritesOf, orderHits, recentOf, sections, windowTabPool } from "../core/rank";
 import { search } from "../core/search";
 import { splitGreeting } from "../core/text";
-import { PROJECTS, Template } from "../core/types";
+import { moveWindowTab, PROJECTS, Template, WindowTab, WINDOW_TAB_LABELS } from "../core/types";
+import { clampFloatingBox } from "../core/windowPlacement";
 import { chatAreaRect, storage } from "../platform";
 import { openMenu } from "./ContextMenu";
 import { costEnd, costStart, debugEnabled, debugState, debugVerbose, dlog, keyDesc, logGeometry, noteKey, noteRender, noteSearch, noteWheel, setDebugHover, setDebugWindow } from "./debug";
@@ -26,12 +27,14 @@ import { IconClose, IconEnter, IconSearch, IconSettings, IconShift, IconStar } f
 import { activeScope, listedProject, pickTechProject, poolFor, store, ui, useStore, watchChatArea } from "./uiState";
 
 import "./menu-refinement.css";
+// Load the placement component (which imports its CSS) after the menu's base overrides.
+import { useWindowPlacement, WindowPlacementControls } from "./WindowPlacement";
+import "./window-placement.css";
+import "./window-tabs.css";
 
 /** Rows currently visible in the window — Alt+1…9 uses them while the window is open. */
 export let visibleItems: Template[] = [];
 
-type View = "all" | "fav" | "recent";
-const VIEWS: View[] = ["all", "fav", "recent"];
 const HOVER_MS = 500;
 /** Hover tooltips stay off until this long after the last scroll event. */
 const SCROLL_QUIET_MS = 150;
@@ -89,7 +92,11 @@ function RowImpl({ t, sel, ctx, alt, bind, icon, tokens, line, onHover, onMove, 
             onMouseEnter={e => onHover(t, e.currentTarget)}
             onMouseMove={e => onMove(t, e)}
             onMouseLeave={onLeave}
-            onClick={() => { onHide(); void insertTemplate(t, { via: "window-click" }); }}
+            onClick={e => {
+                if (e.button !== 0) return;
+                onHide();
+                void insertTemplate(t, { via: "window-click", noGreeting: e.ctrlKey });
+            }}
             onContextMenu={e => { e.preventDefault(); onHide(); openMenu(t.id, e.clientX, e.clientY); }}
         >
             <div className="vc-stx-r">
@@ -117,6 +124,7 @@ export function Window() {
 
 function WindowView() {
     const version = useStore();
+    const channelRevision = ui.useSelect(s => s.channelRevision);
     const composeLen = ui.useSelect(s => s.compose.length);
     const hasCompose = composeLen > 0;
     const dialogOpen = ui.useSelect(s => s.dialog !== null);
@@ -127,7 +135,10 @@ function WindowView() {
     /** The project the list shows: the server's, on Tech the switch's. */
     const listed = listedProject(scope);
     const [query, setQuery] = useState("");
-    const [view, setView] = useState<View>("all");
+    const [view, setView] = useState<WindowTab>("all");
+    const tabOrder = store.data.windowTabOrder;
+    const draggingTab = useRef<WindowTab | null>(null);
+    const [dropTab, setDropTab] = useState<WindowTab | null>(null);
     const [cat, setCat] = useState<string | null>(null);
     const [sel, setSel] = useState(0);
     const [peek, setPeek] = useState(false);
@@ -137,12 +148,8 @@ function WindowView() {
     const [geometry, setGeometry] = useState(() => ({ rect: chatAreaRect(windowEditor()) }));
     const { rect } = geometry;
     const [size, setSize] = useState<WindowSize | null>(null);
+    const placement = useWindowPlacement();
     const sizeTouched = useRef(false);
-    const resizing = useRef<{
-        pointerId: number; element: HTMLButtonElement; x: number; y: number;
-        width: number; height: number; side: boolean; base: WindowSize;
-        before: WindowSize | null; next: WindowSize | null;
-    } | null>(null);
     const [tipH, setTipH] = useState(0);
     const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -169,15 +176,21 @@ function WindowView() {
     const data = useMemo(() => {
         const t0 = debugEnabled() ? performance.now() : 0;
         const ctx = store.ctx();
-        const projectPool = poolFor(scope);
+        const scopedPool = poolFor(scope);
+        // Favorites/recent keep the existing category choices; limit recent after category filtering.
+        const projectPool = view === "fav" || view === "recent" ? scopedPool
+            : windowTabPool(scopedPool, view, ctx, store.data.showPersonalInAll);
         const cats = categoriesOf(projectPool);
         const categoryCounts = new Map<string, number>();
         for (const t of projectPool) if (t.category) categoryCounts.set(t.category, (categoryCounts.get(t.category) ?? 0) + 1);
-        const pool = cat ? projectPool.filter(t => t.category === cat) : projectPool;
+        const activeCategory = cat && cats.includes(cat) ? cat : null;
+        const categoryPool = activeCategory ? projectPool.filter(t => t.category === activeCategory) : projectPool;
+        const pool = windowTabPool(categoryPool, view, ctx, store.data.showPersonalInAll);
         const res = query.trim() ? search(pool, query) : null;
-        const hits = res ? orderHits(res.hits, ctx) : [];
-        const secs = !res && view === "all" ? sections(pool, ctx) : [];
+        const hits = res ? orderHits(res.hits, ctx, store.data.generalFirstInSearch) : [];
+        const secs = !res && (view === "all" || view === "personal") ? sections(pool, ctx) : [];
         const favs = favoritesOf(pool, ctx);
+        const favoriteCount = favoritesOf(activeCategory ? scopedPool.filter(t => t.category === activeCategory) : scopedPool, ctx).length;
         const items: Template[] = res
             ? hits.map(h => h.t)
             : view === "fav" ? favs
@@ -191,8 +204,8 @@ function WindowView() {
         };
         const lines = new Map(hits.map(h => [h.t, h.line]));
         if (t0) noteSearch(t0, performance.now(), query, items.length);
-        return { total: projectPool.length, cats, categoryCounts, res, secs, favs, items, positional, alt, lines, tokens: res?.tokens ?? NO_TOKENS };
-    }, [query, scope, listed, view, cat, version]);
+        return { total: projectPool.length, cats, categoryCounts, res, secs, favs, favoriteCount, items, positional, alt, lines, tokens: res?.tokens ?? NO_TOKENS };
+    }, [query, scope, listed, view, cat, version, channelRevision]);
     const { cats, res, secs, favs, items } = data;
 
     const shortcuts = data.positional ? items : favs;
@@ -227,8 +240,11 @@ function WindowView() {
         void sizeWrite.then(() => storage.get(SIZE_KEY)).then(value => {
             if (live && !sizeTouched.current) setSize(readWindowSize(value));
         }).catch(e => { dlog("error", { where: "window.size.load", msg: String(e) }); });
-        return () => { live = false; finishResize(false, false); };
+        return () => { live = false; };
     }, []);
+    useEffect(() => {
+        setGeometry({ rect: chatAreaRect(windowEditor()) });
+    }, [channelRevision]);
     // The window keys (arrows, Enter, Tab) are the window's onKeyDown: they need focus inside it.
     // A dialog that closes, or a "+ в ответ" from a button, leaves focus on <body> — take it back.
     useEffect(() => {
@@ -240,7 +256,7 @@ function WindowView() {
         hoveredId.current = null;
         setDebugHover(null);
         stopHover();
-    }, [query, scope, listed, view, cat]);
+    }, [query, scope, listed, view, cat, channelRevision, version]);
     useEffect(() => { if (cat && !cats.includes(cat)) setCat(null); }, [cats.join("|")]);
     useEffect(() => {
         listRef.current?.querySelector(".vc-stx-it.sel")?.scrollIntoView({ block: "nearest" });
@@ -276,7 +292,7 @@ function WindowView() {
             if (peekRef.current) dlog("peek", { on: false });
             setPeek(false);
         };
-        const blur = () => { hide(); finishResize(false); };
+        const blur = hide;
         const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") hide(); };
         document.addEventListener("keydown", onShift, true);
         document.addEventListener("keyup", onUp, true);
@@ -368,7 +384,7 @@ function WindowView() {
 
     // Compact menus always start as a list, even if a wide-screen preview was previously pinned.
     const vw = window.innerWidth;
-    const anchorRight = rect ? vw - rect.right : 80;
+    const anchorRight = placement.position?.right ?? (rect ? vw - rect.right : 80);
     const compact = windowLayout(vw, anchorRight, false, size).mode === "compact";
     const previewOpen = compact ? compactPreview : store.data.previewOpen;
     const setPreviewOpen = (open: boolean) => compact ? setCompactPreview(open) : store.setPreviewOpen(open);
@@ -376,7 +392,10 @@ function WindowView() {
     wideRef.current = wide;
     peekRef.current = peek;
     const lay = windowLayout(vw, anchorRight, wide, size);
-    const { width, right } = lay;
+    const { width } = lay;
+    const anchorBottom = placement.position?.bottom ?? (rect ? window.innerHeight - rect.top + EDGE + (hasCompose ? 48 : 0) : 80);
+    const vertical = windowVertical(window.innerHeight, anchorBottom, size?.height);
+    const { right, bottom, height } = clampFloatingBox({ right: lay.right, bottom: vertical.bottom, width, height: vertical.height }, vw, window.innerHeight);
     compactRef.current = compact;
     const tipW = tipWidth(vw, right, width);
     tipRoomRef.current = !compact && tipW > 0;
@@ -391,9 +410,6 @@ function WindowView() {
     const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         if (e.nativeEvent.isComposing || e.keyCode === 229) return; // IME composition: its Enter/arrows are the IME's
         if (e.defaultPrevented) return;
-        if (e.key === "Escape" && resizing.current) {
-            e.preventDefault(); e.stopPropagation(); finishResize(false); return;
-        }
         // Escape on the category control belongs to the filter, including repeated keydowns after it closes.
         if (e.key === "Escape" && (e.target as HTMLElement).closest(".vc-stx-select")) {
             e.preventDefault(); e.stopPropagation(); return;
@@ -444,8 +460,8 @@ function WindowView() {
         } else if (e.key === "Tab" && e.ctrlKey) {
             eat();
             log("вкладка");
-            const i = VIEWS.indexOf(view);
-            setView(VIEWS[(i + (e.shiftKey ? -1 : 1) + VIEWS.length) % VIEWS.length]);
+            const i = tabOrder.indexOf(view);
+            setView(tabOrder[(i + (e.shiftKey ? -1 : 1) + tabOrder.length) % tabOrder.length]);
         } else if (e.ctrlKey && e.code === "KeyD" && current) {
             eat();
             log("избранное", { id: current.id });
@@ -456,56 +472,7 @@ function WindowView() {
 
     /** Footer: keycaps only when the list is narrower than usual or in compact mode (full text in `title`). */
     const footKeys = compact || width < 360;
-    const anchorBottom = rect ? window.innerHeight - rect.top + EDGE + (hasCompose ? 48 : 0) : 80;
-    const { bottom, height } = windowVertical(window.innerHeight, anchorBottom, size?.height);
     const style: React.CSSProperties = { right, bottom, width, height };
-
-    function finishResize(commit: boolean, render = true) {
-        const drag = resizing.current;
-        if (!drag) return;
-        resizing.current = null;
-        if (drag.element.hasPointerCapture(drag.pointerId)) drag.element.releasePointerCapture(drag.pointerId);
-        if (commit && drag.next) saveSize(drag.next);
-        else if (render) setSize(drag.before);
-    }
-    const resizeTo = (wantedWidth: number, wantedHeight: number, side: boolean, base: WindowSize) => readWindowSize({
-        ...base,
-        // In side mode resize the preview, leaving the right-anchored list in place.
-        ...(side ? { previewWidth: Math.min(wantedWidth, lay.avail) - base.width }
-            : { width: Math.min(wantedWidth, window.innerWidth - right - EDGE) }),
-        height: Math.min(wantedHeight, window.innerHeight - bottom - EDGE),
-    })!;
-    const startResize = (e: React.PointerEvent<HTMLButtonElement>) => {
-        if (e.button !== 0 || resizing.current) return;
-        e.preventDefault(); e.stopPropagation();
-        sizeTouched.current = true;
-        stopHover();
-        e.currentTarget.focus();
-        e.currentTarget.setPointerCapture(e.pointerId);
-        resizing.current = {
-            pointerId: e.pointerId, element: e.currentTarget, x: e.clientX, y: e.clientY, width, height,
-            side: !compact && wide, base: size ?? { ...DEFAULT_WINDOW_SIZE, width: compact ? width : DEFAULT_WINDOW_SIZE.width },
-            before: size, next: null,
-        };
-    };
-    const moveResize = (e: React.PointerEvent) => {
-        const drag = resizing.current;
-        if (!drag || drag.pointerId !== e.pointerId) return;
-        if (e.clientX === drag.x && e.clientY === drag.y && !drag.next) return;
-        drag.next = resizeTo(drag.width + drag.x - e.clientX, drag.height + drag.y - e.clientY, drag.side, drag.base);
-        setSize(drag.next);
-    };
-    const resizeKey = (e: React.KeyboardEvent) => {
-        if (e.nativeEvent.isComposing || e.keyCode === 229 || resizing.current) return;
-        if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
-        e.preventDefault(); e.stopPropagation();
-        sizeTouched.current = true;
-        const step = e.shiftKey ? 40 : 20;
-        const next = resizeTo(width + (e.key === "ArrowLeft" ? step : e.key === "ArrowRight" ? -step : 0),
-            height + (e.key === "ArrowUp" ? step : e.key === "ArrowDown" ? -step : 0), !compact && wide,
-            size ?? { ...DEFAULT_WINDOW_SIZE, width: compact ? width : DEFAULT_WINDOW_SIZE.width });
-        setSize(next); saveSize(next);
-    };
 
     // Hover tooltip: inside the window's vertical range, never over the compose bar / chat input below it.
     const winBottom = window.innerHeight - bottom, winTop = winBottom - height;
@@ -539,6 +506,7 @@ function WindowView() {
         : res ? "Ничего не найдено"
             : view === "fav" ? "В избранном пусто — Ctrl+D или ПКМ, «В избранное»"
                 : view === "recent" ? "Ещё ничего не вставлялось"
+                    : view === "personal" ? "Личных шаблонов нет — создайте их в «Мои шаблоны и настройки»"
                     : "Шаблонов нет";
     const filtered = !!query.trim() || !!cat || view !== "all";
     const count = scope ? <span className="vc-stx-n" aria-live="polite">{filtered
@@ -557,13 +525,8 @@ function WindowView() {
                 onMouseEnter={() => { pointerIn.current = true; }}
                 onMouseLeave={() => { pointerIn.current = false; }}
             >
-                <button type="button" className="vc-stx-resize" data-stx-menu-control
-                    aria-label="Изменить размер окна" title="Размер: потяните угол или используйте стрелки (Shift — быстрее)"
-                    onPointerDown={startResize} onPointerMove={moveResize}
-                    onPointerUp={e => { if (resizing.current?.pointerId === e.pointerId) finishResize(true); }}
-                    onPointerCancel={e => { if (resizing.current?.pointerId === e.pointerId) finishResize(false); }}
-                    onLostPointerCapture={e => { if (resizing.current?.pointerId === e.pointerId) finishResize(false); }}
-                    onKeyDown={resizeKey} />
+                <WindowPlacementControls placement={placement} box={{ right, bottom, width, height }} size={size} side={!compact && wide}
+                    setSize={s => { sizeTouched.current = true; setSize(s); }} saveSize={saveSize} />
                 <button type="button" className="vc-stx-window-close" data-stx-menu-control
                     aria-label="Закрыть окно шаблонов" title="Закрыть окно шаблонов"
                     onClick={() => ui.set({ windowOpen: false, menu: null })}><IconClose size={16} /></button>
@@ -606,10 +569,23 @@ function WindowView() {
                                     ? <><ProjectIcon project={scope} size={18} /><b>{PROJECTS[scope].name}</b>{count}</>
                                     : <span className="vc-stx-hint">На этом сервере шаблоны выключены</span>}
                         </div>
-                        <div className="vc-stx-tabs">
-                            {VIEWS.map(v => (
-                                <button key={v} type="button" data-stx-menu-control aria-pressed={view === v} className={"vc-stx-tab" + (view === v ? " on" : "")} onClick={() => setView(v)}>
-                                    {v === "all" ? "Все" : v === "fav" ? <><IconStar size={13} />Избранное<i>{favs.length}</i></> : "Недавние"}
+                        <div className="vc-stx-tabs" role="group" aria-label="Разделы шаблонов">
+                            {tabOrder.map(v => (
+                                <button key={v} type="button" data-stx-menu-control aria-pressed={view === v}
+                                    draggable title={`${WINDOW_TAB_LABELS[v]} · Перетащите для изменения порядка; кнопки перемещения — в настройках`}
+                                    className={"vc-stx-tab" + (view === v ? " on" : "") + (dropTab === v ? " vc-stx-tab-drop" : "")}
+                                    onDragStart={e => { draggingTab.current = v; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", v); stopHover(); }}
+                                    onDragOver={e => { if (draggingTab.current) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropTab(v); } }}
+                                    onDragLeave={() => setDropTab(null)}
+                                    onDrop={e => {
+                                        e.preventDefault();
+                                        const from = draggingTab.current;
+                                        draggingTab.current = null; setDropTab(null);
+                                        if (from) store.setWindowTabOrder(moveWindowTab(store.data.windowTabOrder, from, v));
+                                    }}
+                                    onDragEnd={() => { draggingTab.current = null; setDropTab(null); }}
+                                    onClick={() => setView(v)}>
+                                    {v === "fav" ? <><IconStar size={13} />Избранное<i>{data.favoriteCount}</i></> : WINDOW_TAB_LABELS[v]}
                                 </button>
                             ))}
                         </div>
@@ -637,7 +613,7 @@ function WindowView() {
                                     {sec.items.map(t => row(t, idx++))}
                                 </div>))}
                     </div>
-                    <div className="vc-stx-foot" title={"Enter — вставить · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — элементы управления · Ctrl+Tab — вкладки · Alt+↓ — категории · Ctrl+D — избранное · ПКМ — меню"}>
+                    <div className="vc-stx-foot" title={"Enter — вставить · Ctrl+клик — без приветствия · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — элементы управления · Ctrl+Tab — вкладки · Alt+↓ — категории · Ctrl+D — избранное · ПКМ — меню"}>
                         <span><span className="vc-stx-kb"><IconEnter size={11} /></span>{!footKeys && "вставить"}</span>
                         <span><span className="vc-stx-kb"><IconShift size={11} /><IconEnter size={11} /></span>{!footKeys && "в ответ"}</span>
                         <span><span className="vc-stx-kb">Tab</span>{!footKeys && "фокус"}</span>

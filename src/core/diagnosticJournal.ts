@@ -13,6 +13,10 @@ const WORDS = new Set(("idle connecting pending loading ready offline error live
     "insufficient_scope rate_limited not_found version_required version_conflict idempotency_conflict " +
     "name_exists ticket_state_unavailable service_unavailable http_error not_authenticated " +
     "refresh_uncertain connection_mismatch account_mismatch upgrade_required stale_library vault_error invalid_options invalid_path unknown " +
+    "reauthentication_required callback_failed logout_in_progress retain_session terminate_session side compact " +
+    "ticket test reminder custom sound_disabled sound_channel sound_guild sound_invalid sound_history sound_duplicate " +
+    "sound_muted sound_visible sound_cooldown sound_stopped sound_suspended sound_unavailable sound_save sound_decode " +
+    "sound_duration sound_size sound_format sound_read sound_not_ready sound_loading sound_cancelled sound_playback " +
     "user discord_logout account_changed permissions.changed token.expired snapshot.updated session.revoked library.changed resync.required tickets.changed tickets.unavailable " +
     "refresh expired rejected_access restore login logout cancel reload resume pagehide online offline " +
     "visible hidden personal general tickets all fav recent confirm fields bind mj ro off " +
@@ -21,7 +25,7 @@ const WORDS = new Set(("idle connecting pending loading ready offline error live
 const NUMBERS = new Set(("requestId status durationMs retryAfterMs count items queryLength composeCount " +
     "width height winW previewW avail tipW selIdx ms total storeLoad mount failures attempt " +
     "elapsedMs templates personal folders favoriteCount recentCount bindCount volume " +
-    "resultCount matched inserted requested steps generation expiresIn").split(/\s+/));
+    "resultCount matched inserted requested steps generation expiresIn totalMs windowMs keysMs inlineMs renderMs searchMs debugMs maxMs pluginMs").split(/\s+/));
 const BOOLS = new Set(("on verbose ready persistent online visible windowOpen management previewOpen " +
     "peek success hasEditor hadWindow hadDialog serverChanged cancelled debug debugVerbose " +
     "soundEnabled enabled dirty busy active restored authenticated ok noGreeting already").split(/\s+/));
@@ -43,7 +47,24 @@ export function diagnosticData(input: Record<string, unknown>): Record<string, s
 }
 type Entry = { seq: number; time: number; event: string; data: ReturnType<typeof diagnosticData>; };
 export interface JournalStorage { read(): string | null; write(value: string): void; }
-export interface JournalStartOptions { campaign?: string; durationMs?: number; }
+export interface JournalStartOptions { campaign?: string; durationMs?: number; continuous?: boolean; }
+export function diagnosticOptOut(saved: Record<string, any>): boolean {
+    if (typeof saved.optedOut === "boolean") return saved.optedOut;
+    if (saved.continuous === true) return saved.enabled !== true;
+    const toggles = (Array.isArray(saved.events) ? saved.events : [])
+        .filter((e: any) => e && Number.isSafeInteger(e.seq) && ["recorder.enabled", "recorder.disabled"].includes(e.event));
+    const last = toggles.reduce((a: any, b: any) => !a || b.seq > a.seq ? b : a, null);
+    if (last) return last.event === "recorder.disabled";
+    // Old schema had no explicit preference. An early until=0 save proves opt-out;
+    // normal four-day expiry must not disable the new ongoing logging policy.
+    return saved.until === 0 && Number.isSafeInteger(saved.campaignUntil) && Number.isSafeInteger(saved.savedAt)
+        && saved.savedAt > 0 && saved.savedAt < saved.campaignUntil;
+}
+function newSessionId() {
+    const crypto = (globalThis as { crypto?: { randomUUID?(): string } }).crypto;
+    return crypto?.randomUUID?.().replace(/-/g, "")
+        ?? Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+}
 // Campaign IDs are static application configuration, never user input or credentials.
 const CAMPAIGN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const EVENT = /^(?:request|http|auth|stream|panel|runtime|user|ui|debug|recorder|environment|settings)(?:\.[a-z_]{1,24})?$/;
@@ -56,13 +77,19 @@ export class DiagnosticJournal {
     private campaignUntil = 0;
     private savedAt = 0;
     private retention = DIAGNOSTIC_TTL;
+    private continuous = false;
+    private enabled = false;
+    private optedOut = false;
+    private sessionId = "";
+    private clearGeneration = 0;
+    private unflushed = 0;
     private running = false;
     private storage?: JournalStorage;
     private timer?: ReturnType<typeof setTimeout>;
     private expiry?: ReturnType<typeof setTimeout>;
     storageFailed = false;
     constructor(private now: () => number = Date.now) {}
-    get active() { return this.running && this.until > this.now(); }
+    get active() { return this.running && (this.continuous ? this.enabled && !this.optedOut : this.until > this.now()); }
     get size() { return this.entries.length; }
     get expiresAt() { return this.until; }
     get campaignEndsAt() { return this.campaignUntil; }
@@ -72,7 +99,8 @@ export class DiagnosticJournal {
         const duration = options.durationMs === undefined ? DIAGNOSTIC_CAMPAIGN_DURATION
             : Number.isSafeInteger(options.durationMs) && options.durationMs > 0
                 ? Math.min(options.durationMs, DIAGNOSTIC_CAMPAIGN_DURATION) : 0;
-        const memory = this.campaign ? this.snapshot() : null;
+        const memory = this.campaign || this.continuous ? this.snapshot() : null;
+        this.continuous = options.continuous === true;
         this.retention = campaign ? DIAGNOSTIC_CAMPAIGN_DURATION : DIAGNOSTIC_TTL;
         this.storage = storage;
         this.running = true;
@@ -88,7 +116,8 @@ export class DiagnosticJournal {
         // Preserve a consumed campaign in this instance even if a failed write
         // left storage empty. Across fresh instances an unreadable store fails closed.
         const diskSavedAt = Number.isSafeInteger(saved?.savedAt) ? saved.savedAt : 0;
-        if (memory && (!saved || memory.savedAt > diskSavedAt || (memory.savedAt === diskSavedAt && memory.until === 0))) saved = memory;
+        if (memory && (!saved || memory.savedAt > diskSavedAt
+            || (memory.savedAt === diskSavedAt && (memory.continuous ? memory.optedOut : memory.until === 0)))) saved = memory;
         this.until = 0;
         if (saved) {
             this.entries = (Array.isArray(saved.events) ? saved.events : []).slice(-DIAGNOSTIC_LIMIT)
@@ -97,12 +126,21 @@ export class DiagnosticJournal {
                     && e.data && typeof e.data === "object" && !Array.isArray(e.data))
                 .map((e: Entry) => ({ seq: e.seq, time: e.time, event: e.event, data: diagnosticData(e.data) }));
             this.sequence = Math.max(0, ...this.entries.map(e => e.seq));
+            if (Number.isSafeInteger(saved.sequence) && saved.sequence >= this.sequence) this.sequence = saved.sequence;
             this.dropped = Number.isSafeInteger(saved.dropped) && saved.dropped >= 0 ? saved.dropped : 0;
             this.savedAt = Number.isSafeInteger(saved.savedAt) && saved.savedAt >= 0 ? saved.savedAt : 0;
         }
+        this.sessionId = typeof saved?.sessionId === "string" && /^[a-f0-9]{32}$/.test(saved.sessionId)
+            ? saved.sessionId : this.sessionId || newSessionId();
+        this.clearGeneration = Number.isSafeInteger(saved?.clearGeneration) && saved.clearGeneration >= 0 ? saved.clearGeneration : this.clearGeneration;
+        this.optedOut = saved ? diagnosticOptOut(saved) : false;
         const hasCampaign = saved && !(saved.campaign === null && saved.campaignUntil === 0)
             && ("campaign" in saved || "campaignUntil" in saved);
-        if (hasCampaign) {
+        if (this.continuous) {
+            this.campaign = campaign; this.campaignUntil = 0;
+            this.optedOut ||= !readable;
+            this.enabled = !this.optedOut;
+        } else if (hasCampaign) {
             const validId = typeof saved.campaign === "string" && CAMPAIGN.test(saved.campaign);
             // When opted in, only the configured ID is exported, never arbitrary
             // text from the stored campaign field. A changed ID does not reset time.
@@ -126,9 +164,17 @@ export class DiagnosticJournal {
         this.prune();
         this.armExpiry();
         if (this.active) this.record("runtime.start", { restored: !!saved }, true);
-        else if (this.campaign || (saved?.until > 0 && saved.until <= this.now())) this.flush();
+        else if (this.continuous || this.campaign || (saved?.until > 0 && saved.until <= this.now())) this.flush();
     }
     enable(on: boolean) {
+        if (this.continuous) {
+            if (!on) this.record("recorder.disabled");
+            this.optedOut = !on;
+            this.enabled = on;
+            if (on) this.record("recorder.enabled");
+            this.armExpiry(); this.flush(); return;
+        }
+        this.optedOut = !on;
         if (on) {
             this.until = this.campaign ? (this.campaignUntil > this.now() ? Math.min(this.campaignUntil, this.now() + this.retention) : 0) : this.now() + DIAGNOSTIC_TTL;
             this.record("recorder.enabled");
@@ -139,7 +185,7 @@ export class DiagnosticJournal {
     }
     private armExpiry() {
         clearTimeout(this.expiry); this.expiry = undefined;
-        if (this.active) this.expiry = setTimeout(() => {
+        if (!this.continuous && this.active) this.expiry = setTimeout(() => {
             this.expiry = undefined;
             if (this.until > this.now()) { this.armExpiry(); return; }
             this.until = 0; this.flush();
@@ -147,14 +193,17 @@ export class DiagnosticJournal {
     }
     record(event: string, data: Record<string, unknown> = {}, urgent = false): number {
         if (!this.active) return 0;
+        if (this.continuous && event === "debug" && ["key", "keydown", "keyup", "input", "search", "wheel"].includes(String(data.event))) return 0;
         const entry = { seq: ++this.sequence, time: this.now(), event: EVENT.test(event) ? event : "debug", data: diagnosticData(data) };
         this.entries.push(entry);
         while (this.entries.length > DIAGNOSTIC_LIMIT) { this.entries.shift(); this.dropped++; }
-        if (urgent) this.flush();
-        else this.timer ??= setTimeout(() => { this.timer = undefined; this.flush(); }, 5000);
+        this.unflushed++;
+        if (urgent || (this.continuous && this.unflushed >= 100)) this.flush();
+        else this.timer ??= setTimeout(() => { this.timer = undefined; this.flush(); }, this.continuous ? 1000 : 5000);
         return entry.seq;
     }
     private prune() {
+        if (this.continuous) return;
         // Campaign evidence is an exportable report, not a rolling cache. Anchor
         // its bounded four-day window to the persisted deadline even after expiry.
         // In particular, opening the client days later must not erase the report.
@@ -166,10 +215,13 @@ export class DiagnosticJournal {
     snapshot() {
         this.prune();
         return { schema: 1, until: this.until, campaign: this.campaign, campaignUntil: this.campaignUntil,
+            continuous: this.continuous, enabled: this.continuous ? this.enabled : this.until > this.now(), optedOut: this.optedOut,
+            sessionId: this.sessionId, sequence: this.sequence, clearGeneration: this.clearGeneration,
             savedAt: this.savedAt, dropped: this.dropped, events: this.entries.map(e => ({ ...e, data: { ...e.data } })) };
     }
     flush() {
         clearTimeout(this.timer); this.timer = undefined;
+        this.unflushed = 0;
         if (!this.storage) return;
         if (this.until > 0 && this.until <= this.now()) {
             this.until = 0; clearTimeout(this.expiry); this.expiry = undefined;
@@ -185,7 +237,7 @@ export class DiagnosticJournal {
         try { this.storage.write(payload); this.storageFailed = false; }
         catch { this.storageFailed = true; } // Recording must never break login, requests or cleanup.
     }
-    clear() { this.entries = []; this.dropped = 0; this.flush(); }
+    clear() { this.entries = []; this.dropped = 0; this.clearGeneration++; this.flush(); }
     stop() {
         this.record("runtime.stop", {}, true); this.flush();
         this.running = false; clearTimeout(this.expiry); this.expiry = undefined;

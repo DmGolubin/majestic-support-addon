@@ -365,9 +365,15 @@ async function loadLibrary(): Promise<boolean> {
             stopTicketReminders();
             if (transient) {
                 failures++;
+                journal.record("panel.recovery", { outcome: "retrying", failures,
+                    code: error instanceof PanelError ? error.code : "invalid_response",
+                    retryAfterMs: error instanceof PanelError ? error.retryAfterMs ?? 0 : 0,
+                    authenticated: !!active.connectionId }, true);
                 panel.set({ phase: "offline", error: message(error) });
                 schedule(own, error instanceof PanelError ? error.retryAfterMs : 0);
             } else {
+                journal.record("panel.recovery", { outcome: "failure",
+                    code: error instanceof PanelError ? error.code : "invalid_response" }, true);
                 terminateSession(active, error);
             }
             return false;

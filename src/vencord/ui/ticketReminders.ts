@@ -8,7 +8,7 @@ import { PanelClient, PanelError } from "../core/panelClient";
 import { createReminderController, parseNotificationSettings } from "../core/panelReminders";
 import { storage, toast } from "../platform";
 import { createObservable } from "./observable";
-import { playTicketReminder } from "./ticketSound";
+import { playTicketReminder, prepareTicketSound, stopTicketReminderSound } from "./ticketSound";
 
 type Settings = ReturnType<typeof parseNotificationSettings>;
 type Binding = { client: PanelClient; accountId: string; projects: string[]; permissionsRevision: string; scopes: readonly string[]; current(): boolean; onAuthError(error: unknown): void; };
@@ -41,6 +41,7 @@ function deferSettings(error: unknown, failedRead = false) {
 }
 
 export function stopTicketReminders() {
+    stopTicketReminderSound();
     revision++; settingsRevision++;
     settingsRetryAt = 0;
     settingsFailures = 0;
@@ -84,7 +85,9 @@ export function syncTicketReminders(next: Binding) {
                 && !ticketRemindersState.get().busy && ticketRemindersState.get().settings?.discordEnabled === true;
             if (!canPlay()) return false;
             const played = await playTicketReminder(canPlay);
-            if (played && current(next, own)) toast("Игрок ждёт ответа в назначенном вам тикете", "message");
+            if (played && canPlay()) {
+                try { toast("Игрок ждёт ответа в назначенном вам тикете", "message"); } catch { /* A host toast must not invalidate successful playback. */ }
+            }
             return played;
         },
         onState: state => {
@@ -129,6 +132,9 @@ export async function refreshTicketReminders(): Promise<void> {
 export async function setDiscordReminders(enabled: boolean): Promise<void> {
     const b = binding, own = revision, state = ticketRemindersState.get();
     if (!b || !current(b, own) || state.phase !== "ready" || !state.settings || state.busy) return;
+    // Unlock while the checkbox's user gesture is still on the stack, before PATCH.
+    if (enabled) prepareTicketSound("reminder");
+    else stopTicketReminderSound();
     settingsRevision++; settingsRead = null;
     controller?.stop();
     ticketRemindersState.set({ busy: true, error: "" });

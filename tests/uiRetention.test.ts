@@ -9,6 +9,7 @@ import * as search from "../src/core/search";
 import { Store } from "../src/core/state";
 import * as text from "../src/core/text";
 import * as types from "../src/core/types";
+import * as windowPlacement from "../src/core/windowPlacement";
 
 const compile = (file: string) => ts.transpileModule(readFileSync(new URL(`../src/vencord/ui/${file}`, import.meta.url), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
@@ -43,6 +44,18 @@ function targetHarness() {
 }
 
 describe("editor target retention", () => {
+    it("rebinds a new insert after same-channel editor replacement without changing an in-flight target", () => {
+        const h = targetHarness();
+        h.op.captureWindowTarget(h.first);
+        h.ui.set({ windowOpen: true });
+        const pendingTarget = h.op.targetNow();
+        h.first.isConnected = false;
+        h.context.focused = h.second;
+        expect(h.op.targetNow().editor).toBe(h.second);
+        expect(pendingTarget.editor).toBe(h.first);
+        expect(h.op.targetNow().selection).toBe(pendingTarget.selection);
+        h.op.clearTargets();
+    });
     it("drops the closed picker's detached editor while a captured pending insert still owns its target", async () => {
         const h = targetHarness();
         h.op.captureWindowTarget(h.first);
@@ -129,11 +142,13 @@ async function windowHarness() {
     const first = await store.savePersonal({ title: "First fixture", text: "Alpha answer", project: "mj", command: null, color: null, folderId: null });
     const second = await store.savePersonal({ title: "Second fixture", text: "Beta answer", project: "mj", command: null, color: null, folderId: null });
     store.toggleFavorite(first);
+    // Retention fixture intentionally includes personal templates in the all-tab.
+    store.setShowPersonalInAll(true);
     const insert = vi.fn(), compose = vi.fn();
     const slots: any[] = [];
     const cleanups = new Map<number, () => void>();
     let cursor = 0, pending: (() => void)[] = [];
-    let state: any = { windowOpen: true, compose: [], dialog: null, menu: null };
+    let state: any = { windowOpen: true, compose: [], dialog: null, menu: null, channelRevision: 0 };
     const common = {
         React: { createElement: (type: any, props: any, ...children: any[]) => ({ type, props: { ...props, children } }), memo: (fn: any) => fn },
         useState: (initial: any) => {
@@ -158,13 +173,15 @@ async function windowHarness() {
     const module = evaluate(windowCode, {
         "@webpack/common": common, "../core/keys": keys, "../core/layout": layout, "../core/rank": rank,
         "../core/search": search, "../core/text": text, "../core/types": types,
+        "../core/windowPlacement": windowPlacement,
         "../platform": { chatAreaRect: () => null, storage: { get: async () => undefined } },
         "./ContextMenu": {}, "./debug": debug, "./flow": { insertTemplate: insert, addToCompose: compose },
         "./highlight": {}, "./keylatch": { latchKey: vi.fn() }, "./op": { windowEditor: () => null },
         "./Preview": { plural: (n: number) => String(n) }, "./ProjectIcon": {}, "./Select": {}, "./svg": {},
         "./uiState": { store, ui: { get: () => state, set: (patch: any) => { state = { ...state, ...patch }; }, useSelect: (fn: any) => fn(state) },
             useStore: () => 0, activeScope: () => "mj", listedProject: () => "mj", poolFor: () => store.templates },
-        "./menu-refinement.css": {},
+        "./WindowPlacement": { useWindowPlacement: () => ({ position: null, set: vi.fn() }), WindowPlacementControls: "WindowPlacementControls" },
+        "./menu-refinement.css": {}, "./window-placement.css": {}, "./window-tabs.css": {},
     }, { window: { innerWidth: 1400, innerHeight: 900 }, performance, clearTimeout });
     const render = () => { cursor = 0; pending = []; return module.Window(); };
     const commit = () => { for (const fn of pending.splice(0)) fn(); };

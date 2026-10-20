@@ -45,6 +45,8 @@ export type Dialog =
 export interface InlineState { query: string; length: number; items: Template[]; sel: number; note: string; }
 
 export interface UiState {
+    /** Forces the retained picker to refresh its scope after a Discord channel change. */
+    channelRevision: number;
     management: boolean;
     windowOpen: boolean;
     dialog: Dialog | null;
@@ -55,7 +57,7 @@ export interface UiState {
 }
 
 export const ui = createObservable<UiState>({
-    management: false, windowOpen: false, dialog: null, compose: [], inline: null, menu: null,
+    channelRevision: 0, management: false, windowOpen: false, dialog: null, compose: [], inline: null, menu: null,
 });
 
 export type { Scope };

@@ -7,6 +7,7 @@ import { PERSONAL_COLORS, PersonalDraft } from "../src/core/personal";
 import { Store } from "../src/core/state";
 import { routeStore } from "../src/core/storeRouter";
 import { PREFIXES, validPrefix } from "../src/core/trigger";
+import * as types from "../src/core/types";
 
 // Transpile and execute the real components, with a small explicit hook/commit harness.
 // No React installation, DOM, Discord, network, or copied lifecycle implementation.
@@ -84,7 +85,7 @@ function harness(initial: Store, rootName = "PersonalLibrary") {
         "@webpack/common": { ...hooks, GuildStore: { getGuild: () => null } },
         "./settings-layout.css": {}, "./ProjectIcon": { ProjectIcon: empty },
         "../core/personal": { PERSONAL_COLORS }, "../core/tokenEditor": {},
-        "../core/trigger": { PREFIXES, validPrefix }, "../platform": { toast },
+        "../core/trigger": { PREFIXES, validPrefix }, "../core/types": types, "../platform": { toast },
         "./demo": { demo: { use: () => demoState, useSelect: (f: any) => f(demoState) } },
         "./panel": { panel: { use: () => panelState }, useDemoLibrary: vi.fn(), useLocalLibrary: vi.fn() },
         "./Select": { Select: "select" }, "./TokenToolbar": { TokenToolbar: empty },

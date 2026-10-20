@@ -56,7 +56,15 @@ export function clearTargets() { windowTarget = composeTarget = null; stopWatchi
 
 /** Target of an insert starting now: the window's while it is open, else the editor in focus (bind, Alt+N). */
 export function targetNow(): Target {
-    if (ui.get().windowOpen && windowTarget) return windowTarget;
+    if (ui.get().windowOpen && windowTarget) {
+        // Discord can remount an editor without switching channels. Rebind only
+        // a new operation; an already captured Target/Snap keeps its old editor
+        // and is still cancelled by stillCurrent().
+        if (windowTarget.editor && !windowTarget.editor.isConnected) {
+            windowTarget = { editor: activeEditor(), selection: windowTarget.selection };
+        }
+        return windowTarget;
+    }
     return { editor: activeEditor(), selection: selectionNow() };
 }
 

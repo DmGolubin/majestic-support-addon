@@ -10,7 +10,7 @@ import { bindProblem, cleanBinds } from "./keys";
 import { PersonalDraft, PersonalFolder, PersonalTemplate, personalTemplate, readFolders, readPersonal } from "./personal";
 import { RankCtx } from "./rank";
 import { validPrefix } from "./trigger";
-import { ProjectId, Template, Usage } from "./types";
+import { ProjectId, readWindowTabOrder, Template, Usage, WindowTab } from "./types";
 
 export interface StorageLike {
     get(key: string): Promise<unknown>;
@@ -31,6 +31,9 @@ export interface Persisted {
     previewOpen: boolean;
     /** Tech server: which project's templates the window, Alt+1…9, binds and suggestions use. Not part of an import. */
     techProject: ProjectId;
+    showPersonalInAll: boolean;
+    generalFirstInSearch: boolean;
+    windowTabOrder: WindowTab[];
     personal: PersonalTemplate[];
     folders: PersonalFolder[];
 }
@@ -82,11 +85,19 @@ export function sanitize(saved: Record<string, unknown>, templates: Template[]):
     take("prefix", validPrefix(saved.prefix), saved.prefix as string);
     take("previewOpen", typeof saved.previewOpen === "boolean", saved.previewOpen as boolean);
     take("techProject", saved.techProject === "mj" || saved.techProject === "ro", saved.techProject as ProjectId);
+    for (const key of ["showPersonalInAll", "generalFirstInSearch"] as const) {
+        take(key, typeof saved[key] === "boolean", saved[key] as boolean);
+    }
+    d.windowTabOrder = readWindowTabOrder(saved.windowTabOrder);
+    const tabs = saved.windowTabOrder;
+    if ("windowTabOrder" in saved && (!Array.isArray(tabs) || tabs.length !== d.windowTabOrder.length
+        || d.windowTabOrder.some((tab, index) => Object.getOwnPropertyDescriptor(tabs, String(index))?.value !== tab))) fixed.push("windowTabOrder");
     return { data: d, fixed };
 }
 
 const empty = (): Persisted => ({
     v: 2, raw: "", favorites: [], recent: [], usage: {}, binds: {}, guilds: {}, intentional: [], prefix: ";", previewOpen: true, techProject: "mj", personal: [], folders: [],
+    showPersonalInAll: false, generalFirstInSearch: true, windowTabOrder: readWindowTabOrder(undefined),
 });
 
 export class Store {
@@ -140,7 +151,8 @@ export class Store {
         this.data = { ...this.data,
             favorites: data.favorites.filter(id => ids.has(id)), recent: data.recent.filter(id => ids.has(id)),
             usage: Object.fromEntries(Object.entries(data.usage).filter(([id]) => ids.has(id))), binds: data.binds,
-            prefix: data.prefix, previewOpen: data.previewOpen, techProject: data.techProject };
+            prefix: data.prefix, previewOpen: data.previewOpen, techProject: data.techProject,
+            showPersonalInAll: data.showPersonalInAll, generalFirstInSearch: data.generalFirstInSearch, windowTabOrder: data.windowTabOrder };
         this.subs.forEach(fn => fn());
     }
 
@@ -407,6 +419,21 @@ export class Store {
 
     setPreviewOpen(b: boolean) {
         this.data.previewOpen = b;
+        this.changed();
+    }
+
+    setShowPersonalInAll(value: boolean) {
+        this.data.showPersonalInAll = value === true;
+        this.changed();
+    }
+
+    setGeneralFirstInSearch(value: boolean) {
+        this.data.generalFirstInSearch = value !== false;
+        this.changed();
+    }
+
+    setWindowTabOrder(value: readonly WindowTab[]) {
+        this.data.windowTabOrder = readWindowTabOrder(value);
         this.changed();
     }
 
