@@ -31,7 +31,6 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
         pointerId: number; el: HTMLButtonElement; x: number; y: number; edge: WindowEdge | null;
         box: FloatingBox; before: WindowPosition | null; size: WindowSize | null; next: FloatingBox; side: boolean;
     } | null>(null);
-    const pinned = placement.position?.pinned ?? false;
     const sizeFor = (b: FloatingBox, original: WindowSize | null, useSide = side) => {
         const base = original ?? DEFAULT_WINDOW_SIZE;
         return { ...base, height: b.height, ...(useSide ? { previewWidth: Math.max(360, b.width - base.width) } : { width: b.width }) };
@@ -55,7 +54,7 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
             if (d?.el.hasPointerCapture?.(d.pointerId)) d.el.releasePointerCapture(d.pointerId); };
     }, []);
     const start = (e: React.PointerEvent<HTMLButtonElement>, edge: WindowEdge | null) => {
-        if (pinned || e.button !== 0 || drag.current) return;
+        if (e.button !== 0 || drag.current) return;
         e.preventDefault(); e.stopPropagation(); e.currentTarget.focus();
         e.currentTarget.setPointerCapture(e.pointerId);
         drag.current = { pointerId: e.pointerId, el: e.currentTarget, x: e.clientX, y: e.clientY, edge,
@@ -75,7 +74,7 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
     const key = (e: React.KeyboardEvent, edge: WindowEdge | null) => {
         if (e.key === "Escape" && drag.current) { e.preventDefault(); e.stopPropagation(); finish(false); return; }
         if (drag.current) { if (e.key.startsWith("Arrow")) { e.preventDefault(); e.stopPropagation(); } return; }
-        if (pinned || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+        if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
         e.preventDefault(); e.stopPropagation();
         const step = e.shiftKey ? 40 : 20, dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
         const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
@@ -92,18 +91,11 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
     };
     return <>
         <div className="vc-stx-placement">
-            <button type="button" data-stx-menu-control className="vc-stx-drag-window" disabled={pinned}
+            <button type="button" data-stx-menu-control className="vc-stx-drag-window"
                 aria-label="Переместить окно" title="Перетащите окно или используйте стрелки" onPointerDown={e => start(e, null)} onKeyDown={e => key(e, null)} {...pointer}>
                 <svg width="18" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
                     <circle cx="7" cy="8" r="1.5" /><circle cx="12" cy="8" r="1.5" /><circle cx="17" cy="8" r="1.5" />
                     <circle cx="7" cy="16" r="1.5" /><circle cx="12" cy="16" r="1.5" /><circle cx="17" cy="16" r="1.5" />
-                </svg>
-            </button>
-            <button type="button" data-stx-menu-control aria-pressed={pinned} aria-label="Закрепить окно"
-                title={pinned ? "Открепить окно" : "Закрепить положение и размер"}
-                onClick={() => placement.set({ right: box.right, bottom: box.bottom, pinned: !pinned })}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-                    <path d="M8 3h8v6l3 4v2H5v-2l3-4V3ZM12 15v7" />
                 </svg>
             </button>
             <button type="button" data-stx-menu-control aria-label="Сбросить положение и размер окна" title="Вернуть окно к полю ввода и сбросить размер"
@@ -113,7 +105,7 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
                 </svg>
             </button>
         </div>
-        {!pinned && WINDOW_EDGES.map(edge => <button type="button" key={edge} data-stx-menu-control className={`vc-stx-frame-resize edge-${edge}`}
+        {WINDOW_EDGES.map(edge => <button type="button" key={edge} data-stx-menu-control className={`vc-stx-frame-resize edge-${edge}`}
             aria-label={`Изменить размер ${EDGE_NAMES[edge]}`} title={`Размер ${EDGE_NAMES[edge]}: потяните край или используйте стрелки`}
             onPointerDown={e => start(e, edge)} onKeyDown={e => key(e, edge)} {...pointer} />)}
     </>;

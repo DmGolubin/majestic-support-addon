@@ -14,7 +14,7 @@ describe("movable picker geometry", () => {
     it("clamps saved placement and dimensions after switching to a smaller display", () => {
         expect(clampFloatingBox(box, 320, 250)).toEqual({ right: 8, bottom: 8, width: 304, height: 210 });
         expect(readWindowPosition({ right: Infinity, bottom: 0, pinned: false })).toBeNull();
-        expect(readWindowPosition({ right: 30, bottom: 40, pinned: true })).toEqual({ right: 30, bottom: 40, pinned: true });
+        expect(readWindowPosition({ right: 30, bottom: 40, pinned: true })).toEqual({ right: 30, bottom: 40, pinned: false });
     });
     it("resizes from the right and bottom while preserving opposite edges", () => {
         const next = resizeFloatingBox(box, "se", 40, 30, 1280, 800, 720);
@@ -81,7 +81,7 @@ it("waits for a pending placement write before a newly opened picker restores it
     expect(storage.get).toHaveBeenCalledTimes(1);
     release(); await tick();
     expect(storage.get).toHaveBeenCalledTimes(2);
-    expect(second.instance.slots[0]).toEqual(wanted);
+    expect(second.instance.slots[0]).toEqual({ ...wanted, pinned: false });
 });
 
 describe("ticket switching with an open picker", () => {

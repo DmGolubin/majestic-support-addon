@@ -122,28 +122,25 @@ describe("A25 compact tab order", () => {
 });
 
 describe("A25 placement icons", () => {
-    it("keeps labelled SVG controls, pin pressed state, keyboard movement and size reset", () => {
+    it("keeps movement and reset without a pin control, including previously pinned positions", () => {
         const h = harness("WindowPlacement");
-        const placement = { position: null as geometry.WindowPosition | null,
+        const placement = { position: { right: 100, bottom: 80, pinned: true } as geometry.WindowPosition | null,
             set: vi.fn((value: geometry.WindowPosition | null) => { placement.position = value; }) };
         const props = { placement, box: { right: 100, bottom: 80, width: 400, height: 500 }, size: null, side: false,
             setSize: vi.fn(), saveSize: vi.fn() };
         const control = (label: string) => nodes(h.render(props)).find(n => n.props["aria-label"] === label)!;
-        for (const label of ["Переместить окно", "Закрепить окно", "Сбросить положение и размер окна"]) {
+        for (const label of ["Переместить окно", "Сбросить положение и размер окна"]) {
             const button = control(label);
             expect(button.type).toBe("button"); expect(button.props.title).toBeTruthy(); expect(text(button)).toBe("");
             expect(nodes(button).find(n => n.type === "svg")!.props).toMatchObject({ "aria-hidden": "true", focusable: "false" });
         }
         const grip = control("Переместить окно");
+        expect(control("Закрепить окно")).toBeUndefined();
+        expect(grip.props.disabled).not.toBe(true);
+        expect(nodes(h.render(props)).filter(n => n.props.className?.includes("vc-stx-frame-resize"))).toHaveLength(8);
         expect(grip.props.onPointerDown).toBeTypeOf("function");
         grip.props.onKeyDown(key({ altKey: false }));
         expect(placement.set).toHaveBeenLastCalledWith({ right: 120, bottom: 80, pinned: false }, true);
-        control("Закрепить окно").props.onClick();
-        expect(control("Закрепить окно").props["aria-pressed"]).toBe(true);
-        expect(control("Переместить окно").props.disabled).toBe(true);
-        expect(nodes(h.render(props)).filter(n => n.props.className?.includes("vc-stx-frame-resize"))).toHaveLength(0);
-        control("Закрепить окно").props.onClick();
-        expect(control("Закрепить окно").props["aria-pressed"]).toBe(false);
         control("Сбросить положение и размер окна").props.onClick();
         expect(placement.position).toBeNull();
         expect(props.setSize).toHaveBeenCalledExactlyOnceWith(null);

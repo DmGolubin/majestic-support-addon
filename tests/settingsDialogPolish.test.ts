@@ -176,6 +176,23 @@ describe("prefix dirty confirmation", () => {
 });
 
 describe("Management focus and backdrop", () => {
+    it("explains the personal-All toggle and retains its existing preference", () => {
+        const h = harness("Settings"); h.click("Настройки");
+        const label = "Показывать мои шаблоны во вкладке «Все»";
+        const input = () => all(h.tree(), n => n.type === "input" && n.props["aria-label"] === label)[0];
+        expect(h.text()).toContain(label);
+        expect(h.text()).toContain("Выключено — личные шаблоны остаются во вкладке «Мои».");
+        expect(input().props.checked).toBe(false);
+        input().props.onChange({ currentTarget: { checked: true } }); h.render();
+        expect(h.store.setShowPersonalInAll).toHaveBeenCalledExactlyOnceWith(true);
+        expect(input().props.checked).toBe(true);
+        h.click("Тикеты"); h.click("Настройки");
+        expect(input().props.checked).toBe(true);
+        input().props.onChange({ currentTarget: { checked: false } }); h.render();
+        expect(h.store.data.showPersonalInAll).toBe(false);
+        h.unmount();
+    });
+
     it("leaves outside keyboard events alone and guards backdrop dismissal of dirty drafts", () => {
         const h = harness(); h.click("Настройки"); h.change("!");
         expect(all(h.tree(), n => n.props.role === "dialog")[0].props["aria-modal"]).toBeUndefined();

@@ -3,7 +3,8 @@
 .vc-stx-diagnostics .vc-stx-diagnostic-heading h3 { margin: 0; font-size: 16px; }
 .vc-stx-diagnostic-heading span { color: var(--stx-mu, #b8bdc7); font-size: 12px; }
 .vc-stx-diagnostics p { margin: 8px 0; line-height: 1.45; overflow-wrap: anywhere; }
-.vc-stx-diagnostics .vc-stx-diagnostic-note { color: var(--stx-mu, #b8bdc7); font-size: 12px; }
+.vc-stx-diagnostics .vc-stx-diagnostic-path { color: var(--stx-mu, #b8bdc7); font-size: 12px; min-width: 0; }
+.vc-stx-diagnostic-path code { white-space: normal; overflow-wrap: anywhere; user-select: text; }
 .vc-stx-diagnostics .vc-stx-record-toggle { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 8px 0; }
 .vc-stx-record-toggle input { accent-color: var(--stx-pr, #c41651); }
 .vc-stx-diagnostic-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }

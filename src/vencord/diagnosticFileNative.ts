@@ -139,7 +139,7 @@ export interface DiagnosticFileSystem {
     unlinkSync(path: string): void;
 }
 
-/** Resolve only a directory already authorized by store.directory().
+/** Resolve only a directory already validated by the diagnostic store.
  * Windows package virtualization can give JS realpath a logical AppData name,
  * while native realpath returns the backing directory used by Explorer.
  * Standard BD may expose only the bridged JS method; never guess a package path.
@@ -260,6 +260,13 @@ export function createDiagnosticFileStorage(deps: {
     function capabilities() {
         if (!["existsSync", "statSync", "realpathSync", "mkdirSync", "readFileSync", "writeFileSync", "renameSync", "unlinkSync"]
             .every(key => typeof (fs as unknown as Record<string, unknown>)[key] === "function")) throw fail();
+    }
+    function displayPath(): string {
+        // Presentation only: keep all storage/ownership checks on the original paths.
+        // First load need not create a directory; shell resolution must not turn
+        // a successful read/write into a persistence failure.
+        try { return join(diagnosticShellDirectory(fs, root), DIAGNOSTIC_FILE_NAME); }
+        catch { return path; }
     }
     function inspect(target: string): Info | null {
         // Real native lstat catches dangling links too. A bridged Error may lose code.
@@ -541,15 +548,15 @@ export function createDiagnosticFileStorage(deps: {
                         // Allocated sequence is not proof of loss: pending deltas
                         // may still arrive or be recovered from localStorage.
                         const complete = journal.deliveryLost > 0 && completeHistory(journal);
-                        return { path, state: JSON.stringify({ ...journal,
+                        return { path: displayPath(), state: JSON.stringify({ ...journal,
                             deliveryLost: complete ? 0 : journal.deliveryLost, ...(journal.sessionId ? { deliveryCursor: cursor } : {}),
                             ...(complete ? { deliveryVerifiedThrough: cursor } : {}) }) };
                     }
                     const legacy = read(path, DIAGNOSTIC_FILE_MAX_BYTES);
                     if (legacy?.toString("utf8").trimStart().startsWith("{"))
-                        return { path, state: JSON.stringify(sanitizeDiagnosticReport(legacy.toString("utf8")).journal) };
-                    return { path, state: legacy || safeFile(statePath) || archives.some(p => safeFile(p)) || safeFile(legacyPath) ? tombstone() : null };
-                } catch { return { path, state: tombstone() }; }
+                        return { path: displayPath(), state: JSON.stringify(sanitizeDiagnosticReport(legacy.toString("utf8")).journal) };
+                    return { path: displayPath(), state: legacy || safeFile(statePath) || archives.some(p => safeFile(p)) || safeFile(legacyPath) ? tombstone() : null };
+                } catch { return { path: displayPath(), state: tombstone() }; }
             });
         },
         save(report: string, authorize: () => void = () => {}): Promise<{ path: string; }> {
@@ -594,7 +601,7 @@ export function createDiagnosticFileStorage(deps: {
                 const journal = clean.journal, sid = journal.sessionId as string | undefined;
                 const generation = "clearGeneration" in journal ? journal.clearGeneration ?? 0 : 0;
                 const clear = !!sid && generation > (state.generations[sid] ?? 0);
-                if (sid && generation < (state.generations[sid] ?? 0) || journal.savedAt < state.clearedAt) return { path };
+                if (sid && generation < (state.generations[sid] ?? 0) || journal.savedAt < state.clearedAt) return { path: displayPath() };
                 const baseline = clear ? undefined : log();
                 const next: Checkpoint = clear ? empty() : { ...state, cursors: { ...state.cursors }, generations: { ...state.generations } };
                 if (clear) {
@@ -637,7 +644,7 @@ export function createDiagnosticFileStorage(deps: {
                 if (mode === "append" && !text) {
                     // Control-only updates neither read nor rewrite the active log.
                     commit(next);
-                    return { path };
+                    return { path: displayPath() };
                 }
                 const old = mode === "legacy" || mode === "rotate" ? read(path, DIAGNOSTIC_FILE_MAX_BYTES)! : null;
                 const tx: Transaction = { schema: 3, mode, size: baseline?.size ?? 0,
@@ -648,7 +655,7 @@ export function createDiagnosticFileStorage(deps: {
                 // recovered by matching its bytes, then appending only its suffix.
                 atomic(statePath, JSON.stringify(tx));
                 finish(tx, mode === "append" ? baseline : undefined);
-                return { path };
+                return { path: displayPath() };
             });
         }
     };

@@ -18,11 +18,11 @@ export function DiagnosticControls({ available = true }: { available?: boolean; 
     return <section className="vc-stx-diagnostics" aria-label="Диагностика">
         <div className="vc-stx-diagnostic-heading"><h3>Логи</h3><span>{file.initializing ? "Подключение…" : file.fileError ? "Ошибка сохранения" : journal.active ? "Запись включена" : "Запись выключена"}</span></div>
         <label className="vc-stx-record-toggle"><input type="checkbox" disabled={!available || file.initializing} checked={journal.active} onChange={e => { setRecording(e.currentTarget.checked); refresh(n => n + 1); }} />Записывать логи</label>
-        <p className="vc-stx-diagnostic-note">Технические события сохраняются локально в main.log. Без текстов сообщений, токенов и автоматической отправки.</p>
-        {file.fileError && <p role="alert">Не удалось записать файл. Проверьте свободное место и повторите сохранение.</p>}
-        {file.fileError && file.localError && <p role="alert">Резервная запись тоже недоступна. Восстановите сохранение до перезапуска Discord.</p>}
-        {file.deliveryLost > 0 && <p role="alert">В истории есть неподтверждённые события: {file.deliveryLost}. Приложите логи к описанию проблемы.</p>}
-        {openError && <p role="alert">Не удалось открыть папку логов. Полностью перезапустите Discord после обновления и повторите попытку. Если ошибка сохраняется, проверьте доступ к файлам.</p>}
+        <p className="vc-stx-diagnostic-path">{file.path ? <code>{file.path}</code> : file.initializing ? "Определяем путь…" : "Путь к логам пока недоступен"}</p>
+        {(file.fileError || file.localError) && <p role="alert">{file.fileError
+            ? file.localError ? "Не удалось сохранить логи и резервную копию." : "Не удалось сохранить логи."
+            : "Резервная копия логов недоступна."}</p>}
+        {openError && <p role="alert">Не удалось открыть папку логов. Повторите попытку.</p>}
         <div className="vc-stx-diagnostic-actions">
             <button type="button" className="vc-stx-btn" disabled={opening} onClick={open}>{opening ? "Открываем…" : "Открыть папку логов"}</button>
             {file.fileError && <button type="button" className="vc-stx-btn vc-stx-ghost" onClick={() => { retryDiagnosticFile(); refresh(n => n + 1); }}>Повторить сохранение</button>}

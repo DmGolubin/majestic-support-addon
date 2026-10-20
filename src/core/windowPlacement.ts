@@ -11,7 +11,8 @@ export function readWindowPosition(value: unknown): WindowPosition | null {
     if (!value || typeof value !== "object") return null;
     const p = value as WindowPosition;
     if (![p.right, p.bottom].every(n => typeof n === "number" && Number.isFinite(n)) || typeof p.pinned !== "boolean") return null;
-    return { right: Math.max(EDGE, Math.min(20000, p.right)), bottom: Math.max(EDGE, Math.min(20000, p.bottom)), pinned: p.pinned };
+    // Older releases could lock movement. Restore coordinates without that retired lock.
+    return { right: Math.max(EDGE, Math.min(20000, p.right)), bottom: Math.max(EDGE, Math.min(20000, p.bottom)), pinned: false };
 }
 export function clampFloatingBox(box: FloatingBox, vw: number, vh: number): FloatingBox {
     const width = Math.max(0, Math.min(box.width, vw - EDGE * 2));

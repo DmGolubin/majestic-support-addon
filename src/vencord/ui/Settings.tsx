@@ -76,8 +76,8 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
             <section className="vc-stx-setting-section vc-stx-setting-card" aria-labelledby="stx-window-settings">
                 <h3 id="stx-window-settings">Шаблоны и поиск</h3>
                 <div className="vc-stx-setting-line">
-                    <div><strong>Личные шаблоны во «Все»</strong><span>Вкладка «Мои», избранное и недавние доступны независимо от этой настройки.</span></div>
-                    <label className="vc-stx-switch"><input type="checkbox" aria-label="Показывать личные шаблоны во Все" checked={store.data.showPersonalInAll} disabled={p.phase !== "ready"} onChange={e => store.setShowPersonalInAll(e.currentTarget.checked)} /><span aria-hidden="true" /></label>
+                    <div><strong>Показывать мои шаблоны во вкладке «Все»</strong><span>Выключено — личные шаблоны остаются во вкладке «Мои».</span></div>
+                    <label className="vc-stx-switch"><input type="checkbox" aria-label="Показывать мои шаблоны во вкладке «Все»" checked={store.data.showPersonalInAll} disabled={p.phase !== "ready"} onChange={e => store.setShowPersonalInAll(e.currentTarget.checked)} /><span aria-hidden="true" /></label>
                 </div>
                 <div className="vc-stx-setting-line">
                     <div><strong>Общие шаблоны первыми в поиске</strong><span>Сначала общие, затем личные. Внутри каждой группы сохраняется порядок по точности совпадения.</span></div>
