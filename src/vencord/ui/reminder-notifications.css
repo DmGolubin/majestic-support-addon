@@ -1,0 +1,26 @@
+.vc-stx-root > .vc-stx-reminder-notices {
+    position: fixed; right: 20px; bottom: 24px; z-index: 8;
+    width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - var(--custom-app-top-bar-height, 36px) - 48px);
+    display: grid; gap: 10px; overflow-y: auto; pointer-events: none;
+}
+.vc-stx-reminder-notice {
+    --notice-accent: #ee547c;
+    position: relative; pointer-events: auto; padding: 16px; padding-right: 38px;
+    color: var(--stx-tx, #f2f3f5); background: var(--stx-card, #17191d);
+    border: 1px solid var(--stx-bd2, #34383f); border-left: 4px solid var(--notice-accent);
+    border-radius: 10px; box-shadow: 0 8px 28px #0006; font-size: 14px;
+}
+.vc-stx-reminder-notice-ro { --notice-accent: #5eaeef; }
+.vc-stx-reminder-notice-message { display: flex; align-items: center; gap: 12px; }
+.vc-stx-reminder-notice-message > div { min-width: 0; }
+.vc-stx-reminder-notice strong { display: block; color: var(--notice-accent); font-weight: 650; }
+.vc-stx-reminder-notice p { margin: 5px 0 0; line-height: 1.4; overflow-wrap: anywhere; }
+.vc-stx-reminder-test, .vc-stx-reminder-notice small { display: block; color: var(--stx-mu, #b9bdc5); font-size: 12px; margin-top: 4px; }
+.vc-stx-reminder-open { margin-top: 12px; padding: 7px 12px; border: 1px solid var(--notice-accent); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+.vc-stx-reminder-open:hover { background: var(--stx-hover, #292d34); }
+.vc-stx-reminder-open:disabled { cursor: wait; opacity: .7; }
+.vc-stx-reminder-dismiss { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; padding: 0; background: transparent; border: 0; border-radius: 4px; color: var(--stx-mu, #b9bdc5); cursor: pointer; font-size: 22px; line-height: 1; }
+.vc-stx-reminder-dismiss:hover { background: var(--stx-hover, #292d34); }
+.vc-stx-reminder-notice button:focus-visible { outline: 2px solid var(--notice-accent); outline-offset: 3px; }
+.vc-stx-reminder-error { color: var(--stx-mu, #b9bdc5); font-size: 12px; }
+@media (max-width: 480px) { .vc-stx-root > .vc-stx-reminder-notices { right: 12px; bottom: 12px; } }

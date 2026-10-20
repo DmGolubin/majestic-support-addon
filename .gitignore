@@ -1,0 +1,22 @@
+node_modules
+/artifacts/standalone/
+/artifacts/distribution/
+/artifacts/private-vencord/
+/artifacts/ui18/
+/artifacts/memory19/
+__pycache__/
+*.py[cod]
+/graphify-out/
+
+# Local project history and working notes are not release sources.
+/docs/*
+/reference/
+/AGENTS.md
+/TODO.md
+/scripts/demo-panel.html
+/scripts/demo-panel.py
+/scripts/qa/a21-ui-results.md
+/scripts/qa/a22-ui-results.md
+/scripts/roadmap-server.py
+/scripts/roadmap.mjs
+/scripts/start-meeting-demo.ps1

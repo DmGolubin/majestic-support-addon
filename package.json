@@ -1,0 +1,24 @@
+{
+  "name": "support-templates",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "typecheck:vencord": "node scripts/check-vencord.mjs",
+    "build:standalone": "node standalone/build.mjs",
+    "build:release": "node distribution/build-release.mjs",
+    "release:check": "node distribution/publish-release.mjs --check",
+    "release:draft": "node distribution/publish-release.mjs",
+    "test:vencord-distribution": "node --test tests/vencordDistribution.node.mjs",
+    "test:installer": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneInstaller.Tests.ps1",
+    "icons": "node scripts/make-icons.mjs",
+    "fonts": "node scripts/make-fonts.mjs",
+    "sync:vencord": "node scripts/sync-vencord.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.12"
+  }
+}

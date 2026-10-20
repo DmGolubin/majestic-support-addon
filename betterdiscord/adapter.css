@@ -1,0 +1,15 @@
+.stx-bd-button-mount { display: inline-flex; align-items: center; align-self: center; }
+.stx-bd-chat-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 4px; border: 0; border-radius: 6px; background: transparent; color: var(--interactive-normal, #b5bac1); cursor: pointer; }
+.stx-bd-chat-button:hover { background: var(--background-modifier-hover, #ffffff18); color: var(--interactive-hover, #fff); }
+.stx-bd-chat-button:focus-visible { outline: 2px solid var(--brand-500, #5865f2); outline-offset: 2px; }
+.stx-bd-settings { position: relative; inset: auto; pointer-events: auto; z-index: auto; color: var(--text-normal, #eee); font-size: 14px; line-height: 1.5; }
+.stx-bd-settings { font-family: var(--font-primary, inherit); }
+.stx-bd-settings *, .stx-bd-settings *::before, .stx-bd-settings *::after { box-sizing: border-box; }
+.stx-bd-settings .vc-stx-btn:disabled { opacity: .5; cursor: not-allowed; }
+.stx-bd-debug-options { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--background-modifier-accent, #4e50584d); }
+.stx-bd-debug-options summary { cursor: pointer; }
+.stx-bd-debug-options > p { font-size: 12px; opacity: .8; }
+.stx-bd-settings .vc-stx-btn { cursor: pointer; }
+.stx-bd-settings > header { margin-bottom: 16px; }
+.stx-bd-host-option { display: block; margin: 12px 0; }
+.stx-bd-host-option small { display: block; margin-left: 24px; opacity: .7; }

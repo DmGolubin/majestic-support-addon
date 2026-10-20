@@ -1,0 +1,32 @@
+.vc-stx-win .vc-stx-tabs {
+    flex-wrap: wrap;
+}
+
+.vc-stx-connection-notice {
+    margin: 0 0 8px;
+    padding: 7px 9px;
+    border-left: 2px solid #dca64c;
+    border-radius: 3px;
+    background: rgba(220, 166, 76, .08);
+    color: var(--text-normal, #dbdee1);
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.vc-stx-win .vc-stx-tab[draggable="true"] {
+    cursor: grab;
+}
+
+.vc-stx-win .vc-stx-tab[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.vc-stx-win .vc-stx-tab.vc-stx-tab-drop {
+    box-shadow: inset 0 -2px 0 var(--text-link, #74a7ff);
+}
+
+.vc-stx-win .vc-stx-tab:focus-visible {
+    outline: 2px solid var(--text-link, #74a7ff);
+    outline-offset: -2px;
+}

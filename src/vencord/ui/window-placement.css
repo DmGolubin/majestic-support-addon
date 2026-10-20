@@ -1,0 +1,21 @@
+.vc-stx-win { padding-top: 24px; }
+.vc-stx-win .vc-stx-window-close { top: 36px; }
+.vc-stx-win.compact > .vc-stx-pre { padding-top: 68px; }
+.vc-stx-placement { position: absolute; inset: 0 5px auto; height: 24px; display: flex; align-items: center; gap: 2px; z-index: 4; }
+.vc-stx-placement button { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: none; color: var(--stx-mu2); background: transparent; border: 0; border-radius: 4px; padding: 0; cursor: pointer; }
+.vc-stx-placement button:hover { color: var(--stx-tx); background: transparent; }
+.vc-stx-placement button:focus-visible { outline: 2px solid var(--stx-ring); outline-offset: -2px; }
+.vc-stx-placement svg { pointer-events: none; }
+.vc-stx-placement .vc-stx-drag-window { flex: 1; min-width: 24px; cursor: grab; touch-action: none; }
+.vc-stx-placement .vc-stx-drag-window:active { cursor: grabbing; }
+.vc-stx-win .vc-stx-frame-resize { position: absolute; padding: 0; border: 0; background: transparent; z-index: 5; touch-action: none; border-radius: 3px; }
+.vc-stx-frame-resize.edge-n, .vc-stx-frame-resize.edge-s { left: 16px; right: 16px; height: 5px; cursor: ns-resize; }
+.vc-stx-frame-resize.edge-n { top: 0; } .vc-stx-frame-resize.edge-s { bottom: 0; }
+.vc-stx-frame-resize.edge-w, .vc-stx-frame-resize.edge-e { top: 16px; bottom: 16px; width: 5px; cursor: ew-resize; }
+.vc-stx-frame-resize.edge-w { left: 0; } .vc-stx-frame-resize.edge-e { right: 0; }
+.vc-stx-frame-resize.edge-nw, .vc-stx-frame-resize.edge-ne, .vc-stx-frame-resize.edge-sw, .vc-stx-frame-resize.edge-se { width: 14px; height: 14px; }
+.vc-stx-frame-resize.edge-nw { top: 0; left: 0; cursor: nwse-resize; }
+.vc-stx-frame-resize.edge-ne { top: 0; right: 0; cursor: nesw-resize; }
+.vc-stx-frame-resize.edge-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.vc-stx-frame-resize.edge-se { bottom: 0; right: 0; cursor: nwse-resize; }
+.vc-stx-win .vc-stx-frame-resize:hover { background: var(--stx-bd); }

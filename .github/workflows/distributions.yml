@@ -1,0 +1,89 @@
+name: Build two public Windows distributions
+on:
+  workflow_dispatch:
+    inputs:
+      create_draft:
+        description: Create a draft GitHub release after validation
+        type: boolean
+        default: false
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.12.0'
+      - name: Install project dependencies
+        shell: pwsh
+        run: |
+          npm exec --yes --package=pnpm@9.15.9 -- pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Project dependencies failed' }
+          npm ci --prefix betterdiscord
+          if ($LASTEXITCODE -ne 0) { throw 'BetterDiscord build dependencies failed' }
+      - name: Get pinned Vencord source and clean dependencies
+        shell: pwsh
+        run: |
+          git clone --filter=blob:none https://github.com/Vendicated/Vencord.git "$env:RUNNER_TEMP/Vencord-source"
+          if ($LASTEXITCODE -ne 0) { throw 'Vencord clone failed' }
+          $env:VENCORD_DIR = "$env:RUNNER_TEMP/Vencord-source"
+          $result = node distribution/prepare-upstream.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency preparation failed' }
+          $result | Write-Output
+          $evidence = $result[-1] | ConvertFrom-Json
+          "VENCORD_DIR=$($evidence.checkout)" >> $env:GITHUB_ENV
+      - name: Check types and regressions
+        shell: pwsh
+        run: |
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'Core types failed' }
+          npm run typecheck:vencord
+          if ($LASTEXITCODE -ne 0) { throw 'Vencord types failed' }
+          npm test -- --maxWorkers=4
+          if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneAutoUpdate.Tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Standalone helper fixtures failed' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneConsole.Tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Console launcher fixtures failed' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneConsoleInput.Tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Silent console keyboard check failed' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneInstaller.Tests.ps1 -Only 'Migration:*'
+          if ($LASTEXITCODE -ne 0) { throw 'Replacement and recovery fixtures failed' }
+      - name: Build SupportTemplates then BetterDiscord and verify public release files
+        shell: pwsh
+        run: |
+          node distribution/build-release.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+          node distribution/publish-release.mjs --check
+          if ($LASTEXITCODE -ne 0) { throw 'Release verification failed' }
+          $version = (Get-Content distribution/config.json -Raw | ConvertFrom-Json).version
+          "PUBLIC_RELEASE_DIR=artifacts/distribution/$version" >> $env:GITHUB_ENV
+      - name: Exercise final package installers in TEMP fixtures
+        shell: pwsh
+        run: |
+          $version = (Get-Content distribution/config.json -Raw | ConvertFrom-Json).version
+          $scratch = Join-Path $env:RUNNER_TEMP ('stx-final-packages-' + [guid]::NewGuid().ToString('N'))
+          foreach ($variant in @('standalone')) {
+            $target = Join-Path $scratch $variant
+            Expand-Archive -LiteralPath "artifacts/distribution/$version/SupportTemplates-$variant-$version.zip" -DestinationPath $target
+            $packages = @(Get-ChildItem -LiteralPath $target -Directory)
+            if ($packages.Count -ne 1) { throw 'Unexpected package roots' }
+            $test = 'tests/standaloneInstaller.Tests.ps1'
+            powershell -NoProfile -ExecutionPolicy Bypass -File $test -PayloadPackageRoot $packages[0].FullName -Only 'built real payload*'
+            if ($LASTEXITCODE -ne 0) { throw "Final $variant installer failed" }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SupportTemplates-public-variants
+          path: ${{ env.PUBLIC_RELEASE_DIR }}/
+          if-no-files-found: error
+      - name: Create draft release
+        if: inputs.create_draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node distribution/publish-release.mjs
