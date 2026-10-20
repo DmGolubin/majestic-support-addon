@@ -204,13 +204,13 @@ describe("BetterDiscord final bundle in React/DOM", () => {
     });
     it("downloads without evaluating, then loads the verified runtime through BD's absolute-path loader on next startup", async () => {
         const f = fixture({ restrictedHost: true, supportedBridge: true });
-        const version = "1.0.1-canary.99";
-        const code = `module.exports=class { getVersion(){return '${version}';} startBundledRuntime(){globalThis.BdApi.testStarts++;} stopBundledRuntime(){} getSettingsPanel(){} getBundledSettings(){} };`;
         const config = JSON.parse(source("distribution/config.json"));
+        const version = `${BigInt(config.version.split(".")[0]) + 1n}.0.0${config.channel === "canary" ? "-canary.1" : ""}`;
+        const code = `module.exports=class { getVersion(){return '${version}';} startBundledRuntime(){globalThis.BdApi.testStarts++;} stopBundledRuntime(){} getSettingsPanel(){} getBundledSettings(){} };`;
         const asset = { variant: "betterdiscord", platform: "win32", kind: "renderer", name: "SupportTemplates.plugin.js", size: Buffer.byteLength(code), sha256: createHash("sha256").update(code).digest("hex") };
-        const manifest = { schema: 1, product: "SupportTemplates", repository: config.releaseRepository, channel: "canary", version, assets: [asset] };
+        const manifest = { schema: 1, product: "SupportTemplates", repository: config.releaseRepository, channel: config.channel, version, assets: [asset] };
         const url = (name: string) => `https://github.com/${config.releaseRepository}/releases/download/v${version}/${name}`;
-        const release = { draft: false, prerelease: true, tag_name: `v${version}`, assets: [
+        const release = { draft: false, prerelease: config.channel === "canary", tag_name: `v${version}`, assets: [
             { name: config.manifestAsset, state: "uploaded", size: Buffer.byteLength(JSON.stringify(manifest)), browser_download_url: url(config.manifestAsset) },
             { name: asset.name, state: "uploaded", size: asset.size, browser_download_url: url(asset.name) }
         ] };

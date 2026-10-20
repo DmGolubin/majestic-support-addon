@@ -9,14 +9,15 @@ const dirs: string[] = [];
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 function fixture() {
     const root = mkdtempSync(join(tmpdir(), "stx-bd-update-")); dirs.push(root);
-    const bytes = Buffer.from('/** @name SupportTemplates @version 1.0.1-canary.99 */\nmodule.exports = class {};');
     const config = JSON.parse(source("distribution/config.json"));
+    const version = `${BigInt(config.version.split(".")[0]) + 1n}.0.0${config.channel === "canary" ? "-canary.1" : ""}`;
+    const bytes = Buffer.from(`/** @name SupportTemplates @version ${version} */\nmodule.exports = class {};`);
     const asset = { variant: "betterdiscord", platform: "win32", kind: "renderer", name: "SupportTemplates.plugin.js", size: bytes.length,
         sha256: createHash("sha256").update(bytes).digest("hex") };
-    const manifest = { schema: 1, product: "SupportTemplates", repository: config.releaseRepository, version: "1.0.1-canary.99", channel: "canary", assets: [asset] };
+    const manifest = { schema: 1, product: "SupportTemplates", repository: config.releaseRepository, version, channel: config.channel, assets: [asset] };
     const assetPath = join(root, "download.plugin.js"); writeFileSync(assetPath, bytes);
     const cache = join(root, "runtime");
-    return { root, bytes, manifest, asset, assetPath, cache, context: { assetPath, manifest, asset, version: manifest.version, variant: "betterdiscord", channel: "canary", phase: "runtime" } };
+    return { root, config, bytes, manifest, asset, assetPath, cache, context: { assetPath, manifest, asset, version: manifest.version, variant: "betterdiscord", channel: config.channel, phase: "runtime" } };
 }
 
 describe("BetterDiscord updater integration", () => {
@@ -33,7 +34,7 @@ describe("BetterDiscord updater integration", () => {
         startup = true;
         expect(await adapter.apply({ ...f.context, phase: "startup" })).toEqual({ applied: true });
         const selected = await cachedRuntime(f.cache);
-        expect(selected.version).toBe("1.0.1-canary.99");
+        expect(selected.version).toBe(f.manifest.version);
         expect(readFileSync(selected.path)).toEqual(f.bytes);
         expect(selected.path).toContain(f.asset.sha256);
         expect(readFileSync(f.assetPath)).toEqual(f.bytes);
@@ -63,8 +64,21 @@ describe("BetterDiscord updater integration", () => {
         writeFileSync(selected.path, f.bytes);
         writeFileSync(join(f.cache, "runtime.json"), JSON.stringify({ schema: 1, manifest: { ...f.manifest, repository: "other/repo" } }));
         await expect(cachedRuntime(f.cache)).rejects.toThrow();
-        writeFileSync(join(f.cache, "runtime.json"), JSON.stringify({ schema: 1, manifest: { ...f.manifest, version: "0.1.0-canary.13" } }));
+        for (const version of [f.config.version, `0.0.0${f.config.channel === "canary" ? "-canary.0" : ""}`]) {
+            writeFileSync(join(f.cache, "runtime.json"), JSON.stringify({ schema: 1, manifest: { ...f.manifest, version } }));
+            expect(await cachedRuntime(f.cache)).toBeNull();
+        }
+    });
+    it("rejects a future release from the other channel before publishing a runtime receipt", async () => {
+        const f = fixture();
+        const { cacheAdapter, cachedRuntime } = loadAdapter("native/updater.ts");
+        const channel = f.config.channel === "stable" ? "canary" : "stable";
+        const version = `${BigInt(f.config.version.split(".")[0]) + 1n}.0.0${channel === "canary" ? "-canary.1" : ""}`;
+        const manifest = { ...f.manifest, channel, version };
+        await expect(cacheAdapter(f.cache, () => true).apply({ ...f.context, manifest, channel, version, phase: "startup" }))
+            .rejects.toThrow("CHANNEL_MISMATCH");
         expect(await cachedRuntime(f.cache)).toBeNull();
+        expect(readdirSync(f.root)).toEqual(["download.plugin.js"]);
     });
     it("shared null-repository checks make no request, and anonymous 404 errors contain no authentication flow", async () => {
         const f = fixture();

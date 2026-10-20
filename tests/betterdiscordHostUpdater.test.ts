@@ -7,16 +7,19 @@ import { loadAdapter, source } from "./betterdiscordHarness";
 
 const dirs: string[] = [];
 afterEach(() => { vi.useRealTimers(); for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+function futureVersion(config: { version: string; channel: string }, offset = 1n) {
+    return `${BigInt(config.version.split(".")[0]) + offset}.0.0${config.channel === "canary" ? "-canary.1" : ""}`;
+}
 function fixture() {
     const root = fs.mkdtempSync(join(tmpdir(), "stx-bd-host-")); dirs.push(root);
     const config = JSON.parse(source("distribution/config.json"));
-    const version = "1.0.1-canary.99";
+    const version = futureVersion(config);
     const bytes = Buffer.from("module.exports = class VerifiedRuntime {};");
     const asset = { variant: "betterdiscord", platform: "win32", kind: "renderer", name: "SupportTemplates.plugin.js", size: bytes.length,
         sha256: createHash("sha256").update(bytes).digest("hex") };
     const manifest = { schema: 1, product: "SupportTemplates", repository: config.releaseRepository, channel: config.channel, version, assets: [asset] };
     const url = (name: string) => `https://github.com/${config.releaseRepository}/releases/download/v${version}/${name}`;
-    const release = { draft: false, prerelease: true, tag_name: `v${version}`, assets: [
+    const release = { draft: false, prerelease: config.channel === "canary", tag_name: `v${version}`, assets: [
         { name: config.manifestAsset, state: "uploaded", size: Buffer.byteLength(JSON.stringify(manifest)), browser_download_url: url(config.manifestAsset) },
         { name: asset.name, state: "uploaded", size: asset.size, browser_download_url: url(asset.name) }
     ] };
@@ -58,12 +61,14 @@ describe("standard BetterDiscord updater", () => {
     it("refuses hash corruption and foreign manifests, preserving the last good runtime", async () => {
         const f = fixture(); const updater = f.make(); await updater.check();
         const saved = fs.readFileSync(join(f.root, "runtime.json"), "utf8");
-        f.manifest.version = "1.0.1-canary.100"; f.release.tag_name = "v1.0.1-canary.100";
-        f.release.assets.forEach(a => { a.browser_download_url = a.browser_download_url.replace(".99/", ".100/"); });
+        const nextVersion = futureVersion(f.config, 2n);
+        f.manifest.version = nextVersion; f.release.tag_name = `v${nextVersion}`;
+        f.release.assets.forEach(a => { a.browser_download_url = a.browser_download_url.replace(`/v${f.version}/`, `/v${nextVersion}/`); });
         // Mismatched manifest must fail before any code can be committed.
         f.manifest.repository = "attacker/repo";
+        f.release.assets[0].size = Buffer.byteLength(JSON.stringify(f.manifest));
         f.net.mockImplementation(async input => new Response(JSON.stringify(input.startsWith("https://api.github.com/") ? [f.release] : f.manifest)));
-        await expect(updater.check()).rejects.toThrow();
+        await expect(updater.check()).rejects.toThrow("INVALID_MANIFEST");
         expect(fs.readFileSync(join(f.root, "runtime.json"), "utf8")).toBe(saved);
         fs.writeFileSync(updater.cached().path, "tampered");
         expect(updater.cached()).toBeNull();
