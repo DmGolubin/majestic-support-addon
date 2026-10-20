@@ -11,6 +11,7 @@ function harness() {
     const exports: any = {};
     const updates = vi.fn();
     runInNewContext(code, { exports, performance, setTimeout, clearTimeout, require: (id: string) => {
+        if (id === "../core/diagnosticJournal") return { diagnosticJournal: { record() {} } };
         if (id !== "./observable") throw Error(`Unexpected dependency ${id}`);
         return { createObservable: (value: any) => ({ get: () => value, set: (patch: any) => { updates(patch); value = { ...value, ...patch }; } }) };
     } });

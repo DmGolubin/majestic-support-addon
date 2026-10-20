@@ -54,6 +54,8 @@ let stream: AbortController | null = null;
 let streamStartedAt = 0;
 let streamTimer: ReturnType<typeof setTimeout> | undefined;
 let streamFailures = 0;
+let streamHeaderTimeouts = 0;
+let streamPollingFallback = false;
 // At most 15 minutes from the last validated /me + /snapshot pair in this
 // running session. Failed reads, stream events and UI use never renew the lease.
 export const PANEL_STALE_MAX_MS = 15 * 60 * 1000;
@@ -124,7 +126,8 @@ function wipe() {
     library = null; preferences = null; stream = null; timer = streamTimer = undefined;
     validatedAt = null; staleTimer = undefined;
     epoch++; loading = null; fingerprint = ""; permissions = ""; accountId = null; boundAccountId = null; failures = 0; retryAt = 0;
-    streamFailures = 0; syncRevision++; resyncPending = false; resyncQueued = false;
+    streamFailures = streamHeaderTimeouts = 0; streamPollingFallback = false;
+    syncRevision++; resyncPending = false; resyncQueued = false;
     cleanupPanelStep("library timer", () => clearTimeout(previousTimer));
     cleanupPanelStep("stream timer", () => clearTimeout(previousStreamTimer));
     cleanupPanelStep("stale timer", () => clearTimeout(previousStaleTimer));
@@ -213,6 +216,8 @@ function startEvents() {
     void (async () => {
         let tokenExpired = false;
         let retryAfter = 0;
+        let headerTimeout = false;
+        let receivedEvent = false;
         const started = Date.now();
         try {
             await active.streamAuthorized(async (token, sessionSignal) => {
@@ -222,6 +227,10 @@ function startEvents() {
                 try {
                     await readEvents(token, controller.signal, event => {
                         if (own !== epoch || client !== active || controller.signal.aborted) return;
+                        if (streamPollingFallback) journal.record("stream.recovered", { source: "sse", failures: streamHeaderTimeouts });
+                        streamPollingFallback = false;
+                        streamHeaderTimeouts = 0;
+                        receivedEvent = true;
                         journal.record("stream.event", { event: event.type }, event.type === "session.revoked");
                         panel.set({ sync: "live" });
                         if (event.type === "session.revoked") {
@@ -246,12 +255,14 @@ function startEvents() {
                 if (own === epoch && client === active) requestResync(false);
             }
         } catch (error) {
-            journal.record("stream.failure", { code: error instanceof PanelError ? error.code : "unknown", status: error instanceof PanelError ? error.status : 0 }, true);
             if (own !== epoch || client !== active) return;
+            if (controller.signal.aborted && !terminalReadError(error)) return;
+            journal.record("stream.failure", { code: error instanceof PanelError ? error.code : "unknown", status: error instanceof PanelError ? error.status : 0 }, true);
             if (terminalReadError(error)) {
                 terminateSession(active, error); return;
             }
             retryAfter = error instanceof PanelError ? error.retryAfterMs ?? 0 : 0;
+            headerTimeout = error instanceof PanelError && error.code === "timeout" && error.status === 0;
         } finally {
             if (stream === controller) stream = null;
         }
@@ -260,9 +271,20 @@ function startEvents() {
         // polling checks assignment and freshness before playback; a stream
         // outage alone must not erase that binding or mark validated reads stale.
         // A rapid successful handshake followed by EOF still backs off: no reconnect storm.
-        streamFailures = Date.now() - started >= 30000 ? 0 : Math.min(streamFailures + 1, 6);
-        const delay = tokenExpired ? 250 : Math.max(retryAfter, Math.min(60000, 1000 * 2 ** streamFailures) * (0.8 + Math.random() * 0.4));
+        // A server that never flushes headers cannot be repaired by reconnecting
+        // every few seconds. Keep independent reads running and probe less often.
+        // A stable connection with actual events resets rapid-failure backoff.
+        // An initial resync followed by EOF must not trigger a reconnect storm.
+        streamFailures = receivedEvent && Date.now() - started >= 30000 ? 0 : Math.min(streamFailures + 1, 6);
+        if (headerTimeout) streamHeaderTimeouts = Math.min(streamHeaderTimeouts + 1, 4);
+        const timeoutDelay = headerTimeout ? Math.min(300000, 60000 * 2 ** (streamHeaderTimeouts - 1)) : 0;
+        const baseDelay = Math.max(timeoutDelay, Math.min(60000, 1000 * 2 ** streamFailures));
+        const delay = tokenExpired ? 250 : Math.max(retryAfter, baseDelay * (0.8 + Math.random() * 0.4));
         panel.set({ sync: "retrying" });
+        if (headerTimeout && !streamPollingFallback) {
+            streamPollingFallback = true;
+            journal.record("stream.fallback", { source: "polling", reason: "headers_timeout", retryAfterMs: delay });
+        }
         journal.record("stream.retry", { retryAfterMs: delay, failures: streamFailures });
         const due = Date.now() + Math.ceil(delay);
         const reconnect = () => {

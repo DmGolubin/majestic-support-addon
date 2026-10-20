@@ -4,7 +4,7 @@ import path from 'node:path';
 // The console launchers are the only files beside the service directory.
 export function copyInstaller(installerRoot, packageRoot) {
     const launchers = ['install.bat', 'uninstall.bat'];
-    const helpers = ['SupportTemplates.ps1', 'RendererUpdate.ps1', 'PackageUpdate.ps1', 'ConsoleInput.ps1', 'Migration.ps1'];
+    const helpers = ['SupportTemplates.ps1', 'RendererUpdate.ps1', 'PackageUpdate.ps1', 'ConsoleInput.ps1', 'ConsoleView.ps1', 'Migration.ps1'];
     for (const name of [...launchers, ...helpers]) {
         if (!fs.statSync(path.join(installerRoot, name), { throwIfNoEntry: false })?.isFile()) throw new Error(`Missing installer entry: ${name}`);
     }

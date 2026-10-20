@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PanelError } from "../src/core/panelClient";
 import { createPanelEventStream, type PanelEvent } from "../src/core/panelEvents";
 import { PANEL_ORIGIN } from "../src/core/panelProtocol";
+import { diagnosticJournal } from "../src/core/diagnosticJournal";
 
 const secret = "fixture-private-sse-token";
 const encode = (text: string) => new TextEncoder().encode(text);
@@ -33,6 +34,33 @@ async function failure(promise: Promise<unknown>): Promise<PanelError> {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("panel SSE stream", () => {
+    it("distinguishes a header timeout from an intentional shutdown in diagnostics", async () => {
+        vi.useFakeTimers();
+        const log = vi.spyOn(diagnosticJournal, "record");
+        const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(() => new Promise(() => {}));
+        const result = failure(createPanelEventStream(fetch)(secret, freshSignal(), vi.fn()));
+        await vi.advanceTimersByTimeAsync(15000); await result;
+        expect(log).toHaveBeenCalledWith("stream.transport_failure", expect.objectContaining({
+            phase: "headers", reason: "headers_timeout", status: 0, bytesReceived: 0, durationMs: 15000
+        }), true);
+        log.mockClear();
+        const caller = new AbortController();
+        const cancelled = failure(createPanelEventStream(fetch)(secret, caller.signal, vi.fn()));
+        caller.abort(); await cancelled;
+        expect(log.mock.calls.some(([name]) => name === "stream.transport_failure")).toBe(false);
+        expect(log).toHaveBeenCalledWith("stream.cancelled", expect.objectContaining({ reason: "host_aborted" }), false);
+    });
+
+    it("records the handshake and first control event once without logging SSE payloads", async () => {
+        const log = vi.spyOn(diagnosticJournal, "record");
+        const response = sse([encode(frame("resync.required", secret) + frame())]).response;
+        await createPanelEventStream(mockFetch(response))(secret, freshSignal(), vi.fn());
+        expect(log.mock.calls.filter(([name]) => name === "stream.connected")).toHaveLength(1);
+        expect(log.mock.calls.filter(([name]) => name === "stream.first_event")).toHaveLength(1);
+        expect(log).toHaveBeenCalledWith("stream.first_event", expect.objectContaining({ event: "resync.required", status: 200 }));
+        expect(JSON.stringify(log.mock.calls)).not.toContain(secret);
+    });
+
     it("uses one fixed authenticated request with no cookies, cache, redirects or referrer", async () => {
         const fetch = mockFetch(sse([encode(frame("resync.required"))]).response);
         const onEvent = vi.fn();

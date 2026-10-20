@@ -22,6 +22,8 @@ const WORDS = new Set(("idle connecting pending loading ready offline error live
     "empty_snapshot foreign_assignment snapshot_account stale_snapshot snapshot_regressed settings_disabled context_invalid generation_changed snapshot_changed " +
     "receipt_read receipt_write snapshot_read snapshot_validate selection playback guard_valid guard_invalid no_eligible_ticket trace_limited " +
     "global channel preview absent running suspended closed interrupted ended stopped " +
+    "request manual replaced invalidated overflow clear group_reduced navigation_failed " +
+    "headers_timeout polling sse " +
     "user discord_logout account_changed permissions.changed token.expired snapshot.updated session.revoked library.changed resync.required tickets.changed tickets.unavailable " +
     "refresh expired rejected_access restore login logout cancel reload resume pagehide online offline " +
     "visible hidden personal general tickets all fav recent confirm fields bind mj ro off " +
@@ -31,11 +33,12 @@ const NUMBERS = new Set(("requestId status durationMs retryAfterMs count items q
     "width height winW previewW avail tipW selIdx ms total storeLoad mount failures attempt " +
     "elapsedMs templates personal folders favoriteCount recentCount bindCount volume " +
     "resultCount matched inserted requested steps generation expiresIn totalMs windowMs keysMs inlineMs renderMs searchMs debugMs maxMs pluginMs " +
-    "bytesReceived cycle snapshotCount ownCount otherCount eligibleCount receiptCount tracedCount thresholdMs dueInMs ageMs").split(/\s+/));
+    "bytesReceived cycle snapshotCount ownCount otherCount eligibleCount receiptCount tracedCount thresholdMs dueInMs ageMs " +
+    "noticeId previousNoticeId groupCount testCount").split(/\s+/));
 const TIMES = new Set(["serverTime", "checkedAt", "serverNow", "waitingSince", "reminderAt", "staleUntil"]);
 const BOOLS = new Set(("on verbose ready persistent online visible windowOpen management previewOpen " +
     "peek success hasEditor hadWindow hadDialog serverChanged cancelled debug debugVerbose " +
-    "soundEnabled enabled dirty busy active restored authenticated ok noGreeting already ownAssignee accountMatches fresh due eligible currentGuard played stale").split(/\s+/));
+    "soundEnabled enabled dirty busy active restored authenticated ok noGreeting already ownAssignee accountMatches fresh due eligible currentGuard played stale test").split(/\s+/));
 const STRINGS = new Set(["phase", "previous", "sync", "method", "code", "reason", "outcome", "source", "view", "mode", "dialog", "event", "where", "via", "project", "state", "configSource", "audioState"]);
 // Opaque correlation only, not an authentication or cryptographic identifier.
 // Never retain arbitrary identifier text; native re-sanitization is idempotent.

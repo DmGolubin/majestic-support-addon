@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { copyInstaller } from "../standalone/package-installer.mjs";
 
 const launchers = ["install.bat", "uninstall.bat"];
-const helpers = ["SupportTemplates.ps1", "RendererUpdate.ps1", "PackageUpdate.ps1", "ConsoleInput.ps1", "Migration.ps1"];
+const helpers = ["SupportTemplates.ps1", "RendererUpdate.ps1", "PackageUpdate.ps1", "ConsoleInput.ps1", "ConsoleView.ps1", "Migration.ps1"];
 function withFixture(run: (source: string, archive: string, output: string) => void) {
     const root = mkdtempSync(join(tmpdir(), "stx-console-package-"));
     const source = join(root, "inputs"), archive = join(root, "archive"), output = join(archive, "SupportTemplates");
@@ -73,6 +73,13 @@ describe("SupportTemplates console package", () => {
             for (const file of helpers) {
                 expect(readFileSync(join(output, file))).toEqual(readFileSync(join(production, file)));
             }
+        });
+    });
+    it("requires the rendering helper before writing the external launcher", () => {
+        withFixture((source, archive, output) => {
+            rmSync(join(source, "ConsoleView.ps1"));
+            expect(() => copyInstaller(source, output)).toThrow("Missing installer entry: ConsoleView.ps1");
+            expect(readdirSync(archive)).toEqual(["SupportTemplates"]);
         });
     });
 });

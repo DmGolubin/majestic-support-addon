@@ -28,7 +28,7 @@ const load = (code: string, deps: Record<string, unknown>, globals: object = {})
 };
 function notices() {
     vi.useFakeTimers();
-    const store = load(storeCode, { "./observable": { createObservable: (initial: any) => {
+    const store = load(storeCode, { "../core/diagnosticJournal": { diagnosticJournal: { record() {} } }, "./observable": { createObservable: (initial: any) => {
         let value = initial;
         return { get: () => value, use: () => value, set: (patch: any) => { value = { ...value, ...patch }; } };
     } } }, { performance: { now: () => Date.now() }, setTimeout, clearTimeout });

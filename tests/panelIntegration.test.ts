@@ -890,6 +890,56 @@ describe("real panel controller with isolated transport/UI boundaries", () => {
         expect(h.streams).toHaveLength(2);
     });
 
+    it("backs off repeated header timeouts while snapshots and reminder polling stay active", async () => {
+        vi.spyOn(Math, "random").mockReturnValue(0.5);
+        const log = vi.spyOn(diagnosticJournal, "record");
+        const h = harness(); await h.api.connectPanel();
+        h.reminders.stopTicketReminders.mockClear();
+        for (const [index, delay] of [60000, 120000, 240000, 300000, 300000].entries()) {
+            await vi.advanceTimersByTimeAsync(15000);
+            h.streams[index].fail(new PanelError("timeout"));
+            await vi.advanceTimersByTimeAsync(delay - 1);
+            expect(h.streams).toHaveLength(index + 1);
+            expect(h.api.panel.get().phase).toBe("ready");
+            expect(h.access.get().ready).toBe(true);
+            await vi.advanceTimersByTimeAsync(1);
+            expect(h.streams).toHaveLength(index + 2);
+        }
+        expect(h.clients[0].get.mock.calls.length).toBeGreaterThan(10);
+        expect(h.reminders.syncTicketReminders).toHaveBeenCalled();
+        expect(h.reminders.stopTicketReminders).not.toHaveBeenCalled();
+        expect(log.mock.calls.filter(([name]) => name === "stream.fallback")).toHaveLength(1);
+        h.api.disposePanel();
+    });
+
+    it("logs SSE recovery on a real event and resets the timeout cooldown", async () => {
+        vi.spyOn(Math, "random").mockReturnValue(0.5);
+        const log = vi.spyOn(diagnosticJournal, "record");
+        const h = harness(); await h.api.connectPanel();
+        h.streams[0].fail(new PanelError("timeout")); await vi.advanceTimersByTimeAsync(60000);
+        h.streams[1].emit({ type: "resync.required", data: {} }); await vi.advanceTimersByTimeAsync(0);
+        expect(log).toHaveBeenCalledWith("stream.recovered", expect.objectContaining({ source: "sse" }));
+        expect(h.api.panel.get().sync).toBe("live");
+        h.streams[1].end(); await vi.advanceTimersByTimeAsync(4000);
+        expect(h.streams).toHaveLength(3);
+        h.streams[2].fail(new PanelError("timeout")); await vi.advanceTimersByTimeAsync(59999);
+        expect(h.streams).toHaveLength(3);
+        await vi.advanceTimersByTimeAsync(1); expect(h.streams).toHaveLength(4);
+        h.api.disposePanel();
+    });
+
+    it("still backs off a server that sends its initial event and immediately closes", async () => {
+        vi.spyOn(Math, "random").mockReturnValue(0.5);
+        const h = harness(); await h.api.connectPanel();
+        for (const [index, delay] of [2000, 4000, 8000].entries()) {
+            h.streams[index].emit({ type: "resync.required", data: {} }); h.streams[index].end();
+            await vi.advanceTimersByTimeAsync(delay - 1);
+            expect(h.streams).toHaveLength(index + 1);
+            await vi.advanceTimersByTimeAsync(1); expect(h.streams).toHaveLength(index + 2);
+        }
+        h.api.disposePanel();
+    });
+
     it("checks stale state on focus and removes resume listeners at stop", async () => {
         const h = harness(); const off = h.api.startPanel(); await vi.advanceTimersByTimeAsync(0); await h.api.connectPanel();
         const active = h.clients.at(-1)!; const calls = active.get.mock.calls.length;

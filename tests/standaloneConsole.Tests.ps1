@@ -11,7 +11,7 @@ $utf8 = New-Object Text.UTF8Encoding($false)
 $passed = 0
 function Assert($value, [string]$message) { if (-not $value) { throw $message } }
 function Put([string]$path, [string]$text) { [IO.File]::WriteAllText($path, $text, $utf8) }
-function Run([string]$bat, [string]$keys = '', [string]$arguments = '', [int]$nativeExit = 0, [int]$updateExit = 0, [string]$clients = 'Stable,Canary', [int]$installExit = 0, [int]$detectExit = 0, [string]$launcherRoot = $package, [switch]$directHelper, [string]$inspectionKind = 'none', [int]$inspectExit = 0) {
+function Run([string]$bat, [string]$keys = '', [string]$arguments = '', [int]$nativeExit = 0, [int]$updateExit = 0, [string]$clients = 'Stable,Canary', [int]$installExit = 0, [int]$detectExit = 0, [string]$launcherRoot = $package, [switch]$directHelper, [string]$inspectionKind = 'none', [int]$inspectExit = 0, [switch]$waitForClosePrompt) {
     $trace = Join-Path $root ('trace-' + [guid]::NewGuid().ToString('N') + '.jsonl')
     $info = New-Object Diagnostics.ProcessStartInfo
     $info.FileName = $env:ComSpec
@@ -29,6 +29,7 @@ function Run([string]$bat, [string]$keys = '', [string]$arguments = '', [int]$na
     $info.StandardOutputEncoding = $utf8
     $info.StandardErrorEncoding = $utf8
     $info.EnvironmentVariables['SUPPORT_TEMPLATES_NO_PAUSE'] = '1'
+    if ($waitForClosePrompt) { $info.EnvironmentVariables['SUPPORT_TEMPLATES_NO_PAUSE'] = '0' }
     $info.EnvironmentVariables['SUPPORT_TEMPLATES_NO_ANIMATION'] = '1'
     $info.EnvironmentVariables['ST_TEST_CLIENTS'] = $clients
     $info.EnvironmentVariables['ST_TEST_INSPECTION'] = $inspectionKind
@@ -40,12 +41,32 @@ function Run([string]$bat, [string]$keys = '', [string]$arguments = '', [int]$na
     $info.EnvironmentVariables['ST_TEST_UPDATE_EXIT'] = [string]$updateExit
     $timer = [Diagnostics.Stopwatch]::StartNew()
     $process = [Diagnostics.Process]::Start($info)
-    $stdout = $process.StandardOutput.ReadToEndAsync()
     $stderr = $process.StandardError.ReadToEndAsync()
+    $prefix = ''
     $process.StandardInput.Write($keys)
+    if ($waitForClosePrompt) {
+        try {
+            $found = $false
+            for ($lineNumber = 0; $lineNumber -lt 100; $lineNumber++) {
+                $read = $process.StandardOutput.ReadLineAsync()
+                if (-not $read.Wait(10000)) { throw 'Timed out waiting for close prompt' }
+                $line = $read.Result
+                if ($null -eq $line) { break }
+                $prefix += $line + "`n"
+                if ($line -eq '[0] Закрыть') { $found = $true; break }
+            }
+            Assert $found ('Close prompt missing: ' + $prefix)
+            Assert (-not $process.WaitForExit(150)) 'Error screen closed before the user chose 0'
+            $process.StandardInput.Write('xyz0')
+        } catch {
+            if (-not $process.HasExited) { $process.Kill() }
+            throw
+        }
+    }
+    $stdout = $process.StandardOutput.ReadToEndAsync()
     $process.StandardInput.Close()
     if (-not $process.WaitForExit(60000)) { $process.Kill(); throw "Timed out: $bat / $keys" }
-    $result = [pscustomobject]@{ code = $process.ExitCode; output = $stdout.Result + $stderr.Result; calls = @(); durationMs = $timer.Elapsed.TotalMilliseconds }
+    $result = [pscustomobject]@{ code = $process.ExitCode; output = $prefix + $stdout.Result + $stderr.Result; calls = @(); durationMs = $timer.Elapsed.TotalMilliseconds }
     $process.Dispose()
     if (Test-Path -LiteralPath $trace) { $result.calls = @(Get-Content -LiteralPath $trace | ForEach-Object { $_ | ConvertFrom-Json }) }
     return $result
@@ -58,6 +79,7 @@ function Check([string]$name, [scriptblock]$body) {
 Copy-Item -LiteralPath (Join-Path $source 'install.bat') -Destination $package
 Copy-Item -LiteralPath (Join-Path $source 'uninstall.bat') -Destination $package
 Copy-Item -LiteralPath (Join-Path $source 'ConsoleInput.ps1') -Destination $payload
+Copy-Item -LiteralPath (Join-Path $source 'ConsoleView.ps1') -Destination $payload
 Put (Join-Path $payload 'manifest.json') '{"version":"1.0.3"}'
 Put (Join-Path $payload 'SupportTemplates.ps1') @'
 param([string]$Action,[string]$Channel,[switch]$Utf8Output,[switch]$WhatIf,[string]$FixturePath)
@@ -89,7 +111,7 @@ function Invoke-PackageUpdate([string]$Operation,[string]$TargetChannel,[string]
     }
     if ($Operation -eq 'Install') { $failureCode = [int]$env:ST_TEST_INSTALL_EXIT }
     if ($failureCode) { throw "Configured fixture failure: $failureCode" }
-    if ($Operation -eq 'Install') { return }
+    if ($Operation -eq 'Install') { return @('SupportTemplates установлен.', 'Перезапустите Discord.') }
     return (@{schema=1;action=$Operation;selectedVersion='1.0.3';latestVersion='1.0.3';updateAvailable=$false} | ConvertTo-Json -Compress)
 }
 function Write-PackageConsoleResult($Status) {
@@ -213,6 +235,30 @@ Check 'malformed Detect JSON fails closed' {
     $r = Run 'install.bat' '11' '' 0 0 'MALFORMED'
     Assert ($r.code -ne 0 -and ($r.calls.action -join ',') -eq 'Update,Detect') $r.output
 }
+Check 'Detect failure remains readable until explicit close, without installing' {
+    $r = Run 'install.bat' '1' -detectExit 4 -waitForClosePrompt
+    Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect' -and $r.output.Contains('Установка не начата.') -and $r.output.Contains('[0] Закрыть')) $r.output
+    Assert (-not $r.output.Contains('xyz') -and -not $r.output.Contains([string][char]7)) 'Close input echoed or rang'
+}
+Check 'malformed Detect remains readable until explicit close' {
+    $r = Run 'install.bat' '1' -clients MALFORMED -waitForClosePrompt
+    Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect' -and $r.output.Contains('[0] Закрыть')) $r.output
+}
+Check 'Install failure remains readable until explicit close' {
+    $r = Run 'install.bat' '11' -installExit 9 -waitForClosePrompt
+    Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect,Install' -and $r.output.Contains('Fixture operation unavailable.') -and -not $r.output.Contains('Установка завершена')) $r.output
+}
+Check 'completed operation returns every ordinary output line without control sequences or fake progress' {
+    $r = Run 'install.bat' '11'
+    Assert ($r.code -eq 0 -and $r.output.Contains('SupportTemplates установлен.') -and $r.output.Contains('Перезапустите Discord.')) $r.output
+    Assert (-not $r.output.Contains([string][char]27) -and $r.output -notmatch '\d+%|\[F2\]|\[F3\]|Сценарии|Выбор логотипа') 'Nonproduction output'
+}
+Check 'unknown and duplicate detected clients fail closed' {
+    foreach ($clients in @('Unknown','Canary,Canary')) {
+        $r = Run 'install.bat' '1' -clients $clients
+        Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect') $r.output
+    }
+}
 Check 'closed home input: bounded nonzero failure' {
     $r = Run 'install.bat'
     Assert ($r.code -eq 1 -and $r.calls.Count -eq 1 -and $r.output.Contains('Не удалось прочитать выбор')) $r.output
@@ -244,6 +290,14 @@ Check 'uninstall: no clients only back exits' {
 Check 'uninstall: closed input fails without mutations' {
     $r = Run 'uninstall.bat'
     Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Detect') $r.output
+}
+Check 'missing rendering helper: actionable and nonzero' {
+    $viewPath = Join-Path $payload 'ConsoleView.ps1'
+    Move-Item -LiteralPath $viewPath -Destination (Join-Path $payload 'view.saved')
+    try {
+        $r = Run 'install.bat' '0'
+        Assert ($r.code -eq 2 -and $r.calls.Count -eq 0 -and $r.output.Contains('Распакуйте архив целиком')) $r.output
+    } finally { Move-Item -LiteralPath (Join-Path $payload 'view.saved') -Destination $viewPath }
 }
 Check 'missing payload: actionable and nonzero' {
     Move-Item -LiteralPath (Join-Path $payload 'SupportTemplates.ps1') -Destination (Join-Path $payload 'backend.saved')

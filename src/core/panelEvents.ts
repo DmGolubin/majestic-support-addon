@@ -123,7 +123,7 @@ export function createPanelEventStream(fetchImpl = globalThis.fetch, trustedOrig
         const cancelled = new Promise<never>((_, reject) => { rejectCancellation = reject; });
         const abort = (code: string) => {
             if (cancellation || terminal) return;
-            cancellation = new PanelError(code);
+            cancellation = new PanelError(code, status);
             rejectCancellation(cancellation);
             controller.abort();
             void reader?.cancel().catch(() => {});
@@ -164,8 +164,14 @@ export function createPanelEventStream(fetchImpl = globalThis.fetch, trustedOrig
                 throw new PanelError("invalid_response", status);
             }
             clearTimeout(timer);
+            journal.record("stream.connected", { route: "/sync/events", status, durationMs: Date.now() - started });
+            let firstEvent = true;
             const parser = eventParser(event => {
                 if (cancellation) throw cancellation;
+                if (firstEvent) {
+                    firstEvent = false;
+                    journal.record("stream.first_event", { route: "/sync/events", status, event: event.type, bytesReceived, durationMs: Date.now() - started });
+                }
                 terminal = event.type === "token.expired" || event.type === "session.revoked";
                 try { onEvent(event); }
                 catch { throw new PanelError("callback_failed", status); }
@@ -194,10 +200,11 @@ export function createPanelEventStream(fetchImpl = globalThis.fetch, trustedOrig
 
         try { await Promise.race([request(), cancelled]); }
         catch (error) {
-            journal.record("stream.transport_failure", { route: "/sync/events", status, phase, bytesReceived,
+            const expectedAbort = cancellation?.code === "aborted";
+            journal.record(expectedAbort ? "stream.cancelled" : "stream.transport_failure", { route: "/sync/events", status, phase, bytesReceived,
                 durationMs: Date.now() - started,
                 code: cancellation?.code ?? (error instanceof PanelError ? error.code : "invalid_response"),
-                reason: cancellation?.code === "timeout" ? "host_timeout" : cancellation ? "host_aborted" : reason }, true);
+                reason: cancellation?.code === "timeout" ? phase === "headers" ? "headers_timeout" : "host_timeout" : cancellation ? "host_aborted" : reason }, !expectedAbort);
             if (cancellation) throw cancellation;
             if (error instanceof PanelError) throw error;
             throw new PanelError("invalid_response", status);
