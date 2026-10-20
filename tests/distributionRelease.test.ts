@@ -4,9 +4,26 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { runInNewContext } from 'node:vm';
+import { createRequire } from 'node:module';
 
 const fixtures: string[] = [];
 const hash = (bytes: Buffer | string) => createHash('sha256').update(bytes).digest('hex');
+// Execute the real orchestration code with subprocesses intercepted. No builder or gh runs.
+function runScript(file: string, root: string, config: object, execFileSync: (...args: any[]) => string, args: string[] = []) {
+    const source = fs.readFileSync(path.resolve('distribution', file), 'utf8')
+        .replace(/^import .+ from .+;\r?\n/gm, '')
+        .replaceAll('import.meta.url', JSON.stringify(pathToFileURL(path.join(root, 'distribution', file)).href));
+    return runInNewContext(source, {
+        fs, path, os: { ...os, tmpdir: () => root }, fileURLToPath, createHash, execFileSync,
+        readConfig: () => config,
+        validation: createRequire(import.meta.url)('../distribution/updater/validation.cjs'),
+        process: { execPath: process.execPath, argv: ['node', file, ...args], env: {},
+            stdout: { write() {} }, exit: () => { throw new Error('Unexpected process exit'); } },
+        console: { log() {} }
+    }, { filename: file, timeout: 10000 });
+}
 function fixture() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stx-release-check-')); fixtures.push(root);
     const dir = path.join(root, 'distribution'); fs.mkdirSync(path.join(dir, 'updater'), { recursive: true });
@@ -14,19 +31,24 @@ function fixture() {
     const config = { schema: 1, version: '0.1.0-canary.14', channel: 'canary', releaseRepository: 'skyjacc/support-templates', manifestAsset: 'support-templates-update.json', checkIntervalHours: 6 };
     fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(config));
     const output = path.join(root, 'artifacts/distribution', config.version); fs.mkdirSync(output, { recursive: true });
-    const assets = ['standalone', 'vencord', 'betterdiscord'].map(variant => {
-        const name = variant === 'betterdiscord' ? 'SupportTemplates.plugin.js' : `${variant}.zip`;
+    const assets = ['standalone', 'betterdiscord'].map(variant => {
+        const name = variant === 'betterdiscord' ? 'SupportTemplates.plugin.js' : `SupportTemplates-standalone-${config.version}.zip`;
         const bytes = Buffer.from(`fixture-${variant}`); fs.writeFileSync(path.join(output, name), bytes);
         return { variant, name, size: bytes.length, sha256: hash(bytes), platform: 'win32', kind: variant === 'betterdiscord' ? 'renderer' : 'native' };
     });
     const manifest = { schema: 1, product: 'SupportTemplates', repository: config.releaseRepository, version: config.version, channel: config.channel, assets };
-    const saveManifest = () => fs.writeFileSync(path.join(output, config.manifestAsset), JSON.stringify(manifest));
+    const evidence = { schema: 1, commit: 'a'.repeat(40), version: config.version, assets };
+    const saveManifest = () => {
+        fs.writeFileSync(path.join(output, config.manifestAsset), JSON.stringify(manifest));
+        fs.writeFileSync(path.join(output, 'build-evidence.json'), JSON.stringify({ ...evidence, assets: manifest.assets }));
+    };
     saveManifest();
     fs.writeFileSync(path.join(output, 'SupportTemplates-source.zip'), 'source-fixture');
+    fs.writeFileSync(path.join(output, 'INSTALL-RU.md'), 'Public employee instructions');
     const checksums = () => fs.writeFileSync(path.join(output, 'SHA256SUMS.txt'), fs.readdirSync(output).filter(name => name !== 'SHA256SUMS.txt').map(name => `${hash(fs.readFileSync(path.join(output, name)))}  ${name}`).join('\n') + '\n');
     checksums();
     const check = () => spawnSync(process.execPath, [path.join(dir, 'publish-release.mjs'), '--check'], { encoding: 'utf8', timeout: 10000 });
-    return { output, manifest, saveManifest, checksums, check };
+    return { root, config, output, manifest, evidence, saveManifest, checksums, check };
 }
 afterEach(() => {
     for (const root of fixtures.splice(0)) {
@@ -35,7 +57,7 @@ afterEach(() => {
     }
 });
 describe('release verification without publishing', () => {
-    it('validates all three assets offline without GitHub authentication', () => {
+    it('validates exactly Lite and BetterDiscord offline without GitHub authentication', () => {
         const result = fixture().check(); expect(result.status, result.stderr).toBe(0); expect(result.stdout).toContain('no publication performed');
     });
     it('refuses damaged plugin bytes even if the size is unchanged', () => {
@@ -51,10 +73,142 @@ describe('release verification without publishing', () => {
         const f = fixture(); f.manifest.repository = 'elsewhere/repo'; f.saveManifest(); f.checksums();
         expect(f.check().stderr).toContain('differs');
         f.manifest.repository = 'skyjacc/support-templates'; f.manifest.assets.pop(); f.saveManifest(); f.checksums();
-        expect(f.check().stderr).toContain('Missing variant betterdiscord');
+        expect(f.check().stderr).toContain('exactly standalone + betterdiscord');
     });
     it('also verifies the corresponding source archive', () => {
         const f = fixture(); fs.writeFileSync(path.join(f.output, 'SupportTemplates-source.zip'), 'damaged');
         expect(f.check().stderr).toContain('Damaged release file');
+    });
+    it('accepts the optional BetterDiscord archive when checksummed', () => {
+        const f = fixture();
+        fs.writeFileSync(path.join(f.output, `SupportTemplates-betterdiscord-${f.config.version}.zip`), 'bd-source-package');
+        f.checksums();
+        expect(f.check().status).toBe(0);
+    });
+    it.each(['standalone', 'betterdiscord'])('rejects a missing %s variant', variant => {
+        const f = fixture(); f.manifest.assets = f.manifest.assets.filter(asset => asset.variant !== variant);
+        f.saveManifest(); f.checksums();
+        expect(f.check().stderr).toContain('exactly standalone + betterdiscord');
+    });
+    it.each(['vencord', 'standalone', 'betterdiscord', 'unknown'])('rejects extra or duplicate variant %s', variant => {
+        const f = fixture(); f.manifest.assets.push({ ...f.manifest.assets[0], variant });
+        f.saveManifest(); f.checksums();
+        expect(f.check().stderr).toContain('exactly standalone + betterdiscord');
+    });
+    it.each(['vencord', 'standalone', 'unknown'])('rejects replacing BetterDiscord with %s in a two-entry manifest', variant => {
+        const f = fixture(); f.manifest.assets[1].variant = variant;
+        f.saveManifest(); f.checksums();
+        expect(f.check().stderr).toContain('exactly standalone + betterdiscord');
+    });
+    it.each([null, {}, []])('rejects malformed assets %j', assets => {
+        const f = fixture(); Object.assign(f.manifest, { assets });
+        f.saveManifest(); f.checksums();
+        expect(f.check().stderr).toContain('exactly standalone + betterdiscord');
+    });
+    it.each([
+        'SupportTemplates-vencord-0.1.0-canary.14.zip',
+        'SupportTemplates-vencord-0.1.0-canary.99.zip',
+        'private-build.zip',
+        'accidental-private-note.txt'
+    ])('rejects checksummed extra file %s', name => {
+        const f = fixture(); fs.writeFileSync(path.join(f.output, name), 'private'); f.checksums();
+        expect(f.check().stderr).toContain('Unverified file');
+    });
+    it.each([0, 1])('preserves the public filename contract for asset %s', index => {
+        const f = fixture(); f.manifest.assets[index].name = 'SupportTemplates-vencord.zip';
+        f.saveManifest(); f.checksums();
+        expect(f.check().stderr).toContain('Unexpected public asset contract');
+    });
+    it('rejects a native BetterDiscord asset', () => {
+        const f = fixture(); f.manifest.assets[1].kind = 'native'; f.saveManifest(); f.checksums();
+        expect(f.check().stderr).toContain('Unexpected public asset contract');
+    });
+    it.each(['SupportTemplates-source.zip', 'INSTALL-RU.md', 'build-evidence.json'])('requires %s', name => {
+        const f = fixture(); fs.unlinkSync(path.join(f.output, name)); f.checksums();
+        expect(f.check().stderr).toContain('Missing required public release file');
+    });
+    it('rejects stale evidence even with updated checksums', () => {
+        const f = fixture();
+        fs.writeFileSync(path.join(f.output, 'build-evidence.json'), JSON.stringify({
+            ...f.evidence, assets: [...f.manifest.assets, { ...f.manifest.assets[0], variant: 'vencord' }]
+        }));
+        f.checksums();
+        expect(f.check().stderr).toContain('Build evidence differs');
+    });
+    it('requires checksum coverage of every public file', () => {
+        const f = fixture(); const sums = path.join(f.output, 'SHA256SUMS.txt');
+        fs.writeFileSync(sums, fs.readFileSync(sums, 'utf8').split('\n').filter(line => !line.endsWith('INSTALL-RU.md')).join('\n'));
+        expect(f.check().stderr).toContain('Unverified file');
+    });
+    it.each([{ args: [] }, { args: ['--publish'] }])('uses the same public-only gate in publication mode $args', ({ args }) => {
+        const f = fixture(); const calls: string[] = [];
+        fs.writeFileSync(path.join(f.output, `SupportTemplates-vencord-${f.config.version}.zip`), 'private');
+        f.checksums();
+        expect(() => runScript('publish-release.mjs', f.root, f.config, command => { calls.push(command); return ''; }, args))
+            .toThrow('Unverified file');
+        expect(calls).toEqual([]);
+    });
+    it.each([{ args: [] }, { args: ['--publish'] }])('prepares only the two public variants for gh in mode $args', ({ args }) => {
+        const f = fixture(); const calls: { command: string; args: string[] }[] = [];
+        runScript('publish-release.mjs', f.root, f.config, (command, argv) => {
+            calls.push({ command, args: argv }); return JSON.stringify({ visibility: 'PUBLIC' });
+        }, args);
+        expect(calls.map(call => call.command)).toEqual(['gh', 'gh']);
+        const release = calls[1].args;
+        expect(release.slice(0, 2)).toEqual(['release', 'create']);
+        expect(release.includes('--draft')).toBe(!args.includes('--publish'));
+        expect(release).toContain(path.join(f.output, f.manifest.assets[0].name));
+        expect(release).toContain(path.join(f.output, 'SupportTemplates.plugin.js'));
+        expect(release.some(arg => arg.includes('vencord'))).toBe(false);
+    });
+});
+
+describe('public release orchestration without running builds', () => {
+    it('calls Lite then BetterDiscord, writes two matching assets, and passes offline release verification', () => {
+        const f = fixture();
+        const config = { ...f.config, version: '0.1.0-canary.15' };
+        // Use an explicit fake upstream under the fixture rather than an installed checkout.
+        const dependency = path.join(f.root, 'dependency');
+        fs.mkdirSync(dependency);
+        fs.writeFileSync(path.join(dependency, 'support-templates-dependency-evidence.json'), JSON.stringify({ checkout: 'private', commit: 'b'.repeat(40) }));
+        fs.writeFileSync(path.join(f.root, 'distribution/INSTALL-RU.md'), 'Public notes');
+        const calls: string[] = [];
+        const script = fs.readFileSync(path.resolve('distribution/build-release.mjs'), 'utf8');
+        // All filesystem output and the fake upstream stay under the fixture.
+        const source = script.replace(/^import .+ from .+;\r?\n/gm, '')
+            .replaceAll('import.meta.url', JSON.stringify(pathToFileURL(path.join(f.root, 'distribution/build-release.mjs')).href));
+        runInNewContext(source, {
+            fs, path, os: { ...os, tmpdir: () => f.root }, fileURLToPath, createHash,
+            readConfig: () => config,
+            process: { execPath: process.execPath, env: { VENCORD_DIR: dependency }, stdout: { write() {} } },
+            console: { log() {} },
+            execFileSync(command: string, args: string[]) {
+                if (command === 'git') {
+                    if (args[0] === 'rev-parse') return 'a'.repeat(40);
+                    if (args[0] === 'status') return '';
+                    if (args[0] === 'archive') {
+                        fs.writeFileSync(args.find(arg => arg.startsWith('--output='))!.slice(9), 'source-fixture');
+                        return '';
+                    }
+                }
+                if (command === process.execPath && ['standalone/build.mjs', 'betterdiscord/build.mjs'].includes(args[0])) {
+                    calls.push(args[0]);
+                    if (args[0] === 'standalone/build.mjs') return JSON.stringify({ package: f.output, zip: path.join(f.output, f.manifest.assets[0].name) });
+                    expect(args[1]).toBe('--out');
+                    expect(args[2]).toContain('betterdiscord');
+                    return JSON.stringify({ package: f.output, plugin: path.join(f.output, 'SupportTemplates.plugin.js') });
+                }
+                throw new Error(`Unexpected subprocess: ${command} ${args.join(' ')}`);
+            }
+        }, { timeout: 10000 });
+        expect(calls).toEqual(['standalone/build.mjs', 'betterdiscord/build.mjs']);
+        const output = path.join(f.root, 'artifacts/distribution', config.version);
+        const manifest = JSON.parse(fs.readFileSync(path.join(output, config.manifestAsset), 'utf8'));
+        expect(manifest.assets.map((asset: any) => asset.variant)).toEqual(['standalone', 'betterdiscord']);
+        expect(fs.readdirSync(output).some(name => name.includes('vencord'))).toBe(false);
+        expect(fs.readFileSync(path.join(output, 'build-evidence.json'), 'utf8')).not.toContain('private');
+        fs.writeFileSync(path.join(f.root, 'distribution/config.json'), JSON.stringify(config));
+        const result = f.check();
+        expect(result.status, result.stderr).toBe(0);
     });
 });

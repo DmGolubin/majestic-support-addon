@@ -16,7 +16,7 @@ function fixture() {
         "./shims/errorBoundary": ({ children }: any) => children,
         "./chatMounts": {}, "./native/vaultHost": {}, "./native/updateHost": {},
         "./shims/buildInfo": { PLUGIN_VERSION: "1.0.1-canary.22", PLUGIN_DISTRIBUTION: "betterdiscord" },
-        "../src/vencord/buildDisplay": { distributionDisplay: (_distribution: string, version: string) => `BetterDiscord ${version}` },
+        "../src/vencord/buildDisplay": { distributionDisplay: (_distribution: string, version: string) => `SupportTemplates ${version}` },
         "stx:css": ""
     });
     function render(node: any): any[] {
@@ -39,8 +39,8 @@ describe("Q18 BetterDiscord delegated service settings", () => {
         expect(nodes.filter(node => node?.type === "header")).toHaveLength(1);
         expect(nodes.filter(node => node?.props?.["data-service"])).toHaveLength(1);
         expect(nodes.filter(node => node?.type === "input")).toHaveLength(1);
-        expect(nodes).toContain("SupportTemplates · ");
-        expect(nodes).toContain("BetterDiscord 1.0.1-canary.99");
+        expect(nodes).not.toContain("SupportTemplates · ");
+        expect(nodes.filter(node => node === "SupportTemplates 1.0.1-canary.99")).toHaveLength(1);
     });
 
     it("retains the service header when the bundled runtime runs directly", () => {

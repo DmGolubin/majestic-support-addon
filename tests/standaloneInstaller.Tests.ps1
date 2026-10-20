@@ -55,11 +55,13 @@ function Fixture {
     Manifest $f
     return $f
 }
-function Run($f, [string]$action, [string[]]$more = @(), [bool]$success = $true) {
+function Run($f, [string]$action, [string[]]$more = @(), [bool]$success = $true, [switch]$Interactive, [string[]]$Answers = @()) {
     $savedPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $output = & $powershell -NoProfile -ExecutionPolicy Bypass -File "$($f.Package)/SupportTemplates.ps1" -Action $action -TestRoot $f.Root -LocalAppDataRoot $f.Local @more 2>&1
+        $channelArgs = @()
+        if (-not $Interactive -and '-Channel' -notin $more) { $channelArgs = @('-Channel', 'Canary') }
+        $output = $Answers | & $powershell -NoProfile -ExecutionPolicy Bypass -File "$($f.Package)/SupportTemplates.ps1" -Action $action -TestRoot $f.Root -LocalAppDataRoot $f.Local @channelArgs @more 2>&1
         $code = $LASTEXITCODE
     }
     finally { $ErrorActionPreference = $savedPreference }
@@ -124,6 +126,111 @@ function Assert-RendererRecord($f, [string]$version, [string]$previousHash) {
 }
 
 try {
+    Test 'picker: one client still requires selection; cancel writes nothing' {
+        $f = Fixture; $before = Tree-State $f.Root
+        $output = Run $f Install -Interactive -Answers @('0')
+        Assert ($output -match 'Discord Canary' -and $output -match 'Cancelled') 'single client picker/cancel missing'
+        Assert ((Tree-State $f.Root) -ceq $before) 'cancel changed files'
+    }
+    Test 'picker: ordinary Discord alone can be selected' {
+        $f = Fixture
+        $from = [IO.Path]::GetFullPath("$($f.Local)/DiscordCanary")
+        $to = [IO.Path]::GetFullPath("$($f.Local)/Discord")
+        $boundary = [IO.Path]::GetFullPath($f.Root).TrimEnd('\') + '\'
+        Assert ($from.StartsWith($boundary) -and $to.StartsWith($boundary)) 'Client move must stay in the fixture'
+        Move-Item -LiteralPath "$($f.Local)/DiscordCanary" -Destination "$($f.Local)/Discord"
+        Rename-Item -LiteralPath "$($f.Local)/Discord/app-1.0.9/DiscordCanary.exe" -NewName 'Discord.exe'
+        $output = Run $f Install -Interactive -Answers @('1')
+        Assert ($output -match 'Selected: Discord \(Stable\)') 'stable selection not shown'
+        Assert (Test-Path -LiteralPath "$($f.Local)/Discord/app-1.0.9/resources/support-templates.json") 'stable not installed'
+        Assert (-not (Test-Path -LiteralPath "$($f.Local)/SupportTemplates/channels/canary")) 'canary cache created'
+    }
+    Test 'picker: both clients, invalid choice then Stable, Canary untouched' {
+        $f = Fixture
+        $stable = "$($f.Local)/Discord/app-1.0.8/resources"
+        [IO.Directory]::CreateDirectory($stable) | Out-Null
+        Put "$($f.Local)/Discord/app-1.0.8/Discord.exe" 'fixture, never executed'
+        New-Asar "$stable/app.asar"
+        $canaryBefore = Tree-State "$($f.Local)/DiscordCanary"
+        $output = Run $f Install -Interactive -Answers @('bad', '99', '1')
+        Assert ($output -match 'Discord \(Stable\)' -and $output -match 'Discord Canary' -and $output -match 'Invalid selection') 'two-client menu missing'
+        Assert (Test-Path -LiteralPath "$stable/support-templates.json") 'stable not installed'
+        Assert ((Tree-State "$($f.Local)/DiscordCanary") -ceq $canaryBefore) 'unselected client changed'
+        $output = Run $f Uninstall -Interactive -Answers @('1')
+        Assert (-not (Test-Path -LiteralPath "$stable/support-templates.json")) 'picker uninstall targeted wrong client'
+    }
+    Test 'picker: empty input cancels and explicit Channel bypasses menu' {
+        $f = Fixture; $before = Tree-State $f.Root
+        $output = Run $f Install -Interactive -Answers @('')
+        Assert ($output -match 'Cancelled' -and (Tree-State $f.Root) -ceq $before) 'empty choice must cancel without writes'
+        $output = Run $f Install
+        Assert ($output -notmatch 'Select Discord') 'explicit channel prompted'
+        Assert (Test-Path -LiteralPath "$($f.Resources)/support-templates.json") 'explicit install failed'
+    }
+    Test 'picker: both clients, Canary selection leaves Stable untouched' {
+        $f = Fixture
+        $stable = "$($f.Local)/Discord/app-1.0.8/resources"
+        [IO.Directory]::CreateDirectory($stable) | Out-Null
+        Put "$($f.Local)/Discord/app-1.0.8/Discord.exe" 'fixture, never executed'
+        New-Asar "$stable/app.asar"
+        $before = Tree-State "$($f.Local)/Discord"
+        $output = Run $f Install -Interactive -Answers @('2')
+        Assert ($output -match 'Selected: Discord Canary') 'second selection did not select Canary'
+        Assert (Test-Path -LiteralPath "$($f.Resources)/support-templates.json") 'Canary not installed'
+        Assert ((Tree-State "$($f.Local)/Discord") -ceq $before) 'unselected Stable changed'
+    }
+    Test 'picker: no supported installation fails without creating files' {
+        $f = Fixture
+        Rename-Item -LiteralPath "$($f.Local)/DiscordCanary/app-1.0.9/DiscordCanary.exe" -NewName 'missing.exe'
+        $before = Tree-State $f.Root
+        $output = Run $f Install -Interactive -success $false
+        Assert ($output -match 'No supported Discord installation' -and (Tree-State $f.Root) -ceq $before) 'missing client discovery wrote files or misleading error'
+    }
+    Test 'picker: selected running target and foreign loaders still fail without writes' {
+        foreach ($kind in @('running', 'foreign')) {
+            $f = Fixture
+            $more = @('-TestRunningTarget')
+            $reason = 'Target Discord is running'
+            if ($kind -eq 'foreign') {
+                New-Asar "$($f.Resources)/app.asar" 'require("betterdiscord");'
+                $more = @()
+                $reason = 'Foreign modloader'
+            }
+            $before = Tree-State $f.Root
+            $output = Run $f Install $more $false -Interactive -Answers @('1')
+            Assert ($output -match $reason) "$kind guard failed after selection: $output"
+            Assert ((Tree-State $f.Root) -ceq $before) "$kind rejection changed files"
+        }
+    }
+    Test 'picker: WhatIf and Status select a client without writing' {
+        $f = Fixture; $before = Tree-State $f.Root
+        $output = Run $f Install @('-WhatIf', '-TestRunningOtherChannel') -Interactive -Answers @('1')
+        Assert ($output -match 'SupportTemplates Lite' -and $output -match 'What if') 'Lite preview not shown'
+        Assert ((Tree-State $f.Root) -ceq $before) 'WhatIf wrote files'
+        Run $f Status -Interactive -Answers @('1') | Out-Null
+        Assert ((Tree-State $f.Root) -ceq $before) 'Status wrote files'
+    }
+    Test 'picker: fixture validation precedes discovery' {
+        $f = Fixture
+        Put "$($f.Root)/.support-templates-fixture" 'wrong marker'
+        $before = Tree-State $f.Root
+        $output = Run $f Install -success $false -Interactive -Answers @('1')
+        Assert ($output -match 'Missing fixture marker' -and $output -notmatch 'Select Discord') 'discovery ran before fixture validation'
+        Assert ((Tree-State $f.Root) -ceq $before) 'invalid fixture changed files'
+    }
+    Test 'picker: redirected client is refused before selection' {
+        $f = Fixture
+        $link = "$($f.Local)/Discord"
+        try { New-Item -ItemType Junction -Path $link -Target "$($f.Local)/DiscordCanary" -ErrorAction Stop | Out-Null }
+        catch { Write-Host "SKIP junction creation: $_"; return }
+        try {
+            $before = Tree-State $f.Root
+            $output = Run $f Install -success $false -Interactive -Answers @('1')
+            Assert ($output -match 'Reparse path refused' -and $output -notmatch 'Select Discord') 'redirect discovery guard missing'
+            Assert ((Tree-State $f.Root) -ceq $before) 'redirect rejection changed files'
+        }
+        finally { [IO.Directory]::Delete($link) }
+    }
     Test 'renderer update while running embeds CSS and changes only the active renderer in the base runtime' {
         $f = Renderer-Fixture
         $resources = Tree-State $f.Resources
@@ -150,7 +257,7 @@ try {
         Run $f UpdateRenderer @('-TestRunningTarget') | Out-Null
         $before = Tree-State $f.Root
         $status = Run $f Status @('-TestRunningTarget')
-        Assert ($status -match 'Installed: SupportTemplates 0\.1\.0-canary\.6') 'status lost base runtime version'
+        Assert ($status -match 'Installed: SupportTemplates Lite 0\.1\.0-canary\.6') 'status lost base runtime version'
         Assert ($status -match 'Renderer: 0\.1\.0-canary\.7') 'status lost renderer version'
         Run $f Status | Out-Null
         Assert ((Tree-State $f.Root) -ceq $before) 'renderer status wrote files'
@@ -272,7 +379,7 @@ try {
         Assert ((Hash "$($config.runtime)/renderer.js") -ceq (Hash "$($f.Package)/payload/runtime/renderer.js")) 'full install used transformed renderer in staged release'
         Run $f Status | Out-Null
         Run $f Rollback | Out-Null
-        Assert ((Run $f Status) -match 'Installed: SupportTemplates 0\.1\.0-canary\.6') 'rollback after full install failed'
+        Assert ((Run $f Status) -match 'Installed: SupportTemplates Lite 0\.1\.0-canary\.6') 'rollback after full install failed'
     }
     Test 'renderer update stopped repair and rollback restore the base overlay' {
         foreach ($action in @('Repair','Rollback')) {
@@ -358,7 +465,7 @@ try {
         Assert ((Hash "$($f.Base)/runtime/renderer.js") -ceq $f.OriginalRenderer) 'reinstall of .6 did not restore original renderer'
         Assert (-not (Test-Path -LiteralPath "$($f.Overlay)/current.json")) 'reinstall retained stale active overlay'
         $status = Run $f Status
-        Assert ($status -match 'Installed: SupportTemplates 0\.1\.0-canary\.6') 'reinstall selected wrong runtime'
+        Assert ($status -match 'Installed: SupportTemplates Lite 0\.1\.0-canary\.6') 'reinstall selected wrong runtime'
         Assert ($status -notmatch 'Renderer: 0\.1\.0-canary\.7') 'reinstall reported stale renderer'
     }
     Test 'renderer update committed full-install cleanup resumes read-only status and stopped retry' {
@@ -374,7 +481,7 @@ try {
         Move-Item -LiteralPath $source -Destination $saved
         $before = Tree-State $f.Root
         $status = Run $f Status
-        Assert ($status -match 'Installed: SupportTemplates 0\.1\.0-canary\.7' -and $status -match 'Pending full-install renderer cleanup') 'committed cleanup status incorrect'
+        Assert ($status -match 'Installed: SupportTemplates Lite 0\.1\.0-canary\.7' -and $status -match 'Pending full-install renderer cleanup') 'committed cleanup status incorrect'
         Assert ((Run $f UpdateRenderer @('-TestRunningTarget') $false) -match 'Finish the interrupted full installation') 'update ignored committed cleanup intent'
         Run $f Install @('-TestRunningTarget') $false | Out-Null
         Run $f Install @('-WhatIf') | Out-Null
@@ -627,7 +734,7 @@ try {
         $env:SUPPORT_TEMPLATES_NO_PAUSE = '1'
         $ErrorActionPreference = 'Continue'
         try {
-            $command = '""{0}\status.bat" -TestRoot "{1}" -LocalAppDataRoot "{2}""' -f $f.Package, $f.Root, $f.Local
+            $command = '""{0}\status.bat" -Channel Canary -TestRoot "{1}" -LocalAppDataRoot "{2}""' -f $f.Package, $f.Root, $f.Local
             $output = & $env:ComSpec /d /s /c $command 2>&1
             Assert ($LASTEXITCODE -eq 0) "batch status failed: $output"
             Put "$($f.Resources)/app.asar" 'unknown archive'

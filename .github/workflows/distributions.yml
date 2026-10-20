@@ -1,4 +1,4 @@
-name: Build three Windows distributions
+name: Build two public Windows distributions
 on:
   workflow_dispatch:
     inputs:
@@ -46,38 +46,35 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Vencord types failed' }
           npm test -- --maxWorkers=4
           if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
-          npm run test:vencord-distribution
-          if ($LASTEXITCODE -ne 0) { throw 'Full Vencord runtime tests failed' }
           powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneAutoUpdate.Tests.ps1
           if ($LASTEXITCODE -ne 0) { throw 'Standalone helper fixtures failed' }
-          powershell -NoProfile -ExecutionPolicy Bypass -File tests/vencordDistribution.Tests.ps1
-          if ($LASTEXITCODE -ne 0) { throw 'Full Vencord installer fixtures failed' }
-      - name: Build and verify release files
+      - name: Build Lite then BetterDiscord and verify public release files
         shell: pwsh
         run: |
           node distribution/build-release.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
           node distribution/publish-release.mjs --check
           if ($LASTEXITCODE -ne 0) { throw 'Release verification failed' }
+          $version = (Get-Content distribution/config.json -Raw | ConvertFrom-Json).version
+          "PUBLIC_RELEASE_DIR=artifacts/distribution/$version" >> $env:GITHUB_ENV
       - name: Exercise final package installers in TEMP fixtures
         shell: pwsh
         run: |
           $version = (Get-Content distribution/config.json -Raw | ConvertFrom-Json).version
           $scratch = Join-Path $env:RUNNER_TEMP ('stx-final-packages-' + [guid]::NewGuid().ToString('N'))
-          foreach ($variant in @('standalone', 'vencord')) {
+          foreach ($variant in @('standalone')) {
             $target = Join-Path $scratch $variant
             Expand-Archive -LiteralPath "artifacts/distribution/$version/SupportTemplates-$variant-$version.zip" -DestinationPath $target
             $packages = @(Get-ChildItem -LiteralPath $target -Directory)
             if ($packages.Count -ne 1) { throw 'Unexpected package roots' }
             $test = 'tests/standaloneInstaller.Tests.ps1'
-            if ($variant -eq 'vencord') { $test = 'tests/vencordDistribution.Tests.ps1' }
             powershell -NoProfile -ExecutionPolicy Bypass -File $test -PayloadPackageRoot $packages[0].FullName -Only 'built real payload*'
             if ($LASTEXITCODE -ne 0) { throw "Final $variant installer failed" }
           }
       - uses: actions/upload-artifact@v4
         with:
-          name: SupportTemplates-three-variants
-          path: artifacts/distribution/*/
+          name: SupportTemplates-public-variants
+          path: ${{ env.PUBLIC_RELEASE_DIR }}/
           if-no-files-found: error
       - name: Create draft release
         if: inputs.create_draft

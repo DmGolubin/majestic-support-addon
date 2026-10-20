@@ -17,6 +17,8 @@ const { createLoaderAsar } = await import(pathToFileURL(path.join(frozen, 'stand
 const config = JSON.parse(fs.readFileSync(path.join(frozen, 'standalone/config.json'), 'utf8'));
 const { readConfig } = await import(pathToFileURL(path.join(frozen, 'distribution/config.mjs')).href);
 const updateConfig = readConfig();
+// One release version for every distribution; standalone/config.json only pins
+// the product, upstream source and reduced plugin set.
 config.version = updateConfig.version;
 const source = path.join(work, 'source'); fs.mkdirSync(source);
 const output = path.join(work, `SupportTemplates-${config.version}`); fs.mkdirSync(output);

@@ -1,4 +1,5 @@
-// Produce all three variants locally. This script never publishes or installs.
+// Produce the two public variants: SupportTemplates Lite, then BetterDiscord.
+// The owner's full Vencord build has a separate entry point.
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -15,11 +16,10 @@ if (dirty.trim()) throw new Error('Commit release build inputs before building')
 const destination = path.join(root, 'artifacts/distribution', config.version);
 if (fs.existsSync(destination)) throw new Error(`Refusing to overwrite an existing release: ${destination}`);
 fs.mkdirSync(destination, { recursive: true });
-const buildOutput = fs.mkdtempSync(path.join(os.tmpdir(), 'support-templates-three-packages-'));
+const buildOutput = fs.mkdtempSync(path.join(os.tmpdir(), 'support-templates-public-packages-'));
 
 function build(script, args = []) {
-    const result = execFileSync(process.execPath, [script, ...args], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
-        env: { ...process.env, DISTRIBUTION_OUTPUT_DIR: path.join(buildOutput, 'vencord') } });
+    const result = execFileSync(process.execPath, [script, ...args], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     process.stdout.write(result);
     // Builders emit one final JSON object after diagnostic lines.
     for (let offset = result.lastIndexOf('{'); offset >= 0; offset = result.lastIndexOf('{', offset - 1)) {
@@ -29,7 +29,6 @@ function build(script, args = []) {
 }
 
 const standalone = build('standalone/build.mjs');
-const vencord = build('distribution/vencord/build.mjs');
 const betterdiscord = build('betterdiscord/build.mjs', ['--out', path.join(buildOutput, 'betterdiscord')]);
 const assets = [];
 function copyAsset(file, name, variant, kind) {
@@ -38,7 +37,6 @@ function copyAsset(file, name, variant, kind) {
     assets.push({ variant, platform: 'win32', kind, name, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
 }
 copyAsset(standalone.zip, `SupportTemplates-standalone-${config.version}.zip`, 'standalone', 'native');
-copyAsset(vencord.zip, `SupportTemplates-vencord-${config.version}.zip`, 'vencord', 'native');
 copyAsset(betterdiscord.plugin ?? path.join(betterdiscord.package, 'SupportTemplates.plugin.js'), 'SupportTemplates.plugin.js', 'betterdiscord', 'renderer');
 if (betterdiscord.zip) fs.copyFileSync(betterdiscord.zip, path.join(destination, `SupportTemplates-betterdiscord-${config.version}.zip`));
 

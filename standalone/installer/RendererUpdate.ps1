@@ -99,7 +99,7 @@ function Loader-Identity([string]$Path) {
     return $code
 }
 function Update-Renderer($State) {
-    Require ($null -ne $State) 'Install SupportTemplates before updating its renderer'
+    Require ($null -ne $State) 'Install SupportTemplates Lite before updating its renderer'
     $base = Stored-Package $State.version
     Require ((Hash-File (Join-Path $base.Base 'manifest.json')) -ceq $State.manifestHash -and $base.LoaderHash -ceq $State.loaderHash) 'Installed runtime differs from ownership state'
     $package = Read-Package $script:PackageRoot

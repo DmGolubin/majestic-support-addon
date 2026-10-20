@@ -4,7 +4,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('Install', 'Repair', 'Uninstall', 'Rollback', 'Status', 'UpdateRenderer')][string]$Action,
-    [ValidateSet('Canary', 'Stable')][string]$Channel = 'Canary',
+    [ValidateSet('Canary', 'Stable')][string]$Channel,
     # Fixture-only overrides: require a marked, specifically named directory under TEMP.
     [string]$TestRoot,
     [string]$LocalAppDataRoot,
@@ -20,7 +20,7 @@ $script:Fixture = $false
 $script:SimulatedCrash = $false
 $script:Mutex = $null
 $script:Locked = $false
-$script:ChannelName = $Channel.ToLowerInvariant()
+$script:ChannelName = $null
 $script:PackageRoot = [IO.Path]::GetFullPath($PSScriptRoot)
 $script:ResourceNames = @('_app.asar', 'support-templates.json', 'app.asar', 'support-templates.install.json')
 . (Join-Path $PSScriptRoot 'RendererUpdate.ps1')
@@ -292,6 +292,46 @@ function Compare-AppVersion([string]$Left, [string]$Right) {
         if ($cmp -ne 0) { return $cmp }
     }
     return $lp.Length.CompareTo($rp.Length)
+}
+function Select-DiscordChannel([string]$LocalRoot) {
+    # Discovery is read-only. Selection never implies permission to close Discord;
+    # the existing installer validates ownership, paths and stopped state afterwards.
+    $choices = @()
+    foreach ($candidate in @(
+        @{Channel='Stable';Exe='Discord';Label='Discord (Stable)'},
+        @{Channel='Canary';Exe='DiscordCanary';Label='Discord Canary'}
+    )) {
+        $client = Join-Path $LocalRoot $candidate.Exe
+        Safe-Path $client
+        if (-not [IO.Directory]::Exists($client)) { continue }
+        $found = $false
+        foreach ($entry in Get-ChildItem -LiteralPath $client -Force) {
+            if (-not $entry.PSIsContainer -or $entry.Name -notmatch '^app-\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$') { continue }
+            Safe-Directory $entry.FullName
+            $exe = Join-Path $entry.FullName ($candidate.Exe + '.exe')
+            $resources = Join-Path $entry.FullName 'resources'
+            Safe-Path $exe; Safe-Path $resources
+            if ([IO.File]::Exists($exe) -and [IO.Directory]::Exists($resources)) { $found = $true }
+        }
+        if ($found) { $choices += [pscustomobject]@{Channel=$candidate.Channel;Label=$candidate.Label;Path=$client} }
+    }
+    Require ($choices.Count -gt 0) 'No supported Discord installation found. Install Discord or Discord Canary first. PTB and portable locations are not supported.'
+    Write-Host ''
+    Write-Host 'SupportTemplates Lite - Select Discord'
+    for ($i = 0; $i -lt $choices.Count; $i++) {
+        Write-Host ('  {0}. {1}  [{2}]' -f ($i + 1), $choices[$i].Label, $choices[$i].Path)
+    }
+    Write-Host '  0. Cancel'
+    while ($true) {
+        $answer = Read-Host 'Enter a number (Enter = cancel)'
+        if ([string]::IsNullOrWhiteSpace($answer) -or $answer.Trim() -eq '0') { return $null }
+        $number = 0
+        if ([int]::TryParse($answer.Trim(), [ref]$number) -and $number -ge 1 -and $number -le $choices.Count) {
+            Write-Host ('Selected: ' + $choices[$number - 1].Label)
+            return $choices[$number - 1].Channel
+        }
+        Write-Host 'Invalid selection. Enter one of the displayed numbers, or 0 to cancel.'
+    }
 }
 function Select-Resources {
     Safe-Directory $script:DiscordRoot
@@ -606,6 +646,12 @@ try {
     }
     Safe-Directory $script:LocalRoot
     Safe-Directory $script:PackageRoot
+    if (-not $PSBoundParameters.ContainsKey('Channel')) {
+        $selectedChannel = Select-DiscordChannel $script:LocalRoot
+        if ([string]::IsNullOrWhiteSpace($selectedChannel)) { Write-Host 'Cancelled. No files changed.'; return }
+        $Channel = $selectedChannel
+    }
+    $script:ChannelName = $Channel.ToLowerInvariant()
     $script:ExeName = 'DiscordCanary'
     if ($Channel -eq 'Stable') { $script:ExeName = 'Discord' }
     $script:DiscordRoot = Join-Path $script:LocalRoot $script:ExeName
@@ -616,7 +662,7 @@ try {
     $script:Mutex = New-Object Threading.Mutex($false, ('Local\SupportTemplates-' + $mutexId))
     try { $script:Locked = $script:Mutex.WaitOne(0) }
     catch [Threading.AbandonedMutexException] { $script:Locked = $true }
-    Require $script:Locked 'Another SupportTemplates installer is operating on this channel'
+    Require $script:Locked 'Another SupportTemplates Lite installer is operating on this channel'
     if ($Action -eq 'Uninstall') { Uninstall-Channel; return }
     Set-Resources (Select-Resources)
     Check-Foreign
@@ -625,7 +671,7 @@ try {
         if ($Action -eq 'Status') { Write-Output "Pending transaction: $script:Resources. Run repair or uninstall with the target closed to recover."; return }
         Check-TargetStopped
         if ($WhatIfPreference) { Write-Output 'What if: recover the interrupted transaction, then revalidate and plan the requested action.'; return }
-        if (-not $PSCmdlet.ShouldProcess($script:Resources, 'Recover interrupted SupportTemplates transaction')) { return }
+        if (-not $PSCmdlet.ShouldProcess($script:Resources, 'Recover interrupted SupportTemplates Lite transaction')) { return }
         Recover-Transaction
     }
     $state = Read-State
@@ -633,7 +679,7 @@ try {
         if ($null -ne (Read-RendererCleanup)) { Write-Output 'Pending full-install renderer cleanup; repeat Install with the target closed.' }
         if ($null -eq $state) { Write-Output "Not installed: $script:ChannelName at $script:Resources" }
         else {
-            Write-Output "Installed: SupportTemplates $($state.version), $script:ChannelName at $script:Resources"
+            Write-Output "Installed: SupportTemplates Lite $($state.version), $script:ChannelName at $script:Resources"
             try {
                 $stored = Stored-Package $state.version
                 Require ($stored.LoaderHash -ceq $state.loaderHash -and (Hash-File (Join-Path $stored.Base 'manifest.json')) -ceq $state.manifestHash) 'Runtime cache differs from ownership state'
@@ -696,7 +742,7 @@ try {
             Require ((Hash-File (Join-Path (Version-Path $version) 'manifest.json')) -eq $manifestHash) 'Existing version content differs'
         }
     }
-    if (-not $PSCmdlet.ShouldProcess($script:Resources, "$Action SupportTemplates $version for $script:ChannelName")) { return }
+    if (-not $PSCmdlet.ShouldProcess($script:Resources, "$Action SupportTemplates Lite $version for $script:ChannelName")) { return }
     if ($cacheMissing.Count -gt 0) { Repair-Cache $package $manifestHash }
     if ($Action -ne 'Rollback') { $package = Save-Package $package }
     Ensure-Directory (Join-Path $script:ChannelRoot 'data')
@@ -719,10 +765,10 @@ try {
     # Keep the current UI intact if validation or the resource transaction fails.
     # Successful full installs also clear an overlay retained by a prior uninstall.
     Complete-RendererCleanup (Read-State)
-    Write-Output "$Action complete: SupportTemplates $version ($script:ChannelName). Restart Discord yourself when ready."
+    Write-Output "$Action complete: SupportTemplates Lite $version ($script:ChannelName). Restart Discord yourself when ready."
 }
 catch {
-    [Console]::Error.WriteLine("SupportTemplates: {0}", $_.Exception.Message)
+    [Console]::Error.WriteLine("SupportTemplates Lite: {0}", $_.Exception.Message)
     exit 1
 }
 finally {

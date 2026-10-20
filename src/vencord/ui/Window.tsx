@@ -540,7 +540,10 @@ function WindowView() {
             : view === "fav" ? "В избранном пусто — Ctrl+D или ПКМ, «В избранное»"
                 : view === "recent" ? "Ещё ничего не вставлялось"
                     : "Шаблонов нет";
-    const count = scope ? <span className="vc-stx-n">{data.total} {plural(data.total, "шаблон", "шаблона", "шаблонов")}</span> : null;
+    const filtered = !!query.trim() || !!cat || view !== "all";
+    const count = scope ? <span className="vc-stx-n" aria-live="polite">{filtered
+        ? `${items.length} из ${data.total}`
+        : `${data.total} ${plural(data.total, "шаблон", "шаблона", "шаблонов")}`}</span> : null;
 
     let idx = 0;
     return (
@@ -613,13 +616,12 @@ function WindowView() {
                         {cats.length > 0 && (
                             <div className="vc-stx-category-filter" title="Категория · Alt + ArrowDown из поиска">
                                 <Select aria-label="Категория шаблонов" value={cat ?? ""} onChange={e => setCat(e.currentTarget.value || null)}>
-                                    <option value="">Все категории · {data.total}</option>
-                                    {cats.map(c => <option key={c} value={c}>{c} · {data.categoryCounts.get(c) ?? 0}</option>)}
+                                    <option value="">Все категории</option>
+                                    {cats.map(c => <option key={c} value={c}>{c}</option>)}
                                 </Select>
                                 {cat && <button type="button" className="vc-stx-category-reset" data-stx-menu-control
                                     title="Сбросить категорию" aria-label="Сбросить категорию"
                                     onClick={() => { setCat(null); inputRef.current?.focus(); }}><IconClose size={14} /></button>}
-                                <span className="vc-stx-filter-count" aria-live="polite" aria-label={`Найдено шаблонов: ${items.length}`}>{items.length}</span>
                             </div>
                         )}
                         {res?.layout && <div className="vc-stx-hint">Раскладка: показаны результаты для «{res.layout}»</div>}

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { PLUGIN_BUILD, PLUGIN_VERSION } from "../buildInfo";
+import { PLUGIN_BUILD, PLUGIN_DISTRIBUTION, PLUGIN_VERSION } from "../buildInfo";
 import { diagnosticJournal as journal, diagnosticData } from "../core/diagnosticJournal";
 import { debugFileSnapshot } from "./debug";
 import { panel } from "./panel";
@@ -59,7 +59,7 @@ export function stopDiagnostics() { const off = cleanup; cleanup = null; off?.()
 export function setRecording(on: boolean) { journal.enable(on); watch(); }
 export function diagnosticFile() {
     journal.flush();
-    return JSON.stringify({ product: "SupportTemplates", version: PLUGIN_VERSION, build: PLUGIN_BUILD,
+    return JSON.stringify({ product: "SupportTemplates", distribution: PLUGIN_DISTRIBUTION, version: PLUGIN_VERSION, build: PLUGIN_BUILD,
         exportedAt: new Date().toISOString(), recording: journal.active, storageFailed: journal.storageFailed,
         coverage: "Plugin actions and panel requests only. No message/template text, inputs, credentials, request/response bodies or headers. Latest bounded 24-hour history; abrupt crashes may lose the last 5 seconds. Missing runtime.stop before a new runtime.start can indicate an interrupted runtime, not proof of a crash.",
         snapshot: diagnosticSnapshot(), journal: journal.snapshot() }, null, 2);

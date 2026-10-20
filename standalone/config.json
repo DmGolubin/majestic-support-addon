@@ -1,6 +1,5 @@
 {
   "product": "SupportTemplates",
-  "version": "1.0.1-canary.24",
   "upstreamCommit": "32c90633ce6a95d7e56c95479efbb431bacf1eac",
   "upstreamUrl": "https://github.com/Vendicated/Vencord",
   "rendererPlugins": [

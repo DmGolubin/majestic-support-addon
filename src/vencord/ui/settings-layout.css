@@ -21,17 +21,14 @@
 .vc-stx-switch input:checked + span::after { transform: translateX(14px); }
 .vc-stx-switch input:focus-visible + span { outline: 2px solid var(--stx-ring); outline-offset: 3px; }
 .vc-stx-switch input:disabled + span { opacity: .4; }
-.vc-stx-server-tiles { display: flex; flex-wrap: wrap; gap: 10px; }
-.vc-stx-settings .vc-stx-server-tile { display: flex; align-items: center; gap: 10px; padding: 10px 14px 10px 10px; background: var(--stx-input); border: 1px solid var(--stx-bd); border-radius: 7px; color: var(--stx-tx); text-decoration: none; font-weight: 500; }
-.vc-stx-server-tile > img { object-fit: cover; border-radius: 7px; }
+.vc-stx-supported-servers { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--stx-bd); color: var(--stx-mu2); font-size: 12px; }
+.vc-stx-supported-server { display: inline-flex; align-items: center; gap: 6px; }
+.vc-stx-supported-server > img { object-fit: cover; border-radius: 4px; }
 .vc-stx-account-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .vc-stx-account-summary > div { min-width: 0; }
 .vc-stx-account-summary strong { display: block; font-size: 15px; overflow-wrap: anywhere; }
 .vc-stx-account-summary .vc-stx-connection-state { margin: 5px 0 0; font-size: 12px; color: var(--stx-mu2); }
 .vc-stx-account-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.vc-stx-account-detail { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--stx-bd); color: var(--stx-mu2); font-size: 12px; }
-.vc-stx-account-detail summary { cursor: pointer; }
-.vc-stx-account-detail p { margin-top: 8px; }
 .vc-stx-pp-editor-body { display: grid; gap: 12px; min-width: 0; }
 .vc-stx-pp-editor-footer { display: grid; gap: 12px; flex: none; padding: 12px 0; border-top: 1px solid var(--stx-bd); background: #0b0d10; }
 .vc-stx-management { overflow: hidden; }

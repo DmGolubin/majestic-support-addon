@@ -18,8 +18,8 @@ const identityCode = ts.transpileModule(readFileSync(new URL("../src/vencord/ui/
 
 describe("distribution presentation", () => {
     it.each([
-        ["1.0.1-canary.18", "1.0.1 · тестовая сборка 18"],
-        ["1.0.1-canary.99+abc123", "1.0.1 · тестовая сборка 99"],
+        ["1.0.1-canary.18", "1.0.1 · тестовая"],
+        ["1.0.1-canary.99+abc123", "1.0.1 · тестовая"],
         ["1.0.1", "1.0.1"],
         ["1.0.1-beta.2", "1.0.1-beta.2"],
         ["1.0.1-canary.18.extra", "1.0.1-canary.18.extra"]
@@ -28,9 +28,9 @@ describe("distribution presentation", () => {
     });
 
     it.each([
-        ["betterdiscord", "BetterDiscord"],
-        ["vencord", "Vencord (полный набор плагинов)"],
-        ["standalone", "Отдельная сборка (только SupportTemplates)"]
+        ["betterdiscord", "SupportTemplates"],
+        ["vencord", "SupportTemplates"],
+        ["standalone", "SupportTemplates Lite"]
     ] as const)("renders the %s identity with technical provenance available", (variant, label) => {
         const exports: any = {};
         runInNewContext(identityCode, { exports, React, require: (id: string) => {
@@ -41,7 +41,7 @@ describe("distribution presentation", () => {
         const dom = new JSDOM(renderToStaticMarkup(React.createElement(exports.BuildIdentity)));
         try {
             const identity = dom.window.document.querySelector("p");
-            expect(identity.textContent).toBe(`${label} · 1.0.1 · тестовая сборка 18`);
+            expect(identity.textContent).toBe(`${label} · 1.0.1 · тестовая`);
             expect(identity.textContent).not.toMatch(/canary/i);
             expect(identity.title).toBe("Версия: 1.0.1-canary.18 · abc123");
         } finally { dom.window.close(); }
@@ -73,7 +73,7 @@ describe("BetterDiscord runtime identity", () => {
         const dom = new JSDOM(renderToStaticMarkup(plugin.getSettingsPanel()));
         try {
             const heading = dom.window.document.querySelector("header strong");
-            expect(heading.textContent).toBe(`SupportTemplates · BetterDiscord · ${display.humanBuildVersion(config.version)}`);
+            expect(heading.textContent).toBe(`SupportTemplates · ${display.humanBuildVersion(config.version)}`);
             expect(heading.textContent).not.toMatch(/canary/i);
             expect(heading.title).toBe(`Версия: ${config.version}`);
         } finally { dom.window.close(); }
@@ -86,7 +86,7 @@ describe("BetterDiscord runtime identity", () => {
         const dom = new JSDOM(renderToStaticMarkup(plugin.getSettingsPanel()));
         try {
             const heading = dom.window.document.querySelector("header strong");
-            expect(heading.textContent).toBe("SupportTemplates · BetterDiscord · 1.0.1 · тестовая сборка 99");
+            expect(heading.textContent).toBe("SupportTemplates · 1.0.1 · тестовая");
             expect(heading.title).toBe("Версия: 1.0.1-canary.99");
         } finally { dom.window.close(); }
     });

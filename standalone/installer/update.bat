@@ -1,6 +1,6 @@
 @echo off
 setlocal
-rem Compatible interface update; keep Canary open, then press Ctrl+R.
+rem SupportTemplates Lite: select the installed client, keep it open, then press Ctrl+R.
 "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0SupportTemplates.ps1" -Action UpdateRenderer %*
 set "SUPPORT_TEMPLATES_EXIT=%errorlevel%"
 if "%~1"=="" if not "%SUPPORT_TEMPLATES_NO_PAUSE%"=="1" pause

@@ -52,7 +52,9 @@ export function Management() {
             if (previous?.isConnected && (element?.contains(document.activeElement) || document.activeElement === document.body)) previous.focus();
         };
     }, []);
-    return <div className="vc-stx-management-backdrop">
+    return <div className="vc-stx-management-backdrop" onMouseDown={e => {
+        if (e.button === 0 && e.target === e.currentTarget) close();
+    }}>
         <div ref={root} tabIndex={-1} role="dialog" aria-label="Шаблоны и настройки" className="vc-stx-management">
             <header><b>SupportTemplates</b><button className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={close}>Закрыть</button></header>
             {confirm && <div className="vc-stx-local-note vc-stx-close-confirm" role="alert"><span>Есть несохранённые изменения.</span><div className="vc-stx-close-actions"><button ref={confirmButton} className="vc-stx-btn vc-stx-ghost" disabled={busy} onClick={returnToDraft}>Вернуться</button><button className="vc-stx-btn" disabled={busy} onClick={() => { if (!busyRef.current) { discardPanelDraft(); ui.set({ management: false }); } }}>Закрыть без сохранения</button></div></div>}

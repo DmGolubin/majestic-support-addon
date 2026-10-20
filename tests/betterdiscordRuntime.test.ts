@@ -261,7 +261,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         const settingsNode = f.document.createElement("div"); f.document.body.append(settingsNode);
         const settings = ReactDOM.createRoot(settingsNode);
         await React.act(async () => { settings.render(f.plugin.getSettingsPanel()); });
-        expect(settingsNode.textContent).toContain("BetterDiscord");
+        expect(settingsNode.textContent).toContain("SupportTemplates");
         expect(settingsNode.textContent).toContain("Скачать диагностику");
         expect(settingsNode.querySelector(".vc-stx-settings-nav, textarea")).toBeNull();
         expect(settingsNode.textContent).toContain("Режим отладки");

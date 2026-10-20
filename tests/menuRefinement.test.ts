@@ -164,21 +164,21 @@ describe("template menu refinement", () => {
         const h = windowHarness();
         let tree = h.render();
         const select = nodes(tree).find(n => n.type === "Select")!;
-        expect(nodes(select).filter(n => n.type === "option").map(text)).toEqual(["Все категории · 4", "Account · 2", "Game · 1"]);
+        expect(nodes(select).filter(n => n.type === "option").map(text)).toEqual(["Все категории", "Account", "Game"]);
         expect(byClass(tree, "vc-stx-chips")).toBeUndefined();
         select.props.onChange({ currentTarget: { value: "Account" } });
         tree = h.render();
-        expect(text(byClass(tree, "vc-stx-filter-count"))).toBe("2");
+        expect(text(byClass(tree, "vc-stx-n"))).toBe("2 из 4");
         byClass(tree, "vc-stx-sinput").props.onChange({ currentTarget: { value: "beta" } });
         tree = h.render();
-        expect(text(byClass(tree, "vc-stx-filter-count"))).toBe("1");
+        expect(text(byClass(tree, "vc-stx-n"))).toBe("1 из 4");
         byClass(tree, "vc-stx-category-reset").props.onClick();
         tree = h.render();
         expect(nodes(tree).find(n => n.type === "Select")!.props.value).toBe("");
         expect(byClass(tree, "vc-stx-sinput").props.value).toBe("beta");
         expect(h.input.focus).toHaveBeenCalled();
         byClass(tree, "vc-stx-sinput").props.onChange({ currentTarget: { value: "" } });
-        expect(text(byClass(h.render(), "vc-stx-filter-count"))).toBe("4");
+        expect(text(byClass(h.render(), "vc-stx-n"))).toBe("4 шаблонов"); // plural is stubbed in this harness
     });
 
     it("drops a category that disappears from the catalog", () => {
@@ -188,7 +188,7 @@ describe("template menu refinement", () => {
         h.pool.splice(2, 1);
         const tree = h.render();
         expect(nodes(tree).find(n => n.type === "Select")!.props.value).toBe("");
-        expect(text(byClass(tree, "vc-stx-filter-count"))).toBe("3");
+        expect(text(byClass(tree, "vc-stx-n"))).toBe("3 шаблонов");
     });
 
     it("opens/selects/cancels categories without inserting or closing Window, including held keys", () => {
@@ -220,7 +220,7 @@ describe("template menu refinement", () => {
         expect(h.categoryButton.focus).toHaveBeenCalledOnce();
         expect(h.categoryButton.click).toHaveBeenCalledOnce();
         parent.props.onKeyDown(key("Tab", h.input, { ctrlKey: true }));
-        expect(text(byClass(h.render(), "vc-stx-filter-count"))).toBe("1");
+        expect(text(byClass(h.render(), "vc-stx-n"))).toBe("1 из 4");
         const settings = byClass(byClass(tree, "vc-stx-search-row"), "vc-stx-menu-settings");
         expect(settings.props["aria-label"]).toBe("Мои шаблоны и настройки");
         expect(text(settings)).toBe("");

@@ -6,34 +6,18 @@
 
 import "./settings-layout.css";
 
-import { GuildStore, useRef, useState } from "@webpack/common";
+import { useRef, useState } from "@webpack/common";
 
 import { validPrefix } from "../core/trigger";
 import { panel } from "./panel";
 import { DiagnosticControls } from "./DiagnosticControls";
 import { PanelConnection } from "./PanelConnection";
 import { discardPanelDraft, PanelPersonalLibrary } from "./PanelPersonalLibrary";
-import { ProjectIcon } from "./ProjectIcon";
 import { IconBell, IconSettings, IconTemplates } from "./svg";
 import { TicketSettings } from "./TicketSettings";
 import { LocalStorageNotice } from "./LocalStorageNotice";
 import { BuildIdentity } from "./BuildIdentity";
 import { store, useStore } from "./uiState";
-
-const SERVERS = [
-    { id: "530693013622489088", name: "Majestic", project: "mj" as const },
-    { id: "1089530150540034181", name: "Россия Онлайн", project: "ro" as const },
-    { id: "1395915167040016545", name: "Tech", project: null }
-];
-function ServerTile({ server }: { server: typeof SERVERS[number]; }) {
-    const [failed, setFailed] = useState(false);
-    const hash = GuildStore.getGuild(server.id)?.icon;
-    const icon = !failed && hash && /^[a-zA-Z0-9_]+$/.test(hash) ? `https://cdn.discordapp.com/icons/${server.id}/${hash}.png?size=64` : null;
-    return <div className="vc-stx-server-tile">
-        {icon ? <img src={icon} alt="" width={28} height={28} onError={() => setFailed(true)} /> : <ProjectIcon project={server.project} size={28} />}
-        <span>{server.name}</span>
-    </div>;
-}
 
 export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; onBusy?(busy: boolean): void; } = {}) {
     useStore();
@@ -95,10 +79,6 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
                     <div><input id="stx-prefix-input" aria-label="Префикс команды" maxLength={1} value={prefix} disabled={p.phase !== "ready"} onChange={e => { prefixRef.current = e.currentTarget.value; setPrefix(prefixRef.current); reportDirty(); }} /><button className="vc-stx-btn vc-stx-ghost" disabled={p.phase !== "ready" || prefix === store.data.prefix}>Сохранить</button></div>
                 </form>
                 {prefixError && <p role="alert" className="vc-stx-form-error">{prefixError}</p>}
-            </section>
-            <section className="vc-stx-setting-section vc-stx-setting-card" aria-labelledby="stx-servers-settings">
-                <h3 id="stx-servers-settings">Доступные серверы</h3>
-                <div className="vc-stx-server-tiles">{SERVERS.map(server => <ServerTile key={server.id} server={server} />)}</div>
             </section>
         </div>}
     </div>;

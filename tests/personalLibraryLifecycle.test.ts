@@ -331,7 +331,7 @@ describe("PersonalLibrary actual component lifecycle", () => {
 });
 
 describe("Settings / Management actual callbacks", () => {
-    it.each(["resolve", "reject"] as const)("blocks pre-opened tab/close confirmations and Escape until save %s; backdrop never dismisses", async outcome => {
+    it.each(["resolve", "reject"] as const)("blocks tab/close confirmations, backdrop and Escape until save %s", async outcome => {
         const { store, write } = makeStore(), gate = deferred();
         const h = harness(store, "Management");
         h.newDraft(); h.click("Настройки"); h.click("Закрыть");
@@ -339,7 +339,8 @@ describe("Settings / Management actual callbacks", () => {
         const tab = h.button("Тикеты"), backdrop = h.tree();
         write.mockImplementationOnce(() => gate.promise); h.submit();
         switchTab.props.onClick(); close.props.onClick(); tab.props.onClick(); h.button("Закрыть").props.onClick();
-        expect(backdrop.props.onMouseDown).toBeUndefined();
+        const backdropElement = {};
+        backdrop.props.onMouseDown({ button: 0, target: backdropElement, currentTarget: backdropElement });
         h.listeners.get("keydown")!({ key: "Escape", target: { closest: () => null }, preventDefault() {}, stopPropagation() {} });
         h.render();
         expect(h.ui.set).not.toHaveBeenCalled();
@@ -375,12 +376,7 @@ describe("Settings / Management actual callbacks", () => {
         for (const removed of ["Выбрать файл", "Импорт", "Локальная библиотека", "Редактировать на панели", "Демо-данные"]) expect(rendered).not.toContain(removed);
         for (const tab of ["Мои шаблоны", "Настройки", "Тикеты"]) expect(h.button(tab)).toBeDefined();
         expect(h.nodes("a")).toHaveLength(0);
-        const servers = h.nodes("div").filter(n => n.props.className === "vc-stx-server-tile");
-        expect(servers).toHaveLength(3);
-        for (const server of servers) {
-            expect(server.props.onClick).toBeUndefined();
-            expect(server.props.tabIndex).toBeUndefined();
-        }
+        expect(rendered).not.toContain("Доступные серверы");
         expect(h.nodes("input").filter(n => n.props.type === "file")).toHaveLength(0);
     });
 });

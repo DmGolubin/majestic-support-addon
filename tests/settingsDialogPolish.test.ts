@@ -113,14 +113,14 @@ function harness(root = "Management", kind = "fields") {
     return { render, button, click, prefix, change, press, store, ui, onDirty, discard, resolve, comboOf,
         personal: () => personal, text: () => textOf(tree),
         submit: () => { all(tree, n => n.type === "form")[0].props.onSubmit({ preventDefault() {} }); render(); },
-        backdrop: () => { tree.props.onMouseDown?.({ target: tree, currentTarget: tree }); render(); },
+        backdrop: () => { tree.props.onMouseDown?.({ button: 0, target: tree, currentTarget: tree }); render(); },
         tree: () => tree,
         unmount: () => { owners.forEach(dispose); owners.clear(); }
     };
 }
 
 describe("prefix dirty confirmation", () => {
-    it.each(["Escape", "button"])("guards close via %s and preserves prefix on return", via => {
+    it.each(["Escape", "button", "backdrop"])("guards close via %s and preserves prefix on return", via => {
         const h = harness(); h.click("Настройки"); h.change("!");
         if (via === "Escape") h.press(); else if (via === "button") h.click("Закрыть"); else h.backdrop();
         expect(h.ui.set).not.toHaveBeenCalled(); expect(h.text()).toContain("Есть несохранённые изменения");
@@ -170,12 +170,10 @@ describe("prefix dirty confirmation", () => {
     });
 });
 
-describe("nonmodal Management", () => {
-    it("leaves chat selection, Escape and Tab alone while keeping explicit dirty close guards", () => {
+describe("Management focus and backdrop", () => {
+    it("leaves outside keyboard events alone and guards backdrop dismissal of dirty drafts", () => {
         const h = harness(); h.click("Настройки"); h.change("!");
-        expect(h.tree().props.onMouseDown).toBeUndefined();
         expect(all(h.tree(), n => n.props.role === "dialog")[0].props["aria-modal"]).toBeUndefined();
-        h.backdrop();
         for (const name of ["Escape", "Tab"]) {
             const event = h.press({ key: name, target: { chat: true } });
             expect(event.preventDefault).not.toHaveBeenCalled();
@@ -184,7 +182,8 @@ describe("nonmodal Management", () => {
         expect(h.press({ key: "Tab" }).preventDefault).not.toHaveBeenCalled();
         expect(h.ui.set).not.toHaveBeenCalled();
         expect(h.text()).not.toContain("Есть несохранённые изменения");
-        h.click("Закрыть");
+        h.backdrop();
+        expect(h.ui.set).not.toHaveBeenCalled();
         expect(h.text()).toContain("Есть несохранённые изменения");
         h.click("Вернуться"); expect(h.prefix().props.value).toBe("!");
     });

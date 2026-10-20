@@ -1,6 +1,8 @@
 /* Copyright (c) 2026 SupportTemplates contributors. GPL-3.0-or-later. */
 "use strict";
-const fs = require("fs");
+// These checks concern physical files and redirects, not Electron's virtual ASAR
+// directories. Module loading below must still use Electron's ASAR-aware require.
+const fs = require("original-fs");
 const path = require("path");
 const { app } = require("electron");
 const resources = path.dirname(__dirname);
@@ -24,6 +26,7 @@ const hostMatch = /^(DiscordCanary|Discord)[\\/]app-\d+\.\d+\.\d+(?:-[0-9A-Za-z]
 if (!hostMatch || !fs.existsSync(original)) throw new Error("Invalid original Discord location");
 rejectRedirects(resources);
 rejectRedirects(original);
+if (!fs.lstatSync(original).isFile()) throw new Error("Invalid original Discord archive");
 const hostChannel = hostMatch[1].toLowerCase() === "discordcanary" ? "canary" : "stable";
 
 function originalDiscord() {

@@ -5,14 +5,17 @@ import { describe, expect, it, vi } from "vitest";
 
 const source = readFileSync(new URL("../standalone/runtime/loader.cjs", import.meta.url), "utf8");
 function run(config: unknown, args: string[] = [], missingRuntime = false, redirected = "", patcherThrows = false,
-    host = "DiscordCanary\\app-1.0.1", missingOriginal = false) {
+    host = "DiscordCanary\\app-1.0.1", missingOriginal = false, originalIsDirectory = false) {
     const root = "C:\\Users\\Test\\AppData\\Local";
     const env: Record<string, string> = { LOCALAPPDATA: root };
     const loaded: string[] = [], app = { setAppPath: vi.fn() };
+    const virtualFs = vi.fn(() => { throw new Error("Physical checks reached Electron ASAR-aware fs"); });
     const req = Object.assign((name: string) => {
-        if (name === "fs") return { readFileSync: () => JSON.stringify(config), existsSync: (p: string) =>
+        if (name === "fs" || name === "node:fs") return new Proxy({}, { get: virtualFs });
+        if (name === "original-fs") return { readFileSync: () => JSON.stringify(config), existsSync: (p: string) =>
             !(missingRuntime && /runtime\\(patcher|preload)\.js$/.test(p)) && !(missingOriginal && p.endsWith("\\_app.asar")),
-            lstatSync: (p: string) => ({ isSymbolicLink: () => p === redirected }), realpathSync: (p: string) => p };
+            lstatSync: (p: string) => ({ isSymbolicLink: () => p === redirected,
+                isFile: () => !(originalIsDirectory && p.endsWith("\\_app.asar")) }), realpathSync: (p: string) => p };
         if (name === "path") return path.win32;
         if (name === "electron") return { app };
         if (name.endsWith("_app.asar\\package.json")) return { main: "bundle.js" };
@@ -21,13 +24,24 @@ function run(config: unknown, args: string[] = [], missingRuntime = false, redir
     }, { main: { filename: "app.asar\\index.js" } });
     runInNewContext(source, { require: req, __dirname: root + "\\" + host + "\\resources\\app.asar",
         process: { env, argv: args }, console: { error: vi.fn() } });
-    return { env, loaded, app };
+    return { env, loaded, app, virtualFs };
 }
 const config = () => ({ schema: 1, product: "SupportTemplates", channel: "canary",
     runtime: "C:\\Users\\Test\\AppData\\Local\\SupportTemplates\\channels\\canary\\versions\\0.1.0-canary.1\\runtime",
     dataDir: "C:\\Users\\Test\\AppData\\Local\\SupportTemplates\\channels\\canary\\data" });
 
 describe("standalone loader", () => {
+    it("checks physical ASAR paths without Electron's virtual fs, retaining ASAR-aware require", () => {
+        const c = config(), runtime = run(c), vanilla = run(c, ["--vanilla"]);
+        expect(runtime.loaded).toEqual([c.runtime + "\\patcher.js"]);
+        expect(vanilla.loaded).toEqual([expect.stringMatching(/_app\.asar\\bundle\.js$/)]);
+        expect(runtime.virtualFs).not.toHaveBeenCalled();
+        expect(vanilla.virtualFs).not.toHaveBeenCalled();
+    });
+    it.each([{ args: [] }, { args: ["--vanilla"] }])("rejects a physical directory posing as the original archive ($args)", ({ args }) => {
+        expect(() => run(config(), args, false, "", false, "DiscordCanary\\app-1.0.1", false, true))
+            .toThrow("Invalid original Discord archive");
+    });
     it.each([{ args: [] }, { args: ["--vanilla"] }])("starts original Discord on a prerelease host with invalid config (args: $args)", ({ args }) => {
         const r = run(null, args, false, "", false, "DiscordCanary\\app-1.0.1251-beta.1");
         expect(r.loaded).toEqual(["C:\\Users\\Test\\AppData\\Local\\DiscordCanary\\app-1.0.1251-beta.1\\resources\\_app.asar\\bundle.js"]);

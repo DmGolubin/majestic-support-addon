@@ -20,8 +20,10 @@ describe("standalone bootstrap archive", () => {
     });
     it("pins one application plugin and explicitly scoped framework helpers", () => {
         const config = JSON.parse(readFileSync(new URL("../standalone/config.json", import.meta.url), "utf8"));
+        expect(config.product).toBe("SupportTemplates");
         expect(config.rendererPlugins).toEqual(["SupportTemplates", "ChatInputButtonAPI", "Settings", "ConcatenatedComponentExtractor"]);
         expect(config.nativePlugins).toEqual(["SupportTemplates"]);
         expect(config.upstreamCommit).toMatch(/^[0-9a-f]{40}$/);
+        expect(config).not.toHaveProperty("version");
     });
 });

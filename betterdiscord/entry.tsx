@@ -127,7 +127,7 @@ export default class SupportTemplates {
             const runtime = owner.delegate ?? owner;
             const definitions = upstream.settings.definitions;
             return <div className="vc-stx-root stx-bd-settings">
-                {includeHeader && <header><strong title={`Версия: ${runtime.getVersion()}`}>SupportTemplates · {distributionDisplay(PLUGIN_DISTRIBUTION, runtime.getVersion())}</strong>
+                {includeHeader && <header><strong title={`Версия: ${runtime.getVersion()}`}>{distributionDisplay(PLUGIN_DISTRIBUTION, runtime.getVersion())}</strong>
                     <p>Ctrl+Alt+T — открыть шаблоны. Alt+1…9 — избранное. Текст вставляется без отправки.</p>
                     <small>{owner.updateStatus}</small></header>}
                 {owner.delegate

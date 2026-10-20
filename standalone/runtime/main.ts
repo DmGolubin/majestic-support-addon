@@ -12,4 +12,6 @@ if (!IS_VANILLA) void app.whenReady().then(() => {
     initCsp();
     startAutoUpdate();
 });
+// Bootstrap on the original call stack, before Electron ready. Never await update
+// preparation here: Discord/Sentry must register their native startup hooks now.
 require("../main/patcher");
