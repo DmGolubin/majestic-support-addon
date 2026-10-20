@@ -3,6 +3,7 @@
 // allowlisted metadata reaches persistence; neither bodies nor error messages do.
 export const DIAGNOSTIC_LIMIT = 2000;
 export const DIAGNOSTIC_TTL = 24 * 60 * 60 * 1000;
+export const DIAGNOSTIC_CAMPAIGN_DURATION = 4 * DIAGNOSTIC_TTL;
 const MAX_BYTES = 512 * 1024;
 const WORDS = new Set(("idle connecting pending loading ready offline error live retrying " +
     "GET POST PATCH DELETE start stop success failure cancelled aborted timeout request_timeout " +
@@ -42,12 +43,19 @@ export function diagnosticData(input: Record<string, unknown>): Record<string, s
 }
 type Entry = { seq: number; time: number; event: string; data: ReturnType<typeof diagnosticData>; };
 export interface JournalStorage { read(): string | null; write(value: string): void; }
+export interface JournalStartOptions { campaign?: string; durationMs?: number; }
+// Campaign IDs are static application configuration, never user input or credentials.
+const CAMPAIGN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const EVENT = /^(?:request|http|auth|stream|panel|runtime|user|ui|debug|recorder|environment|settings)(?:\.[a-z_]{1,24})?$/;
 export class DiagnosticJournal {
     private entries: Entry[] = [];
     private sequence = 0;
     private dropped = 0;
     private until = 0;
+    private campaign: string | null = null;
+    private campaignUntil = 0;
+    private savedAt = 0;
+    private retention = DIAGNOSTIC_TTL;
     private running = false;
     private storage?: JournalStorage;
     private timer?: ReturnType<typeof setTimeout>;
@@ -57,36 +65,85 @@ export class DiagnosticJournal {
     get active() { return this.running && this.until > this.now(); }
     get size() { return this.entries.length; }
     get expiresAt() { return this.until; }
-    start(storage: JournalStorage) {
+    get campaignEndsAt() { return this.campaignUntil; }
+    start(storage: JournalStorage, options: JournalStartOptions = {}) {
         if (this.running) return;
+        const campaign = typeof options.campaign === "string" && CAMPAIGN.test(options.campaign) ? options.campaign : null;
+        const duration = options.durationMs === undefined ? DIAGNOSTIC_CAMPAIGN_DURATION
+            : Number.isSafeInteger(options.durationMs) && options.durationMs > 0
+                ? Math.min(options.durationMs, DIAGNOSTIC_CAMPAIGN_DURATION) : 0;
+        const memory = this.campaign ? this.snapshot() : null;
+        this.retention = campaign ? DIAGNOSTIC_CAMPAIGN_DURATION : DIAGNOSTIC_TTL;
         this.storage = storage;
         this.running = true;
+        let saved: any = null, readable = true;
         try {
             const raw = storage.read();
-            if (raw && raw.length <= MAX_BYTES) {
-                const saved = JSON.parse(raw);
-                if (saved.schema === 1 && Array.isArray(saved.events)) {
-                    this.entries = saved.events.slice(-DIAGNOSTIC_LIMIT).filter((e: Entry) => e && Number.isSafeInteger(e.seq) && Number.isSafeInteger(e.time)
-                        && e.time <= this.now() && e.time >= this.now() - DIAGNOSTIC_TTL && typeof e.event === "string" && EVENT.test(e.event)
-                        && e.data && typeof e.data === "object" && !Array.isArray(e.data))
-                        .map((e: Entry) => ({ seq: e.seq, time: e.time, event: e.event, data: diagnosticData(e.data) }));
-                    this.sequence = Math.max(0, ...this.entries.map(e => e.seq));
-                    this.dropped = Number.isSafeInteger(saved.dropped) && saved.dropped >= 0 ? saved.dropped : 0;
-                    this.until = Number.isSafeInteger(saved.until) && saved.until <= this.now() + DIAGNOSTIC_TTL ? saved.until : 0;
-                }
+            if (raw !== null) {
+                if (typeof raw !== "string" || raw.length > MAX_BYTES) throw Error("Invalid journal");
+                saved = JSON.parse(raw);
+                if (!saved || saved.schema !== 1 || typeof saved !== "object" || Array.isArray(saved)) throw Error("Invalid journal");
             }
-        } catch { this.storageFailed = true; }
+        } catch { saved = null; readable = false; this.storageFailed = true; }
+        // Preserve a consumed campaign in this instance even if a failed write
+        // left storage empty. Across fresh instances an unreadable store fails closed.
+        const diskSavedAt = Number.isSafeInteger(saved?.savedAt) ? saved.savedAt : 0;
+        if (memory && (!saved || memory.savedAt > diskSavedAt || (memory.savedAt === diskSavedAt && memory.until === 0))) saved = memory;
+        this.until = 0;
+        if (saved) {
+            this.entries = (Array.isArray(saved.events) ? saved.events : []).slice(-DIAGNOSTIC_LIMIT)
+                .filter((e: Entry) => e && Number.isSafeInteger(e.seq) && e.seq > 0 && Number.isSafeInteger(e.time)
+                    && e.time <= this.now() && typeof e.event === "string" && EVENT.test(e.event)
+                    && e.data && typeof e.data === "object" && !Array.isArray(e.data))
+                .map((e: Entry) => ({ seq: e.seq, time: e.time, event: e.event, data: diagnosticData(e.data) }));
+            this.sequence = Math.max(0, ...this.entries.map(e => e.seq));
+            this.dropped = Number.isSafeInteger(saved.dropped) && saved.dropped >= 0 ? saved.dropped : 0;
+            this.savedAt = Number.isSafeInteger(saved.savedAt) && saved.savedAt >= 0 ? saved.savedAt : 0;
+        }
+        const hasCampaign = saved && !(saved.campaign === null && saved.campaignUntil === 0)
+            && ("campaign" in saved || "campaignUntil" in saved);
+        if (hasCampaign) {
+            const validId = typeof saved.campaign === "string" && CAMPAIGN.test(saved.campaign);
+            // When opted in, only the configured ID is exported, never arbitrary
+            // text from the stored campaign field. A changed ID does not reset time.
+            this.campaign = campaign ?? (memory && memory.campaign === saved.campaign ? memory.campaign : "unknown");
+            this.campaignUntil = Number.isSafeInteger(saved.campaignUntil) && saved.campaignUntil >= 0
+                && saved.campaignUntil <= this.now() + DIAGNOSTIC_CAMPAIGN_DURATION ? saved.campaignUntil : 0;
+            if (readable && validId && (!campaign || saved.campaign === campaign)
+                && Number.isSafeInteger(saved.until) && saved.until > this.now()
+                && saved.until <= this.campaignUntil && saved.until <= this.now() + this.retention) this.until = saved.until;
+        } else if (campaign) {
+            this.campaign = campaign;
+            // Missing data and valid legacy schema-1 data migrate once. Corrupt,
+            // inaccessible or partial campaign state must not silently renew consent.
+            this.campaignUntil = readable && (!saved || Array.isArray(saved.events)) && duration > 0 ? this.now() + duration : 0;
+            this.until = this.campaignUntil;
+        } else {
+            this.campaign = null; this.campaignUntil = 0;
+            if (readable && Number.isSafeInteger(saved?.until) && saved.until > this.now()
+                && saved.until <= this.now() + DIAGNOSTIC_TTL) this.until = saved.until;
+        }
+        this.prune();
         this.armExpiry();
-        this.record("runtime.start", { restored: this.active }, true);
+        if (this.active) this.record("runtime.start", { restored: !!saved }, true);
+        else if (this.campaign || (saved?.until > 0 && saved.until <= this.now())) this.flush();
     }
     enable(on: boolean) {
-        if (on) { this.until = this.now() + DIAGNOSTIC_TTL; this.record("recorder.enabled", {}, true); }
-        else { this.record("recorder.disabled", {}, true); this.until = 0; }
+        if (on) {
+            this.until = this.campaign ? (this.campaignUntil > this.now() ? Math.min(this.campaignUntil, this.now() + this.retention) : 0) : this.now() + DIAGNOSTIC_TTL;
+            this.record("recorder.enabled");
+        } else {
+            this.record("recorder.disabled"); this.until = 0;
+        }
         this.armExpiry(); this.flush();
     }
     private armExpiry() {
         clearTimeout(this.expiry); this.expiry = undefined;
-        if (this.active) this.expiry = setTimeout(() => { this.until = 0; this.expiry = undefined; this.flush(); }, Math.max(1, this.until - this.now()));
+        if (this.active) this.expiry = setTimeout(() => {
+            this.expiry = undefined;
+            if (this.until > this.now()) { this.armExpiry(); return; }
+            this.until = 0; this.flush();
+        }, Math.max(1, this.until - this.now()));
     }
     record(event: string, data: Record<string, unknown> = {}, urgent = false): number {
         if (!this.active) return 0;
@@ -98,16 +155,27 @@ export class DiagnosticJournal {
         return entry.seq;
     }
     private prune() {
-        this.entries = this.entries.filter(e => e.time >= this.now() - DIAGNOSTIC_TTL);
+        // Campaign evidence is an exportable report, not a rolling cache. Anchor
+        // its bounded four-day window to the persisted deadline even after expiry.
+        // In particular, opening the client days later must not erase the report.
+        const campaignEnd = this.campaign && this.campaignUntil > 0 ? this.campaignUntil : null;
+        const end = campaignEnd === null ? this.now() : Math.min(this.now(), campaignEnd);
+        const start = campaignEnd === null ? this.now() - this.retention : campaignEnd - DIAGNOSTIC_CAMPAIGN_DURATION;
+        this.entries = this.entries.filter(e => e.time >= start && e.time <= end);
     }
     snapshot() {
         this.prune();
-        return { schema: 1, until: this.until, dropped: this.dropped, events: this.entries.map(e => ({ ...e, data: { ...e.data } })) };
+        return { schema: 1, until: this.until, campaign: this.campaign, campaignUntil: this.campaignUntil,
+            savedAt: this.savedAt, dropped: this.dropped, events: this.entries.map(e => ({ ...e, data: { ...e.data } })) };
     }
     flush() {
         clearTimeout(this.timer); this.timer = undefined;
         if (!this.storage) return;
+        if (this.until > 0 && this.until <= this.now()) {
+            this.until = 0; clearTimeout(this.expiry); this.expiry = undefined;
+        }
         this.prune();
+        this.savedAt = this.now();
         let payload = JSON.stringify(this.snapshot());
         while (payload.length > MAX_BYTES && this.entries.length) {
             const removed = Math.min(100, this.entries.length);

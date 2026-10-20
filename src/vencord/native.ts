@@ -102,3 +102,42 @@ export async function panelVaultClear(event: IpcMainInvokeEvent, accountId: unkn
     try { await entry.vault.clear(accountId); }
     finally { entry.active--; }
 }
+
+// Independent from auth/vault ownership. Diagnostics contain only allowlisted
+// metadata, and remain writable for an explicit final opt-out/clear snapshot.
+const diagnosticStores = new Map<string, ReturnType<typeof import("./diagnosticFileNative").createDiagnosticFileStorage>>();
+const diagnosticDenied = () => new Error("Diagnostic storage operation failed.");
+async function diagnosticStore(event: IpcMainInvokeEvent) {
+    if (!trusted(event) || !app.isReady()) throw diagnosticDenied();
+    const frame = event.senderFrame!, url = frame.url;
+    const { createDiagnosticFileStorage, diagnosticProfileRoot } = await import("./diagnosticFileNative");
+    if (!trusted(event) || event.senderFrame !== frame || frame.url !== url) throw diagnosticDenied();
+    const userData = lockFS.realpathSync(app.getPath("userData"));
+    const root = diagnosticProfileRoot(DATA_DIR, userData, process.platform);
+    let store = diagnosticStores.get(root);
+    if (!store) {
+        store = createDiagnosticFileStorage({ root, fs: lockFS });
+        diagnosticStores.set(root, store);
+    }
+    return { store, frame, url };
+}
+export async function diagnosticsLoad(event: IpcMainInvokeEvent): Promise<{ path: string; state: string | null; }> {
+    try {
+        const { store, frame, url } = await diagnosticStore(event);
+        const result = await store.load(() => {
+            if (!trusted(event) || event.senderFrame !== frame || frame.url !== url) throw diagnosticDenied();
+        });
+        if (!trusted(event) || event.senderFrame !== frame || frame.url !== url) throw diagnosticDenied();
+        return result;
+    } catch { throw diagnosticDenied(); }
+}
+export async function diagnosticsSave(event: IpcMainInvokeEvent, report: string): Promise<{ path: string; }> {
+    try {
+        const { store, frame, url } = await diagnosticStore(event);
+        const result = await store.save(report, () => {
+            if (!trusted(event) || event.senderFrame !== frame || frame.url !== url) throw diagnosticDenied();
+        });
+        if (!trusted(event) || event.senderFrame !== frame || frame.url !== url) throw diagnosticDenied();
+        return result;
+    } catch { throw diagnosticDenied(); }
+}

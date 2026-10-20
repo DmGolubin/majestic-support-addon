@@ -42,7 +42,7 @@ with sync_playwright() as p:
                 geometry = service.evaluate("e=>({position:getComputedStyle(e).position,pointer:getComputedStyle(e).pointerEvents,color:getComputedStyle(e).getPropertyValue('--stx-tx'),overflow:document.documentElement.scrollWidth>innerWidth+1,width:e.getBoundingClientRect().width})")
                 check(label + '-embedded-styled-no-overflow', geometry['position'] != 'fixed' and geometry['pointer'] != 'none' and bool(geometry['color'].strip()) and not geometry['overflow'], geometry)
                 check(label + '-identity', ('Vencord' in service.inner_text()) if variant == 'vencord' else ('только SupportTemplates' in service.inner_text()))
-                check(label + '-diagnostics', service.get_by_role('checkbox', name='Записывать диагностику на 24 часа').is_enabled())
+                check(label + '-diagnostics', service.get_by_role('checkbox', name='Записывать диагностику').is_enabled())
                 service.get_by_role('button', name='Перейти в SupportTemplates').click()
                 check(label + '-deferred', page.evaluate('handoffs.length') == 0 and service.get_by_text('Закройте настройки Discord', exact=False).is_visible())
                 page.screenshot(path=str(fixture / (label + '.png')), full_page=True)

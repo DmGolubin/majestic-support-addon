@@ -255,7 +255,7 @@ with sync_playwright() as p:
                 page.evaluate('(phase)=>previewPanel.set({phase})', phase)
                 o = overflow(service)
                 check(f'BD service {width}px {phase} no horizontal overflow', o['scroll'] <= o['width'] + 1, o)
-        recording = page.get_by_role('checkbox', name='Записывать диагностику на 24 часа')
+        recording = page.get_by_role('checkbox', name='Записывать диагностику')
         recording.check()
         check('BD DiagnosticControls recording state updates', recording.is_checked() and 'Запись идёт' in service.inner_text())
         page.get_by_role('button', name='Скачать диагностику', exact=True).click()

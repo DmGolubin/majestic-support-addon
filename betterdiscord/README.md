@@ -25,6 +25,36 @@ custom template bindings, inline triggers, previews, composition, personal libra
 ticket sounds/reminders and panel login all run the current shared UI/core.
 Server restrictions and the rule that text is inserted but never sent are retained.
 
+## Automatic local diagnostics
+
+The release introducing this feature starts recording by default **once per profile
+for four days (96 hours)**. The release notice explains this, and the Diagnostics
+section appears below Quick Input in the shared settings. The original deadline
+and off state persist across Ctrl+R, restarts and plugin updates. Recording stops
+at the deadline or when switched off; neither restarting nor clearing events
+automatically starts another period.
+The saved report remains available until the journal is cleared, including after
+the four-day period, so testers can send it to the developer later.
+
+The plugin automatically saves a local `.txt` containing JSON, with the latest
+**at most 2,000 events and 512 KiB**. Older events are discarded; this is a bounded
+report, not a complete four-day history. The file belongs to the profile's
+SupportTemplates folder beside the BetterDiscord plugins directory, outside the
+watched plugins folder. Settings display the **actual full file path** returned
+by the persistence adapter. Use that path; do not assume a fixed profile identifier
+or filename.
+
+Message text, template text, input values, tokens, request/response headers and
+bodies are excluded. There is no automatic upload. **Download diagnostics**
+remains available for manual export. If automatic file persistence is unavailable,
+the section reports the failure; manually export available events before reloading.
+
+This policy is shared with Lite and the owner's personal full Vencord build.
+BetterDiscord loads updated plugin code at runtime startup, including a normal
+Ctrl+R or the next launch. Changes to Lite/full Vencord native code require a full
+package update and a complete Discord exit and restart; a renderer-only Ctrl+R
+update cannot add a missing native file-writing endpoint.
+
 ## Host adaptation
 
 `shims/` maps every external renderer import: BetterDiscord's own React/ReactDOM,

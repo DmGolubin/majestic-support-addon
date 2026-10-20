@@ -104,7 +104,7 @@ describe("common runtime startup and teardown", () => {
     it("does not remount after stop during storage load or duplicate an already started runtime", async () => {
         const h = harness(); let resolve!: () => void;
         h.load.mockImplementationOnce(() => new Promise<void>(done => { resolve = done; }));
-        const pending = h.plugin.start(); h.plugin.stop(); resolve(); await pending;
+        const pending = h.plugin.start(); await Promise.resolve(); h.plugin.stop(); resolve(); await pending;
         expect(h.nodes).toHaveLength(0); expect(h.resources.size).toBe(0);
         await Promise.all([h.plugin.start(), h.plugin.start()]); await h.plugin.start();
         expect(h.nodes).toHaveLength(1); expect(h.attached.size).toBe(1);

@@ -30,6 +30,8 @@ export function adapterPlugin(css = '') {
         builder.onResolve({ filter: /^\./ }, args => {
             const importer = args.importer.replaceAll('\\', '/');
             if (!importer.includes('/src/vencord/')) return;
+            if (/\/diagnosticStorage$/.test(args.path))
+                return { path: path.join(own, 'native/diagnosticStorage.ts') };
             if (/\/(?:buildInfo|panelPermission|panelVault)$/.test(args.path)) {
                 const name = path.basename(args.path);
                 return { path: path.join(own, name === 'panelVault' ? 'native/vaultHost.ts' : `shims/${name}.ts`) };

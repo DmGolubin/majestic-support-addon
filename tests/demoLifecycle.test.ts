@@ -304,6 +304,7 @@ describe("demo session and plugin lifecycle", () => {
         const newLoad = deferred<void>();
         vi.spyOn(h.real, "load").mockReturnValueOnce(oldLoad.promise).mockReturnValueOnce(newLoad.promise);
         const oldStart = h.plugin.start();
+        await Promise.resolve(); // Diagnostic initialization precedes the store load.
         h.plugin.stop();
         const newStart = h.plugin.start();
         newLoad.resolve();

@@ -294,7 +294,8 @@ export default definePlugin({
         const t0 = performance.now();
         const gen = ++lifecycle;
         try {
-            startDiagnostics();
+            await startDiagnostics();
+            if (gen !== lifecycle) return;
             nextGeneration();
             try { await realStore.load(); }
             catch {

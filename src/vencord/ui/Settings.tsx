@@ -63,7 +63,6 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
         {tab === "tickets" && <TicketSettings />}
         {tab === "general" && <div className="vc-stx-settings-sections">
             <PanelConnection />
-            <DiagnosticControls />
             <section className="vc-stx-setting-section vc-stx-setting-card" aria-labelledby="stx-input-settings">
                 <h3 id="stx-input-settings">Быстрый ввод</h3>
                 <div className="vc-stx-setting-line">
@@ -80,6 +79,7 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
                 </form>
                 {prefixError && <p role="alert" className="vc-stx-form-error">{prefixError}</p>}
             </section>
+            <DiagnosticControls />
         </div>}
     </div>;
 }

@@ -117,6 +117,7 @@ for (const { asset, archive } of nativeAssets) {
     const observers = new Set(), listeners = new Set(), timers = new Map(), persisted = new Map();
     const subscribe = cb => { observers.add(cb); return () => observers.delete(cb); };
     const mocks = {
+        'diagnosticStorage.ts': 'export const loadDiagnosticStorage=async()=>({path:"fixture/SupportTemplates-diagnostics.txt",state:globalThis.fixture.saved?JSON.stringify(JSON.parse(globalThis.fixture.saved).journal):null});export const saveDiagnosticStorage=async(report)=>{globalThis.fixture.saved=report;return {path:"fixture/SupportTemplates-diagnostics.txt"}};',
         'ui/debug.ts': 'export const debugFileSnapshot=()=>({});',
         'ui/panel.ts': 'export const panel=globalThis.fixture.panel;',
         'ui/uiState.ts': 'export const ui=globalThis.fixture.ui;export const store=globalThis.fixture.store;'
@@ -150,9 +151,8 @@ for (const { asset, archive } of nativeAssets) {
     box.exports = box.module.exports;
     vm.runInNewContext(compiled.outputFiles[0].text, box);
     const api = box.module.exports;
-    api.startDiagnostics();
-    check('default recording off', !api.diagnosticJournal.active && timers.size === 0);
-    api.setRecording(true);
+    await api.startDiagnostics();
+    check('test campaign recording defaults on', api.diagnosticJournal.active && api.diagnosticJournal.campaignEndsAt > Date.now());
     const send = api.createPanelTransport(async () => Response.json({code: 'session_revoked', message: 'PRIVATE_BODY_SENTINEL'}, {status: 401}));
     await assert.rejects(send('/me', {token: 'PRIVATE_TOKEN_SENTINEL'}), e => e.code === 'session_revoked');
     api.downloadDiagnostics();
@@ -162,7 +162,7 @@ for (const { asset, archive } of nativeAssets) {
     check('diagnostic export identifies distribution', report.distribution === variant);
     check('request failure records status and reason', report.journal.events.some(e => e.event === 'request.failure' && e.data.status === 401 && e.data.code === 'session_revoked'));
     check('no token or response body in export', !exported.includes('PRIVATE_'));
-    api.stopDiagnostics(); api.startDiagnostics();
+    api.stopDiagnostics(); await api.startDiagnostics();
     check('recording and request history survive restart', api.diagnosticJournal.active && JSON.parse(api.diagnosticFile()).journal.events.some(e => e.data.status === 401));
     for (let i = 0; i < 2500; i++) api.diagnosticJournal.record('ui.state', {count: i, query: 'PRIVATE_QUERY_SENTINEL'});
     const flood = JSON.parse(api.diagnosticFile());

@@ -7,3 +7,4 @@
 .vc-stx-diagnostics .vc-stx-record-toggle { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 8px 0; }
 .vc-stx-record-toggle input { accent-color: var(--stx-pr, #c41651); }
 .vc-stx-diagnostic-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.vc-stx-diagnostic-path { display: block; margin-top: 6px; overflow-wrap: anywhere; white-space: normal; user-select: text; }
