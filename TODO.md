@@ -3,11 +3,7 @@
 
 Это представление единого roadmap, а не отдельный план. Полный список с выполненными задачами: [STATUS](docs/STATUS.md). Обновление: `node scripts/roadmap.mjs`.
 
-## В работе (2)
-
-### D16 · Выбор установленного Discord при запуске полного Vencord
-
-D · Доставка. При запуске BAT без -Channel определить обычный Discord и Canary, предложить выбор и отмену. Явный -Channel оставить для автоматизации. Подготовить отдельную редакцию установщика с проверенным payload .24 без изменения ранее выданного ZIP.
+## В работе (1)
 
 ### C06 · Двусторонние личные шаблоны
 
@@ -15,7 +11,13 @@ C · Панель. Владелец сообщил о неподтверждён
 
 Основание: [PANEL-API-CONTRACT.md](docs/PANEL-API-CONTRACT.md), [2026-10-18-write-failure-triage.md](docs/audits/2026-10-18-write-failure-triage.md), [2026-10-18-account-ui.md](docs/plans/2026-10-18-account-ui.md), [2026-10-18-account-ui-implementation.md](docs/audits/2026-10-18-account-ui-implementation.md).
 
-## Реализовано · нужна приёмка (34)
+## Реализовано · нужна приёмка (35)
+
+### D16 · Выбор установленного Discord при запуске полного Vencord
+
+D · Доставка. Готов полный Vencord .24-setup2: BAT определяет Discord/Canary и спрашивает номер, Enter/0 отменяет без записи, явный -Channel работает без меню. 31 группа installer fixtures прошла суммарно: 24 до обновления старой BAT-проверки, затем 7 финальных групп. Проверены 35 неизменённых payload-хешей и новый ZIP. В живой Discord не установлено, не опубликовано; ожидается проверка получателем.
+
+Основание: [2026-10-20-installer-picker.md](docs/audits/2026-10-20-installer-picker.md), [2026-10-20-installer-picker-results.json](docs/audits/2026-10-20-installer-picker-results.json).
 
 ### Q19 · Закрыть блокер QuickCSS и подготовить три сборки .24
 

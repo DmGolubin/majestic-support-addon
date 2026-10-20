@@ -387,7 +387,7 @@ try {
         $env:SUPPORT_TEMPLATES_NO_PAUSE = '1'
         $ErrorActionPreference = 'Continue'
         try {
-            $command = '""{0}\status.bat" -TestRoot "{1}" -LocalAppDataRoot "{2}""' -f $f.Package, $f.Root, $f.Local
+            $command = '""{0}\status.bat" -Channel Canary -TestRoot "{1}" -LocalAppDataRoot "{2}""' -f $f.Package, $f.Root, $f.Local
             $output = & $env:ComSpec /d /s /c $command 2>&1
             Assert ($LASTEXITCODE -eq 0) "batch status failed: $output"
             Put "$($f.Resources)/app.asar" 'unknown archive'
