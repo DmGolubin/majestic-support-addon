@@ -35,11 +35,16 @@ is compiled out, even if old settings have autoUpdate enabled.
   `uninstall.bat`; or `powershell -NoProfile -ExecutionPolicy Bypass -File
   VencordFull.ps1 -Action Install -Channel Canary -WhatIf`.
   Actions are `Install|Update|Repair|Rollback|Status|Uninstall`.
-  Channel defaults to Canary; `-Channel Stable` explicitly chooses stable Discord.
+  Without `-Channel`, the installer lists detected Discord and Discord Canary
+  installations and asks for a selection. Even one detected client requires
+  confirmation; Enter or 0 cancels without changes. `-Channel Stable` or
+  `-Channel Canary` explicitly chooses a client without prompting.
 
 ## Installation and data
 
-Close the selected Discord channel, extract the ZIP, then run install.bat.
+Close the intended Discord client, extract the ZIP, then run install.bat and
+choose that client by number. The same picker is used for update, repair,
+rollback, status and uninstall when no explicit channel is supplied.
 No elevation, Node installation, process killing, login prompt, or installer EXE.
 Uninstall restores the original Discord archive and retains settings and caches.
 Existing Vencord/BetterDiscord/standalone injections are refused; remove them

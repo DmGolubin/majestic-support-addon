@@ -55,11 +55,13 @@ function Fixture {
     Manifest $f
     return $f
 }
-function Run($f, [string]$action, [string[]]$more = @(), [bool]$success = $true) {
+function Run($f, [string]$action, [string[]]$more = @(), [bool]$success = $true, [switch]$Interactive, [string[]]$Answers = @()) {
     $savedPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $output = & $powershell -NoProfile -ExecutionPolicy Bypass -File "$($f.Package)/VencordFull.ps1" -Action $action -TestRoot $f.Root -LocalAppDataRoot $f.Local @more 2>&1
+        $channelArgs = @()
+        if (-not $Interactive -and '-Channel' -notin $more) { $channelArgs = @('-Channel', 'Canary') }
+        $output = $Answers | & $powershell -NoProfile -ExecutionPolicy Bypass -File "$($f.Package)/VencordFull.ps1" -Action $action -TestRoot $f.Root -LocalAppDataRoot $f.Local @channelArgs @more 2>&1
         $code = $LASTEXITCODE
     }
     finally { $ErrorActionPreference = $savedPreference }
@@ -86,6 +88,62 @@ function Tree-State([string]$root, [string[]]$exclude = @()) {
     })) -join "`n"
 }
 try {
+    Test 'picker: one client still requires selection; cancel writes nothing' {
+        $f = Fixture; $before = Tree-State $f.Root
+        $output = Run $f Install -Interactive -Answers @('0')
+        Assert ($output -match 'Discord Canary' -and $output -match 'Cancelled') 'single client picker/cancel missing'
+        Assert ((Tree-State $f.Root) -ceq $before) 'cancel changed files'
+    }
+    Test 'picker: ordinary Discord alone can be selected' {
+        $f = Fixture
+        Move-Item -LiteralPath "$($f.Local)/DiscordCanary" -Destination "$($f.Local)/Discord"
+        Rename-Item -LiteralPath "$($f.Local)/Discord/app-1.0.9/DiscordCanary.exe" -NewName 'Discord.exe'
+        $output = Run $f Install -Interactive -Answers @('1')
+        Assert ($output -match 'Selected: Discord \(Stable\)') 'stable selection not shown'
+        Assert (Test-Path -LiteralPath "$($f.Local)/Discord/app-1.0.9/resources/support-templates-vencord.json") 'stable not installed'
+        Assert (-not (Test-Path -LiteralPath "$($f.Local)/SupportTemplatesVencord/channels/canary")) 'canary cache created'
+    }
+    Test 'picker: both clients, invalid choice then Stable, Canary untouched' {
+        $f = Fixture
+        $stable = "$($f.Local)/Discord/app-1.0.8/resources"
+        [IO.Directory]::CreateDirectory($stable) | Out-Null
+        Put "$($f.Local)/Discord/app-1.0.8/Discord.exe" 'fixture, never executed'
+        New-Asar "$stable/app.asar"
+        $canaryBefore = Tree-State "$($f.Local)/DiscordCanary"
+        $output = Run $f Install -Interactive -Answers @('bad', '99', '1')
+        Assert ($output -match 'Discord \(Stable\)' -and $output -match 'Discord Canary' -and $output -match 'Invalid selection') 'two-client menu missing'
+        Assert (Test-Path -LiteralPath "$stable/support-templates-vencord.json") 'stable not installed'
+        Assert ((Tree-State "$($f.Local)/DiscordCanary") -ceq $canaryBefore) 'unselected client changed'
+        $output = Run $f Uninstall -Interactive -Answers @('1')
+        Assert (-not (Test-Path -LiteralPath "$stable/support-templates-vencord.json")) 'picker uninstall targeted wrong client'
+    }
+    Test 'picker: empty input cancels and explicit Channel bypasses menu' {
+        $f = Fixture; $before = Tree-State $f.Root
+        $output = Run $f Install -Interactive -Answers @('')
+        Assert ($output -match 'Cancelled' -and (Tree-State $f.Root) -ceq $before) 'empty choice must cancel without writes'
+        $output = Run $f Install
+        Assert ($output -notmatch 'Select Discord') 'explicit channel prompted'
+        Assert (Test-Path -LiteralPath "$($f.Resources)/support-templates-vencord.json") 'explicit install failed'
+    }
+    Test 'picker: both clients, Canary selection leaves Stable untouched' {
+        $f = Fixture
+        $stable = "$($f.Local)/Discord/app-1.0.8/resources"
+        [IO.Directory]::CreateDirectory($stable) | Out-Null
+        Put "$($f.Local)/Discord/app-1.0.8/Discord.exe" 'fixture, never executed'
+        New-Asar "$stable/app.asar"
+        $before = Tree-State "$($f.Local)/Discord"
+        $output = Run $f Install -Interactive -Answers @('2')
+        Assert ($output -match 'Selected: Discord Canary') 'second selection did not select Canary'
+        Assert (Test-Path -LiteralPath "$($f.Resources)/support-templates-vencord.json") 'Canary not installed'
+        Assert ((Tree-State "$($f.Local)/Discord") -ceq $before) 'unselected Stable changed'
+    }
+    Test 'picker: no supported installation fails without creating files' {
+        $f = Fixture
+        Rename-Item -LiteralPath "$($f.Local)/DiscordCanary/app-1.0.9/DiscordCanary.exe" -NewName 'missing.exe'
+        $before = Tree-State $f.Root
+        $output = Run $f Install -Interactive -success $false
+        Assert ($output -match 'No supported Discord installation' -and (Tree-State $f.Root) -ceq $before) 'missing client discovery wrote files or misleading error'
+    }
     Test 'install, idempotence, read-only status, uninstall exact bytes and retained settings' {
         $f = Fixture; $original = Hash "$($f.Resources)/app.asar"
         Run $f Install | Out-Null
