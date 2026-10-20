@@ -161,6 +161,9 @@ export function syncTicketReminders(next: Binding) {
                 };
                 try {
                     showReminderNotification(target.project, { valid: noticeValid,
+                        ticket: { key: target.ticketId, label: /^[0-9]{1,20}$/.test(target.ticketId) ? `#${target.ticketId}` : "Тикет",
+                            ...(typeof target.waitingMs === "number" && Number.isFinite(target.waitingMs) && target.waitingMs >= 0
+                                ? { waitingMs: target.waitingMs } : {}) },
                         ...(reminderDestination(target) ? { open: (live: () => boolean) => openAssignedTicket(next, own, target, live) } : {}) });
                 } catch { /* Notification UI cannot undo a successful audio receipt. */ }
             }

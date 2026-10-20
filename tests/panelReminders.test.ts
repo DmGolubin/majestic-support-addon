@@ -201,6 +201,7 @@ describe("panel reminder controller", () => {
         await vi.advanceTimersByTimeAsync(1);
         expect(h.get).toHaveBeenCalledTimes(2);
         expect(h.play).toHaveBeenCalledTimes(1);
+        expect(h.play).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ waitingMs: 920000 }));
     });
 
     it.each(["removed", "reassigned", "waiting_player", "discord_disabled"])("cancels a due sound after fresh read: %s", async reason => {

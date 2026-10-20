@@ -148,6 +148,18 @@ describe("ticket reminder adapter", () => {
             ...ticket, assigneeAccountId: accountId, state: "waiting_support", waitingSince: "2026-10-20T11:50:00Z", reminderAt: "2026-10-20T11:55:00Z",
         }],
     });
+    it.each(["42", "opaque:42", "private\nname"])("passes safe display metadata and a private dedupe key for %s", async ticketId => {
+        const h = harness(); await h.ready();
+        const ticket = { ...mappedTicket(), ticketId, waitingMs: 125000 };
+        h.client.get.mockClear();
+        await h.running()[0].options.play(() => true, ticket);
+        expect(h.showReminderNotification.mock.calls[0][1].ticket).toEqual({ key: ticketId, label: ticketId === "42" ? "#42" : "Тикет", waitingMs: 125000 });
+        expect(h.client.get).not.toHaveBeenCalled();
+        expect(h.client.mutate).not.toHaveBeenCalled();
+        expect(h.storage.get).not.toHaveBeenCalled();
+        expect(h.storage.set).not.toHaveBeenCalled();
+        expect(h.playTicketReminder).toHaveBeenCalledOnce();
+    });
     it.each(["majestic", "russia-online"] as const)("A29 displays %s and opens only the freshly verified exact assignment", async project => {
         const h = harness(); await h.ready();
         const ticket = mappedTicket(project);
@@ -613,7 +625,7 @@ describe("ticket reminder adapter", () => {
         await expect(play(() => true, { ticketId: "42", project: "majestic", guildId: null, channelId: null,
             waitingCycleId: "cycle", reminderId: "reminder", cycle: 1 })).resolves.toBe(true);
         expect(h.playTicketReminder).toHaveBeenCalledOnce();
-        expect(h.showReminderNotification).toHaveBeenCalledExactlyOnceWith("majestic", { valid: expect.any(Function) });
+        expect(h.showReminderNotification).toHaveBeenCalledExactlyOnceWith("majestic", { valid: expect.any(Function), ticket: { key: "42", label: "#42" } });
     });
 
     it.each(["engine", "stop", "busy", "disabled"] as const)("rechecks %s validity inside deferred audio playback", async invalidation => {

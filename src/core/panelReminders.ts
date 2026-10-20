@@ -37,7 +37,7 @@ export interface PanelAssignedTicket {
     reminderId: string | null;
 }
 /** No account/session identity crosses the audio boundary. */
-export type ReminderPlaybackTicket = Pick<PanelAssignedTicket, "ticketId" | "channelId" | "guildId" | "project" | "waitingCycleId" | "reminderId"> & { cycle: number };
+export type ReminderPlaybackTicket = Pick<PanelAssignedTicket, "ticketId" | "channelId" | "guildId" | "project" | "waitingCycleId" | "reminderId"> & { cycle: number; waitingMs?: number };
 
 /** Parsed timestamps are UTC epoch milliseconds. Revisions and reminder IDs stay opaque. */
 export interface PanelAssignedSnapshot {
@@ -429,7 +429,8 @@ export function createReminderController(options: ReminderOptions): ReminderCont
                 let played = false;
                 const playbackTicket: ReminderPlaybackTicket = { ticketId: claimed.ticketId, channelId: claimed.channelId,
                     guildId: claimed.guildId, project: claimed.project, waitingCycleId: claimed.waitingCycleId,
-                    reminderId: claimed.reminderId, cycle };
+                    reminderId: claimed.reminderId, cycle,
+                    ...(claimed.waitingSince !== null ? { waitingMs: Math.max(0, s.serverTime + Math.max(0, clock.now() - receivedAt) - claimed.waitingSince) } : {}) };
                 try { if (stillValid()) played = await options.play(stillValid, playbackTicket) === true; } catch { /* attempt stays consumed */ }
                 trace("play", { cycle, ...ticketTrace(claimed), played, currentGuard: stillValid(), outcome: played ? "success" : "failure" });
                 if (!stillValid()) return;

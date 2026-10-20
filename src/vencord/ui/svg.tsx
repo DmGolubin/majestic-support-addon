@@ -25,6 +25,8 @@ export const IconStar = ({ size, filled = false }: P & { filled?: boolean; }) =>
 
 export const IconClose = ({ size }: P) => <Svg size={size}><path d="M6 6l12 12M18 6L6 18" /></Svg>;
 
+export const IconArrowUpRight = ({ size }: P) => <Svg size={size}><path d="M7 17L17 7M7 7h10v10" /></Svg>;
+
 export const IconBell = ({ size }: P) => <Svg size={size}><path d="M6 8a6 6 0 0 1 12 0v6l2 3H4l2-3V8M10 21h4M12 2V1" /></Svg>;
 
 export const IconSearch = ({ size }: P) => <Svg size={size}><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></Svg>;

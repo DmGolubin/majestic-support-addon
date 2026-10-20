@@ -33,7 +33,8 @@ function notices() {
         return { get: () => value, use: () => value, set: (patch: any) => { value = { ...value, ...patch }; } };
     } } }, { performance: { now: () => Date.now() }, setTimeout, clearTimeout });
     const component = load(componentCode, { "./reminderNoticeStore": store, "./ProjectIcon": { ProjectIcon: "ProjectIcon" },
-        "./svg": { IconClose: "IconClose" }, "./reminder-notifications.css": {} },
+        "@webpack/common": { useEffect: () => {}, useRef: () => ({ current: null }) },
+        "./svg": { IconClose: "IconClose", IconChevron: "IconChevron", IconArrowUpRight: "IconArrowUpRight" }, "./reminder-notifications.css": {} },
     { React: { createElement: (type: any, props: any, ...children: any[]) => ({ type, props: { ...props, children } }) } });
     return { ...store, render: () => component.ReminderNotifications(), items: () => store.reminderNotifications.get().items };
 }
@@ -78,7 +79,8 @@ describe("manual reminder sample navigation", () => {
         expect(h.common.ChannelStore.getChannel).not.toHaveBeenCalled();
         const button = all(h.render()).find(n => n.props.className === "vc-stx-reminder-open");
         expect(button.props).toMatchObject({ type: "button", "aria-label": "Открыть тестовый тикет · Россия Онлайн" });
-        expect(text(button)).toBe("Открыть тикет");
+        expect(text(button)).toContain("Игрок ждёт вашего ответа");
+        expect(all(button).some(n => n.type === "IconArrowUpRight")).toBe(true);
         expect(text(h.render())).toContain("Тестовое уведомление");
         button.props.onClick();
         await vi.advanceTimersByTimeAsync(0);
@@ -246,8 +248,8 @@ describe("A29 custom reminder cards", () => {
         const h = notices(); let valid = true;
         h.showReminderNotification("majestic", { valid: () => valid, open: vi.fn() });
         const id = h.items()[0].id;
-        for (let i = 0; i < 6; i++) h.showReminderNotification(i % 2 ? "majestic" : "russia-online");
-        expect(h.items()).toHaveLength(3);
+        for (let i = 0; i < 55; i++) h.showReminderNotification(i % 2 ? "majestic" : "russia-online");
+        expect(h.items()).toHaveLength(50);
         expect(h.items().some((row: any) => row.id === id)).toBe(false);
         expect(vi.getTimerCount()).toBe(1);
         await vi.advanceTimersByTimeAsync(45000);
@@ -265,6 +267,66 @@ describe("A29 custom reminder cards", () => {
         expect(text(h.render())).toContain("Тикет недоступен. Повторите проверку.");
         expect(text(h.render())).not.toContain("secret");
         expect(h.items()[0].busy).toBe(false);
+    });
+});
+
+describe("A36 compact grouped reminder UI", () => {
+    it("keeps one card per server, opens lists independently and sorts longer waits first", () => {
+        const h = notices();
+        for (const [project, key, minutes] of [["majestic", "41", 8], ["majestic", "42", 18],
+            ["majestic", "43", 12], ["majestic", "44", 5], ["russia-online", "81", 9], ["russia-online", "82", 15]] as const) {
+            h.showReminderNotification(project, { valid: () => true, open: async () => true,
+                ticket: { key, label: "#" + key, waitingMs: minutes * 60000 } });
+        }
+        const cards = () => all(h.render()).filter(n => n.type === "section");
+        expect(cards()).toHaveLength(2);
+        expect(text(cards()[0])).toContain("4 тикета ждут ответа");
+        expect(text(cards()[1])).toContain("2 тикета ждут ответа");
+        const toggle = (index: number) => all(cards()[index]).find(n => n.props.className === "vc-stx-reminder-toggle");
+        expect(toggle(0).props["aria-expanded"]).toBe(false);
+        expect(all(cards()[0]).some(n => n.type === "ul")).toBe(false);
+        toggle(0).props.onClick();
+        expect(toggle(0).props["aria-expanded"]).toBe(true);
+        expect(toggle(1).props["aria-expanded"]).toBe(false);
+        const rows = all(cards()[0]).filter(n => n.type === "li");
+        expect(rows.map(text)).toEqual(["#4218 мин", "#4312 мин", "#418 мин", "#445 мин"]);
+        toggle(1).props.onClick();
+        expect(toggle(0).props["aria-expanded"]).toBe(true);
+        expect(toggle(1).props["aria-expanded"]).toBe(true);
+    });
+    it("activates only the chosen row and turns a remaining single ticket into direct navigation", async () => {
+        const h = notices(), first = vi.fn(async () => true), second = vi.fn(async () => true);
+        h.showReminderNotification("majestic", { valid: () => true, open: first, ticket: { key: "1", label: "#1", waitingMs: 120000 } });
+        h.showReminderNotification("majestic", { valid: () => true, open: second, ticket: { key: "2", label: "#2", waitingMs: 60000 } });
+        all(h.render()).find(n => n.props.className === "vc-stx-reminder-toggle").props.onClick();
+        const rows = all(h.render()).filter(n => n.props.className === "vc-stx-reminder-open");
+        rows[1].props.onClick(); await vi.advanceTimersByTimeAsync(0);
+        expect(second).toHaveBeenCalledOnce(); expect(first).not.toHaveBeenCalled();
+        expect(all(h.render()).some(n => n.props.className === "vc-stx-reminder-toggle")).toBe(false);
+        const single = all(h.render()).find(n => n.props.className === "vc-stx-reminder-open");
+        expect(text(single)).toContain("#1 ждёт ответа");
+        single.props.onClick(); await vi.advanceTimersByTimeAsync(0);
+        expect(first).toHaveBeenCalledOnce(); expect(h.render()).toBeNull();
+    });
+    it("dismisses an entire project without touching the other server", () => {
+        const h = notices();
+        for (const project of ["majestic", "majestic", "russia-online"] as const) h.showReminderNotification(project);
+        all(h.render()).find(n => n.props.className === "vc-stx-reminder-dismiss").props.onClick();
+        expect(h.items().map((item: any) => item.project)).toEqual(["russia-online"]);
+    });
+    it("does not reorder tickets as their rounded minute labels change", async () => {
+        const h = notices();
+        for (const [key, waitingMs] of [["1", 125000], ["2", 170000]] as const) {
+            h.showReminderNotification("majestic", { valid: () => true, open: async () => true, ticket: { key, label: "#" + key, waitingMs } });
+        }
+        h.setReminderNotificationInteraction("majestic", "pointer", true);
+        h.toggleReminderNotificationGroup("majestic");
+        const rowOrder = () => all(h.render()).filter(n => n.props.className === "vc-stx-reminder-ticket-label").map(text);
+        expect(rowOrder()).toEqual(["#2", "#1"]);
+        await vi.advanceTimersByTimeAsync(10000);
+        expect(rowOrder()).toEqual(["#2", "#1"]);
+        await vi.advanceTimersByTimeAsync(45000);
+        expect(rowOrder()).toEqual(["#2", "#1"]);
     });
 });
 
