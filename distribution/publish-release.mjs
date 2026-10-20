@@ -53,7 +53,9 @@ for (const line of checksumLines) {
 if (names.some(name => !fs.statSync(path.join(directory, name)).isFile() || (name !== 'SHA256SUMS.txt' && !covered.has(name)))) throw new Error('Unverified file in release directory');
 if (args.includes('--check')) { console.log(`Verified ${names.length} release files; no publication performed.`); process.exit(0); }
 const metadata = JSON.parse(execFileSync('gh', ['repo', 'view', config.releaseRepository, '--json', 'visibility'], { encoding: 'utf8' }));
-if (args.includes('--publish') && metadata.visibility !== 'PUBLIC') throw new Error('Automatic updates require a PUBLIC repository; use a draft until then');
+if (args.includes('--publish') && metadata.visibility !== 'PUBLIC') {
+    console.warn('Publishing for repository members only. Anonymous automatic updates remain unavailable while the repository is private.');
+}
 const ghArgs = ['release', 'create', `v${config.version}`, '--repo', config.releaseRepository, '--title', `SupportTemplates ${config.version}`,
     '--target', evidence.commit, '--notes-file', path.join(directory, 'INSTALL-RU.md')];
 if (config.channel === 'canary') ghArgs.push('--prerelease');

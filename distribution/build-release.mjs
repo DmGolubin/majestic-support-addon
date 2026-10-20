@@ -38,7 +38,6 @@ function copyAsset(file, name, variant, kind) {
 }
 copyAsset(standalone.zip, `SupportTemplates-standalone-${config.version}.zip`, 'standalone', 'native');
 copyAsset(betterdiscord.plugin ?? path.join(betterdiscord.package, 'SupportTemplates.plugin.js'), 'SupportTemplates.plugin.js', 'betterdiscord', 'renderer');
-if (betterdiscord.zip) fs.copyFileSync(betterdiscord.zip, path.join(destination, `SupportTemplates-betterdiscord-${config.version}.zip`));
 
 // Corresponding sources accompany the distribution, even when the source repo is private.
 execFileSync('git', ['archive', '--format=zip', `--output=${path.join(destination, 'SupportTemplates-source.zip')}`, commit, '--',
@@ -50,7 +49,27 @@ if (!dependencyEvidence) throw new Error('Run distribution/prepare-upstream.mjs 
 const { checkout: _privatePath, ...publicDependencyEvidence } = dependencyEvidence;
 fs.writeFileSync(path.join(destination, 'build-evidence.json'), JSON.stringify({ schema: 1, commit, version: config.version, dependencies: publicDependencyEvidence, assets }, null, 2));
 fs.writeFileSync(path.join(destination, config.manifestAsset), JSON.stringify({ schema: 1, product: 'SupportTemplates', repository: config.releaseRepository, version: config.version, channel: config.channel, assets }, null, 2));
-fs.copyFileSync(path.join(root, 'distribution/INSTALL-RU.md'), path.join(destination, 'INSTALL-RU.md'));
+const downloadBase = `https://github.com/${config.releaseRepository}/releases/download/v${config.version}`;
+const releaseIntro = `# SupportTemplates ${config.version}
+
+## Что скачать
+
+| Вариант | Скачать | Установка |
+|---|---|---|
+| **BetterDiscord** — если он уже установлен | [SupportTemplates.plugin.js](${downloadBase}/SupportTemplates.plugin.js) | Положить в папку плагинов и включить |
+| **Lite + SupportTemplates** — отдельная сборка с GUI | [SupportTemplates Lite ${config.version}.zip](${downloadBase}/SupportTemplates-standalone-${config.version}.zip) | Распаковать целиком и запустить install.bat |
+
+Оба варианта работают с Discord Stable и Discord Canary на Windows.
+В Lite файлы сборки находятся в \`payload/\`, GUI-установщик — рядом.
+Устанавливайте один вариант в выбранный клиент Discord.
+
+Остальные вложения — исходники, контрольные суммы и данные для автоматического обновления.
+Для обычной установки достаточно одного файла из таблицы.
+
+---
+
+`;
+fs.writeFileSync(path.join(destination, 'INSTALL-RU.md'), releaseIntro + fs.readFileSync(path.join(root, 'distribution/INSTALL-RU.md'), 'utf8'));
 const checksums = fs.readdirSync(destination).filter(name => fs.statSync(path.join(destination, name)).isFile()).sort()
     .map(name => `${createHash('sha256').update(fs.readFileSync(path.join(destination, name))).digest('hex')}  ${name}`).join('\n') + '\n';
 fs.writeFileSync(path.join(destination, 'SHA256SUMS.txt'), checksums);

@@ -14,10 +14,7 @@
     "test:installer": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/standaloneInstaller.Tests.ps1",
     "icons": "node scripts/make-icons.mjs",
     "fonts": "node scripts/make-fonts.mjs",
-    "sync:vencord": "node scripts/sync-vencord.mjs",
-    "roadmap": "node scripts/roadmap.mjs",
-    "roadmap:check": "node scripts/roadmap.mjs --check",
-    "roadmap:serve": "python scripts/roadmap-server.py"
+    "sync:vencord": "node scripts/sync-vencord.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

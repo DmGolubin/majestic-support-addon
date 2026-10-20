@@ -21,7 +21,7 @@ function runScript(file: string, root: string, config: object, execFileSync: (..
         validation: createRequire(import.meta.url)('../distribution/updater/validation.cjs'),
         process: { execPath: process.execPath, argv: ['node', file, ...args], env: {},
             stdout: { write() {} }, exit: () => { throw new Error('Unexpected process exit'); } },
-        console: { log() {} }
+        console: { log() {}, warn() {} }
     }, { filename: file, timeout: 10000 });
 }
 function fixture() {
@@ -57,6 +57,18 @@ afterEach(() => {
     }
 });
 describe('release verification without publishing', () => {
+    it('publishes a verified private release for repository members without making the repository public', () => {
+        const f = fixture(); const calls: string[][] = [];
+        runScript('publish-release.mjs', f.root, f.config, (_command, args) => {
+            calls.push(args); return JSON.stringify({ visibility: 'PRIVATE' });
+        }, ['--publish']);
+        expect(calls).toHaveLength(2);
+        expect(calls[0].slice(0, 2)).toEqual(['repo', 'view']);
+        expect(calls[1].slice(0, 2)).toEqual(['release', 'create']);
+        expect(calls[1]).not.toContain('--draft');
+        expect(calls[1]).toContain('--target');
+        expect(calls[1]).toContain(f.evidence.commit);
+    });
     it('validates exactly Lite and BetterDiscord offline without GitHub authentication', () => {
         const result = fixture().check(); expect(result.status, result.stderr).toBe(0); expect(result.stdout).toContain('no publication performed');
     });

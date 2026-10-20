@@ -2,8 +2,7 @@
 
 `index.cjs` is a dependency-free CommonJS module for Electron's existing Node
 runtime. Bundle it into BetterDiscord and Vencord native/main code; never run it
-in the web renderer or require an installed Node executable. Current integration
-baseline is `0.1.0-canary.14`. Parent owns config, release aggregation and builds.
+in the web renderer or require an installed Node executable. Version, channel and release repository are defined in `distribution/config.json`.
 
 ## Release contract (for the aggregator)
 
@@ -18,14 +17,14 @@ No credentials, environment tokens or GitHub CLI authentication are used.
   "schema": 1,
   "product": "SupportTemplates",
   "repository": "OWNER/PUBLIC-RELEASE-REPO",
-  "version": "0.1.0-canary.14",
-  "channel": "canary",
+  "version": "1.0.1",
+  "channel": "stable",
   "assets": [
     {
       "variant": "standalone",
       "platform": "win32",
       "kind": "native",
-      "name": "SupportTemplates-standalone-0.1.0-canary.14.zip",
+      "name": "SupportTemplates-standalone-1.0.1.zip",
       "size": 123456,
       "sha256": "REPLACE_WITH_64_LOWERCASE_HEX_DIGITS"
     },
@@ -33,7 +32,7 @@ No credentials, environment tokens or GitHub CLI authentication are used.
       "variant": "vencord",
       "platform": "win32",
       "kind": "native",
-      "name": "SupportTemplates-vencord-0.1.0-canary.14.zip",
+      "name": "SupportTemplates-vencord-1.0.1.zip",
       "size": 123456,
       "sha256": "REPLACE_WITH_64_LOWERCASE_HEX_DIGITS"
     },
