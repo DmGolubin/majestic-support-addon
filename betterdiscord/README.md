@@ -31,18 +31,20 @@ This test release enables local diagnostics by default without an automatic expi
 The Diagnostics section sits below Quick Input. The off preference survives reloads;
 a future release can remove or change the feature. No automatic upload is performed.
 
-`SupportTemplates-diagnostics.txt` is an appended plain-text log: each line begins
+`main.log` is an appended plain-text log: each line begins
 with local time, e.g. `[20.10.2026 13:45:34]`. Restarting preserves earlier lines.
 Rotation retains the active file plus nine archives at 10 MiB each (about 100 MiB
 in total), removing the oldest archive only when necessary. The 2,000-event UI
 buffer is separate from this file history. Include rotated archives for older issues.
 
 The profile's SupportTemplates folder beside the plugins directory stores the files.
-Settings show the actual path. Logs include allowlisted API request/result metadata,
+The “Open logs folder” button opens the current profile's directory. Existing logs
+from earlier releases are preserved separately from the new series' rotation budget.
+Logs include allowlisted API request/result metadata,
 connection decisions, state/performance and sound events. Message/template text,
 input values, credentials, headers and request/response bodies are excluded.
-When disk writes fail, settings report the problem and manual buffer export remains
-available. Abrupt process termination may lose the most recent few seconds.
+When disk writes fail, settings report the problem. Send the log files manually;
+there is no automatic upload. Abrupt process termination may lose the most recent few seconds.
 
 Sound traces include technical ticket/channel/guild IDs, eligibility and ownership
 checks (without employee IDs), effective settings and playback/skip decisions.

@@ -216,17 +216,19 @@ describe("A23 actual Window and Settings controls", () => {
     it("Settings supplies keyboard-accessible movement and persists both search options", () => {
         const h = harness("Settings"); let tree = h.render();
         button(tree, "Настройки").props.onClick(); tree = h.render();
-        const earlier = nodes(tree).find(n => n.props["aria-label"] === "Переместить Мои раньше")!;
+        const earlier = nodes(tree).find(n => n.props["aria-label"] === "Мои, позиция 2 из 4")!;
         expect(earlier.type).toBe("button"); expect(earlier.props.disabled).toBe(false);
-        earlier.props.onClick(); tree = h.render();
+        earlier.props.onKeyDown(key("ArrowLeft", { altKey: true })); tree = h.render();
         expect(h.store.data.windowTabOrder).toEqual(["personal", "all", "fav", "recent"]);
-        expect(nodes(tree).find(n => n.props["aria-label"] === "Переместить Мои раньше")!.props.disabled).toBe(true);
+        const first = nodes(tree).find(n => n.props["aria-label"] === "Мои, позиция 1 из 4")!;
+        first.props.onKeyDown(key("ArrowLeft", { altKey: true }));
+        expect(h.store.data.windowTabOrder).toEqual(["personal", "all", "fav", "recent"]);
         const inputs = nodes(tree).filter(n => n.type === "input");
         inputs.find(n => n.props["aria-label"] === "Показывать личные шаблоны во Все")!.props.onChange({ currentTarget: { checked: true } });
         inputs.find(n => n.props["aria-label"] === "Общие шаблоны первыми в поиске")!.props.onChange({ currentTarget: { checked: false } });
         expect(h.store.data).toMatchObject({ showPersonalInAll: true, generalFirstInSearch: false });
         h.setPhase("offline"); tree = h.render();
         expect(nodes(tree).filter(n => n.type === "input").every(n => n.props.disabled)).toBe(true);
-        expect(nodes(tree).filter(n => n.props["aria-label"]?.startsWith("Переместить ")).every(n => n.props.disabled)).toBe(true);
+        expect(nodes(tree).filter(n => n.props["aria-keyshortcuts"]).every(n => n.props.disabled)).toBe(true);
     });
 });

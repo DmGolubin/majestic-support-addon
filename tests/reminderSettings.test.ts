@@ -14,7 +14,7 @@ const text = (node: any): string => Array.isArray(node) ? node.map(text).join(""
 
 interface State {
     phase: "idle" | "permission" | "loading" | "ready" | "offline";
-    settings: { discordEnabled: boolean; projects: { project: "majestic" | "russia"; personalReminderMinutes: number; }[]; } | null;
+    settings: { discordEnabled: boolean; projects: { project: "majestic" | "russia-online"; personalReminderMinutes: number; }[]; } | null;
     busy: boolean;
     error: string;
     deliveryError: string;
@@ -27,9 +27,10 @@ function harness(patch: Partial<State> = {}) {
         set: (next: Partial<State>) => { state = { ...state, ...next }; },
     };
     const authorizePanelReminders = vi.fn(), refreshTicketReminders = vi.fn(), setDiscordReminders = vi.fn();
-    // Unknown imports fail: this component must only use the reminder adapter and panel authorization.
+    // Unknown imports fail: UI uses the existing project icon and reminder adapters.
     const dependencies: Record<string, unknown> = {
         "./panel": { authorizePanelReminders },
+        "./ProjectIcon": { ProjectIcon: "ProjectIcon" },
         "./ticketReminders": { ticketRemindersState, refreshTicketReminders, setDiscordReminders },
     };
     const exports: any = {};
@@ -48,7 +49,7 @@ const settings = (discordEnabled = true): NonNullable<State["settings"]> => ({
     discordEnabled,
     projects: [
         { project: "majestic", personalReminderMinutes: 5 },
-        { project: "russia", personalReminderMinutes: 15 },
+        { project: "russia-online", personalReminderMinutes: 15 },
     ],
 });
 const checkbox = (tree: Node) => nodes(tree).find(n => n.type === "input" && n.props.type === "checkbox");
@@ -58,8 +59,8 @@ describe("reminder settings", () => {
     it("asks an idle user to sign in without presenting an enabled reminder or fabricated threshold", () => {
         const h = harness();
         const tree = h.render();
-        expect(tree.props["aria-label"]).toBe("Игрок ждёт ответа");
-        expect(nodes(tree).filter(n => n.type === "h3").map(text)).toEqual(["Игрок ждёт ответа"]);
+        expect(tree.props["aria-label"]).toBe("Личные напоминания");
+        expect(nodes(tree).filter(n => n.type === "h3").map(text)).toEqual(["Личные напоминания"]);
         expect(text(tree)).toContain("Войдите в аккаунт панели");
         expect(nodes(tree).filter(n => ["input", "button", "select"].includes(n.type as string))).toHaveLength(0);
         expect(text(tree)).not.toContain(" мин");
@@ -113,9 +114,11 @@ describe("reminder settings", () => {
 
     it("displays project thresholds as read-only Telegram settings", () => {
         const tree = harness({ phase: "ready", settings: settings() }).render();
-        expect(text(tree)).toContain("Majestic — 5 мин · Россия Онлайн — 15 мин. Порог меняется в Telegram.");
-        expect(text(tree)).toContain("Звук и громкость личных напоминаний — ниже, отдельно от новых тикетов.");
-        expect(text(tree)).toContain("только по назначенным вам тикетам");
+        expect(nodes(tree).filter(n => n.type === "li").map(text)).toEqual(["Majestic5 мин", "Россия Онлайн15 мин"]);
+        expect(nodes(tree).filter(n => n.type === "ProjectIcon").map(n => n.props.project)).toEqual(["mj", "ro"]);
+        expect(text(tree)).toContain("Порог меняется в Telegram.");
+        expect(text(tree)).toContain("Звук и громкость — ниже.");
+        expect(text(tree)).toContain("Только назначенные вам тикеты, где игрок ждёт ответа.");
         const controls = nodes(tree).filter(n => ["input", "select", "Select", "textarea", "button"].includes(n.type as string) || n.props.contentEditable);
         expect(controls).toHaveLength(1);
         expect(controls[0].props.type).toBe("checkbox");

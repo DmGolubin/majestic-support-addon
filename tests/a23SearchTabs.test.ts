@@ -53,7 +53,7 @@ describe("A23 search and tabs", () => {
 
     it("tab scope applies before fuzzy search fallback and recent stays limited to ten", () => {
         const data = [template("faq:majestic:1", { title: "Ошибка" }),
-            template("personal:panel:2", { source: "personal", title: "Ошибочка" })];
+            template("personal:panel:2", { source: "personal", title: "Ошикба" })];
         expect(search(windowTabPool(data, "personal", ctx, false), "ошибка").hits.map(h => h.t.id)).toEqual(["personal:panel:2"]);
         const many = Array.from({ length: 15 }, (_, i) => template(String(i)));
         expect(ids(windowTabPool(many, "recent", { ...ctx, recent: ids(many).reverse() }, false))).toEqual(ids(many).reverse().slice(0, 10));

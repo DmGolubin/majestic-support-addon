@@ -29,24 +29,40 @@ function native() {
     const base = temporary(), profile = join(base, "profile"); fs.mkdirSync(profile);
     const app = { isReady: () => true, getPath: () => profile };
     const create = vi.fn(storageModule.createDiagnosticFileStorage);
+    const shell = { openPath: vi.fn(async (_path: string) => "") };
     const modules = {
         "node:crypto": { randomUUID }, "node:fs": fs, "node:fs/promises": {},
-        "@main/utils/constants": { DATA_DIR: join(base, "data") }, electron: { app },
+        "@main/utils/constants": { DATA_DIR: join(base, "data") }, electron: { app, shell },
         "./panelVaultLock": {}, "./panelVaultNative": {},
         "./diagnosticFileNative": { ...storageModule, createDiagnosticFileStorage: create }
     };
     const api = sourceModule("src/vencord/native.ts", modules, {
         process: { platform: process.platform, once: () => {} }
     });
-    return { api, base, app, create };
+    return { api, base, app, create, shell };
 }
 
 describe("A22 native IPC trust and profile boundary", () => {
+    it("opens only the fixed profile directory, creates it before first save, and surfaces shell failure", async () => {
+        const h = native(), event = sender();
+        await h.api.diagnosticsOpenFolder(event, join(h.base, "arbitrary"));
+        const directory = h.shell.openPath.mock.calls[0][0];
+        expect(directory).toMatch(/diagnostics[\\/][a-f0-9]{64}$/);
+        expect(fs.statSync(directory).isDirectory()).toBe(true);
+        expect(fs.readdirSync(directory)).toEqual([]);
+        expect(fs.existsSync(join(h.base, "arbitrary"))).toBe(false);
+        h.shell.openPath.mockResolvedValue("private path error");
+        await expect(h.api.diagnosticsOpenFolder(event)).rejects.toThrow(ERROR);
+        const pending = h.api.diagnosticsOpenFolder(event);
+        event.sender.mainFrame.url = "https://evil.test";
+        await expect(pending).rejects.toThrow(ERROR);
+        expect(h.shell.openPath).toHaveBeenCalledTimes(2);
+    });
     it("is lazy, derives the real path from main-process userData, never a caller path", async () => {
         const h = native(), event = sender();
         expect(h.create).not.toHaveBeenCalled();
         const saved = await h.api.diagnosticsSave(event, report(), join(h.base, "arbitrary"));
-        expect(saved.path).toMatch(/diagnostics[\\/][a-f0-9]{64}[\\/]SupportTemplates-diagnostics\.txt$/);
+        expect(saved.path).toMatch(/diagnostics[\\/][a-f0-9]{64}[\\/]main\.log$/);
         const loaded = await h.api.diagnosticsLoad(event);
         expect(loaded.path).toBe(saved.path);
         expect(JSON.parse(loaded.state).campaign).toBe("mvp-file-2026-10");
@@ -64,6 +80,8 @@ describe("A22 native IPC trust and profile boundary", () => {
             const h = native(), event = sender(origin);
             await expect(h.api.diagnosticsLoad(event)).rejects.toThrow(ERROR);
             await expect(h.api.diagnosticsSave(event, report())).rejects.toThrow(ERROR);
+            await expect(h.api.diagnosticsOpenFolder(event)).rejects.toThrow(ERROR);
+            expect(h.shell.openPath).not.toHaveBeenCalled();
             expect(h.create).not.toHaveBeenCalled();
         });
     it.each(["subframe", "parent", "detached", "destroyed", "no-frame", "different-url"])(
@@ -77,6 +95,8 @@ describe("A22 native IPC trust and profile boundary", () => {
             if (kind === "different-url") event.sender.getURL = () => "https://evil.test";
             await expect(h.api.diagnosticsLoad(event)).rejects.toThrow(ERROR);
             await expect(h.api.diagnosticsSave(event, report())).rejects.toThrow(ERROR);
+            await expect(h.api.diagnosticsOpenFolder(event)).rejects.toThrow(ERROR);
+            expect(h.shell.openPath).not.toHaveBeenCalled();
             expect(h.create).not.toHaveBeenCalled();
         });
     it("rejects navigation while a lazy module is loading before any disk access", async () => {
@@ -118,10 +138,11 @@ describe("A22 lazy renderer and BD host bridges", () => {
         const bridge = sourceModule("src/vencord/diagnosticStorage.ts", {});
         await expect(bridge.loadDiagnosticStorage()).rejects.toThrow(ERROR);
         await expect(bridge.saveDiagnosticStorage(report())).rejects.toThrow(ERROR);
+        await expect(bridge.openDiagnosticStorageFolder()).rejects.toThrow(ERROR);
     });
     it("dispatches exact method names and hides native exception details", async () => {
         const calls: unknown[] = [];
-        const native = { diagnosticsLoad: async () => ({ path: "actual", state: null }),
+        const native = { diagnosticsOpenFolder: vi.fn(async () => {}), diagnosticsLoad: async () => ({ path: "actual", state: null }),
             diagnosticsSave: async (r: string) => { calls.push(r); return { path: "actual" }; } };
         const bridge = sourceModule("src/vencord/diagnosticStorage.ts", {}, {
             VencordNative: { pluginHelpers: { SupportTemplates: native } }
@@ -129,6 +150,10 @@ describe("A22 lazy renderer and BD host bridges", () => {
         expect(await bridge.loadDiagnosticStorage()).toEqual({ path: "actual", state: null });
         expect(await bridge.saveDiagnosticStorage(report())).toEqual({ path: "actual" });
         expect(calls).toEqual([report()]);
+        await bridge.openDiagnosticStorageFolder("ignored caller path");
+        expect(native.diagnosticsOpenFolder).toHaveBeenCalledExactlyOnceWith();
+        native.diagnosticsOpenFolder.mockRejectedValue(Error("secret token"));
+        await expect(bridge.openDiagnosticStorageFolder()).rejects.toThrow(ERROR);
         native.diagnosticsLoad = async () => { throw Error("secret token"); };
         await expect(bridge.loadDiagnosticStorage()).rejects.toThrow(ERROR);
     });
@@ -139,7 +164,7 @@ describe("A22 lazy renderer and BD host bridges", () => {
             "../../src/vencord/diagnosticFileNative": storageModule
         });
         const saved = await bridge.saveDiagnosticStorage(report());
-        expect(saved.path).toBe(join(base, "diagnostics", "SupportTemplates-diagnostics.txt"));
+        expect(saved.path).toBe(join(base, "diagnostics", "main.log"));
         expect(JSON.parse((await bridge.loadDiagnosticStorage()).state).schema).toBe(1);
     });
     it("BD unsupported imports stay lazy and failed initialization can retry", async () => {
@@ -165,7 +190,7 @@ describe("A22 lazy renderer and BD host bridges", () => {
                 } }, adapterPlugin()
             ] });
         const external = Object.values(result.metafile.outputs).flatMap((o: any) => o.imports.filter((i: any) => i.external).map((i: any) => i.path));
-        expect(external.every((name: string) => ["fs", "path", "crypto"].includes(name))).toBe(true);
+        expect(external.every((name: string) => ["fs", "path", "crypto", "electron"].includes(name))).toBe(true);
         expect(Object.keys(result.metafile.inputs).some(p => p.endsWith("betterdiscord/native/diagnosticStorage.ts"))).toBe(true);
         const unavailable = new Proxy({}, { get: () => { throw Error("unsupported fs"); } });
         const imported = evaluate(result.outputFiles[0].text, { fs: unavailable, crypto: unavailable, path: unavailable });
@@ -179,7 +204,7 @@ describe("A22 lazy renderer and BD host bridges", () => {
             crypto: { createHash: crypto.createHash, randomBytes: crypto.randomBytes }, path
         }, { BdApi: { Plugins: { folder: plugins } }, location: { origin: "https://canary.discord.com" } });
         const saved = await supported.saveDiagnosticStorage(report());
-        expect(saved.path).toMatch(/SupportTemplates[\\/][a-f0-9]{64}[\\/]diagnostics[\\/]SupportTemplates-diagnostics\.txt$/);
+        expect(saved.path).toMatch(/SupportTemplates[\\/][a-f0-9]{64}[\\/]diagnostics[\\/]main\.log$/);
         expect(JSON.parse((await supported.loadDiagnosticStorage()).state).campaign).toBe("mvp-file-2026-10");
     });
 });

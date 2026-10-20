@@ -57,11 +57,12 @@ describe("A24 append delivery", () => {
     });
     it("bounds an undrainable flood and exposes lost delivery count in state and reports", async () => {
         const h = fixture(); await h.disk.read();
-        for (let n = 100; n <= 5000; n += 100) h.disk.write(state(Math.max(1, n - 1999), n));
-        expect(h.disk.status.deliveryLost).toBe(3000); expect(h.local().deliveryLost).toBe(3000);
+        for (let n = 100; n <= 20000; n += 100) h.disk.write(state(Math.max(1, n - 1999), n));
+        expect(h.disk.status.deliveryLost).toBe(9900); expect(h.local().deliveryLost).toBe(9900);
         h.disk.finish(); await vi.advanceTimersByTimeAsync(0);
-        expect(sequences(h.save)).toEqual(Array.from({ length: 2000 }, (_, i) => i + 3001));
-        expect(JSON.parse(h.save.mock.calls.at(-1)![0]).journal.deliveryLost).toBe(3000);
+        expect(sequences(h.save)).toEqual([...Array.from({ length: 100 }, (_, i) => i + 1),
+            ...Array.from({ length: 10000 }, (_, i) => i + 10001)]);
+        expect(JSON.parse(h.save.mock.calls.at(-1)![0]).journal.deliveryLost).toBe(9900);
     });
     it("does not revive opt-out when newer local state and same-millisecond native state disagree", async () => {
         const local = state(1, 0, { enabled: false, optedOut: true });

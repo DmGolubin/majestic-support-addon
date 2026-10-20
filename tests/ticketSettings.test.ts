@@ -30,6 +30,7 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
         "../core/types": { PROJECTS },
         "../core/ticketSound": soundCore,
         "./Select": { Select: "Select" },
+        "./ProjectIcon": { ProjectIcon: "ProjectIcon" },
         "./svg": { IconBell: "IconBell" },
         "./ReminderSettings": { ReminderSettings: "ReminderSettings" },
         "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback },
@@ -52,9 +53,9 @@ describe("A24 ticket and personal reminder audio settings", () => {
 
     it("explains all new tickets versus assigned personal reminders, with one audio set per parent", () => {
         const h = harness(); const tree = h.render();
-        expect(text(tree)).toContain("независимо от назначения вам");
-        expect(text(tree)).toContain("Для назначенных вам тикетов");
-        expect(text(tree)).toContain("настройки новых тикетов на них не влияют");
+        expect(text(tree)).toContain("не только назначенные вам");
+        expect(text(tree)).toContain("Общий звук для ваших тикетов");
+        expect(text(tree)).toContain("Не зависит от настроек новых тикетов");
         expect(fields(h)).toHaveLength(3);
         expect(nodes(tree).filter(n => n.type === "ReminderSettings")).toHaveLength(1);
         expect(nodes(tree).filter(n => n.type === "input" && n.props.type === "file")).toHaveLength(3);
@@ -67,6 +68,9 @@ describe("A24 ticket and personal reminder audio settings", () => {
         h.channels.set(second, { name: "support", guild_id: PROJECTS.mj.guildId });
         expect(fields(h)[0].props["aria-label"]).toBe("Россия Онлайн · #помощь");
         expect(fields(h)[1].props["aria-label"]).toBe("Majestic · #support");
+        expect(nodes(fields(h)[0]).find(n => n.type === "ProjectIcon")!.props.project).toBe("ro");
+        expect(nodes(fields(h)[1]).find(n => n.type === "ProjectIcon")!.props.project).toBe("mj");
+        expect(nodes(h.render()).some(n => n.type === "legend")).toBe(false);
         expect(h.useStateFromStores).toHaveBeenCalledWith([h.ChannelStore], expect.any(Function), [h.state.options.channelIds]);
         for (const id of h.state.options.channelIds) expect(text(h.render())).not.toContain(id);
         h.channels.delete(first);
@@ -101,9 +105,9 @@ describe("A24 ticket and personal reminder audio settings", () => {
     it("allows explicitly labelled channel previews at mute/zero while personal zero remains silent", () => {
         const h = harness({ enabled: false, volume: 0 });
         const [first, , personal] = fields(h);
-        const preview = button(first, "Проверить при выключенном звуке (30%)");
+        const preview = button(first, "Проверить звук");
         expect(preview.props.disabled).toBe(false);
-        expect(text(first)).toContain("Настройки канала не изменятся");
+        expect(text(first)).toContain("Проверка: 30%, без включения канала.");
         preview.props.onClick();
         expect(h.testTicketSound).toHaveBeenCalledExactlyOnceWith(h.state.options.channelIds[0]);
         expect(button(personal, "Проверить звук").props.disabled).toBe(true);
@@ -119,7 +123,7 @@ describe("A24 ticket and personal reminder audio settings", () => {
         expect(currentTarget.value).toBe("");
         button(first, "Вернуть стандартный").props.onClick({ type: "click" });
         expect(h.resetTicketSound).toHaveBeenCalledExactlyOnceWith(id);
-        button(first, "Проверить при выключенном").props.onClick();
+        button(first, "Проверить звук").props.onClick();
         expect(h.testTicketSound).toHaveBeenCalledWith(id);
         picker(personal).props.onChange({ currentTarget: { files: [file], value: "x" } });
         expect(h.chooseTicketSound).toHaveBeenLastCalledWith(file, undefined);
@@ -159,5 +163,42 @@ describe("A24 ticket and personal reminder audio settings", () => {
         const stops = nodes(tree).filter(n => n.type === "button" && text(n) === "Остановить звук");
         expect(stops).toHaveLength(1); stops[0].props.onClick();
         expect(h.stopTicketSoundPlayback).toHaveBeenCalledOnce();
+    });
+});
+
+
+describe("A25 compact sound controls", () => {
+    it.each([0, 30, 83.9506172839506, 100])("rounds every displayed percentage while preserving stored %s", volume => {
+        const h = harness({ volume, enabled: false });
+        h.state.playbackStatus = `Проверка при выключенном канале: ${volume}%, настройки не изменены.`;
+        const tree = h.render();
+        const ranges = nodes(tree).filter(n => n.type === "input" && n.props.type === "range");
+        expect(ranges).toHaveLength(3);
+        for (const range of ranges) expect(range.props).toMatchObject({ value: volume, "aria-valuetext": `${Math.round(volume)}%` });
+        const labels = text(tree).match(/\d+(?:\.\d+)?%/g)!;
+        expect(labels.length).toBeGreaterThan(3);
+        for (const label of labels) expect(label).toMatch(/^\d+%$/);
+        expect(text(tree)).toContain(`Проверка: ${Math.round(volume || 30)}%, без включения канала.`);
+        const previews = nodes(tree).filter(n => n.type === "button" && text(n) === "Проверить звук");
+        expect(previews).toHaveLength(3);
+        expect(h.state.options.volume).toBe(volume);
+        expect(h.setChannelTicketSound).not.toHaveBeenCalled();
+        expect(h.setTicketSound).not.toHaveBeenCalled();
+    });
+
+    it("keeps preview labels stable for custom files and pending tests without changing keyboard access", () => {
+        const h = harness({ enabled: true });
+        h.state.customName = "very-long-personal-notification.wav";
+        const id = h.state.options.channelIds[0];
+        h.state.channelAudio[id] = { customName: "channel.wav", canReset: true, loadingSound: false, error: "" };
+        for (const testing of [false, true]) {
+            h.state.testing = testing;
+            const all = nodes(h.render());
+            const previews = all.filter(n => n.type === "button" && text(n) === "Проверить звук");
+            expect(previews).toHaveLength(3);
+            for (const preview of previews) expect(preview.props).toMatchObject({ type: "button", disabled: testing, "aria-busy": testing });
+            expect(all.filter(n => n.type === "input" && n.props.type === "file")).toHaveLength(3);
+            expect(all.some(n => n.props.tabIndex === -1)).toBe(false);
+        }
     });
 });

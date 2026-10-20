@@ -9,7 +9,8 @@ afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 function fixture(load?: () => Promise<{ path: string; state: string | null }>) {
     const journal = new DiagnosticJournal(), local = new Map(), listeners = new Set(), subscribers = new Set();
     let disk: string | null = null;
-    const save = vi.fn(async (report: string) => { disk = report; return { path: "fixture/SupportTemplates-diagnostics.txt" }; });
+    const save = vi.fn(async (report: string) => { disk = report; return { path: "fixture/main.log" }; });
+    const open = vi.fn(async () => {});
     const subscribe = (fn: unknown) => { subscribers.add(fn); return () => subscribers.delete(fn); };
     const events = { addEventListener: (_name: string, fn: unknown) => listeners.add(fn), removeEventListener: (_name: string, fn: unknown) => listeners.delete(fn) };
     const api = evaluate(ts.transpileModule(source("src/vencord/ui/diagnostics.ts"), {
@@ -18,7 +19,7 @@ function fixture(load?: () => Promise<{ path: string; state: string | null }>) {
         "../buildInfo": { PLUGIN_VERSION: "1.0.1-canary.28", PLUGIN_BUILD: "test", PLUGIN_DISTRIBUTION: "standalone" },
         "../core/diagnosticJournal": { diagnosticJournal: journal, diagnosticData },
         "../core/diagnosticPersistence": { createDiagnosticPersistence },
-        "../diagnosticStorage": { loadDiagnosticStorage: load ?? (async () => ({ path: "fixture/SupportTemplates-diagnostics.txt", state: disk ? JSON.stringify(JSON.parse(disk).journal) : null })), saveDiagnosticStorage: save },
+        "../diagnosticStorage": { openDiagnosticStorageFolder: open, loadDiagnosticStorage: load ?? (async () => ({ path: "fixture/main.log", state: disk ? JSON.stringify(JSON.parse(disk).journal) : null })), saveDiagnosticStorage: save },
         "./debug": { debugFileSnapshot: () => ({}) },
         "./panel": { panel: { get: () => ({ phase: "ready", sync: "live", persistent: true }), subscribe } },
         "./uiState": { ui: { get: () => ({ compose: [], windowOpen: false, management: false }), subscribe },
@@ -26,9 +27,18 @@ function fixture(load?: () => Promise<{ path: string; state: string | null }>) {
     }, { Date, navigator: { onLine: true }, window: { ...events, innerWidth: 1000, innerHeight: 800,
         localStorage: { getItem: (key: string) => local.get(key) ?? null, setItem: (key: string, value: string) => local.set(key, value) } },
     document: { ...events, visibilityState: "visible" } });
-    return { api, journal, save, local, listeners, subscribers, disk: () => disk };
+    return { api, journal, save, open, local, listeners, subscribers, disk: () => disk };
 }
 describe("file diagnostics plugin lifecycle", () => {
+    it("opens prior logs before recording starts and propagates bridge failures for actionable UI", async () => {
+        const h = fixture();
+        await h.api.openDiagnosticFolder();
+        expect(h.open).toHaveBeenCalledExactlyOnceWith();
+        expect(h.journal.active).toBe(false);
+        expect(h.listeners.size).toBe(0);
+        h.open.mockRejectedValue(Error("bridge unavailable"));
+        await expect(h.api.openDiagnosticFolder()).rejects.toThrow("bridge unavailable");
+    });
     it("records continuously, saves on stop and honors opt-out across restart", async () => {
         const h = fixture(); await h.api.startDiagnostics();
         expect(h.journal.active).toBe(true);

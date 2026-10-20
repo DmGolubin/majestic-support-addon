@@ -233,6 +233,8 @@ describe("A24 row actions and existing global bind handler", () => {
         const action = all(tree).find(n => n.type === "button");
         expect(action.props["aria-haspopup"]).toBe("menu");
         expect(action.props["aria-label"]).toContain(t.title);
+        expect(action.props.title).toBe("Действия шаблона");
+        expect(all(action).find(n => n.type === "svg").props["aria-hidden"]).toBe("true");
         const event = { stopPropagation: vi.fn(), currentTarget: { getBoundingClientRect: () => ({ left: 80, bottom: 90 }) } };
         action.props.onClick(event);
         expect(event.stopPropagation).toHaveBeenCalledOnce();

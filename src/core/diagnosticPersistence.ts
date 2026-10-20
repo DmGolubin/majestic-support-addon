@@ -3,6 +3,8 @@
 // into plugin actions. No timers run while the journal is idle.
 import { diagnosticOptOut } from "./diagnosticJournal";
 
+export const DIAGNOSTIC_QUEUE_LIMIT = 10_000;
+const QUEUE_BYTES = 4 * 1024 * 1024;
 export interface DiagnosticFileStatus {
     path: string;
     initializing: boolean;
@@ -23,14 +25,15 @@ export function createDiagnosticPersistence(options: {
     const status: DiagnosticFileStatus = { path: "", initializing: true, fileError: false, localError: false, lastSavedAt: 0, deliveryLost: 0 };
     let pending: string | null = null, writing = false, finishing = false, retryAt = 0;
     type Saved = { continuous: boolean; sessionId: string; clearGeneration: number; events: { seq: number; [key: string]: unknown }[]; [key: string]: unknown };
-    let latest: Saved | null = null, stream = "", seen = 0, dirty = false;
+    let latest: Saved | null = null, stream = "", seen = 0, dirty = false, historyThrough = 0;
+    let historyKnown = false, historyStream = "";
     let queue: Saved["events"] = [];
     const hasWork = () => pending !== null || dirty || queue.length > 0;
     const boundQueue = () => {
         // Bounded independently of the journal ring and the one in-flight batch.
         // Backpressure cannot silently turn an append log into latest-snapshot logging.
         let bytes = queue.reduce((n, e) => n + JSON.stringify(e).length, 0);
-        while (queue.length > 2000 || bytes > 512 * 1024) {
+        while (queue.length > DIAGNOSTIC_QUEUE_LIMIT || bytes > QUEUE_BYTES) {
             bytes -= JSON.stringify(queue.shift()!).length;
             status.deliveryLost++;
         }
@@ -38,7 +41,7 @@ export function createDiagnosticPersistence(options: {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
         if (writing || !hasWork() || timer || now() < retryAt) return;
-        if (finishing) { pump(); return; }
+        if (finishing || queue.length >= 100) { pump(); return; }
         timer = setTimeout(() => { timer = undefined; pump(); }, 1000);
     };
     const pump = () => {
@@ -96,9 +99,41 @@ export function createDiagnosticPersistence(options: {
             const localStamp = stamp(local), fileStamp = stamp(file);
             const localOptOut = localStamp >= 0 && (diagnosticOptOut(JSON.parse(local!))
                 || (!JSON.parse(local!).continuous && JSON.parse(local!).until === 0));
-            const selected = localStamp > fileStamp || (localStamp === fileStamp && localOptOut)
+            let selected = localStamp > fileStamp || (localStamp === fileStamp && localOptOut)
                 ? local : fileStamp >= 0 ? file : local;
             try {
+                const data = JSON.parse(selected ?? "null");
+                if (data?.continuous) {
+                    const native = fileStamp >= 0 ? JSON.parse(file!) : null;
+                    const backup = localStamp >= 0 ? JSON.parse(local!) : null;
+                    const same = (other: any) => other?.continuous && other.sessionId === data.sessionId
+                        && other.clearGeneration === data.clearGeneration;
+                    // Restore control state from the newest save, but recover pending
+                    // deltas from either copy without reviving an older opt-in.
+                    const events = new Map<number, Saved["events"][number]>();
+                    for (const source of [native, backup, data]) {
+                        if (!same(source)) continue;
+                        for (const event of source.events)
+                            if (Number.isSafeInteger(event.seq) && event.seq > 0) events.set(event.seq, event);
+                        if (Number.isSafeInteger(source.sequence)) data.sequence = Math.max(data.sequence, source.sequence);
+                    }
+                    data.events = [...events.values()].sort((a, b) => a.seq - b.seq).slice(-2000);
+                    historyKnown = same(native) && Number.isSafeInteger(native.deliveryCursor) && native.deliveryCursor >= 0;
+                    historyStream = `${data.sessionId}:${data.clearGeneration}`;
+                    historyThrough = historyKnown ? native.deliveryCursor : Math.max(0, ...data.events.map((e: { seq: number }) => e.seq));
+                    // Only a complete native trace can disprove an old cumulative
+                    // warning. A pending cursor tail alone is not evidence of loss.
+                    if (same(native) && Number.isSafeInteger(native.deliveryVerifiedThrough)
+                        && native.deliveryVerifiedThrough >= data.sequence) data.deliveryLost = 0;
+                    selected = JSON.stringify(data);
+                    // A union can exceed either individual saved ring. Preserve
+                    // opt-out/control metadata instead of making journal.start
+                    // reject the entire restore; cursor checks expose lost gaps.
+                    while (selected!.length > 512 * 1024 && data.events.length) {
+                        data.events.splice(0, 100);
+                        selected = JSON.stringify(data);
+                    }
+                }
                 const lost = JSON.parse(selected ?? "null")?.deliveryLost;
                 if (Number.isSafeInteger(lost) && lost > 0) status.deliveryLost = lost;
             } catch {}
@@ -109,12 +144,20 @@ export function createDiagnosticPersistence(options: {
                 const data = JSON.parse(state) as Saved;
                 if (data.continuous && /^[a-f0-9]{32}$/.test(data.sessionId) && Number.isSafeInteger(data.clearGeneration)) {
                     const nextStream = `${data.sessionId}:${data.clearGeneration}`;
-                    if (stream !== nextStream) { queue = []; seen = 0; stream = nextStream; }
+                    if (stream !== nextStream) {
+                        if (stream || nextStream !== historyStream) { historyThrough = 0; historyKnown = false; }
+                        queue = []; seen = 0; stream = nextStream;
+                    }
                     const events = data.events.filter(e => Number.isSafeInteger(e.seq) && e.seq > seen).sort((a, b) => a.seq - b.seq);
                     for (const event of events) {
                         if (event.seq <= seen) continue;
-                        if (seen > 0 && event.seq > seen + 1) status.deliveryLost += event.seq - seen - 1;
-                        seen = event.seq; queue.push(event);
+                        const deliveredThrough = seen > 0 ? Math.max(seen, historyThrough)
+                            : historyKnown ? historyThrough : event.seq - 1;
+                        status.deliveryLost += Math.max(0, event.seq - 1 - deliveredThrough);
+                        seen = event.seq;
+                        // Native-confirmed history need not occupy the retry
+                        // queue or be misreported as lost under backpressure.
+                        if (!historyKnown || event.seq > historyThrough) queue.push(event);
                     }
                     latest = { ...data, events: [] }; dirty = true; pending = null;
                     boundQueue();

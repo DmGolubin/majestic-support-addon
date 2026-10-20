@@ -5,11 +5,11 @@ import { dirname, isAbsolute, join, posix, resolve, win32 } from "path";
 
 import { diagnosticData } from "./core/diagnosticJournal";
 
-export const DIAGNOSTIC_FILE_NAME = "SupportTemplates-diagnostics.txt";
+export const DIAGNOSTIC_FILE_NAME = "main.log";
 export const DIAGNOSTIC_FILE_MAX_BYTES = 10 * 1024 * 1024;
 export const DIAGNOSTIC_ARCHIVES = 9;
 export const DIAGNOSTIC_STATE_NAME = "SupportTemplates-diagnostics.state.json";
-export const DIAGNOSTIC_LEGACY_NAME = "SupportTemplates-diagnostics.legacy.txt";
+export const DIAGNOSTIC_LEGACY_NAME = "main.legacy.log";
 const MAX_STATE_BYTES = 2 * 1024 * 1024;
 const MAX_REPORT_BYTES = 512 * 1024;
 const MAX_INPUT_BYTES = 1024 * 1024;
@@ -211,7 +211,12 @@ export function createDiagnosticFileStorage(deps: {
     const fs = deps.fs;
     const root = resolve(deps.root), path = join(root, DIAGNOSTIC_FILE_NAME);
     const statePath = join(root, DIAGNOSTIC_STATE_NAME), legacyPath = join(root, DIAGNOSTIC_LEGACY_NAME);
-    const archives = Array.from({ length: DIAGNOSTIC_ARCHIVES }, (_, i) => join(root, `SupportTemplates-diagnostics.${i + 1}.txt`));
+    const archives = Array.from({ length: DIAGNOSTIC_ARCHIVES }, (_, i) => join(root, `main.${i + 1}.log`));
+    const oldPath = join(root, "SupportTemplates-diagnostics.txt");
+    const oldLogs = [
+        ...archives.map((target, i) => [join(root, `SupportTemplates-diagnostics.${i + 1}.txt`), target]),
+        [join(root, "SupportTemplates-diagnostics.legacy.txt"), legacyPath], [oldPath, path]
+    ];
     const platform = deps.platform ?? process.platform;
     const normalized = (p: string) => platform === "win32" ? resolve(p).toLowerCase() : resolve(p);
     const randomId = deps.randomId ?? (() => randomBytes(16).toString("hex"));
@@ -294,9 +299,10 @@ export function createDiagnosticFileStorage(deps: {
         if (data.length > max) throw fail();
         return data;
     }
-    function atomic(target: string, text: string) {
-        if (Buffer.byteLength(text) > MAX_STATE_BYTES) throw fail();
+    function atomic(target: string, text: string | Uint8Array, max = MAX_STATE_BYTES, exclusive = false) {
+        if (Buffer.byteLength(text) > max) throw fail();
         safeDirectories(); safeFile(target);
+        if (exclusive && safeFile(target)) throw fail();
         const nonce = randomId();
         if (!/^[a-f0-9]{32}$/.test(nonce)) throw fail();
         const temporary = join(root, `.SupportTemplates-diagnostics-${nonce}.tmp`);
@@ -304,9 +310,25 @@ export function createDiagnosticFileStorage(deps: {
         try {
             fs.writeFileSync(temporary, text, { flag: "wx", mode: 0o600 }); created = true;
             safeDirectories(); safeFile(temporary); safeFile(target);
+            if (exclusive && safeFile(target)) throw fail();
             fs.renameSync(temporary, target); created = false;
         } finally {
             if (created) { try { safeDirectories(); safeFile(temporary); fs.unlinkSync(temporary); } catch {} }
+        }
+    }
+    function migrateLogs() {
+        safeDirectories();
+        if (safeFile(path)) return;
+        // Copy archives first, active log last. An interrupted copy can retry,
+        // and a pending old WAL replays against identical bytes at the new names.
+        // Original .txt files are immutable backups, outside future rotation.
+        for (const [source, target] of oldLogs) {
+            safeFile(source); safeFile(target);
+        }
+        for (const [source, target] of oldLogs) {
+            if (safeFile(target)) continue;
+            const bytes = read(source, DIAGNOSTIC_FILE_MAX_BYTES);
+            if (bytes) atomic(target, bytes, DIAGNOSTIC_FILE_MAX_BYTES, true);
         }
     }
     function remove(target: string) {
@@ -444,23 +466,64 @@ export function createDiagnosticFileStorage(deps: {
         }
         return state;
     }
+    function completeHistory(journal: Report["journal"]): boolean {
+        if (!("sequence" in journal) || !integer(journal.sequence) || !journal.sessionId
+            || journal.clearGeneration !== 0 || journal.sequence === 0 || journal.sequence > 10_000) return false;
+        // Optional reconciliation must never scan the whole rotated history on
+        // startup. Exceeding either budget retains the warning, not a guess.
+        let remaining = 4 * 1024 * 1024;
+        const deadline = Date.now() + 150;
+        const sequences = new Set<number>();
+        try {
+            for (const target of [...archives, path]) {
+                if (Date.now() > deadline) return false;
+                const size = safeFile(target)?.size ?? 0;
+                if (size > remaining) return false;
+                remaining -= size;
+                const data = read(target, remaining + size);
+                if (!data) continue;
+                const text = data.toString("utf8");
+                if (!text.endsWith("\n")) return false;
+                for (const line of text.split("\n").slice(0, -1)) {
+                    if (Date.now() > deadline) return false;
+                    const event = parseLine(line);
+                    if (!integer(event.seq)) continue;
+                    // A cumulative loss counter spanning other sessions cannot
+                    // be disproved just by checking this session's healthy tail.
+                    if (event.sessionId !== journal.sessionId) return false;
+                    if (event.seq > 0 && event.seq <= journal.sequence) sequences.add(event.seq);
+                }
+            }
+            return sequences.size === journal.sequence;
+        } catch { return false; }
+    }
     return {
+        directory(authorize: () => void = () => {}): Promise<string> {
+            return serialize(() => {
+                authorize(); capabilities(); safeDirectories();
+                fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+                safeDirectories(); authorize();
+                return root;
+            });
+        },
         load(authorize: () => void = () => {}): Promise<{ path: string; state: string | null; }> {
             return serialize(() => {
                 authorize();
                 capabilities(); safeDirectories();
+                migrateLogs();
                 // Unsafe paths are never interpreted as missing/corrupt state.
                 for (const target of [path, statePath, legacyPath, ...archives]) safeFile(target);
                 try {
                     const state = stored();
                     if (state?.report) {
                         const journal = state.report.journal;
-                        const pending = "sequence" in journal && journal.sessionId
-                            ? Math.max(0, (journal.sequence ?? 0) - (state.cursors[journal.sessionId] ?? 0)) : 0;
-                        // Renderer sequence may include deltas never delivered before
-                        // shutdown. Resume that sequence but disclose the missing tail.
+                        const cursor = journal.sessionId ? state.cursors[journal.sessionId] ?? 0 : 0;
+                        // Allocated sequence is not proof of loss: pending deltas
+                        // may still arrive or be recovered from localStorage.
+                        const complete = journal.deliveryLost > 0 && completeHistory(journal);
                         return { path, state: JSON.stringify({ ...journal,
-                            deliveryLost: Math.min(Number.MAX_SAFE_INTEGER, journal.deliveryLost + pending) }) };
+                            deliveryLost: complete ? 0 : journal.deliveryLost, ...(journal.sessionId ? { deliveryCursor: cursor } : {}),
+                            ...(complete ? { deliveryVerifiedThrough: cursor } : {}) }) };
                     }
                     const legacy = read(path, DIAGNOSTIC_FILE_MAX_BYTES);
                     if (legacy?.toString("utf8").trimStart().startsWith("{"))
@@ -478,6 +541,7 @@ export function createDiagnosticFileStorage(deps: {
             return serialize(() => {
                 authorize();
                 capabilities(); safeDirectories();
+                migrateLogs();
                 for (const target of [path, statePath, legacyPath, ...archives]) safeFile(target);
                 fs.mkdirSync(root, { recursive: true, mode: 0o700 });
                 safeDirectories();
@@ -533,7 +597,7 @@ export function createDiagnosticFileStorage(deps: {
                 // Never advance this cursor from journal.sequence: renderer sends
                 // delta batches of 100 while sequence already describes later work.
                 const lost = journal.deliveryLost;
-                if (lost > (clear ? 0 : state.report?.journal.deliveryLost ?? 0))
+                if (lost !== (clear ? 0 : state.report?.journal.deliveryLost ?? 0))
                     text += row(journal.savedAt, "recorder.gap", { ...meta, deliveryLost: lost }, generation);
                 const snapshot = { ...meta, recording: clean.recording, snapshot: clean.snapshot, ...(sid ? { sessionId: sid } : {}) };
                 const snapshotHash = hash(JSON.stringify(snapshot));

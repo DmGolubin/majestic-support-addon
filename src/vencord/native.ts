@@ -9,7 +9,7 @@ import * as lockFS from "node:fs";
 import * as fs from "node:fs/promises";
 
 import { DATA_DIR } from "@main/utils/constants";
-import { app, IpcMainInvokeEvent, safeStorage } from "electron";
+import { app, IpcMainInvokeEvent, safeStorage, shell } from "electron";
 
 import { createVaultProcessLock, panelVaultRoot, verifiedDeadPID } from "./panelVaultLock";
 import { createNativePanelVault } from "./panelVaultNative";
@@ -139,5 +139,16 @@ export async function diagnosticsSave(event: IpcMainInvokeEvent, report: string)
         });
         if (!trusted(event) || event.senderFrame !== frame || frame.url !== url) throw diagnosticDenied();
         return result;
+    } catch { throw diagnosticDenied(); }
+}
+export async function diagnosticsOpenFolder(event: IpcMainInvokeEvent): Promise<void> {
+    try {
+        const { store, frame, url } = await diagnosticStore(event);
+        const authorize = () => {
+            if (!trusted(event) || event.senderFrame !== frame || frame.url !== url) throw diagnosticDenied();
+        };
+        const directory = await store.directory(authorize);
+        authorize();
+        if (await shell.openPath(directory)) throw diagnosticDenied();
     } catch { throw diagnosticDenied(); }
 }

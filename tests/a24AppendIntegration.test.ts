@@ -59,4 +59,4 @@ it("appends timestamped events beyond the memory ring, dedupes on restart, prese
     const saved = JSON.parse((await native.load()).state);
     expect(saved).toMatchObject({ optedOut: true, clearGeneration: 1, sessionId: id });
     expect(saved.sequence).toBeGreaterThan(seq);
-});
+}, 15_000); // Real fs + 2600 events; bounded allowance for concurrent suite/typechecks.

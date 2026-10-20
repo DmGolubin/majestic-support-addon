@@ -19,3 +19,16 @@ export async function loadDiagnosticStorage(): Promise<{ path: string; state: st
 export async function saveDiagnosticStorage(report: string): Promise<{ path: string; }> {
     try { return await (await current()).save(report); } catch { throw failed(); }
 }
+export async function openDiagnosticStorageFolder(): Promise<void> {
+    try {
+        const { installationPaths } = await import("./paths");
+        const original = installationPaths();
+        const directory = await (await current()).directory();
+        const latest = installationPaths();
+        const { join } = require("path") as typeof import("path");
+        if (latest.root !== original.root || latest.origin !== original.origin
+            || directory !== join(original.root, "diagnostics")) throw failed();
+        const { shell } = require("electron") as typeof import("electron");
+        if (typeof shell?.openPath !== "function" || await shell.openPath(directory)) throw failed();
+    } catch { throw failed(); }
+}

@@ -3,6 +3,7 @@
 interface Bridge {
     diagnosticsLoad(): Promise<{ path: string; state: string | null; }>;
     diagnosticsSave(report: string): Promise<{ path: string; }>;
+    diagnosticsOpenFolder?(): Promise<void>;
 }
 const failed = () => new Error("Diagnostic storage operation failed.");
 function bridge(): Bridge {
@@ -16,4 +17,11 @@ export async function loadDiagnosticStorage(): Promise<{ path: string; state: st
 }
 export async function saveDiagnosticStorage(report: string): Promise<{ path: string; }> {
     try { return await bridge().diagnosticsSave(report); } catch { throw failed(); }
+}
+export async function openDiagnosticStorageFolder(): Promise<void> {
+    try {
+        const native = bridge();
+        if (typeof native.diagnosticsOpenFolder !== "function") throw failed();
+        await native.diagnosticsOpenFolder();
+    } catch { throw failed(); }
 }

@@ -17,7 +17,7 @@ function fixture(bridged = false, overrides: Record<string, unknown> = {}) {
     const hostFS = bridged ? bridgeFS(overrides) : { ...fs, ...overrides };
     return { root, path: join(root, api.DIAGNOSTIC_FILE_NAME), state: join(root, api.DIAGNOSTIC_STATE_NAME),
         legacy: join(root, api.DIAGNOSTIC_LEGACY_NAME),
-        archive: (n: number) => join(root, `SupportTemplates-diagnostics.${n}.txt`),
+        archive: (n: number) => join(root, `main.${n}.log`),
         make: () => api.createDiagnosticFileStorage({ root, fs: hostFS }) };
 }
 const SID = "a".repeat(32);
@@ -59,7 +59,8 @@ describe("A22 append/control state contract", () => {
         expect(state.report.journal.events.map((e: any) => e.seq)).toEqual([1, 2, 3, 4]);
         const restored = JSON.parse((await f.make().load()).state);
         expect(restored.sequence).toBe(100);
-        expect(restored.deliveryLost).toBe(96);
+        expect(restored.deliveryLost).toBe(0);
+        expect(restored.deliveryCursor).toBe(4);
     });
     it("serializes duplicate saves from multiple store instances", async () => {
         const f = fixture();

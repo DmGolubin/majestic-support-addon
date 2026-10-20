@@ -108,13 +108,17 @@ function RowImpl({ t, sel, ctx, alt, bind, icon, tokens, line, onHover, onMove, 
                 {alt > 0 && <span className="vc-stx-kb">Alt {alt}</span>}
                 <button type="button" className="vc-stx-btn vc-stx-ghost" data-stx-menu-control
                     style={{ width: 24, height: 24, padding: 0, justifyContent: "center", flexShrink: 0 }}
-                    aria-label={`Действия с шаблоном «${t.title}»`} aria-haspopup="menu" aria-expanded={ctx}
-                    title="Действия с шаблоном · назначить сочетание клавиш"
+                    aria-label={`Действия шаблона «${t.title}»`} aria-haspopup="menu" aria-expanded={ctx}
+                    title="Действия шаблона"
                     onClick={e => {
                         e.stopPropagation(); onHide();
                         const rect = e.currentTarget.getBoundingClientRect();
                         openMenu(t.id, rect.left, rect.bottom);
-                    }}><span aria-hidden="true">⋯</span></button>
+                    }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" focusable="false">
+                        <path d="M8 6h12M8 12h12M8 18h12" /><path d="M4 6h.01M4 12h.01M4 18h.01" strokeWidth="3" />
+                    </svg>
+                </button>
             </div>
             <div className="vc-stx-sn">{line ? nqHighlight(line, tokens) : snippetOf(t)}</div>
         </div>

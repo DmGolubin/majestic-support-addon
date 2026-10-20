@@ -9,7 +9,7 @@ import "./settings-layout.css";
 import { useRef, useState } from "@webpack/common";
 
 import { validPrefix } from "../core/trigger";
-import { moveWindowTab, WINDOW_TAB_LABELS } from "../core/types";
+import { moveWindowTab, WindowTab, WINDOW_TAB_LABELS } from "../core/types";
 import { panel } from "./panel";
 import { DiagnosticControls } from "./DiagnosticControls";
 import { PanelConnection } from "./PanelConnection";
@@ -32,6 +32,15 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
     const [prefix, setPrefix] = useState(store.data.prefix);
     const prefixRef = useRef(prefix);
     const [prefixError, setPrefixError] = useState("");
+    const tabDrag = useRef<{ id: WindowTab; order: WindowTab[]; } | null>(null);
+    const [tabDrop, setTabDrop] = useState<WindowTab | null>(null);
+    const [tabAnnouncement, setTabAnnouncement] = useState("");
+    const reorderTab = (id: WindowTab, target: WindowTab) => {
+        if (p.phase !== "ready" || id === target) return;
+        const order = moveWindowTab(store.data.windowTabOrder, id, target);
+        store.setWindowTabOrder(order);
+        setTabAnnouncement(`${WINDOW_TAB_LABELS[id]}: позиция ${order.indexOf(id) + 1} из ${order.length}`);
+    };
     const reportDirty = () => {
         const next = personalDirty.current || prefixRef.current !== store.data.prefix;
         setDirty(next);
@@ -75,22 +84,43 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
                     <label className="vc-stx-switch"><input type="checkbox" aria-label="Общие шаблоны первыми в поиске" checked={store.data.generalFirstInSearch} disabled={p.phase !== "ready"} onChange={e => store.setGeneralFirstInSearch(e.currentTarget.checked)} /><span aria-hidden="true" /></label>
                 </div>
                 <h4>Порядок вкладок</h4>
-                <p>Перетащите вкладку в окне шаблонов или используйте кнопки ниже.</p>
-                <ol aria-label="Порядок вкладок">
-                    {store.data.windowTabOrder.map((id, index, order) => <li key={id}>
-                        <div className="vc-stx-setting-line">
-                            <strong>{WINDOW_TAB_LABELS[id]}</strong>
-                            <div className="vc-stx-lib-actions">
-                                <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={p.phase !== "ready" || index === 0}
-                                    aria-label={`Переместить ${WINDOW_TAB_LABELS[id]} раньше`}
-                                    onClick={() => store.setWindowTabOrder(moveWindowTab(order, id, order[index - 1]))}>Раньше</button>
-                                <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={p.phase !== "ready" || index === order.length - 1}
-                                    aria-label={`Переместить ${WINDOW_TAB_LABELS[id]} позже`}
-                                    onClick={() => store.setWindowTabOrder(moveWindowTab(order, id, order[index + 1]))}>Позже</button>
-                            </div>
-                        </div>
+                <p id="stx-tab-order-help">Перетащите вкладку · Alt + стрелки с клавиатуры.</p>
+                <ol aria-label="Порядок вкладок" style={{ display: "flex", flexWrap: "wrap", gap: 6, listStyle: "none", padding: 0, margin: "8px 0" }}>
+                    {store.data.windowTabOrder.map((id, index, order) => <li key={id} style={{ margin: 0 }}>
+                        <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={p.phase !== "ready"} draggable={p.phase === "ready"}
+                            style={{ height: 28, padding: "0 10px", cursor: p.phase === "ready" ? "grab" : undefined,
+                                outline: tabDrop === id ? "2px solid var(--stx-pr)" : undefined }}
+                            aria-label={`${WINDOW_TAB_LABELS[id]}, позиция ${index + 1} из ${order.length}`}
+                            aria-describedby="stx-tab-order-help" aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
+                            onDragStart={e => {
+                                if (p.phase !== "ready") { e.preventDefault(); return; }
+                                tabDrag.current = { id, order: store.data.windowTabOrder };
+                                e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id);
+                            }}
+                            onDragOver={e => {
+                                if (p.phase === "ready" && tabDrag.current?.order === store.data.windowTabOrder) {
+                                    e.preventDefault(); e.dataTransfer.dropEffect = "move"; setTabDrop(id);
+                                }
+                            }}
+                            onDragLeave={() => setTabDrop(null)}
+                            onDrop={e => {
+                                const drag = tabDrag.current;
+                                tabDrag.current = null; setTabDrop(null);
+                                if (drag && drag.order === store.data.windowTabOrder) { e.preventDefault(); reorderTab(drag.id, id); }
+                            }}
+                            onDragEnd={() => { tabDrag.current = null; setTabDrop(null); }}
+                            onKeyDown={e => {
+                                if (e.nativeEvent.isComposing || e.keyCode === 229 || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey
+                                    || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+                                e.preventDefault(); e.stopPropagation();
+                                if (e.repeat || tabDrag.current || p.phase !== "ready") return;
+                                const current = store.data.windowTabOrder;
+                                const next = current.indexOf(id) + (e.key === "ArrowLeft" ? -1 : 1);
+                                if (next >= 0 && next < current.length) reorderTab(id, current[next]);
+                            }}>{WINDOW_TAB_LABELS[id]}</button>
                     </li>)}
                 </ol>
+                <span role="status" aria-live="polite" style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clipPath: "inset(50%)", whiteSpace: "nowrap" }}>{tabAnnouncement}</span>
             </section>
             <section className="vc-stx-setting-section vc-stx-setting-card" aria-labelledby="stx-input-settings">
                 <h3 id="stx-input-settings">Быстрый ввод</h3>

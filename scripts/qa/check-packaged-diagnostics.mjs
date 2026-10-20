@@ -108,7 +108,7 @@ for (const { asset, archive } of nativeAssets) {
         }
     }
     const text = fs.readFileSync(path.join(runtime, 'renderer.js'), 'utf8');
-    check('diagnostic persistence and request events in renderer', ['SupportTemplates_diagnostics_v1', 'request.failure', 'auth.terminated', 'SupportTemplates-diagnostics-'].every(s => text.includes(s)));
+    check('diagnostic persistence and request events in renderer', ['SupportTemplates_diagnostics_v1', 'request.failure', 'auth.terminated', 'diagnosticsOpenFolder'].every(s => text.includes(s)));
     execFileSync(process.execPath, ['--check', path.join(runtime, 'renderer.js')]);
     execFileSync(process.execPath, ['--check', path.join(runtime, 'patcher.js')]);
     execFileSync(process.execPath, ['--check', path.join(runtime, 'preload.js')]);
@@ -117,7 +117,7 @@ for (const { asset, archive } of nativeAssets) {
     const observers = new Set(), listeners = new Set(), timers = new Map(), persisted = new Map();
     const subscribe = cb => { observers.add(cb); return () => observers.delete(cb); };
     const mocks = {
-        'diagnosticStorage.ts': 'export const loadDiagnosticStorage=async()=>({path:"fixture/SupportTemplates-diagnostics.txt",state:globalThis.fixture.saved?JSON.stringify(JSON.parse(globalThis.fixture.saved).journal):null});export const saveDiagnosticStorage=async(report)=>{globalThis.fixture.saved=report;return {path:"fixture/SupportTemplates-diagnostics.txt"}};',
+        'diagnosticStorage.ts': 'export const openDiagnosticStorageFolder=async()=>{globalThis.fixture.opened=true;};export const loadDiagnosticStorage=async()=>({path:"fixture/main.log",state:globalThis.fixture.saved?JSON.stringify(JSON.parse(globalThis.fixture.saved).journal):null});export const saveDiagnosticStorage=async(report)=>{globalThis.fixture.saved=report;return {path:"fixture/main.log"}};',
         'ui/debug.ts': 'export const debugFileSnapshot=()=>({});',
         'ui/panel.ts': 'export const panel=globalThis.fixture.panel;',
         'ui/uiState.ts': 'export const ui=globalThis.fixture.ui;export const store=globalThis.fixture.store;'
@@ -135,15 +135,15 @@ for (const { asset, archive } of nativeAssets) {
             b.onLoad({filter: /.*/, namespace: 'packaged'}, a => ({contents: mocks[a.path] ?? sources.get(a.path), loader: 'ts'}));
         }}]
     });
-    let timerId = 0, downloaded = null, clicked = false;
+    let timerId = 0;
     const eventHost = {addEventListener: (name, cb) => listeners.add(cb), removeEventListener: (name, cb) => listeners.delete(cb)};
     const box = {
         module: {exports: {}}, exports: {}, console, Date, JSON, Blob, Response, Headers, TextDecoder, AbortController,
-        URL: class extends URL {static createObjectURL(blob) {downloaded = blob; return 'blob:fixture';} static revokeObjectURL() {}},
+        URL,
         setTimeout: (cb, delay) => {timers.set(++timerId, {cb, delay}); return timerId;}, clearTimeout: id => timers.delete(id),
         navigator: {onLine: true},
         window: {...eventHost, innerWidth: 1280, innerHeight: 720, localStorage: {getItem: k => persisted.get(k) ?? null, setItem: (k, v) => persisted.set(k, v)}},
-        document: {...eventHost, visibilityState: 'visible', body: {append() {}}, createElement: () => ({click() {clicked = true;}, remove() {}})},
+        document: {...eventHost, visibilityState: 'visible'},
         fixture: {panel: {get: () => ({phase: 'ready', sync: 'idle', persistent: true}), subscribe},
             ui: {get: () => ({windowOpen: false, management: false, compose: []}), subscribe},
             store: {data: {favorites: [], recent: [], binds: {}}, templates: [], subscribe}}
@@ -158,10 +158,10 @@ for (const { asset, archive } of nativeAssets) {
         && initialJournal.until === 0 && initialJournal.campaignUntil === 0);
     const send = api.createPanelTransport(async () => Response.json({code: 'session_revoked', message: 'PRIVATE_BODY_SENTINEL'}, {status: 401}));
     await assert.rejects(send('/me', {token: 'PRIVATE_TOKEN_SENTINEL'}), e => e.code === 'session_revoked');
-    api.downloadDiagnostics();
-    const exported = await downloaded.text();
+    await api.openDiagnosticFolder();
+    const exported = api.diagnosticFile();
     const report = JSON.parse(exported);
-    check('JSON download', clicked && report.version === manifest.version);
+    check('fixed native folder opener and report version', box.fixture.opened === true && report.version === manifest.version);
     check('diagnostic export identifies distribution', report.distribution === variant);
     check('request failure records status and reason', report.journal.events.some(e => e.event === 'request.failure' && e.data.status === 401 && e.data.code === 'session_revoked'));
     check('no token or response body in export', !exported.includes('PRIVATE_'));
@@ -173,8 +173,8 @@ for (const { asset, archive } of nativeAssets) {
     api.setRecording(false); api.diagnosticJournal.clear();
     check('disable and clear', !api.diagnosticJournal.active && api.diagnosticJournal.snapshot().events.length === 0);
     api.stopDiagnostics();
-    // The download URL is revoked after one second; execute only that mock timer.
-    for (const [id, timer] of timers) if (timer.delay === 1000) {timers.delete(id); timer.cb();}
+    // Finish the mocked asynchronous save queue; an idle timer is a real leak.
+    for (let i = 0; i < 100; i++) await Promise.resolve();
     check('no observers/listeners/timers after stop', observers.size === 0 && listeners.size === 0 && timers.size === 0);
     results.push({variant, archive: asset.name, sha256: asset.sha256, version: manifest.version, pluginCommit: manifest.pluginCommit,
         payloadFiles: manifest.files.length, rendererPluginSources: pluginSources.length, assertions,

@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..').replaceAll('\\','/');
 const require=createRequire(root+'/betterdiscord/package.json');
 const { build }=require('esbuild');
-const a24 = process.argv.includes('--a24');
+const a25 = process.argv.includes('--a25');
+const a24 = process.argv.includes('--a24') || a25;
 const a23 = process.argv.includes('--a23') || a24;
 
 const here=path.resolve(process.argv[2] ?? 'scripts/qa/runs/q17-ui/before').replaceAll('\\','/');
@@ -81,6 +82,18 @@ window.previewAccess=panelAccess;
     stubs.a24Idle = `export const ComposeBar=()=>null;export const Inline=()=>null;export const DebugPanel=()=>null;`;
     map['@components/ErrorBoundary'] = 'a24Boundary';
     for (const name of ['./ComposeBar','./InlinePop','./DebugPanel']) map[name] = 'a24Idle';
+}
+if (a25) {
+    stubs.diagnostics = stubs.diagnostics
+        .replace('SupportTemplates-diagnostics.txt', 'main.log')
+        .replace('lastSavedAt:Date.now()', 'lastSavedAt:Date.now(),...window.a25DiagnosticStatus')
+        .replace('window.failDiagnosticFile=false', 'window.failDiagnosticFile=false;window.a25DiagnosticRetries=(window.a25DiagnosticRetries||0)+1');
+    stubs.diagnostics += `export const openDiagnosticFolder=async(...args)=>{window.a25FolderOpens=(window.a25FolderOpens||0)+1;(window.a25FolderArguments??=[]).push(args);if(window.a25FolderPending)await new Promise(resolve=>window.a25FolderRelease=resolve);if(window.a25FolderFailure)throw Error('fixture folder unavailable');};`;
+    stubs.common += `const a25Channel=ChannelStore.getChannel;ChannelStore.getChannel=id=>{const c=a25Channel(id);return c?{...c,name:id==='696711470783922247'?'техническая-поддержка-игроков-по-проблемам-запуска-и-подключения-к-серверам-majestic':id==='1534231644842754090'?'поддержка-игроков-россия-онлайн-вопросы-по-аккаунту-и-восстановлению-доступа':c.name}:c};`;
+    stubs.panel += `
+const a25Catalog=panelPersonal.get().catalog;
+panelPersonal.set({catalog:{...a25Catalog,personalRecords:[['Проверка файлов лаунчера','red'],['Сбор журналов подключения','amber'],['Восстановление доступа','blue'],['Общий ответ',null]].map(([title,color],i)=>({...a25Catalog.personalRecords[i%3],id:'a25-'+i,title,color,text:'Проверьте файлы лаунчера и повторите подключение. Если проблема сохранится, приложите журнал.',command:i===0?'launcher':null})),colorLabels:{red:'Красный',amber:'Янтарный',blue:'Синий'}}});
+`;
 }
 const hostImport = a24 ? `import {Host} from '${root}/src/vencord/ui/Host.tsx';` : '';
 const hostTree = a24 ? '<Host/>' : '<div className="vc-stx-root">{s.management&&<Management/>}{s.windowOpen&&(p.phase==="ready"?<Window/>:<LoginWindow/>)}</div>';

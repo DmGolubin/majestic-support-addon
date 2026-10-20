@@ -30,7 +30,7 @@ describe("A22 legacy compatibility and bounded restart state", () => {
         expect(disk.trim().split("\n")).toHaveLength(2);
         expect(disk).toContain("] request.start ");
         expect(JSON.parse((await f.make().load()).state)).toEqual(api.sanitizeDiagnosticReport(report()).journal);
-        expect(fs.readdirSync(f.root)).toEqual([api.DIAGNOSTIC_STATE_NAME, api.DIAGNOSTIC_FILE_NAME]);
+        expect(fs.readdirSync(f.root).sort()).toEqual([api.DIAGNOSTIC_STATE_NAME, api.DIAGNOSTIC_FILE_NAME].sort());
         expect(Buffer.byteLength(disk)).toBeLessThanOrEqual(api.DIAGNOSTIC_FILE_MAX_BYTES);
     });
     it("bounds restart report including metadata, preserving newest events and legacy deadline", async () => {
@@ -115,7 +115,7 @@ describe("A22 legacy compatibility and bounded restart state", () => {
         const p = payload(); p.journal.until = 0;
         await expect(store.save(JSON.stringify(p))).rejects.toThrow(ERROR);
         expect(fs.readFileSync(f.path, "utf8")).toBe(before);
-        expect(fs.readdirSync(f.root)).toEqual([api.DIAGNOSTIC_STATE_NAME, api.DIAGNOSTIC_FILE_NAME]);
+        expect(fs.readdirSync(f.root).sort()).toEqual([api.DIAGNOSTIC_STATE_NAME, api.DIAGNOSTIC_FILE_NAME].sort());
         fail = false; await store.save(JSON.stringify(p));
         expect(JSON.parse((await store.load()).state).until).toBe(0);
     });
@@ -265,6 +265,6 @@ describe("A22 fixed destination integrity", () => {
         const f = fixture(), escape = join(dirname(f.root), "should-not-exist");
         await f.make().save(JSON.stringify(payload({ path: escape, filename: escape, root: escape })));
         expect(fs.existsSync(escape)).toBe(false);
-        expect(fs.readdirSync(f.root)).toEqual([api.DIAGNOSTIC_STATE_NAME, api.DIAGNOSTIC_FILE_NAME]);
+        expect(fs.readdirSync(f.root).sort()).toEqual([api.DIAGNOSTIC_STATE_NAME, api.DIAGNOSTIC_FILE_NAME].sort());
     });
 });

@@ -64,9 +64,9 @@ describe("search", () => {
         expect(r.fuzzy).toBe(false);
         expect(r.hits).toEqual([{ t, level: 2, line: "рздел" }]);
     });
-    it("keeps the fuzzy span, minimum length and single-token thresholds", () => {
+    it("rejects scattered subsequences and fuzzy short tokens", () => {
         const t = { ...mj[0], title: "a---b---c--d", text: "" };
-        expect(search([t], "abcd").hits).toHaveLength(1); // span 12 = 4 * 3
+        expect(search([t], "abcd").hits).toHaveLength(0);
         expect(search([{ ...t, title: "a---b---c---d" }], "abcd").hits).toHaveLength(0);
         expect(search([t], "abc").hits).toHaveLength(0);
         expect(search([t], "ab cd").hits).toHaveLength(0);

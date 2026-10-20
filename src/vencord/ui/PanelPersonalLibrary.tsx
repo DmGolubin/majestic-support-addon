@@ -249,7 +249,15 @@ function PersonalEditor({ owner, onDirty, onBusy }: Props & { owner: string; }) 
                 <label>Папка<Select aria-label="Фильтр папок" value={effectiveFolder} onChange={e => setFolder(e.currentTarget.value)}><option value="all">Все папки</option><option value="none">Без папки</option>
                     {catalog.folderRecords.map(f => <option key={f.id} value={f.id}>{f.title} · {projectName(f.project)}</option>)}</Select></label></div>
             <div className="vc-stx-pp-cards">{rows.map(t => <button type="button" key={t.id} className="vc-stx-pp-card" disabled={busy} onClick={() => begin("template", t)}>
-                <strong>{t.title}</strong><span><Markdown text={splitGreeting(t.text).body} /></span><small>{t.shared ? "Общий" : projectName(t.projects[0])}{t.command ? ` · команда ${t.command}` : ""}{t.color ? ` · ${colorName(t.color)}` : ""}</small>
+                <strong>{t.title}</strong><span><Markdown text={splitGreeting(t.text).body} /></span>
+                <small className="vc-stx-pp-card-meta">
+                    <span>{t.shared ? "Общий" : projectName(t.projects[0])}</span>
+                    {t.command && <span>/{t.command}</span>}
+                    {t.color && <span className="vc-stx-pp-card-color">
+                        <span className="vc-stx-color-picker-swatch" data-color={t.color} aria-hidden="true" />
+                        {colorName(t.color)}
+                    </span>}
+                </small>
             </button>)}{!rows.length && <p className="vc-stx-muted">{query || effectiveFolder !== "all" ? "Шаблоны не найдены." : "Личных шаблонов пока нет."}</p>}</div>
             <details className="vc-stx-pp-folders"><summary>Папки · {catalog.folderRecords.length}</summary>
                 <div className="vc-stx-pp-folder-list">{catalog.folderRecords.map(f => <button type="button" key={f.id} disabled={busy} onClick={() => begin("folder", f)}><strong>{f.title}</strong><span>{projectName(f.project)}</span></button>)}</div>

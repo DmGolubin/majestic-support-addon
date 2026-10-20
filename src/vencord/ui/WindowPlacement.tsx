@@ -93,11 +93,25 @@ export function WindowPlacementControls({ placement, box, size, side, setSize, s
     return <>
         <div className="vc-stx-placement">
             <button type="button" data-stx-menu-control className="vc-stx-drag-window" disabled={pinned}
-                aria-label="Переместить окно" title="Перетащите окно или используйте стрелки" onPointerDown={e => start(e, null)} onKeyDown={e => key(e, null)} {...pointer}>Шаблоны · {pinned ? "закреплено" : "перетащите окно"}</button>
-            <button type="button" data-stx-menu-control aria-pressed={pinned} title={pinned ? "Разрешить перемещение и размер" : "Закрепить положение и размер"}
-                onClick={() => placement.set({ right: box.right, bottom: box.bottom, pinned: !pinned })}>{pinned ? "Открепить" : "Закрепить"}</button>
-            <button type="button" data-stx-menu-control title="Вернуть окно к полю ввода и сбросить размер"
-                onClick={() => { placement.set(null); setSize(null); saveSize(DEFAULT_WINDOW_SIZE); }}>Сброс</button>
+                aria-label="Переместить окно" title="Перетащите окно или используйте стрелки" onPointerDown={e => start(e, null)} onKeyDown={e => key(e, null)} {...pointer}>
+                <svg width="18" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                    <circle cx="7" cy="8" r="1.5" /><circle cx="12" cy="8" r="1.5" /><circle cx="17" cy="8" r="1.5" />
+                    <circle cx="7" cy="16" r="1.5" /><circle cx="12" cy="16" r="1.5" /><circle cx="17" cy="16" r="1.5" />
+                </svg>
+            </button>
+            <button type="button" data-stx-menu-control aria-pressed={pinned} aria-label="Закрепить окно"
+                title={pinned ? "Открепить окно" : "Закрепить положение и размер"}
+                onClick={() => placement.set({ right: box.right, bottom: box.bottom, pinned: !pinned })}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M8 3h8v6l3 4v2H5v-2l3-4V3ZM12 15v7" />
+                </svg>
+            </button>
+            <button type="button" data-stx-menu-control aria-label="Сбросить положение и размер окна" title="Вернуть окно к полю ввода и сбросить размер"
+                onClick={() => { placement.set(null); setSize(null); saveSize(DEFAULT_WINDOW_SIZE); }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M3 10a9 9 0 1 1 2 8M3 4v6h6" />
+                </svg>
+            </button>
         </div>
         {!pinned && WINDOW_EDGES.map(edge => <button type="button" key={edge} data-stx-menu-control className={`vc-stx-frame-resize edge-${edge}`}
             aria-label={`Изменить размер ${EDGE_NAMES[edge]}`} title={`Размер ${EDGE_NAMES[edge]}: потяните край или используйте стрелки`}

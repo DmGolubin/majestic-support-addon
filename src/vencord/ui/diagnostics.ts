@@ -2,7 +2,7 @@
 import { PLUGIN_BUILD, PLUGIN_DISTRIBUTION, PLUGIN_VERSION } from "../buildInfo";
 import { diagnosticJournal as journal, diagnosticData } from "../core/diagnosticJournal";
 import { createDiagnosticPersistence, DiagnosticFileStatus } from "../core/diagnosticPersistence";
-import { loadDiagnosticStorage, saveDiagnosticStorage } from "../diagnosticStorage";
+import { loadDiagnosticStorage, saveDiagnosticStorage, openDiagnosticStorageFolder } from "../diagnosticStorage";
 import { debugFileSnapshot } from "./debug";
 import { panel } from "./panel";
 import { store, ui } from "./uiState";
@@ -99,10 +99,8 @@ function report(state: ReturnType<typeof journal.snapshot>) {
 }
 export function diagnosticFile() { journal.flush(); return report(journal.snapshot()); }
 export function retryDiagnosticFile() { journal.flush(); persistence?.retry(); }
-export function downloadDiagnostics() {
-    const url = URL.createObjectURL(new Blob([diagnosticFile()], { type: "application/json" }));
-    const a = document.createElement("a");
-    a.href = url; a.download = `SupportTemplates-diagnostics-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
-    document.body.append(a);
-    try { a.click(); } finally { a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+export async function openDiagnosticFolder(): Promise<void> {
+    journal.flush();
+    persistence?.retry();
+    await openDiagnosticStorageFolder();
 }
