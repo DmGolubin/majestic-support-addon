@@ -16,4 +16,16 @@
 - 57/57 focused тестов диагностического блока и настроек прошли; root/Vencord typecheck проходят до изменения native display path.
 - 81/81 browser check на 900×720, 427×640 и 320×568. 93 исходных хеша неизменны; 9 снимков, 6 осмотрены. Реальный UI, native путь и открытие папки замоканы. Evidence: `scripts/qa/runs/a28-ui/final-01/regression.json`, `visual-inspection.json`.
 - 125/125 focused native-проверок после изменения пути, включая Vencord/BD/bridge, первый запуск без создания каталога, ошибку resolver и несовпадающую физическую папку. Root typecheck проходит.
-- Сборка и установка в Canary ожидаются после финальной проверки.
+- Финальная Vencord typecheck также прошла. `graphify update .`: 4521 узел, 9043 связи; граф игнорируется Git.
+
+## Пакеты
+
+- Версия `1.0.1-canary.36`, commit исходников `4373328`. Lite/BetterDiscord собраны в `artifacts/distribution/1.0.1-canary.36`, полный Vencord владельца — в `artifacts/private-vencord/1.0.1-canary.36`.
+- Проверены 8 файлов выпуска, 74/74 packaged diagnostic checks и 13/13 exact BetterDiscord runtime tests. SHA-256 runtime и BD release совпадает: `56383B8C356578874D439362A1632855292565F90C8EB1ED721C33CCFD5ED2F1`. Публикация не выполнялась.
+- Lite .36 установлен в Canary `app-1.0.1259`, Install/Status успешны.
+- Actual trusted Canary renderer вызвал `diagnosticsLoad` и `diagnosticsOpenFolder`: путь load совпал с физическим `main.log`, Explorer открыл ту же папку. Проверка возвращала только результат сравнения, без содержимого журнала/аккаунта. Временный CDP слушал только loopback; после проверки удалён, Canary перезапущен обычным способом. Stable не затрагивался.
+- Живая проверка .36/build `43733283`: `ready=true`, `persistent=true`, `stale=false`, запросы `/me`, `/snapshot`, `/notification-settings`, `/tickets/assigned` получили 200. Sync при замере — `connecting`; этот замер не подтверждает долговременную устойчивость SSE.
+- `main.log` вырос 538499 → 578318 байт с сохранением SHA-256 старого префикса. Запись включена, `continuous=true`, `storageFailed=false`, исторический `deliveryLost=5` не вырос.
+- Evidence в `scripts/qa/runs/`: `a28-install36.log`, `a28-status36.log`, `a28-live-probe36.log`, `a28-live-folder36.json`, `a28-live-explorer36.json`, `a28-live-before36.json`, `a28-live-update36.json`, build/package/runtime логи.
+
+Остаётся визуальная приёмка пользователем. Вид уведомления не менялся; preview в этой задаче повторно в живом клиенте не вызывался. Full Vencord и BetterDiscord собраны и проверены на уровне пакетов, но не установлены в отдельные реальные клиенты.
