@@ -1,6 +1,12 @@
 node_modules
 /artifacts/
 /development/artifacts/
+/development/distribution/vencord/
+/development/tests/vencordConsole.Tests.ps1
+/development/tests/vencordDistribution.Tests.ps1
+/development/tests/vencordDistribution.node.mjs
+/development/tests/vencordLoaderElectron.cjs
+/development/scripts/qa/vencord-package-electron.cjs
 /development/scripts/qa/runs/
 __pycache__/
 *.py[cod]

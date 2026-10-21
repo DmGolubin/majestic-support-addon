@@ -22,7 +22,7 @@ const publicAssets = [
 ];
 if (!Array.isArray(manifest.assets) || manifest.assets.length !== publicAssets.length
     || publicAssets.some(({ variant }) => manifest.assets.filter(asset => asset?.variant === variant).length !== 1)) {
-    throw new Error('Public releases require exactly standalone + betterdiscord; full Vencord is owner-only');
+    throw new Error('Public releases require exactly standalone + betterdiscord');
 }
 for (const { variant, name, kind } of publicAssets) {
     if (!validation.validateManifest(manifest, { repo: config.releaseRepository, channel: config.channel, variant, baseVersion: config.version, releaseVersion: config.version, maxAssetBytes: 256 * 1024 * 1024 })) throw new Error(`Missing variant ${variant}`);

@@ -1,5 +1,4 @@
 // Produce the two public variants: SupportTemplates, then BetterDiscord.
-// The owner's full Vencord build has a separate entry point.
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';

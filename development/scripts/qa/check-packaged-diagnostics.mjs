@@ -21,16 +21,9 @@ const releaseManifest = JSON.parse(fs.readFileSync(path.join(release, 'support-t
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const results = [];
 const normalize = value => value.replaceAll('\r\n', '\n');
-// Public releases contain Lite + BetterDiscord. The owner's full build can be
-// checked explicitly without copying it into the public release directory.
-const nativeAssets = releaseManifest.assets.filter(a => a.variant === 'standalone' || a.variant === 'vencord')
+const nativeAssets = releaseManifest.assets.filter(a => a.variant === 'standalone')
     .map(asset => ({ asset, archive: memberPath(release, asset.name) }));
-assert.ok(nativeAssets.some(({ asset }) => asset.variant === 'standalone'), 'Lite package is required');
-if (process.argv[4]) {
-    assert.ok(!nativeAssets.some(({ asset }) => asset.variant === 'vencord'), 'Duplicate full Vencord package');
-    const archive = path.resolve(process.argv[4]);
-    nativeAssets.push({ archive, asset: { variant: 'vencord', name: path.basename(archive), sha256: sha(fs.readFileSync(archive)) } });
-}
+assert.equal(nativeAssets.length, 1, 'One SupportTemplates package is required');
 function memberPath(base, name) {
     if (typeof name !== 'string' || !name || /[\\:\u0000-\u001f\u007f]/.test(name)
         || name.split('/').some(part => !part || part === '.' || part === '..')) throw Error('Unsafe package member path');

@@ -147,8 +147,18 @@ function Foreign-Fixture($f,[string]$Kind) {
         New-Asar "$($f.Resources)/app.asar" ('require('+((($f.Root+'/Roaming/Vencord/dist/patcher.js').Replace('/','\')) | ConvertTo-Json -Compress)+')')
     } else {
         $version='0.1.0-canary.1'
-        $source=Join-Path (Split-Path $PSScriptRoot -Parent) 'distribution/vencord/runtime/loader.cjs'
-        New-Asar "$($f.Resources)/app.asar" ([IO.File]::ReadAllText($source)) ('{"name":"support-templates-vencord-loader","main":"index.js","version":"'+$version+'"}')
+        # Exercise ownership checks with an inert pinned loader in the TEMP copy.
+        $bootstrap='module.exports = {fixture: true};'
+        $hasher=[Security.Cryptography.SHA256]::Create()
+        try { $bootstrapHash=[BitConverter]::ToString($hasher.ComputeHash($utf8.GetBytes($bootstrap))).Replace('-','').ToLowerInvariant() }
+        finally { $hasher.Dispose() }
+        $migration=[IO.Path]::GetFullPath("$($f.Package)/Migration.ps1")
+        Assert ($migration.StartsWith([IO.Path]::GetFullPath($f.Root) + '\', [StringComparison]::OrdinalIgnoreCase)) 'Unsafe fixture validator edit'
+        $validator=[IO.File]::ReadAllText($migration)
+        $pin=[regex]"-ceq '[a-f0-9]{64}'\) 'Unknown internal Vencord bootstrap'"
+        Assert ($pin.Matches($validator).Count -eq 1) 'Expected one bootstrap hash gate'
+        Put $migration ($pin.Replace($validator, "-ceq '$bootstrapHash') 'Unknown internal Vencord bootstrap'", 1))
+        New-Asar "$($f.Resources)/app.asar" $bootstrap ('{"name":"support-templates-vencord-loader","main":"index.js","version":"'+$version+'"}')
         $base="$($f.Local)/SupportTemplatesVencord/channels/canary/versions/$version"
         $manifest=@{schema=1;product='SupportTemplatesVencord';version=$version;files=@(@{path='payload/loader.asar';sha256=(Hash "$($f.Resources)/app.asar");size=(Get-Item "$($f.Resources)/app.asar").Length})}
         Put "$base/manifest.json" ($manifest | ConvertTo-Json -Depth 8 -Compress)
@@ -207,12 +217,13 @@ try {
         }
     }
     Test 'Migration: invalid package ownership original and bootstrap refuse before close or write' {
-        foreach ($bad in @('payload','bootstrap','original','config','manifest','extra','downgrade')) {
-            $kind='betterdiscord'; if ($bad -in @('config','manifest','downgrade')) { $kind='internal' }
+        foreach ($bad in @('payload','bootstrap','internal-bootstrap','original','config','manifest','extra','downgrade')) {
+            $kind='betterdiscord'; if ($bad -in @('internal-bootstrap','config','manifest','downgrade')) { $kind='internal' }
             $f=Fixture; Foreign-Fixture $f $kind
             switch ($bad) {
                 payload { Put "$($f.Package)/payload/runtime/renderer.js" 'tampered' }
                 bootstrap { Put "$($f.Resources)/app/index.js" 'require("Vencord"); require("../betterdiscord.app.asar");' }
+                internal-bootstrap { New-Asar "$($f.Resources)/app.asar" 'module.exports = {unknown: true};' '{"name":"support-templates-vencord-loader","main":"index.js","version":"0.1.0-canary.1"}' }
                 original { Put "$($f.Resources)/betterdiscord.app.asar" 'not an original archive' }
                 config { Put "$($f.Resources)/support-templates-vencord.json" '{}' }
                 manifest { Put "$($f.Local)/SupportTemplatesVencord/channels/canary/versions/0.1.0-canary.1/manifest.json" '{}' }
