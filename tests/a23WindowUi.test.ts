@@ -68,7 +68,7 @@ function harness(component: "Window" | "Settings" = "Window") {
         },
         useCallback: (fn: any, _deps: any) => fn,
     };
-    const insertTemplate = vi.fn(), placement = { position: null as windowPlacement.WindowPosition | null, set: vi.fn() };
+    const insertTemplate = vi.fn(), addToCompose = vi.fn(), placement = { position: null as windowPlacement.WindowPosition | null, set: vi.fn() };
     const ui = { useSelect: (select: any) => select({ compose: [], dialog: null, menu: null, channelRevision }),
         get: () => ({ management: false, dialog: null, menu: null }), set: vi.fn() };
     const deps: Record<string, any> = {
@@ -77,14 +77,14 @@ function harness(component: "Window" | "Settings" = "Window") {
         "../core/types": types, "../core/windowPlacement": windowPlacement,
         "../core/trigger": { validPrefix: () => true },
         "../platform": { chatAreaRect: () => ({ top: 600, right: 1100 }), storage: { get: async () => null, set: async () => {} } },
-        "./flow": { insertTemplate, addToCompose: vi.fn() },
+        "./flow": { insertTemplate, addToCompose },
         "./uiState": { store, ui, useStore: () => version, activeScope: () => scope, listedProject: () => scope,
             poolFor: () => store.templates.filter(t => t.project === scope || t.project === null),
             watchChatArea: () => () => {}, pickTechProject: vi.fn() },
         "./debug": new Proxy({}, { get: (_obj, key) => key === "debugState" ? { useSelect: () => false }
             : key === "costStart" ? () => 0 : () => false }),
         "./ContextMenu": { openMenu: vi.fn() }, "./op": { windowEditor: () => null },
-        "./highlight": { nqHighlight: (s: string) => s }, "./keylatch": { latchKey: vi.fn() },
+        "./highlight": { nqHighlight: (s: string) => s }, "./keylatch": { latchKey: vi.fn(), latchButtonKey: vi.fn() },
         "./Preview": { Preview: "Preview", plural: () => "шаблонов" }, "./ProjectIcon": { ProjectIcon: "ProjectIcon" },
         "./Select": { Select: "Select" }, "./svg": new Proxy({}, { get: (_obj, key) => String(key) }),
         "./WindowPlacement": { useWindowPlacement: () => placement, WindowPlacementControls: "WindowPlacementControls" },
@@ -114,7 +114,7 @@ function harness(component: "Window" | "Settings" = "Window") {
         } while (dirty);
         return tree;
     };
-    return { render, store, insertTemplate, placement, exports,
+    return { render, store, insertTemplate, addToCompose, placement, exports,
         switchChannel: (next: "mj" | "ro") => { scope = next; channelRevision++; },
         setPhase: (next: string) => { phase = next; } };
 }
@@ -189,7 +189,7 @@ describe("A23 actual Window and Settings controls", () => {
         h.render(); h.switchChannel("ro"); tree = h.render();
         expect(rows(tree).map(n => n.props.t.id)).toEqual(["faq:3"]);
         expect(nodes(tree).find(n => n.type === "Select")!.props.value).toBe("");
-        expect(h.exports.visibleItems).toEqual([]); // no favorite from previous project remains published
+        expect(h.exports.visibleItems.map((t: types.Template) => t.id)).toEqual(["faq:3"]);
     });
 
     it("keeps the existing recent-category behavior by applying the ten-item limit after category filtering", () => {
@@ -230,5 +230,86 @@ describe("A23 actual Window and Settings controls", () => {
         h.setPhase("offline"); tree = h.render();
         expect(nodes(tree).filter(n => n.type === "input").every(n => n.props.disabled)).toBe(true);
         expect(nodes(tree).filter(n => n.props["aria-keyshortcuts"]).every(n => n.props.disabled)).toBe(true);
+    });
+});
+
+describe("A38 visible row shortcuts and greeting actions", () => {
+    const root = (tree: Node) => nodes(tree).find(n => n.props.className === "vc-stx-win")!;
+    const action = (tree: Node, label: string) => nodes(tree).find(n => n.type === "button" && n.props["aria-label"] === label)!;
+
+    it("numbers recent rows within Все and continues across sections, stopping at nine", () => {
+        const h = harness();
+        h.store.templates = Array.from({ length: 12 }, (_, i) => template(`faq:${i}`));
+        h.store.data.favorites = [];
+        h.store.data.recent = ["faq:3", "faq:1"];
+        let tree = h.render();
+        const ids = ["faq:3", "faq:1", "faq:0", "faq:2", "faq:4", "faq:5", "faq:6", "faq:7", "faq:8", "faq:9", "faq:10", "faq:11"];
+        expect(rows(tree).map(n => n.props.t.id)).toEqual(ids);
+        expect(rows(tree).map(n => n.props.alt)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0]);
+        expect(h.exports.visibleItems.map((t: types.Template) => t.id)).toEqual(ids);
+        tab(tree, "Недавние").props.onClick(); tree = h.render();
+        expect(rows(tree).map(n => n.props.alt)).toEqual([1, 2]);
+        expect(h.exports.visibleItems.map((t: types.Template) => t.id)).toEqual(["faq:3", "faq:1"]);
+    });
+
+    it("Ctrl+Enter inserts the selected row without greeting; Enter and Shift+Enter keep their actions", () => {
+        const h = harness();
+        h.store.setShowPersonalInAll(true);
+        let tree = h.render();
+        root(tree).props.onKeyDown(key("ArrowDown")); tree = h.render();
+        const selected = h.store.templates[0];
+        root(tree).props.onKeyDown(key("Enter", { ctrlKey: true }));
+        expect(h.insertTemplate).toHaveBeenLastCalledWith(selected, { via: "window-enter", noGreeting: true });
+        root(tree).props.onKeyDown(key("Enter"));
+        expect(h.insertTemplate).toHaveBeenLastCalledWith(selected, { via: "window-enter", noGreeting: false });
+        root(tree).props.onKeyDown(key("Enter", { shiftKey: true }));
+        expect(h.addToCompose).toHaveBeenCalledExactlyOnceWith(selected);
+        expect(h.insertTemplate).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([{ altKey: true }, { metaKey: true }, { ctrlKey: true, shiftKey: true }, { ctrlKey: true, repeat: true },
+        { nativeEvent: { isComposing: true } }, { defaultPrevented: true },
+        { target: { closest: () => ({ tagName: "BUTTON" }) } }])("does not insert for unsupported or owned keyboard events: %j", extra => {
+        const h = harness(), tree = h.render();
+        root(tree).props.onKeyDown(key("Enter", extra));
+        expect(h.insertTemplate).not.toHaveBeenCalled();
+        expect(h.addToCompose).not.toHaveBeenCalled();
+    });
+
+    it("offers both actions for the current row and disables only greeting removal when absent", () => {
+        const h = harness(); h.store.templates = [template("faq:1"), template("faq:2", { text: "Только ответ" })];
+        h.store.data.favorites = []; h.store.data.recent = [];
+        let tree = h.render();
+        const noGreeting = action(tree, "Вставить без приветствия");
+        expect(noGreeting).toBeDefined();
+        expect(noGreeting.props.disabled).toBe(false);
+        noGreeting.props.onClick();
+        expect(h.insertTemplate).toHaveBeenLastCalledWith(h.store.templates[0], { via: "window-button", noGreeting: true });
+        action(tree, "Вставить шаблон").props.onClick();
+        expect(h.insertTemplate).toHaveBeenLastCalledWith(h.store.templates[0], { via: "window-button", noGreeting: false });
+        root(tree).props.onKeyDown(key("ArrowDown")); tree = h.render();
+        expect(action(tree, "Вставить без приветствия").props.disabled).toBe(true);
+        expect(action(tree, "Вставить шаблон").props.disabled).toBe(false);
+        nodes(tree).find(n => n.type === "input")!.props.onChange({ currentTarget: { value: "несуществующийшаблон" } });
+        tree = h.render();
+        expect(action(tree, "Вставить без приветствия").props.disabled).toBe(true);
+        expect(action(tree, "Вставить шаблон").props.disabled).toBe(true);
+        expect(h.exports.visibleItems).toEqual([]);
+    });
+
+    it("keeps the row selected by real mouse movement for footer actions without following synthetic scroll moves", () => {
+        const h = harness(); h.store.templates = [template("faq:1"), template("faq:2")];
+        h.store.data.favorites = []; h.store.data.recent = [];
+        let tree = h.render();
+        let second = rows(tree)[1];
+        second.props.onMove(second.props.t, { movementX: 0, movementY: 4 });
+        tree = h.render();
+        expect(rows(tree).filter(n => n.props.sel).map(n => n.props.t.id)).toEqual(["faq:2"]);
+        rows(tree)[1].props.onLeave();
+        const first = rows(tree)[0];
+        first.props.onMove(first.props.t, { movementX: 0, movementY: 0 });
+        tree = h.render();
+        action(tree, "Вставить без приветствия").props.onClick();
+        expect(h.insertTemplate).toHaveBeenCalledExactlyOnceWith(h.store.templates[1], { via: "window-button", noGreeting: true });
     });
 });

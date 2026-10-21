@@ -28,7 +28,8 @@ function harness(root = "Management", kind = "fields") {
         setShowPersonalInAll: vi.fn((v: boolean) => { store.data.showPersonalInAll = v; }),
         setGeneralFirstInSearch: vi.fn((v: boolean) => { store.data.generalFirstInSearch = v; }),
         setWindowTabOrder: vi.fn((v: types.WindowTab[]) => { store.data.windowTabOrder = types.readWindowTabOrder(v); }),
-        byId: () => ({ title: "Template" }), clearBind: vi.fn(), setBind: vi.fn() };
+        byId: () => ({ title: "Template" }), bindFor: () => undefined, bindModeFor: () => "insert",
+        clearBind: vi.fn(), setBind: vi.fn() };
     const comboOf = vi.fn(() => "Ctrl+KeyK");
     const hooks = {
         useRef(v: any) { const i = cursor++; return active.slots[i] ??= { current: v }; },

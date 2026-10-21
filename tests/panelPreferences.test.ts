@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createPanelPreferencesStorage } from "../src/core/panelPreferences";
 import { LEGACY_KEY, Persisted, StorageLike, Store, STORE_KEY } from "../src/core/state";
+import { Template } from "../src/core/types";
 
 const A = "123456789012345678";
 const B = "223456789012345678";
@@ -25,6 +26,73 @@ const deferred = () => {
 };
 
 describe("account panel preferences storage", () => {
+    it("round-trips binding modes through serialized account storage and restored panel Stores", async () => {
+        const bytes = new Map<string, string>();
+        const storage: StorageLike = {
+            get: async k => bytes.has(k) ? JSON.parse(bytes.get(k)!) : undefined,
+            set: async (k, value) => { bytes.set(k, JSON.stringify(value)); },
+        };
+        const templates: Template[] = [FAQ, PERSONAL].map(id => ({ id, project: "mj", title: id, text: "Ответ",
+            source: id === FAQ ? "faq" : "personal", category: null, status: "actual", statusNote: null,
+            teamUses: 0, command: null, color: null, updatedAt: null }));
+        const open = async (account: string) => {
+            const adapter = createPanelPreferencesStorage(storage, account), store = new Store(adapter, true);
+            store.replacePanelCatalog({ templates, personal: [], folders: [] });
+            store.restorePanelPreferences(await adapter.get(STORE_KEY));
+            return store;
+        };
+        const first = await open(A), second = await open(B);
+        first.setBind(FAQ, "Ctrl+Enter", "noGreeting"); first.setBind(PERSONAL, "F8", "noGreeting");
+        second.setBind(FAQ, "Ctrl+Enter");
+        await Promise.all([first.flush(), second.flush()]);
+        expect(JSON.parse(bytes.get(key(A))!)).toMatchObject({ bindModes: { [FAQ]: "noGreeting", [PERSONAL]: "noGreeting" } });
+        const restoredA = await open(A), restoredB = await open(B);
+        expect(restoredA.bindModeFor(FAQ)).toBe("noGreeting");
+        expect(restoredA.bindModeFor(PERSONAL)).toBe("noGreeting");
+        expect(restoredB.bindFor(FAQ)).toBe("Ctrl+Enter");
+        expect(restoredB.bindModeFor(FAQ)).toBe("insert");
+        expect(restoredB.bindFor(PERSONAL)).toBeUndefined();
+        restoredA.setBind(FAQ, "Ctrl+Enter"); restoredA.clearBind(PERSONAL); await restoredA.flush();
+        expect((await open(A)).data.bindModes).toEqual({});
+        expect((await open(B)).bindFor(FAQ)).toBe("Ctrl+Enter");
+    });
+
+    it.each(["write", "read"])("retains modes only for accepted binding IDs on %s", async direction => {
+        const storage = memory(), adapter = createPanelPreferencesStorage(storage, A);
+        const source = { ...defaults(), binds: {
+            [FAQ]: "F8", [PERSONAL]: "F8", "faq:russia-online:3": "Ctrl+KeyC", "faq:majestic:4": "F9", "local:old": "F10",
+        }, bindModes: {
+            [FAQ]: "noGreeting", [PERSONAL]: "noGreeting", "faq:russia-online:3": "noGreeting",
+            "faq:majestic:4": "send", "faq:majestic:99": "noGreeting", "local:old": "noGreeting",
+        } };
+        const expected = { ...defaults(), binds: { [FAQ]: "F8", "faq:majestic:4": "F9" }, bindModes: { [FAQ]: "noGreeting" } };
+        if (direction === "write") {
+            await adapter.set(STORE_KEY, source);
+            expect(storage.data.get(key())).toEqual(expected);
+        } else storage.data.set(key(), source);
+        expect(await adapter.get(STORE_KEY)).toEqual(expected);
+    });
+
+    it("bounds mode metadata by the accepted binding limit", async () => {
+        const storage = memory(), adapter = createPanelPreferencesStorage(storage, A);
+        const ids = Array.from({ length: 1001 }, (_, i) => `faq:majestic:${i + 1}`);
+        await adapter.set(STORE_KEY, {
+            binds: Object.fromEntries(ids.map((id, i) => [id, `Ctrl+Key${i}`])),
+            bindModes: Object.fromEntries(ids.map(id => [id, "noGreeting"])),
+        });
+        const saved = await adapter.get(STORE_KEY) as Persisted;
+        expect(Object.keys(saved.bindModes ?? {})).toEqual(ids.slice(0, 1000));
+        expect(saved.bindModes).not.toHaveProperty(ids[1000]);
+    });
+
+    it("does not execute mode accessors or accept inherited modes", async () => {
+        const storage = memory(), adapter = createPanelPreferencesStorage(storage, A);
+        const bindModes = Object.assign(Object.create({ [PERSONAL]: "noGreeting" }), { [FAQ]: "noGreeting" });
+        Object.defineProperty(bindModes, "faq:majestic:3", { enumerable: true, get() { throw new Error("mode accessor"); } });
+        await adapter.set(STORE_KEY, { binds: { [FAQ]: "F8", [PERSONAL]: "F9", "faq:majestic:3": "F10" }, bindModes });
+        expect(await adapter.get(STORE_KEY)).toMatchObject({ bindModes: { [FAQ]: "noGreeting" } });
+    });
+
     it("isolates accounts and underlying stores, without local or legacy reads", async () => {
         const storage = memory();
         storage.data.set(STORE_KEY, persisted({ favorites: [FAQ] }));

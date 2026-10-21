@@ -78,6 +78,9 @@ function Fields({ d }: { d: Extract<Dialog, { kind: "fields"; }>; }) {
 
 function Bind({ d }: { d: Extract<Dialog, { kind: "bind"; }>; }) {
     const [t] = useState(() => store.byId(d.templateId));
+    const [mode, setMode] = useState(() => store.bindModeFor(d.templateId));
+    const modeRef = useRef(mode);
+    modeRef.current = mode;
     const [conflict, setConflict] = useState<{ combo: string; ownerId: string; title: string; } | null>(null);
     const conflictRef = useRef(conflict);
     conflictRef.current = conflict;
@@ -98,7 +101,7 @@ function Bind({ d }: { d: Extract<Dialog, { kind: "bind"; }>; }) {
             setConflict({ combo, ownerId: owner.id, title: owner.title });
             return;
         }
-        store.setBind(d.templateId, combo);
+        store.setBind(d.templateId, combo, modeRef.current);
         toast(`${comboLabel(combo)} — «${t?.title}»`, "success");
         close();
     };
@@ -148,11 +151,22 @@ function Bind({ d }: { d: Extract<Dialog, { kind: "bind"; }>; }) {
                 aria-label={`Сочетание клавиш для «${t?.title}»`}
                 onKeyDownCapture={e => { if ((e.key === "Enter" || e.key === " ") && !e.nativeEvent.isComposing) latchKey(e.nativeEvent.code); }}>
                 <h4>Сочетание клавиш для «{t?.title}»</h4>
-                <p>Нажми сочетание: Ctrl/Alt/Win + клавиша или F1–F24.</p>
+                <p>Выбери действие, затем нажми сочетание: Ctrl/Alt/Win + клавиша или F1–F24.</p>
+                <div role="group" aria-label="Действие сочетания клавиш" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <button type="button" className={"vc-stx-btn" + (mode === "insert" ? "" : " vc-stx-ghost")} aria-pressed={mode === "insert"}
+                        onClick={() => setMode("insert")}>Обычная вставка</button>
+                    <button type="button" className={"vc-stx-btn" + (mode === "noGreeting" ? "" : " vc-stx-ghost")} aria-pressed={mode === "noGreeting"}
+                        onClick={() => setMode("noGreeting")}>Без приветствия</button>
+                </div>
                 <p>Работает для этого шаблона независимо от избранного.</p>
                 <p className="vc-stx-hint">Esc — отмена · Backspace — снять клавишу</p>
                 {conflict && <p role="alert">{comboLabel(conflict.combo)} уже назначено шаблону «{conflict.title}». Переназначить его на «{t?.title}»?</p>}
                 <div className="vc-stx-acts">
+                    {!conflict && store.bindFor(d.templateId) && <button type="button" className="vc-stx-btn"
+                        onClick={() => {
+                            const combo = store.bindFor(d.templateId);
+                            if (combo) assign(combo);
+                        }}>Сохранить режим</button>}
                     {conflict && <button type="button" className="vc-stx-btn"
                         onClick={() => {
                             const pending = conflictRef.current;

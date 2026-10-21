@@ -218,10 +218,12 @@ export function handleInlineKey(e: KeyboardEvent): boolean {
     }
     if (e.key === "Escape") { publish(null); return true; }
     const plain = !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey;
+    const ctrlEnter = isEnter && e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey;
+    const acceptKey = (isEnter && (plain || ctrlEnter)) || (isTab && !e.ctrlKey && !e.altKey && !e.metaKey);
     const n = st.items.length;
     if (!n) {
         // project-unknown note: never let the trigger text be sent
-        if ((isEnter && plain && !e.isComposing) || (isTab && !e.ctrlKey && !e.altKey && !e.metaKey)) {
+        if (acceptKey) {
             if (!e.repeat) toast(st.note, "message");
             return true;
         }
@@ -231,10 +233,10 @@ export function handleInlineKey(e: KeyboardEvent): boolean {
         ui.set({ inline: { ...st, sel: (st.sel + (e.key === "ArrowDown" ? 1 : -1) + n) % n } });
         return true;
     }
-    if ((isEnter && plain && !e.isComposing) || (isTab && !e.ctrlKey && !e.altKey && !e.metaKey)) {
+    if (acceptKey) {
         if (!e.repeat) {
             latchKey(e.code);
-            void acceptInline(st.sel, isTab && e.shiftKey);
+            void acceptInline(st.sel, ctrlEnter || (isTab && e.shiftKey));
         }
         return true;
     }

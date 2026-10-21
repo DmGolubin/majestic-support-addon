@@ -6,6 +6,7 @@
 
 export type ProjectId = "mj" | "ro";
 export type TemplateStatus = "actual" | "needs_review" | "outdated";
+export type TemplateBindMode = "insert" | "noGreeting";
 export type WindowTab = "all" | "personal" | "fav" | "recent";
 export const WINDOW_TABS: readonly WindowTab[] = ["all", "personal", "fav", "recent"];
 export const WINDOW_TAB_LABELS: Record<WindowTab, string> = { all: "Все", personal: "Мои", fav: "Избранное", recent: "Недавние" };

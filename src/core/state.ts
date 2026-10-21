@@ -6,11 +6,11 @@
 
 import { ServerBinding } from "./guard";
 import { importBackup, parseRaw, readUsage } from "./importer";
-import { bindProblem, cleanBinds } from "./keys";
+import { bindProblem, cleanBindModes, cleanBinds } from "./keys";
 import { PersonalDraft, PersonalFolder, PersonalTemplate, personalTemplate, readFolders, readPersonal } from "./personal";
 import { RankCtx } from "./rank";
 import { validPrefix } from "./trigger";
-import { ProjectId, readWindowTabOrder, Template, Usage, WindowTab } from "./types";
+import { ProjectId, readWindowTabOrder, Template, TemplateBindMode, Usage, WindowTab } from "./types";
 
 export interface StorageLike {
     get(key: string): Promise<unknown>;
@@ -24,6 +24,8 @@ export interface Persisted {
     recent: string[];
     usage: Record<string, Usage>;
     binds: Record<string, string>;
+    /** Only non-default modes are stored; old string bindings retain ordinary insertion. */
+    bindModes: Record<string, TemplateBindMode>;
     /** Legacy answers of the removed "which project?" dialog: kept in the shape for old saves, never read. */
     guilds: Record<string, ServerBinding>;
     intentional: string[];
@@ -81,6 +83,9 @@ export function sanitize(saved: Record<string, unknown>, templates: Template[]):
     const b = cleanBinds(saved.binds, ids);
     d.binds = b.binds;
     if (b.dropped || ("binds" in saved && !isRecord(saved.binds))) fixed.push("binds");
+    d.bindModes = cleanBindModes(saved.bindModes, d.binds);
+    if ("bindModes" in saved && (!isRecord(saved.bindModes)
+        || Object.keys(saved.bindModes).length !== Object.keys(d.bindModes).length)) fixed.push("bindModes");
     take("guilds", isRecord(saved.guilds), saved.guilds as Persisted["guilds"]);
     take("prefix", validPrefix(saved.prefix), saved.prefix as string);
     take("previewOpen", typeof saved.previewOpen === "boolean", saved.previewOpen as boolean);
@@ -96,7 +101,7 @@ export function sanitize(saved: Record<string, unknown>, templates: Template[]):
 }
 
 const empty = (): Persisted => ({
-    v: 2, raw: "", favorites: [], recent: [], usage: {}, binds: {}, guilds: {}, intentional: [], prefix: ";", previewOpen: true, techProject: "mj", personal: [], folders: [],
+    v: 2, raw: "", favorites: [], recent: [], usage: {}, binds: {}, bindModes: {}, guilds: {}, intentional: [], prefix: ";", previewOpen: true, techProject: "mj", personal: [], folders: [],
     showPersonalInAll: false, generalFirstInSearch: true, windowTabOrder: readWindowTabOrder(undefined),
 });
 
@@ -125,10 +130,11 @@ export class Store {
     replacePanelCatalog(catalog: { templates: Template[]; personal: PersonalTemplate[]; folders: PersonalFolder[]; }) {
         if (!this.catalogReadOnly) throw new Error("Для библиотеки панели нужно отдельное хранилище");
         const ids = new Set(catalog.templates.map(t => t.id));
+        const binds = Object.fromEntries(Object.entries(this.data.binds).filter(([id]) => ids.has(id)));
         this.data = { ...this.data, raw: "", personal: catalog.personal, folders: catalog.folders,
             favorites: this.data.favorites.filter(id => ids.has(id)), recent: this.data.recent.filter(id => ids.has(id)),
             usage: Object.fromEntries(Object.entries(this.data.usage).filter(([id]) => ids.has(id))),
-            binds: Object.fromEntries(Object.entries(this.data.binds).filter(([id]) => ids.has(id))), intentional: [] };
+            binds, bindModes: cleanBindModes(this.data.bindModes, binds), intentional: [] };
         this.templates = catalog.templates;
         this.setVersion++;
         this.subs.forEach(fn => fn());
@@ -150,7 +156,7 @@ export class Store {
         const ids = new Set(this.templates.map(t => t.id));
         this.data = { ...this.data,
             favorites: data.favorites.filter(id => ids.has(id)), recent: data.recent.filter(id => ids.has(id)),
-            usage: Object.fromEntries(Object.entries(data.usage).filter(([id]) => ids.has(id))), binds: data.binds,
+            usage: Object.fromEntries(Object.entries(data.usage).filter(([id]) => ids.has(id))), binds: data.binds, bindModes: data.bindModes,
             prefix: data.prefix, previewOpen: data.previewOpen, techProject: data.techProject,
             showPersonalInAll: data.showPersonalInAll, generalFirstInSearch: data.generalFirstInSearch, windowTabOrder: data.windowTabOrder };
         this.subs.forEach(fn => fn());
@@ -231,6 +237,11 @@ export class Store {
         this.writableCatalog();
         if (this.pendingPersonal) throw new Error("Дождитесь сохранения личных шаблонов перед импортом");
         const r = importBackup(text);
+        // Backup references use the legacy group||title keys, just like the imported chords.
+        let fileModes: unknown;
+        try { fileModes = JSON.parse(text)?.bindModes; } catch { /* plain-text import */ }
+        const importedModes = isRecord(fileModes)
+            ? Object.fromEntries(Object.entries(fileModes).map(([id, mode]) => ["local:" + id, mode])) : {};
         // "Intentional mention" answers belonged to the old texts: they are not carried over to the new set.
         const own = new Set(this.data.personal.map(t => t.id));
         // Existing personal shortcuts win over imported FAQ shortcuts using the same combination.
@@ -242,6 +253,8 @@ export class Store {
             favorites: [...r.favorites, ...this.data.favorites.filter(id => own.has(id))],
             usage: { ...r.usage, ...Object.fromEntries(Object.entries(this.data.usage).filter(([id]) => own.has(id))) },
             binds: mergedBinds.binds,
+            bindModes: cleanBindModes({ ...importedModes,
+                ...Object.fromEntries(Object.entries(this.data.bindModes).filter(([id]) => own.has(id))) }, mergedBinds.binds),
             recent: this.data.recent.filter(id => own.has(id)), intentional: [] };
         this.templates = [...r.templates, ...this.data.personal];
         this.setVersion++;
@@ -325,9 +338,10 @@ export class Store {
         if (!id.startsWith("personal:")) throw new Error("Можно удалить только личный шаблон");
         await this.commitPersonal(() => data => {
             const { [id]: _bind, ...binds } = data.binds;
+            const { [id]: _bindMode, ...bindModes } = data.bindModes;
             const { [id]: _usage, ...usage } = data.usage;
             return { ...data, personal: data.personal.filter(t => t.id !== id),
-                favorites: data.favorites.filter(x => x !== id), recent: data.recent.filter(x => x !== id), binds, usage };
+                favorites: data.favorites.filter(x => x !== id), recent: data.recent.filter(x => x !== id), binds, bindModes, usage };
         });
     }
 
@@ -377,13 +391,18 @@ export class Store {
         return this.data.binds[id];
     }
 
+    bindModeFor(id: string): TemplateBindMode {
+        return this.byId(id) && this.bindFor(id) && this.data.bindModes[id] === "noGreeting" ? "noGreeting" : "insert";
+    }
+
     templateForCombo(combo: string) {
-        const id = Object.keys(this.data.binds).find(k => this.data.binds[k] === combo);
+        const id = Object.keys(this.data.binds).find(k => this.data.binds[k] === combo && this.byId(k));
         return id ? this.byId(id) : undefined;
     }
 
     /** Throws on a forbidden combo; returns the id the combo was taken from, if any. */
-    setBind(id: string, combo: string): string | null {
+    setBind(id: string, combo: string, mode: TemplateBindMode = "insert"): string | null {
+        if (!this.byId(id)) throw new Error("Шаблон больше не существует");
         const problem = bindProblem(combo);
         if (problem) throw new Error(problem);
         let stolen: string | null = null;
@@ -391,6 +410,7 @@ export class Store {
         for (const k of Object.keys(binds)) if (k !== id && binds[k] === combo) { stolen = k; delete binds[k]; }
         binds[id] = combo;
         this.data.binds = binds;
+        this.data.bindModes = cleanBindModes({ ...this.data.bindModes, [id]: mode }, binds);
         this.changed();
         return stolen;
     }
@@ -399,6 +419,7 @@ export class Store {
         const binds = { ...this.data.binds };
         delete binds[id];
         this.data.binds = binds;
+        this.data.bindModes = cleanBindModes(this.data.bindModes, binds);
         this.changed();
     }
 

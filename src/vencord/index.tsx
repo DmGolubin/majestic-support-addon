@@ -173,6 +173,9 @@ function handleKey(e: KeyboardEvent) {
     }
 
     const combo = comboOf(e);
+    // Picker/native controls own Ctrl+Enter inside the window; legacy binds still work elsewhere.
+    if (s.windowOpen && (combo === "Ctrl+Enter" || combo === "Ctrl+NumpadEnter")
+        && (e.target as HTMLElement)?.closest?.(".vc-stx-win")) return;
     const bound = combo ? store.templateForCombo(combo) : undefined;
     // Tech binds follow the same visibility as the list, including fetched personal records.
     if (bound && bound.project && activeScope() === "all" && !templateFitsProject(bound, store.data.techProject)) {
@@ -188,7 +191,8 @@ function handleKey(e: KeyboardEvent) {
         dlog("key", { h: "bind", key: keyDesc(e), id: bound.id, title: bound.title }, e.repeat ? "bind-repeat:" + e.code : undefined);
         if (!e.repeat) {
             latchKey(e.code);
-            void insertTemplate(bound, { via: "bind " + combo });
+            void insertTemplate(bound, { via: "bind " + combo,
+                ...(store.bindModeFor(bound.id) === "noGreeting" ? { noGreeting: true } : {}) });
         }
     }
 }

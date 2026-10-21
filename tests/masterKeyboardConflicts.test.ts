@@ -43,7 +43,7 @@ function harness() {
         ui: { get: () => state }, swallowLatched: swallow, pluginOn: enabled,
         handleInlineKey: inline, comboOf, favoritesOf: () => favorites, visibleItems: visible,
         poolFor: () => [], activeScope: () => "mj",
-        store: { ctx: () => ({}), templateForCombo: (combo: string) => binds[combo] },
+        store: { ctx: () => ({}), templateForCombo: (combo: string) => binds[combo], bindModeFor: () => "insert" },
         insertTemplate: insert, toggleWindow: toggle, latchKey: latch,
         debugEnabled: () => false, dlog: vi.fn(), noteKey: vi.fn(), keyDesc: () => "",
         costStart: () => 0, costEnd: vi.fn(),

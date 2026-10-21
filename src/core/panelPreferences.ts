@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { isValidBind } from "./keys";
+import { cleanBindModes, isValidBind } from "./keys";
 import { Persisted, StorageLike, STORE_KEY } from "./state";
 import { validPrefix } from "./trigger";
 import { readWindowTabOrder, WINDOW_TABS } from "./types";
 
 type Preferences = Pick<Persisted, "favorites" | "recent" | "usage" | "binds" | "prefix" | "previewOpen" | "techProject">
-    & Partial<Pick<Persisted, "showPersonalInAll" | "generalFirstInSearch" | "windowTabOrder">> & { v: 1; };
+    & Partial<Pick<Persisted, "bindModes" | "showPersonalInAll" | "generalFirstInSearch" | "windowTabOrder">> & { v: 1; };
 
 const MAX_REFS = 1000;
 const MAX_USAGE = 10000;
@@ -82,6 +82,9 @@ function normalize(value: unknown): Preferences {
         }
         if (used.size >= MAX_REFS) break;
     }
+    // Follow the accepted, bounded bindings; ordinary/legacy modes need no extra stored field.
+    const bindModes = cleanBindModes(own(value, "bindModes"), result.binds);
+    if (Object.keys(bindModes).length) result.bindModes = bindModes;
     const prefix = own(value, "prefix"), preview = own(value, "previewOpen"), project = own(value, "techProject");
     if (validPrefix(prefix) && prefix.length === 1) result.prefix = prefix;
     if (typeof preview === "boolean") result.previewOpen = preview;

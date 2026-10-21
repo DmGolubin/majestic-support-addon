@@ -128,7 +128,7 @@ export default class SupportTemplates {
             const definitions = upstream.settings.definitions;
             return <div className="vc-stx-root stx-bd-settings">
                 {includeHeader && <header><strong title={`Версия: ${runtime.getVersion()}`}>{distributionDisplay(PLUGIN_DISTRIBUTION, runtime.getVersion())}</strong>
-                    <p>Ctrl+Alt+T — открыть шаблоны. Alt+1…9 — избранное. Текст вставляется без отправки.</p>
+                    <p>Ctrl+Alt+T — шаблоны. Alt+1…9 — строки открытого списка; при закрытом окне — избранное. Ctrl+Enter — вставить без приветствия.</p>
                     <small>{owner.updateStatus}</small></header>}
                 {owner.delegate
                     ? owner.delegate.getBundledSettings()

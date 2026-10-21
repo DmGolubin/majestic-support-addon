@@ -26,10 +26,11 @@ const keyEvent = (code: string, extra: any = {}) => ({
     preventDefault: vi.fn(), stopPropagation: vi.fn(), ...extra,
 });
 
-function harness(kind: "menu" | "dialog", personal = false) {
+function harness(kind: "menu" | "dialog", personal = false, configure?: (store: Store) => void) {
     const store = new Store({ get: async () => undefined, set: async () => {} });
     const target = template("target", personal ? "personal" : "faq"), other = template("other");
     store.templates = [target, other, template("third")];
+    configure?.(store);
     let state: any = { menu: kind === "menu" ? { id: target.id, x: 50, y: 60 } : null,
         dialog: kind === "dialog" ? { kind: "bind", templateId: target.id } : null };
     const ui = { get: () => state, set: (patch: any) => { state = { ...state, ...patch }; },
@@ -221,6 +222,58 @@ describe("A24 per-template shortcut UI", () => {
     });
 });
 
+describe("A38 binding editor mode selection", () => {
+    const mode = (h: ReturnType<typeof harness>, label: string) => {
+        const button = h.button(label);
+        expect(button, `mode control: ${label}`).toBeDefined();
+        return button;
+    };
+
+    it("defaults to ordinary insertion and captures a chord using the latest selected mode", () => {
+        const h = harness("dialog");
+        expect(mode(h, "Обычная вставка").props["aria-pressed"]).toBe(true);
+        mode(h, "Без приветствия").props.onClick(); h.render();
+        expect(mode(h, "Без приветствия").props["aria-pressed"]).toBe(true);
+        h.press(keyEvent("F8"));
+        expect(h.store.bindFor("target")).toBe("F8");
+        expect(h.store.data.bindModes).toEqual({ target: "noGreeting" });
+        expect(h.insertTemplate).not.toHaveBeenCalled();
+        h.cleanup();
+    });
+
+    it("shows the saved mode and can save ordinary insertion without changing the chord", () => {
+        const h = harness("dialog", false, store => store.setBind("target", "F8", "noGreeting"));
+        expect(mode(h, "Без приветствия").props["aria-pressed"]).toBe(true);
+        mode(h, "Обычная вставка").props.onClick(); h.render();
+        expect(h.button("Сохранить режим")).toBeDefined();
+        h.button("Сохранить режим").props.onClick();
+        expect(h.store.bindFor("target")).toBe("F8");
+        expect(h.store.data.bindModes).toEqual({});
+        expect(h.ui.get().dialog).toBeNull();
+        h.cleanup();
+    });
+
+    it("does not persist a selected mode when cancelled", () => {
+        const h = harness("dialog", false, store => store.setBind("target", "F7"));
+        mode(h, "Без приветствия").props.onClick(); h.render();
+        h.button("Отмена").props.onClick();
+        expect(h.store.bindFor("target")).toBe("F7");
+        expect(h.store.data.bindModes).toEqual({});
+        h.cleanup();
+    });
+
+    it("reassigns the chord with the selected mode and clears the previous owner's mode", () => {
+        const h = harness("dialog", false, store => store.setBind("other", "F8", "noGreeting"));
+        mode(h, "Без приветствия").props.onClick(); h.render();
+        h.press(keyEvent("F8")); h.render();
+        expect(h.store.bindFor("target")).toBeUndefined();
+        h.button("Переназначить").props.onClick();
+        expect(h.store.data.binds).toEqual({ target: "F8" });
+        expect(h.store.data.bindModes).toEqual({ target: "noGreeting" });
+        h.cleanup();
+    });
+});
+
 describe("A24 row actions and existing global bind handler", () => {
     it.each(["faq", "personal"] as const)("keeps right-click menu access without a row action button or insertion (%s)", sourceKind => {
         const file = source("ui/Window.tsx");
@@ -242,9 +295,11 @@ describe("A24 row actions and existing global bind handler", () => {
     it.each(["faq", "personal"] as const)("executes a nonfavorite custom bind through the existing handler (%s)", sourceKind => {
         const file = source("index.tsx"), code = compile(file.slice(file.indexOf("const inForeignInput"), file.indexOf("let host:")));
         const t = template("target", sourceKind), insertTemplate = vi.fn();
+        const store = new Store({ get: async () => undefined, set: async () => {} });
+        store.templates = [t]; store.setBind(t.id, "Ctrl+Alt+KeyQ");
         const context = {
             ui: { get: () => ({ windowOpen: false, dialog: null, menu: null, management: false }) },
-            store: { templateForCombo: (combo: string) => combo === "Ctrl+Alt+KeyQ" ? t : undefined },
+            store,
             comboOf: keys.comboOf, activeScope: () => "mj", pluginOn: () => true,
             swallowLatched: () => false, handleInlineKey: () => false, insertTemplate, latchKey() {},
             debugEnabled: () => false, noteKey() {}, dlog() {}, keyDesc: () => "", costStart: () => 0, costEnd() {},

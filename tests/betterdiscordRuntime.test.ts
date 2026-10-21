@@ -159,7 +159,8 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         expect(f.document.getElementById('vc-stx-host')).toBeNull();
         expect(f.plugin.runtimeActive).toBe(false);
     });
-    it("restores encrypted login, loads FAQ and inserts a clicked template into the captured composer", async () => {
+    it.each(["click", "ctrl-click", "enter", "ctrl-enter", "button", "no-greeting-button", "alt", "recent-alt"])(
+        "restores login and inserts through the built bundle's %s action without sending", async action => {
         const f = fixture({ restrictedHost: true, supportedBridge: true, signedIn: true });
         const accountId = "123456789012345678", connectionId = "11111111-1111-4111-8111-111111111111";
         const origin = "https://discord.com", panelOrigin = "https://panel.majestic-rp.tech";
@@ -177,7 +178,7 @@ describe("BetterDiscord final bundle in React/DOM", () => {
             if (url === panelOrigin + "/api/plugin/v1/me") return Response.json({ schemaVersion: 1, accountId, connectionId, name: "Fixture", projects: ["majestic"], scopes,
                 permissionsRevision: "1", minimumPluginVersion: "1.0.0", serverTime });
             if (url === panelOrigin + "/api/plugin/v1/snapshot") return Response.json({ schemaVersion: 1, accountId, projects: ["majestic"], permissionsRevision: "1", revision: "1", serverTime,
-                faq: [{ id: "majestic:1", version: "1", title: "Version fixture FAQ", text: "Fixture answer", format: "text", projects: ["majestic"], category: "Fixture", tags: [], status: "actual", updatedAt: serverTime }],
+                faq: [{ id: "majestic:1", version: "1", title: "Version fixture FAQ", text: "Здравствуйте!\n\nFixture answer", format: "text", projects: ["majestic"], category: "Fixture", tags: [], status: "actual", updatedAt: serverTime }],
                 personal: [], folders: [], trash: [], colorLabels: {}, limits: { colors: [] } });
             return new Response("Unavailable", { status: 404 });
         });
@@ -196,10 +197,39 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         // The global event dispatcher deliberately does nothing. The bundle must
         // target the captured editor's owner and observe its model change.
         expect(f.document.activeElement).not.toBe(editor);
-        await React.act(async () => { f.document.querySelector('.vc-stx-it').click(); await f.frame(); });
-        expect(editor.textContent).toBe("draft staysFixture answer");
-        expect(f.slate.children[0].children[0].text).toBe("draft staysFixture answer");
-        expect(f.composer.handleInsertText).toHaveBeenCalledExactlyOnceWith({ rawText: "Fixture answer", plainText: "Fixture answer", addSpace: false });
+        if (action === "recent-alt") {
+            await React.act(async () => { f.document.querySelector('.vc-stx-it').click(); await f.frame(); });
+            f.composer.handleInsertText.mockClear();
+            editor.textContent = f.slate.children[0].children[0].text = "draft stays";
+            await React.act(async () => { f.key(); await f.frame(); });
+            expect(f.document.querySelector('.vc-stx-sec').textContent).toBe("Недавние");
+        }
+        const keyboard = ["enter", "ctrl-enter", "alt", "recent-alt"].includes(action);
+        const isAlt = action.includes("alt"), code = isAlt ? "Digit1" : "Enter", key = isAlt ? "1" : "Enter";
+        await React.act(async () => {
+            if (keyboard) {
+                const event = new f.w.KeyboardEvent("keydown", { code, key, ctrlKey: action === "ctrl-enter", altKey: isAlt, bubbles: true, cancelable: true });
+                f.document.activeElement.dispatchEvent(event);
+                expect(event.defaultPrevented).toBe(true);
+            } else if (action.endsWith("button")) {
+                f.document.querySelector(action === "button" ? '[aria-label="Вставить шаблон"]' : '[aria-label="Вставить без приветствия"]').click();
+            } else {
+                f.document.querySelector('.vc-stx-it').dispatchEvent(new f.w.MouseEvent("click", { button: 0, ctrlKey: action === "ctrl-click", bubbles: true }));
+            }
+            await f.frame();
+        });
+        const inserted = action.startsWith("ctrl-") || action === "no-greeting-button" ? "Fixture answer" : "Здравствуйте!\n\nFixture answer";
+        expect(editor.textContent).toBe("draft stays" + inserted);
+        expect(f.slate.children[0].children[0].text).toBe("draft stays" + inserted);
+        expect(f.composer.handleInsertText).toHaveBeenCalledExactlyOnceWith({ rawText: inserted, plainText: inserted, addSpace: false });
+        expect(f.document.querySelector('.vc-stx-win')).toBeNull();
+        if (keyboard) {
+            const repeat = new f.w.KeyboardEvent("keydown", { code, key, repeat: true, bubbles: true, cancelable: true });
+            editor.dispatchEvent(repeat);
+            expect(repeat.defaultPrevented).toBe(true);
+            expect(f.composer.handleInsertText).toHaveBeenCalledOnce();
+            editor.dispatchEvent(new f.w.KeyboardEvent("keyup", { code, key, bubbles: true }));
+        }
         expect(f.componentDispatch.dispatchToLastSubscribed).not.toHaveBeenCalled();
     });
     it("downloads without evaluating, then loads the verified runtime through BD's absolute-path loader on next startup", async () => {
