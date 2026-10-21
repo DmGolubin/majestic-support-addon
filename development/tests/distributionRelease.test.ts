@@ -255,7 +255,7 @@ describe('public release orchestration without running builds', () => {
             }
         }, { timeout: 10000 });
         expect(calls).toEqual(['standalone/build.mjs', 'betterdiscord/build.mjs']);
-        expect(archiveArgs).toEqual(expect.arrayContaining(['src', 'standalone', 'distribution', 'LICENSE']));
+        expect(archiveArgs).toEqual(expect.arrayContaining(['development', '.github', 'README.md', 'LICENSE']));
         const output = path.join(f.root, 'artifacts/distribution', config.version);
         const manifest = JSON.parse(fs.readFileSync(path.join(output, config.manifestAsset), 'utf8'));
         expect(manifest.assets.map((asset: any) => asset.variant)).toEqual(['standalone', 'betterdiscord']);

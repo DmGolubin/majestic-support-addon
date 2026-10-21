@@ -95,7 +95,7 @@ describe("BetterDiscord runtime identity", () => {
 });
 
 describe("public product names and installation choices", () => {
-    const read = (file: string) => readFileSync(join(root, file), "utf8");
+    const read = (file: string) => readFileSync(join(root, "..", file), "utf8");
     it("offers exactly SupportTemplates and BetterDiscord while retaining the compatible download name", () => {
         const readme = read("README.md");
         const choices = [...readme.matchAll(/^\| \*\*([^*]+)\*\*/gm)].map(match => match[1]).sort();

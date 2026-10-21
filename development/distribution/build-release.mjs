@@ -39,9 +39,9 @@ function copyAsset(file, name, variant, kind) {
 copyAsset(standalone.zip, `SupportTemplates-standalone-${config.version}.zip`, 'standalone', 'native');
 copyAsset(betterdiscord.plugin ?? path.join(betterdiscord.package, 'SupportTemplates.plugin.js'), 'SupportTemplates.plugin.js', 'betterdiscord', 'renderer');
 
-// Corresponding sources accompany the distribution, even when the source repo is private.
+// Keep the repository layout so the corresponding source archive is independently buildable.
 execFileSync('git', ['archive', '--format=zip', `--output=${path.join(destination, 'SupportTemplates-source.zip')}`, commit, '--',
-    'src', 'standalone', 'betterdiscord', 'distribution', 'scripts', 'tests', 'package.json', 'pnpm-lock.yaml', 'tsconfig.json', 'LICENSE'], { cwd: root });
+    'development', '.github', 'README.md', 'LICENSE'], { cwd: path.dirname(root) });
 const upstream = path.resolve(process.env.VENCORD_DIR ?? path.join(root, '../Vencord'));
 const dependencyFile = path.join(upstream, 'support-templates-dependency-evidence.json');
 const dependencyEvidence = fs.existsSync(dependencyFile) ? JSON.parse(fs.readFileSync(dependencyFile)) : null;

@@ -8,6 +8,9 @@ on:
         default: false
 permissions:
   contents: write
+defaults:
+  run:
+    working-directory: development
 jobs:
   windows:
     runs-on: windows-latest
@@ -62,7 +65,7 @@ jobs:
           node distribution/publish-release.mjs --check
           if ($LASTEXITCODE -ne 0) { throw 'Release verification failed' }
           $version = (Get-Content distribution/config.json -Raw | ConvertFrom-Json).version
-          "PUBLIC_RELEASE_DIR=artifacts/distribution/$version" >> $env:GITHUB_ENV
+          "PUBLIC_RELEASE_DIR=development/artifacts/distribution/$version" >> $env:GITHUB_ENV
       - name: Exercise final package installers in TEMP fixtures
         shell: pwsh
         run: |

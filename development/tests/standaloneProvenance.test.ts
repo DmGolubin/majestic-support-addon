@@ -37,6 +37,19 @@ describe('standalone build provenance', () => {
         const f = fixture();
         expect(cleanBuildCommit(f.root)).toBe(f.git('rev-parse', 'HEAD'));
     });
+    it('builds from a development subdirectory and extracts paths relative to that directory', () => {
+        const f = fixture();
+        const nested = path.join(f.root, 'development'); mkdirSync(nested);
+        for (const name of ['src', 'standalone', 'distribution']) f.git('mv', name, `development/${name}`);
+        f.git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-am', 'nested');
+        const commit = cleanBuildCommit(nested);
+        const destination = path.join(f.root, 'snapshot'); mkdirSync(destination);
+        extractBuildSnapshot(nested, commit, destination);
+        expect(readFileSync(path.join(destination, 'src/core/input.ts'), 'utf8')).toBe('committed');
+        expect(readFileSync(path.join(destination, 'distribution/updater/index.cjs'), 'utf8')).toBe('committed');
+        f.put('development/src/core/input.ts', 'changed');
+        expect(() => cleanBuildCommit(nested)).toThrow(/dirty/);
+    });
     it.each(['src/core/input.ts', 'standalone/config.json', 'distribution/config.json', 'distribution/updater/index.cjs'])('rejects tracked edits in %s', name => {
         const f = fixture(); f.put(name, 'dirty');
         expect(() => cleanBuildCommit(f.root)).toThrow(/Build inputs.*dirty/);

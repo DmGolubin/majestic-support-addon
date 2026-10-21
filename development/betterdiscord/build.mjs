@@ -8,6 +8,7 @@ import { build } from 'esbuild';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const own = path.join(root, 'betterdiscord');
+const license = path.join(root, fs.existsSync(path.join(root, 'LICENSE')) ? 'LICENSE' : '../LICENSE');
 const aliases = {
     '@webpack/common': 'common.ts', '@api/DataStore': 'data.ts', '@api/Settings': 'settings.ts',
     '@api/ChatButtons': 'chatButtons.tsx', '@utils/types': 'types.ts', '@utils/discord': 'discord.ts',
@@ -80,10 +81,10 @@ export async function buildPlugin({ output = path.join(own, 'out'), archive = tr
         sourceHashes: Object.fromEntries(inputs.filter(file => !file.startsWith('embedded:')).map(file => [file, createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex')])),
         aliases, externals: [...new Set(Object.values(result.metafile.outputs).flatMap(o => o.imports.filter(i => i.external).map(i => i.path)))].sort() };
     fs.writeFileSync(path.join(output, 'build-evidence.json'), JSON.stringify(evidence, null, 2) + '\n');
-    fs.copyFileSync(path.join(root, 'LICENSE'), path.join(output, 'LICENSE'));
+    fs.copyFileSync(license, path.join(output, 'LICENSE'));
     // Source archive contains exact working inputs, not a borrowed installed client or credentials.
     const source = path.join(output, 'source'); fs.mkdirSync(source, { recursive: true });
-    fs.copyFileSync(path.join(root, 'LICENSE'), path.join(source, 'LICENSE'));
+    fs.copyFileSync(license, path.join(source, 'LICENSE'));
     for (const file of ['package.json', 'pnpm-lock.yaml', 'tsconfig.json']) fs.copyFileSync(path.join(root, file), path.join(source, file));
     // Keep test sources archived so root Vitest cannot discover and recursively run
     // copies in build output. Extract this tar into source/ when testing the package.
