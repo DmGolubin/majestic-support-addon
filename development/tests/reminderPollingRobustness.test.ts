@@ -19,7 +19,7 @@ const assigned = (overrides: Record<string, unknown> = {}) => ({
 });
 const settings = (overrides: Record<string, unknown> = {}) => ({
     version: "opaque-version", discordEnabled: true, thresholdSource: "telegram",
-    projects: [{ project: "majestic", personalReminderMinutes: 37, telegramEnabled: false }], ...overrides,
+    projects: [{ project: "majestic", personalReminderMinutes: 37, discordReminderMinutes: null, effectiveReminderMinutes: 37, thresholdSource: "telegram", telegramEnabled: false }], ...overrides,
 });
 const parse = (raw: unknown) => parseAssignedSnapshot(raw, ACCOUNT, ["majestic", "russia-online"]);
 function deferred<T>() {

@@ -210,22 +210,37 @@ export async function refreshTicketReminders(): Promise<void> {
 }
 
 export async function setDiscordReminders(enabled: boolean): Promise<void> {
+    return patchReminderSettings({ discordEnabled: enabled }, settings => settings.discordEnabled === enabled, enabled);
+}
+
+export async function setDiscordReminderMinutes(project: ReminderProject, minutes: number | null): Promise<void> {
+    if (project !== "majestic" && project !== "russia-online") return;
+    if (minutes !== null && (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > 120)) return;
+    return patchReminderSettings({ projects: [{ project, discordReminderMinutes: minutes }] }, settings =>
+        settings.projects.some(row => row.project === project && row.discordReminderMinutes === minutes));
+}
+
+async function patchReminderSettings(body: { discordEnabled: boolean } | {
+    projects: { project: ReminderProject; discordReminderMinutes: number | null; }[];
+}, verify: (settings: Settings) => boolean, prepareSound = false): Promise<void> {
     const b = binding, own = revision, state = ticketRemindersState.get();
     if (!b || !current(b, own) || state.phase !== "ready" || !state.settings || state.busy) return;
     // Unlock while the checkbox's user gesture is still on the stack, before PATCH.
-    if (enabled) prepareTicketSound("reminder");
-    else stopTicketReminderSound();
+    if ("discordEnabled" in body) {
+        if (prepareSound) prepareTicketSound("reminder");
+        else stopTicketReminderSound();
+    }
     clearReminderNotifications();
     settingsRevision++; settingsRead = null;
     controller?.stop();
     ticketRemindersState.set({ busy: true, error: "" });
     try {
-        const raw = await b.client.mutate({ path: "/notification-settings", method: "PATCH", version: state.settings.version, body: { discordEnabled: enabled } }, () => {
+        const raw = await b.client.mutate({ path: "/notification-settings", method: "PATCH", version: state.settings.version, body }, () => {
             if (!current(b, own)) throw new PanelError("cancelled");
         });
         const settings = parseNotificationSettings(raw);
         if (!current(b, own)) return;
-        if (settings.discordEnabled !== enabled || settings.projects.some(p => !b.projects.includes(p.project))) throw new PanelError("invalid_response");
+        if (!verify(settings) || settings.projects.some(p => !b.projects.includes(p.project))) throw new PanelError("invalid_response");
         settingsFailures = 0;
         ticketRemindersState.set({ settings, phase: "ready", error: "" });
     } catch (error) {
