@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { TemplateBindMode } from "./types";
+
 export interface KeyLike { code: string; ctrlKey: boolean; altKey: boolean; shiftKey: boolean; metaKey: boolean; }
 
 const MODIFIER_CODES = ["ControlLeft", "ControlRight", "ShiftLeft", "ShiftRight", "AltLeft", "AltRight", "MetaLeft", "MetaRight"];
@@ -56,6 +58,14 @@ export function cleanBinds(binds: unknown, ids: Set<string>): { binds: Record<st
         used.add(combo);
     }
     return { binds: out, dropped };
+}
+
+/** Sparse mode overrides for accepted bindings only; missing/unknown modes mean ordinary insertion. */
+export function cleanBindModes(modes: unknown, binds: Record<string, string>): Record<string, TemplateBindMode> {
+    if (!modes || typeof modes !== "object" || Array.isArray(modes)) return {};
+    return Object.fromEntries(Object.keys(binds)
+        .filter(id => Object.getOwnPropertyDescriptor(modes, id)?.value === "noGreeting")
+        .map(id => [id, "noGreeting"]));
 }
 
 export function comboLabel(combo: string): string {

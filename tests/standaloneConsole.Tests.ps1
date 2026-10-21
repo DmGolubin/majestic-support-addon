@@ -112,7 +112,7 @@ function Invoke-PackageUpdate([string]$Operation,[string]$TargetChannel,[string]
     if ($Operation -eq 'Install') { $failureCode = [int]$env:ST_TEST_INSTALL_EXIT }
     if ($failureCode) { throw "Configured fixture failure: $failureCode" }
     if ($Operation -eq 'Install') { return @('SupportTemplates установлен.', 'Перезапустите Discord.') }
-    return (@{schema=1;action=$Operation;selectedVersion='1.0.3';latestVersion='1.0.3';updateAvailable=$false} | ConvertTo-Json -Compress)
+    return (@{schema=1;action=$Operation;selectedVersion='1.0.4';latestVersion='1.0.4';updateAvailable=$false} | ConvertTo-Json -Compress)
 }
 function Write-PackageConsoleResult($Status) {
     Write-Output 'Printed only: & echo INJECTED > unexpected.txt'
@@ -172,6 +172,7 @@ Check 'install home exit: startup Update Console, UTF8, no output execution' {
     $r = Run 'install.bat' '0'
     Assert ($r.code -eq 0 -and $r.calls.Count -eq 1 -and $r.calls[0].action -eq 'Update' -and $r.calls[0].console) $r.output
     Assert ($r.output.Contains('[1] Установить') -and $r.output.Contains('[0] Выход')) $r.output
+    Assert ($r.output.Contains('Версия установщика: 1.0.3') -and $r.output.Contains('SupportTemplates / 1.0.4')) 'Installer and selected package versions must be shown on the correct screens'
     Assert (-not (Test-Path -LiteralPath (Join-Path $root 'unexpected.txt'))) 'Updater output executed as cmd'
 }
 Check 'startup update failure does not prevent explicit exit' {

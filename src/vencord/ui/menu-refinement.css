@@ -33,6 +33,17 @@
 .vc-stx-win .vc-stx-category-filter [role=option] { padding: 7px 8px; }
 .vc-stx-win .vc-stx-filter-count { flex: none; min-width: 2ch; text-align: right; color: var(--stx-mu2); font: 11px var(--stx-mono); font-variant-numeric: tabular-nums; }
 
+.vc-stx-win .vc-stx-actions { flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; }
+.vc-stx-actions .vc-stx-action {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 28px; padding: 4px 7px; border: 1px solid var(--stx-bd); border-radius: 5px;
+    background: transparent; color: var(--stx-tx); font: inherit; cursor: pointer;
+}
+.vc-stx-actions .vc-stx-action:hover:not(:disabled) { background: var(--stx-hover); }
+.vc-stx-actions .vc-stx-action:focus-visible { outline: 2px solid var(--stx-ring); outline-offset: 1px; }
+.vc-stx-actions .vc-stx-action:disabled { color: var(--stx-mu2); opacity: .55; cursor: default; }
+.vc-stx-actions .vc-stx-action .vc-stx-kb { margin: 0; }
+
 @media (max-width: 800px) {
     .vc-stx-win .vc-stx-head { padding-inline: 8px; }
     .vc-stx-win .vc-stx-search-row { gap: 4px; }

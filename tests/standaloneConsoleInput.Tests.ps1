@@ -118,6 +118,10 @@ try {
     `$before = @{foreground=[Console]::ForegroundColor;background=[Console]::BackgroundColor;title=[Console]::Title;cursor=[Console]::CursorVisible;encoding=[Console]::OutputEncoding.CodePage}
     Initialize-ConsoleView
     `$originalMode = `$script:ConsoleView.Mode
+    Show-ConsoleScreen 'Checking updates' @(New-ConsoleLine 'Installer version: 7.8.9' 'Muted') -Busy
+    `$busyScreen = [ConsoleProbe]::Screen()
+    if (`$busyScreen -notmatch '[\u2800-\u28ff]{2}' -or -not `$busyScreen.Contains('Installer version: 7.8.9')) { throw 'Dots14 or version missing from the native console buffer' }
+    if ([Console]::BackgroundColor -ne [ConsoleColor]::Black) { throw 'Expected black installer background' }
     [ConsoleProbe]::Queue()
     `$wait = Invoke-ConsoleOperation 'Update' '' (Split-Path `$Helper -Parent) 'Checking package' 'Fixture operation'
     if (-not `$wait.Success) { throw 'Fake operation failed' }
@@ -138,7 +142,7 @@ try {
         if (`$failed.Success) { throw 'Expected fake failure' }
     } finally { Restore-ConsoleView }
     if ([Console]::Title -cne `$before.title -or [Console]::CursorVisible -ne `$before.cursor -or [Console]::OutputEncoding.CodePage -ne `$before.encoding) { throw 'Console state not restored after failure' }
-    @{ok=`$true;hidden=`$true;isolated=`$true;first=`$first;second=`$second;screen=`$screen;restored=`$true;typeAheadPreserved=`$true} | ConvertTo-Json | Set-Content -LiteralPath `$Result -Encoding UTF8
+    @{ok=`$true;hidden=`$true;isolated=`$true;first=`$first;second=`$second;screen=`$screen;busyScreen=`$busyScreen;restored=`$true;typeAheadPreserved=`$true} | ConvertTo-Json | Set-Content -LiteralPath `$Result -Encoding UTF8
     exit 0
 } catch {
     @{ok=`$false;error=[string]`$_} | ConvertTo-Json | Set-Content -LiteralPath `$Result -Encoding UTF8

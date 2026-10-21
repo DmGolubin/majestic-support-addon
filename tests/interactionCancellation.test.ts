@@ -4,6 +4,7 @@ import ts from "typescript";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { joinPieces } from "../src/core/compose";
 import { poolOf, Scope, templateFitsProject } from "../src/core/guard";
+import { comboOf } from "../src/core/keys";
 import { orderHits } from "../src/core/rank";
 import { search } from "../src/core/search";
 import { Store } from "../src/core/state";
@@ -15,6 +16,17 @@ const compile = (file: string) => ts.transpileModule(readFileSync(new URL(file, 
 }).outputText;
 const inlineCode = compile("../src/vencord/ui/inline.ts");
 const composeCode = compile("../src/vencord/ui/ComposeBar.tsx");
+const latchCode = compile("../src/vencord/ui/keylatch.ts");
+const keySource = readFileSync(new URL("../src/vencord/index.tsx", import.meta.url), "utf8");
+const keyCode = ts.transpileModule(keySource.slice(keySource.indexOf("const inForeignInput"), keySource.indexOf("let host:")), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const keyEvent = (key: string, extra: Record<string, unknown> = {}) => ({
+    key, code: key, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false,
+    isComposing: false, repeat: false, defaultPrevented: false, ...extra,
+    preventDefault: vi.fn(function (this: { defaultPrevented: boolean; }) { this.defaultPrevented = true; }),
+    stopPropagation: vi.fn(),
+});
 const deferred = <T,>() => {
     let resolve!: (value: T) => void;
     let reject!: (error: Error) => void;
@@ -69,9 +81,9 @@ async function harness() {
     };
     const makeEditor = (text: string) => {
         const ed: any = {
-            textContent: text, isConnected: true, caret: text.length,
+            textContent: text, isConnected: true, isContentEditable: true, caret: text.length,
             contains: (n: any) => n === ed || n === ed.node,
-            closest: (selector: string) => selector.includes("slate") ? ed : null,
+            closest: (selector: string) => selector.includes("slate") || selector.includes("channelTextArea") ? ed : null,
             focus: vi.fn(() => {
                 document.activeElement = ed;
                 if (selection?.focusNode !== ed.node) setCaret(ed, ed.caret);
@@ -115,7 +127,7 @@ async function harness() {
         "../core/guard": { templateFitsProject },
         "../core/rank": { orderHits }, "../core/search": { search }, "../core/trigger": { findTrigger }, "../core/compose": { joinPieces },
         "../platform": { insertText, toast },
-        "./debug": { costStart: () => 0, costEnd: () => {}, debugEnabled: () => false, dlog: () => {} },
+        "./debug": { costStart: () => 0, costEnd: () => {}, debugEnabled: () => false, dlog: () => {}, noteKey: () => {} },
         "./flow": flow, "./keylatch": { latchKey },
         "./op": { generationNow: () => 1, composeEditor: () => ed, composeTargetNow: () => ({ editor: ed, selection: "" }), resetComposeTarget },
         "./uiState": { store, ui, libraryIsFresh: () => true, ensureLibraryFresh: async () => true, activeScope: () => scope, poolFor: () => poolOf(store.templates, scope, store.data.techProject), useStore: () => {}, useChatRect: () => ({ left: 0, width: 500, top: 600 }) },
@@ -133,7 +145,15 @@ async function harness() {
         });
         return module.exports;
     };
+    const latch = evaluate(latchCode);
+    latchKey.mockImplementation(latch.latchKey);
     const inline = evaluate(inlineCode + "\nexports.runCheck = runCheck;");
+    const onKey = runInNewContext(keyCode + "\nonKey;", {
+        ...dependencies["./debug"], ...dependencies["./uiState"], ...latch,
+        document, handleInlineKey: inline.handleInlineKey, pluginOn: () => !!scope,
+        comboOf, templateFitsProject, toast, favoritesOf: () => [], visibleItems: [],
+        toggleWindow: vi.fn(), insertTemplate: vi.fn(),
+    });
     const compose = evaluate(composeCode);
     const render = () => {
         cursor = 0;
@@ -144,13 +164,140 @@ async function harness() {
     render(); // Host keeps the component mounted even with an empty reply.
     const openInline = () => ui.set({ inline: { query: "old", length: 4, sel: 0, items: [t], note: "" } });
     const collect = () => { ui.set({ compose: [id] }); return render(); };
-    return { store, id, t, ui, document, ed, makeEditor, setCaret, flow, inline, insertText, toast, latchKey, resetComposeTarget, openInline, collect, render, setScope: (next: Scope | null) => { scope = next; }, unmount: () => cleanups.splice(0).forEach(fn => fn()), selection: () => selection };
+    return { store, id, t, ui, document, ed, makeEditor, setCaret, flow, inline, onKey, latch, insertText, toast, latchKey, resetComposeTarget, openInline, collect, render, setScope: (next: Scope | null) => { scope = next; }, unmount: () => cleanups.splice(0).forEach(fn => fn()), selection: () => selection };
 }
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("inline cancellation", () => {
+    it.each(["Enter", "NumpadEnter"])("Ctrl+%s accepts without a greeting and latches the insertion key", async code => {
+        const h = await harness(); h.openInline();
+        expect(h.inline.handleInlineKey({ key: "Enter", code, ctrlKey: true, altKey: false, shiftKey: false, metaKey: false, isComposing: false })).toBe(true);
+        await vi.runAllTimersAsync();
+        expect(h.flow.prepareText).toHaveBeenCalledExactlyOnceWith(h.t, { editor: h.ed, selection: "" }, { noGreeting: true });
+        expect(h.latchKey).toHaveBeenCalledExactlyOnceWith(code);
+        expect(h.insertText).toHaveBeenCalledExactlyOnceWith("Answer");
+        expect(h.selection()).toMatchObject({ anchorOffset: 0, focusOffset: 4, isCollapsed: false });
+        expect(h.ui.get().inline).toBeNull();
+    });
+    it.each(["Enter", "NumpadEnter"])("Ctrl+%s and held-key repeats never reach the host send handler", async code => {
+        const h = await harness(); h.openInline();
+        const send = vi.fn();
+        const dispatch = (extra: Record<string, unknown>) => {
+            const e = keyEvent("Enter", { code, target: h.ed, ...extra });
+            h.onKey(e);
+            if (!e.defaultPrevented) send(h.ed.textContent);
+            return e;
+        };
+        const press = dispatch({ ctrlKey: true });
+        expect(press.defaultPrevented).toBe(true);
+        expect(press.stopPropagation).toHaveBeenCalledOnce();
+        await vi.runAllTimersAsync();
+        expect(h.insertText).toHaveBeenCalledExactlyOnceWith("Answer");
+        expect(h.latch.latchedCode()).toBe(code);
+        // Releasing Ctrl first must not let the held Enter send the newly inserted reply.
+        for (const ctrlKey of [true, false]) expect(dispatch({ repeat: true, ctrlKey }).defaultPrevented).toBe(true);
+        expect(send).not.toHaveBeenCalled();
+        expect(h.insertText).toHaveBeenCalledTimes(1);
+        expect(dispatch({}).defaultPrevented).toBe(false); // A later deliberate press remains the user's.
+        expect(send).toHaveBeenCalledTimes(1);
+    });
+    it.each([
+        ["Enter", {}], ["Tab", {}], ["Tab", { shiftKey: true }], ["Enter", { ctrlKey: true }],
+    ])("consumes repeated %s %j without starting an insertion", async (key, modifiers) => {
+        const h = await harness(); h.openInline();
+        expect(h.inline.handleInlineKey(keyEvent(key, { ...modifiers, repeat: true }))).toBe(true);
+        await vi.runAllTimersAsync();
+        expect(h.flow.prepareText).not.toHaveBeenCalled();
+        expect(h.latchKey).not.toHaveBeenCalled();
+        expect(h.insertText).not.toHaveBeenCalled();
+    });
+    it.each([
+        ["Alt", { altKey: true }], ["Meta", { metaKey: true }],
+        ["Ctrl+Shift", { ctrlKey: true, shiftKey: true }], ["Ctrl+Alt", { ctrlKey: true, altKey: true }],
+        ["Ctrl+Meta", { ctrlKey: true, metaKey: true }], ["Alt+Shift", { altKey: true, shiftKey: true }],
+        ["Meta+Shift", { metaKey: true, shiftKey: true }], ["Alt+Meta", { altKey: true, metaKey: true }],
+    ])("does not accept Enter or Tab with %s", async (_label, modifiers) => {
+        const h = await harness(); h.openInline();
+        const state = h.ui.get().inline;
+        for (const key of ["Enter", "Tab"]) expect(h.inline.handleInlineKey(keyEvent(key, modifiers))).toBe(false);
+        expect(h.ui.get().inline).toBe(state);
+        expect(h.flow.prepareText).not.toHaveBeenCalled();
+        expect(h.latchKey).not.toHaveBeenCalled();
+        expect(h.insertText).not.toHaveBeenCalled();
+    });
+    it.each([["Enter", { shiftKey: true }], ["Tab", { ctrlKey: true }]])("leaves %s %j to the host", async (key, modifiers) => {
+        const h = await harness(); h.openInline();
+        expect(h.inline.handleInlineKey(keyEvent(key, modifiers))).toBe(false);
+        expect(h.flow.prepareText).not.toHaveBeenCalled();
+        expect(h.latchKey).not.toHaveBeenCalled();
+    });
+    it.each([
+        ["Enter", {}], ["Tab", {}], ["Tab", { shiftKey: true }], ["Enter", { ctrlKey: true }],
+    ])("consumes %s %j for a note-only popup without inserting or repeating the note", async (key, modifiers) => {
+        const h = await harness(); h.openInline();
+        h.ui.set({ inline: { ...h.ui.get().inline, items: [], note: "Choose a project" } });
+        expect(h.inline.handleInlineKey(keyEvent(key, modifiers))).toBe(true);
+        expect(h.inline.handleInlineKey(keyEvent(key, { ...modifiers, repeat: true }))).toBe(true);
+        expect(h.toast).toHaveBeenCalledExactlyOnceWith("Choose a project", "message");
+        expect(h.flow.prepareText).not.toHaveBeenCalled();
+        expect(h.latchKey).not.toHaveBeenCalled();
+        expect(h.insertText).not.toHaveBeenCalled();
+    });
+    it.each(["query", "caret", "prefix", "focus", "scope", "management", "closed"])("does not accept Ctrl+Enter after %s changes", async change => {
+        const h = await harness(); h.openInline();
+        if (change === "query") h.ed.textContent = ";new";
+        if (change === "caret") h.setCaret(h.ed, 2);
+        if (change === "prefix") h.store.setPrefix("!");
+        if (change === "focus") h.document.activeElement = { closest: () => null };
+        if (change === "scope") h.setScope(null);
+        if (change === "management") h.ui.set({ management: true });
+        if (change === "closed") h.ui.set({ inline: null });
+        expect(h.inline.handleInlineKey(keyEvent("Enter", { ctrlKey: true }))).toBe(false);
+        expect(h.ui.get().inline).toBeNull();
+        expect(h.flow.prepareText).not.toHaveBeenCalled();
+        expect(h.latchKey).not.toHaveBeenCalled();
+    });
+    it.each([{ isComposing: true }, { keyCode: 229 }])("leaves IME Ctrl+Enter untouched: %j", async composition => {
+        const h = await harness(); h.openInline();
+        const state = h.ui.get().inline;
+        expect(h.inline.handleInlineKey(keyEvent("Enter", { ctrlKey: true, ...composition }))).toBe(false);
+        expect(h.ui.get().inline).toBe(state);
+        expect(h.flow.prepareText).not.toHaveBeenCalled();
+        expect(h.latchKey).not.toHaveBeenCalled();
+    });
+    it.each(["cancel", "draft", "reset"])("Ctrl+Enter preserves %s cancellation and swallows double taps during preparation", async change => {
+        const h = await harness(); h.openInline();
+        const ready = deferred<any>(); h.flow.prepareText.mockImplementationOnce(() => ready.promise);
+        expect(h.inline.handleInlineKey(keyEvent("Enter", { ctrlKey: true }))).toBe(true);
+        expect(h.inline.isAccepting()).toBe(true);
+        for (const key of ["Enter", "Tab"]) {
+            for (const repeat of [true, false]) expect(h.inline.handleInlineKey(keyEvent(key, { repeat }))).toBe(true);
+        }
+        expect(h.flow.prepareText).toHaveBeenCalledTimes(1);
+        expect(h.latchKey).toHaveBeenCalledExactlyOnceWith("Enter");
+        if (change === "draft") h.ed.textContent = "Changed";
+        if (change === "reset") h.inline.resetInline();
+        ready.resolve(change === "cancel" ? null : { t: h.t, text: "Answer", snap: h.flow.snapNow() });
+        await vi.runAllTimersAsync();
+        expect(h.insertText).not.toHaveBeenCalled();
+        expect(h.inline.isAccepting()).toBe(false);
+    });
+    it.each(["selection", "focus", "draft", "library", "reset"])("Ctrl+Enter cancels %s changes during Slate's delay", async change => {
+        const h = await harness(); h.openInline();
+        expect(h.inline.handleInlineKey(keyEvent("Enter", { ctrlKey: true }))).toBe(true);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(h.selection().isCollapsed).toBe(false);
+        if (change === "selection") h.setCaret(h.ed, 1);
+        if (change === "focus") h.makeEditor("Other").focus();
+        if (change === "draft") h.ed.textContent = "Changed";
+        if (change === "library") h.store.setVersion++;
+        if (change === "reset") h.inline.resetInline();
+        await vi.runAllTimersAsync();
+        expect(h.insertText).not.toHaveBeenCalled();
+        expect(h.inline.isAccepting()).toBe(false);
+    });
     it("A27 refreshes quick-input suggestions across projects while keeping FAQ scoped and closing on access loss", async () => {
         const h = await harness();
         Object.assign(h.t, { project: "ro", personalVisibleIn: ["mj", "ro"] });
@@ -251,13 +398,15 @@ describe("inline cancellation", () => {
         ready.resolve(null); await pending;
         expect(h.insertText).not.toHaveBeenCalled();
     });
-    it("still accepts plain Shift+Tab without a greeting and latches the key", async () => {
+    it.each([
+        ["Tab", false, false], ["Enter", false, false], ["Tab", true, true],
+    ])("preserves %s with Shift=%s and noGreeting=%s", async (key, shiftKey, noGreeting) => {
         const h = await harness(); h.openInline();
-        expect(h.inline.handleInlineKey({ key: "Tab", code: "Tab", shiftKey: true, ctrlKey: false, altKey: false, metaKey: false, isComposing: false })).toBe(true);
+        expect(h.inline.handleInlineKey(keyEvent(key, { shiftKey }))).toBe(true);
         await vi.runAllTimersAsync();
-        expect(h.flow.prepareText.mock.calls[0][2]).toEqual({ noGreeting: true });
-        expect(h.latchKey).toHaveBeenCalledExactlyOnceWith("Tab");
-        expect(h.insertText).toHaveBeenCalledTimes(1);
+        expect(h.flow.prepareText).toHaveBeenCalledExactlyOnceWith(h.t, { editor: h.ed, selection: "" }, { noGreeting });
+        expect(h.latchKey).toHaveBeenCalledExactlyOnceWith(key);
+        expect(h.insertText).toHaveBeenCalledExactlyOnceWith("Answer");
     });
 });
 

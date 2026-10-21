@@ -6,6 +6,7 @@ import * as keys from "../src/core/keys";
 import * as layout from "../src/core/layout";
 import * as rank from "../src/core/rank";
 import * as search from "../src/core/search";
+import * as textCore from "../src/core/text";
 import * as windowPlacement from "../src/core/windowPlacement";
 import * as interactionIdle from "../src/core/interactionIdle";
 import * as types from "../src/core/types";
@@ -135,7 +136,7 @@ function windowHarness(width = 800, pinned = true, storage = { get: vi.fn(async 
     const placementControls = load(placementCode, { ...placementDeps, "@webpack/common": frame.api }, frameGlobals);
     const exports = load(windowCode, {
         "@webpack/common": h.api, "../core/keys": keys, "../core/layout": layout, "../core/rank": rank,
-        "../core/search": search, "../core/types": types, "../core/text": {}, "../core/windowPlacement": windowPlacement,
+        "../core/search": search, "../core/types": types, "../core/text": textCore, "../core/windowPlacement": windowPlacement,
         "./WindowPlacement": { useWindowPlacement: placementHooks.useWindowPlacement, WindowPlacementControls: placementControls.WindowPlacementControls },
         "./window-placement.css": {}, "./window-tabs.css": {},
         "../platform": { storage, chatAreaRect: () => ({ right: viewport.innerWidth - 240, top: viewport.innerHeight - 150 }) },

@@ -3,6 +3,7 @@ import { runInNewContext } from "node:vm";
 import { performance } from "node:perf_hooks";
 import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
+import * as textCore from "../src/core/text";
 import * as layout from "../src/core/layout";
 import * as geometry from "../src/core/windowPlacement";
 import * as types from "../src/core/types";
@@ -145,7 +146,7 @@ it("A30 position-only renders reuse the catalog rows, while keyboard selection s
         get: () => ({ management: false, menu: null }), set: vi.fn() };
     const deps = {
         "@webpack/common": h.api, "../core/keys": keys, "../core/layout": layout, "../core/rank": rank, "../core/search": search,
-        "../core/text": {}, "../core/types": types, "../core/windowPlacement": geometry,
+        "../core/text": textCore, "../core/types": types, "../core/windowPlacement": geometry,
         "../platform": { chatAreaRect: () => ({ right: 1200, top: 800 }), storage: { get: async () => null } },
         "./flow": {}, "./uiState": { store, ui, useStore: () => 0, activeScope: () => "mj", listedProject: () => "mj",
             poolFor: () => store.templates, watchChatArea: () => () => {} },

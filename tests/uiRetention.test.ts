@@ -200,21 +200,21 @@ const keyEvent = (key: string, shiftKey = false) => ({ key, shiftKey, code: key,
     target: { closest: () => null }, preventDefault: vi.fn(), stopPropagation: vi.fn() });
 
 describe("window shortcut catalog retention", () => {
-    it("publishes committed favorites/search results and releases the catalog on unmount or stop", async () => {
+    it("publishes committed visible rows/search results and releases the catalog on unmount or stop", async () => {
         const h = await windowHarness();
         let tree = h.render();
         expect(h.module.visibleItems).toEqual([]);
         h.commit();
-        expect(h.module.visibleItems.map((t: any) => t.id)).toEqual([h.first]);
+        expect(h.module.visibleItems.map((t: any) => t.id)).toEqual([h.first, h.second]);
         find(tree, n => n.type === "input").props.onChange({ currentTarget: { value: "fixture" } });
         tree = h.render();
-        expect(h.module.visibleItems.map((t: any) => t.id)).toEqual([h.first]);
+        expect(h.module.visibleItems.map((t: any) => t.id)).toEqual([h.first, h.second]);
         h.commit();
         expect(h.module.visibleItems).toHaveLength(2);
         h.unmount();
         expect(h.module.visibleItems).toEqual([]);
         h.render(); h.commit();
-        expect(h.module.visibleItems.map((t: any) => t.id)).toEqual([h.first]);
+        expect(h.module.visibleItems.map((t: any) => t.id)).toEqual([h.first, h.second]);
         h.unmount();
         expect(h.module.visibleItems).toEqual([]);
     });
@@ -232,7 +232,7 @@ describe("window shortcut catalog retention", () => {
         win().props.onKeyDown(keyEvent("ArrowDown"));
         tree = h.render(); h.commit();
         win().props.onKeyDown(keyEvent("Enter"));
-        expect(h.insert).toHaveBeenCalledExactlyOnceWith(h.store.byId(h.second), { via: "window-enter" });
+        expect(h.insert).toHaveBeenCalledExactlyOnceWith(h.store.byId(h.second), { via: "window-enter", noGreeting: false });
         win().props.onKeyDown(keyEvent("Enter", true));
         expect(h.compose).toHaveBeenCalledExactlyOnceWith(h.store.byId(h.second));
         h.unmount();

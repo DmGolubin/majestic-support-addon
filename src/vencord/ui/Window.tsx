@@ -18,7 +18,7 @@ import { openMenu } from "./ContextMenu";
 import { costEnd, costStart, debugEnabled, debugState, debugVerbose, dlog, keyDesc, logGeometry, noteKey, noteRender, noteSearch, noteWheel, setDebugHover, setDebugWindow } from "./debug";
 import { addToCompose, insertTemplate } from "./flow";
 import { nqHighlight } from "./highlight";
-import { latchKey } from "./keylatch";
+import { latchButtonKey, latchKey } from "./keylatch";
 import { windowEditor } from "./op";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
@@ -105,7 +105,7 @@ function RowImpl({ t, sel, ctx, alt, bind, icon, tokens, line, onHover, onMove, 
                 <span className="vc-stx-nm">{nqHighlight(t.title, tokens)}</span>
                 {t.status !== "actual" && <span className={"vc-stx-badge " + t.status}>{t.status === "outdated" ? "устарел" : "на проверке"}</span>}
                 {bind && <span className="vc-stx-kb">{comboLabel(bind)}</span>}
-                {alt > 0 && <span className="vc-stx-kb">Alt {alt}</span>}
+                {alt > 0 && <span className="vc-stx-kb">Alt+{alt}</span>}
             </div>
             <div className="vc-stx-sn">{line ? nqHighlight(line, tokens) : snippetOf(t)}</div>
         </div>
@@ -196,27 +196,21 @@ function WindowView(connectionNotice: string) {
             : view === "fav" ? favs
                 : view === "recent" ? recentOf(pool, ctx, 10)
                     : secs.flatMap(x => x.items);
-        // Alt+N labels: positional in search/fav/recent, favorites-only in the plain "all" view.
-        const positional = !!res || view !== "all";
-        const alt = (t: Template, i: number) => {
-            const n = positional ? i : favs.indexOf(t);
-            return n >= 0 && n < 9 ? n + 1 : 0;
-        };
         const lines = new Map(hits.map(h => [h.t, h.line]));
         if (t0) noteSearch(t0, performance.now(), query, items.length);
-        return { total: projectPool.length, cats, categoryCounts, res, secs, favs, favoriteCount, items, positional, alt, lines, tokens: res?.tokens ?? NO_TOKENS };
+        return { total: projectPool.length, cats, categoryCounts, res, secs, favoriteCount, items, lines, tokens: res?.tokens ?? NO_TOKENS };
     }, [query, scope, listed, view, cat, version, channelRevision]);
-    const { cats, res, secs, favs, items } = data;
+    const { cats, res, secs, items } = data;
 
-    const shortcuts = data.positional ? items : favs;
     useLayoutEffect(() => {
         // Publish only committed rows, before keyboard input can use them. An
         // abandoned render must not replace the live window's shortcut list.
-        visibleItems = shortcuts;
-        return () => { if (visibleItems === shortcuts) visibleItems = []; };
-    }, [shortcuts]);
+        visibleItems = items;
+        return () => { if (visibleItems === items) visibleItems = []; };
+    }, [items]);
     const selIdx = Math.min(sel, Math.max(0, items.length - 1));
     const current = items[selIdx];
+    const hasGreeting = useMemo(() => !!current && !!splitGreeting(current.text).greeting, [current]);
     itemsRef.current = items;
     selIdxRef.current = selIdx;
 
@@ -259,7 +253,7 @@ function WindowView(connectionNotice: string) {
     }, [query, scope, listed, view, cat, channelRevision, version]);
     useEffect(() => { if (cat && !cats.includes(cat)) setCat(null); }, [cats.join("|")]);
     useEffect(() => {
-        listRef.current?.querySelector(".vc-stx-it.sel")?.scrollIntoView({ block: "nearest" });
+        if (hoveredId.current !== current?.id) listRef.current?.querySelector(".vc-stx-it.sel")?.scrollIntoView({ block: "nearest" });
         if (debugEnabled()) dlog("sel", { idx: selIdx, id: current?.id, title: current?.title }, "sel");
     }, [sel]);
     // Debug panel: the window's local state after every render (only while debug is on), cleared on close.
@@ -372,7 +366,14 @@ function WindowView(connectionNotice: string) {
     }, []);
     const moveHover = useCallback((t: Template, e: React.MouseEvent) => {
         // Synthetic moves (scroll, layout) have no movement: only a real one marks the row as hovered.
-        if (hoveredId.current === t.id || !(e.movementX || e.movementY)) return;
+        if (!(e.movementX || e.movementY)) return;
+        // Footer actions follow the row the user points at, even after leaving it for a button.
+        const items = itemsRef.current;
+        if (items[selIdxRef.current]?.id !== t.id) {
+            const index = items.findIndex(item => item.id === t.id);
+            if (index >= 0) setSel(index);
+        }
+        if (hoveredId.current === t.id) return;
         hoveredId.current = t.id;
         if (debugEnabled()) { setDebugHover(t.id); dlog("hover", { id: t.id, title: t.title, by: "move" }, "hover"); }
     }, []);
@@ -452,11 +453,12 @@ function WindowView(connectionNotice: string) {
             log("выделение");
             if (items.length) setSel(i => (Math.min(i, items.length - 1) + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length);
         } else if (e.key === "Enter" && current) {
+            if (e.altKey || e.metaKey || e.ctrlKey && e.shiftKey) return;
             eat();
-            log(e.shiftKey ? "в ответ" : "вставить", { id: current.id, title: current.title });
+            log(e.shiftKey ? "в ответ" : e.ctrlKey ? "без приветствия" : "вставить", { id: current.id, title: current.title });
             if (e.repeat) return;
             latchKey(e.nativeEvent.code);
-            if (e.shiftKey) void addToCompose(current); else void insertTemplate(current, { via: "window-enter" });
+            if (e.shiftKey) void addToCompose(current); else void insertTemplate(current, { via: "window-enter", noGreeting: !!e.ctrlKey });
         } else if (e.key === "ArrowRight" && atEnd && !previewOpen) {
             eat();
             log("открыть превью");
@@ -479,7 +481,7 @@ function WindowView(connectionNotice: string) {
         }
     };
 
-    /** Footer: keycaps only when the list is narrower than usual or in compact mode (full text in `title`). */
+    /** Keep action labels visible in small windows; their shortcuts remain in tooltips. */
     const footKeys = compact || width < 360;
     const style: React.CSSProperties = { right, bottom, width, height };
 
@@ -498,7 +500,7 @@ function WindowView(connectionNotice: string) {
             t={t}
             sel={i === selIdx}
             ctx={t.id === menuId}
-            alt={data.alt(t, i)}
+            alt={i < 9 ? i + 1 : 0}
             bind={store.bindFor(t.id)}
             icon={!t.project}
             tokens={data.tokens}
@@ -563,7 +565,7 @@ function WindowView(connectionNotice: string) {
                                     className="vc-stx-sinput"
                                     placeholder="Поиск: название, текст или «снр», «фпс»…"
                                     aria-label="Поиск шаблонов"
-                                    aria-keyshortcuts="Alt+ArrowDown ContextMenu Shift+F10"
+                                    aria-keyshortcuts="Enter Control+Enter Shift+Enter Alt+ArrowDown ContextMenu Shift+F10"
                                     value={query}
                                     onChange={e => setQuery(e.currentTarget.value)}
                                 />
@@ -627,11 +629,19 @@ function WindowView(connectionNotice: string) {
                     <div className="vc-stx-list" ref={listRef}>
                         {renderedRows}
                     </div>
-                    <div className="vc-stx-foot" title={"Enter — вставить · Ctrl+клик — без приветствия · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — элементы управления · Ctrl+Tab — вкладки · Alt+↓ — категории · Ctrl+D — избранное · ПКМ / Shift+F10 — меню"}>
-                        <span><span className="vc-stx-kb"><IconEnter size={11} /></span>{!footKeys && "вставить"}</span>
+                    <div className="vc-stx-foot vc-stx-actions" title={"Alt+1…9 — строки списка · Enter — вставить · Ctrl+Enter / Ctrl+клик — без приветствия · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — элементы управления · Ctrl+Tab — вкладки · Alt+↓ — категории · Ctrl+D — избранное · ПКМ / Shift+F10 — меню"}>
+                        <button type="button" className="vc-stx-action" aria-label="Вставить шаблон" title="Вставить шаблон · Enter"
+                            disabled={!current} onKeyDown={latchButtonKey}
+                            onClick={() => { if (current) void insertTemplate(current, { via: "window-button", noGreeting: false }); }}>
+                            Вставить{!footKeys && <span className="vc-stx-kb"><IconEnter size={11} /></span>}
+                        </button>
+                        <button type="button" className="vc-stx-action" aria-label="Вставить без приветствия"
+                            title={current && !hasGreeting ? "В этом шаблоне нет приветствия" : "Вставить без приветствия · Ctrl+Enter"}
+                            disabled={!hasGreeting} onKeyDown={latchButtonKey}
+                            onClick={() => { if (current && hasGreeting) void insertTemplate(current, { via: "window-button", noGreeting: true }); }}>
+                            Без приветствия{!footKeys && <span className="vc-stx-kb">Ctrl+<IconEnter size={11} /></span>}
+                        </button>
                         <span><span className="vc-stx-kb"><IconShift size={11} /><IconEnter size={11} /></span>{!footKeys && "в ответ"}</span>
-                        <span><span className="vc-stx-kb">Tab</span>{!footKeys && "фокус"}</span>
-                        <span><span className="vc-stx-kb">ПКМ</span>{!footKeys && "ещё"}</span>
                     </div>
                 </div>
             </div>
