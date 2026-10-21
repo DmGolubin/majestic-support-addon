@@ -70,6 +70,21 @@ Check 'spinner has no percentage or invented completion, including at frame boun
         Assert (($frame.Rows.Text -join '') -notmatch '%|\[\+\]|Готово') 'Fabricated progress'
     }
 }
+Check 'dots14 animates in place at 80ms with space around the version' {
+    $frames = @()
+    foreach ($tick in @(0,79,80,160,240,320,400,480,560,640,720,800,880,960)) {
+        $frame = Get-ConsoleFrame 'Проверяем обновления' @(New-ConsoleLine 'Версия установщика: 2.3.4' 'Muted') '' 82 29 $true $tick
+        $rows = @($frame.Rows.Text | ForEach-Object { $_.Trim() })
+        $spinner = @($rows | Where-Object { $_ -match '^[\u2800-\u28ff]{2}$' })
+        Assert ($spinner.Count -eq 1) 'Expected the two-cell dots14 spinner without brackets'
+        $index = [array]::IndexOf($rows, $spinner[0])
+        Assert ($rows[$index - 1] -eq '' -and $rows[$index + 1] -eq '') 'Animation needs breathing room'
+        Assert ($rows[$index + 2] -ceq 'Версия установщика: 2.3.4') 'Version must follow animation'
+        $frames += $spinner[0]
+    }
+    Assert ($frames[0] -ceq $frames[1] -and $frames[0] -ceq $frames[-1]) 'Wrong frame boundary or loop duration'
+    Assert (@($frames | Select-Object -Unique).Count -eq 12) 'Expected all twelve dots14 frames'
+}
 
 # All paths below point at a fresh fixture; the production backend is never loaded.
 $root = Join-Path ([IO.Path]::GetTempPath()) ('SupportTemplates-console-view-' + [guid]::NewGuid().ToString('N'))

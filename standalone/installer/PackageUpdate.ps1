@@ -293,10 +293,6 @@ function Invoke-PackageUpdate([ValidateSet('Check', 'Update', 'Resolve', 'Inspec
     try {
     Assert-Update ($Replacement -ceq '' -or ($Operation -ceq 'Install' -and $Replacement -cin @('vencord', 'betterdiscord'))) 'Replacement requires explicit Install and a known mod'
     $context = Get-PackageContext
-    if ($Console -and $Operation -eq 'Update') {
-        # Direct console output stays separate from the structured JSON result.
-        [Console]::WriteLine("Версия установщика: {0}.", $context.version)
-    }
     Safe-UpdatePath $Cache
     if ($Operation -in @('Inspect', 'Install', 'Repair')) { Assert-Update ($TargetChannel -cin @('Stable', 'Canary', 'PTB')) 'Choose Stable, Canary or PTB explicitly' }
     # Serialize Update/Resolve/Install across BAT windows without touching runtime locks.
@@ -368,6 +364,7 @@ function Invoke-PackageUpdate([ValidateSet('Check', 'Update', 'Resolve', 'Inspec
         }
         return [ordered]@{ schema = 1; action = $Operation; bundledVersion = $context.version; selectedVersion = $current;
             latestVersion = $remote.offer.version; updateAvailable = ((Compare-UpdateVersion $remote.offer.version $current) -gt 0);
+            packageUpdated = ($Operation -eq 'Update' -and $newer);
             packagePath = $verifiedPackage } | ConvertTo-Json -Compress
     } finally { $lock.Dispose() }
     } catch {
@@ -537,6 +534,8 @@ function Get-PackageConsoleError([Exception]$Failure) {
 }
 function Write-PackageConsoleResult($Status) {
     if ($Status.action -eq 'Update') {
+        if ($Status.packageUpdated) { Write-Output 'Пакет обновлён.' }
+        else { Write-Output 'Обновление не требуется.' }
         Write-Output ("Готов к установке пакет версии {0}." -f $Status.selectedVersion)
     } else {
         Write-Output ("Выбран пакет версии {0}." -f $Status.selectedVersion)
@@ -547,6 +546,9 @@ function Write-PackageConsoleResult($Status) {
 if ($MyInvocation.InvocationName -ne '.') {
     try {
         Assert-Update (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) 'LOCALAPPDATA unavailable'
+        if ($Console -and $Action -eq 'Update') {
+            [Console]::WriteLine("Версия установщика: {0}.", (Get-PackageContext).version)
+        }
         $result = Invoke-PackageUpdate $Action $Channel (Join-Path $env:LOCALAPPDATA 'SupportTemplates/installer-updates') $ReplaceExisting
         if ($Console -and $Action -in @('Check', 'Update')) {
             Write-PackageConsoleResult ($result | ConvertFrom-Json)

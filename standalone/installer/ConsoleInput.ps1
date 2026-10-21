@@ -180,16 +180,33 @@ function Invoke-ConsoleOperation([ValidateSet('Update','Detect','Inspect','Insta
     }
 }
 
+function Get-ConsolePackageVersion {
+    # Display metadata only. The updater still validates the complete package before use.
+    try {
+        $path = Join-Path $PSScriptRoot 'manifest.json'
+        if ((Get-Item -LiteralPath $path).Length -gt 65536) { return '' }
+        $manifest = [IO.File]::ReadAllText($path, [Text.Encoding]::UTF8) | ConvertFrom-Json
+        if ($manifest.version -cmatch '^\d+\.\d+\.\d+$') { return [string]$manifest.version }
+    } catch { }
+    return ''
+}
+
 function Start-ConsoleInstall {
     . (Join-Path $PSScriptRoot 'ConsoleView.ps1')
     Initialize-ConsoleView
     try {
         if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { throw 'LOCALAPPDATA unavailable' }
         $cache = Join-Path $env:LOCALAPPDATA 'SupportTemplates/installer-updates'
-        $startup = Invoke-ConsoleOperation 'Update' '' $cache 'Проверяем обновления' 'Проверка выпуска и подготовка проверенного пакета.'
+        $version = Get-ConsolePackageVersion
+        $detail = 'Подготовка пакета.'
+        if ($version) { $detail = 'Версия установщика: ' + $version }
+        $startup = Invoke-ConsoleOperation 'Update' '' $cache 'Проверяем обновления' $detail
+        if ($startup.Success) { $version = [string]$startup.Value.selectedVersion }
+        $title = 'SupportTemplates'
+        if ($version) { $title += ' / ' + $version }
         $startupLines = @($startup.Lines | ForEach-Object { New-ConsoleLine $_ 'Muted' })
         while ($true) {
-            Show-ConsoleScreen 'Установка' $startupLines '[1] Установить    [0] Выход'
+            Show-ConsoleScreen $title $startupLines '[1] Установить    [0] Выход'
             if ((Read-MenuKey '10') -eq 2) { return 0 }
             $detected = Invoke-ConsoleOperation 'Detect' '' $cache 'Ищем Discord' 'Проверяем установленные клиенты.'
             if (-not $detected.Success) {

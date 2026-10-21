@@ -469,11 +469,14 @@ exit 0
         Assert ($integrity -match 'проверку целостности или безопасности') 'Integrity classification lost'
         Assert (($unavailable + $network + $integrity) -notmatch '404|SHA256|fixture|https:|Обновление не требуется') 'Technical details or false success exposed'
     }
-    Test 'Console successful startup Update reports only the selected version' {
+    Test 'Console startup distinguishes a downloaded update from a current package' {
         $status = Invoke-PackageUpdate Update '' $caseCache | ConvertFrom-Json
         $text = @(Write-PackageConsoleResult $status)
-        Assert ($text.Count -eq 1 -and $text[0] -ceq 'Готов к установке пакет версии 1.0.2.') 'Verbose or wrong startup result'
+        Assert ($text.Count -eq 2 -and $text[0] -ceq 'Пакет обновлён.' -and $text[1] -ceq 'Готов к установке пакет версии 1.0.2.') 'Wrong updated package result'
         Assert ($installs.Count -eq 0 -and $requests.Count -eq 3) 'Startup update installed or duplicated requests'
+        $current = Invoke-PackageUpdate Update '' $caseCache | ConvertFrom-Json
+        $text = @(Write-PackageConsoleResult $current)
+        Assert ($text.Count -eq 2 -and $text[0] -ceq 'Обновление не требуется.' -and $text[1] -ceq 'Готов к установке пакет версии 1.0.2.') 'Current package must not claim a new download'
     }
     foreach ($nativeCase in @(
         @{error='Target Discord is running (PID 123); close it before retrying';expected='системном трее'},

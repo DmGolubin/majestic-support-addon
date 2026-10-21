@@ -2,6 +2,16 @@
 Set-StrictMode -Version 2
 $script:ConsoleView = $null
 
+# dots14 frames and timing from cli-spinners (Sindre Sorhus), as in the supplied preview.
+<#
+MIT License
+Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#>
+$script:ConsoleSpinnerFrames = @('⠉⠉','⠈⠙','⠀⠹','⠀⢸','⠀⣰','⢀⣠','⣀⣀','⣄⡀','⣆⠀','⡇⠀','⠏⠀','⠋⠁')
+
 function New-ConsoleLine([string]$Text = '', [string]$Tone = 'Text') {
     [pscustomobject]@{ Text = $Text; Tone = $Tone }
 }
@@ -31,9 +41,9 @@ function Get-ConsoleFrame([string]$Title, [object[]]$Lines, [string]$Footer,
         foreach ($part in @(Split-ConsoleLine $line.Text $width)) { $body += New-ConsoleLine $part $line.Tone }
     }
     if ($Busy) {
-        # A small orbit drawn only while a real invocation is pending; no timed stages.
-        $orbit = @('·   ', ' ·  ', '  · ', '   ·', '  · ', ' ·  ')
-        $body = @(New-ConsoleLine ('[ ' + $orbit[[int]([Math]::Floor($Tick / 100.0) % $orbit.Count)] + ' ]') 'Accent') + $body
+        # Animate only while a real invocation is pending; never delay completion.
+        $spinner = $script:ConsoleSpinnerFrames[[int]([Math]::Floor($Tick / 80.0) % $script:ConsoleSpinnerFrames.Count)]
+        $body = @(New-ConsoleLine $spinner 'Accent'; New-ConsoleLine) + $body
     }
     $titleRows = @(Split-ConsoleLine $Title $width | ForEach-Object { New-ConsoleLine $_ 'Accent' })
     $footerRows = @(Split-ConsoleLine $Footer $width | ForEach-Object { New-ConsoleLine $_ 'Text' })
@@ -52,11 +62,13 @@ function Get-ConsoleFrame([string]$Title, [object[]]$Lines, [string]$Footer,
     $smallLogo = @(' SSSSS  TTTTTTT', ' SS        TT', '  SSSS     TT', '     SS    TT', ' SSSSS     TT')
     $remaining = $height - $header.Count - $body.Count - $footerRows.Count - 1
     $mark = @()
-    if ($width -ge 52 -and $remaining -ge 8) { $mark = $logo }
+    if ($width -ge 52 -and $remaining -ge 9) { $mark = $logo }
     elseif ($width -ge 24 -and $remaining -ge 7) { $mark = $smallLogo }
     if ($mark.Count) {
         $logoWidth = ($mark | Measure-Object -Property Length -Maximum).Maximum
-        $header = @($mark | ForEach-Object { New-ConsoleLine ($_.PadRight($logoWidth)) 'Accent' }) + @(New-ConsoleLine) + $header
+        $gap = @(New-ConsoleLine)
+        if ($mark.Count -eq $logo.Count) { $gap = @(New-ConsoleLine; New-ConsoleLine; New-ConsoleLine) }
+        $header = @($mark | ForEach-Object { New-ConsoleLine ($_.PadRight($logoWidth)) 'Accent' }) + $gap + $header
     }
     # Spend height on the actual message before decoration. PgUp/PgDn expose any
     # remaining text while the action footer stays visible, including long diagnostics.
@@ -100,6 +112,7 @@ function Initialize-ConsoleView {
         $view.Title = [Console]::Title; $view.Cursor = [Console]::CursorVisible
         [Console]::Title = 'SupportTemplates - Установка'
         [Console]::CursorVisible = $false
+        [Console]::BackgroundColor = [ConsoleColor]::Black
         if (-not ('SupportTemplatesConsoleMode' -as [type])) {
             Add-Type -TypeDefinition @'
 using System;
@@ -128,7 +141,7 @@ function Write-ConsoleRow([int]$X, [int]$Y, [string]$Text, [string]$Tone) {
             'Accent' { '255;0;85' }; 'Muted' { '144;151;160' }; 'White' { '235;237;240' }
             default { '204;209;216' }
         }
-        $view.Writer.Write(([string][char]27 + '[38;2;' + $rgb + 'm'))
+        $view.Writer.Write(([string][char]27 + '[48;2;11;11;11m' + [string][char]27 + '[38;2;' + $rgb + 'm'))
     } else {
         [Console]::ForegroundColor = switch ($Tone) {
             'Accent' { [ConsoleColor]::Red }; 'Muted' { [ConsoleColor]::DarkGray }
@@ -177,7 +190,8 @@ function Show-ConsoleScreen([string]$Title, [object[]]$Lines = @(), [string]$Foo
     $view.Page = 0
     if ($view.Interactive) { Update-ConsoleScreen; return }
     # Redirected output is an ordinary transcript: no cursor codes, animation or repeated frames.
-    $view.Writer.WriteLine('SupportTemplates / ' + $Title)
+    if ($Title.StartsWith('SupportTemplates / ')) { $view.Writer.WriteLine($Title) }
+    else { $view.Writer.WriteLine('SupportTemplates / ' + $Title) }
     foreach ($line in $Lines) { foreach ($part in @(Split-ConsoleLine $line.Text 100)) { $view.Writer.WriteLine($part) } }
     if ($Footer) { $view.Writer.WriteLine($Footer) }
 }
