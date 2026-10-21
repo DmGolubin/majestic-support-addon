@@ -54,6 +54,13 @@ describe("panel JSON transport", () => {
             headers: { "If-Match": '"opaque-v1"', Authorization: "Bearer " + secret, "Content-Type": "application/json" } });
         expect(fetch.mock.calls[0][1]?.headers).not.toHaveProperty("Idempotency-Key");
     });
+    it.each([7, null])("PATCHes a project Discord interval of %s", async discordReminderMinutes => {
+        const fetch = mockFetch(json({ version: "next" }));
+        const body = { projects: [{ project: "majestic", discordReminderMinutes }] };
+        await createPanelTransport(fetch)("/notification-settings", { token: secret, method: "PATCH", version: "opaque-v1", body });
+        expect(fetch.mock.calls[0][1]).toMatchObject({ method: "PATCH", body: JSON.stringify(body),
+            headers: { "If-Match": '"opaque-v1"', Authorization: "Bearer " + secret, "Content-Type": "application/json" } });
+    });
     it("rejects Telegram edits, missing versions and implicit reminder POSTs before fetch", async () => {
         const fetch = vi.fn<typeof globalThis.fetch>(), send = createPanelTransport(fetch);
         for (const options of [

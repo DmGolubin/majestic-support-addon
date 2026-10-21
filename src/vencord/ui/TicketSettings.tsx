@@ -15,9 +15,32 @@ import { ProjectIcon } from "./ProjectIcon";
 import { IconBell } from "./svg";
 import { chooseTicketSound, resetTicketSound, retryTicketSoundSettings, setChannelTicketSound, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound, stopTicketSoundPlayback, testTicketSound, ticketSoundState } from "./ticketSound";
 import { ReminderSettings } from "./ReminderSettings";
-import { previewTicketReminderNotification, ticketRemindersState } from "./ticketReminders";
+import { previewTicketReminderNotification, setDiscordReminderMinutes, ticketRemindersState } from "./ticketReminders";
 
 const percent = (value: number) => `${Math.round(value)}%`;
+
+function ReminderInterval({ project, name, personalReminderMinutes, discordReminderMinutes, effectiveReminderMinutes, disabled }: {
+    project: ReminderSoundProject; name: string; personalReminderMinutes: number; discordReminderMinutes: number | null;
+    effectiveReminderMinutes: number; disabled: boolean;
+}) {
+    const [draft, setDraft] = useState(String(discordReminderMinutes ?? effectiveReminderMinutes));
+    const minutes = Number(draft);
+    const valid = Number.isSafeInteger(minutes) && minutes >= 1 && minutes <= 120;
+    const changed = valid && minutes !== discordReminderMinutes;
+    return <div className="vc-stx-reminder-interval">
+        <label><span>Время Discord</span><input type="number" inputMode="numeric" min={1} max={120} step={1} value={draft}
+            aria-label={`Время Discord · ${name}`} disabled={disabled} onChange={e => setDraft(e.currentTarget.value)} /></label>
+        <div className="vc-stx-reminder-interval-actions">
+            <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={disabled || !changed}
+                onClick={() => void setDiscordReminderMinutes(project, minutes)}>Сохранить</button>
+            <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={disabled || discordReminderMinutes === null}
+                onClick={() => void setDiscordReminderMinutes(project, null)}>Как в Telegram</button>
+        </div>
+        <small className="vc-stx-muted">{discordReminderMinutes === null
+            ? `Сейчас как в Telegram: ${personalReminderMinutes} мин`
+            : `Свой интервал: ${effectiveReminderMinutes} мин · Telegram: ${personalReminderMinutes} мин`}</small>
+    </div>;
+}
 
 export function TicketSettings() {
     const state = ticketSoundState.use();
@@ -100,17 +123,20 @@ export function TicketSettings() {
             })}</div>
         </section>
         <ReminderSettings>
-            <div className="vc-stx-ticket-card-grid">{reminders.settings?.projects.map(({ project, personalReminderMinutes }) => {
+            <div className="vc-stx-ticket-card-grid">{reminders.settings?.projects.map(({ project, personalReminderMinutes, discordReminderMinutes, effectiveReminderMinutes }) => {
                 const config = reminderTicketSound(options, project);
                 const projectId = project === "majestic" ? "mj" : "ro";
                 const name = PROJECTS[projectId].short;
                 return <fieldset key={project} className="vc-stx-ticket-controls vc-stx-ticket-channel" disabled={!loaded} aria-label={`Личные напоминания · ${name}`}>
                     <div className="vc-stx-ticket-card-heading">
                         <span aria-hidden="true"><ProjectIcon project={projectId} size={24} /></span>
-                        <div><strong>{name}</strong><span>Игрок ждёт ответа · {personalReminderMinutes} мин</span></div>
+                        <div><strong>{name}</strong><span>Игрок ждёт ответа · {effectiveReminderMinutes} мин</span></div>
                     </div>
                     <label className="vc-stx-check"><input type="checkbox" checked={config.enabled} onChange={e => setReminderTicketSound(project, { enabled: e.currentTarget.checked })} />Напоминания этого сервера</label>
                     {!reminders.settings?.discordEnabled && <p className="vc-stx-ticket-project-note">Общий переключатель напоминаний выключен.</p>}
+                    <ReminderInterval key={`${project}:${reminders.settings.version}`} project={project} name={name}
+                        personalReminderMinutes={personalReminderMinutes} discordReminderMinutes={discordReminderMinutes}
+                        effectiveReminderMinutes={effectiveReminderMinutes} disabled={reminders.busy} />
                     <label className="vc-stx-ticket-volume"><span>Громкость <span className="vc-stx-ticket-value">{percent(config.volume)}</span></span>
                         <input aria-label={`Громкость личных напоминаний · ${name}`} aria-valuetext={percent(config.volume)} type="range" min={0} max={100} step={1} value={config.volume} onChange={e => setReminderTicketSound(project, { volume: Number(e.currentTarget.value) })} />
                     </label>

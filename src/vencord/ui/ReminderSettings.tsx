@@ -26,9 +26,9 @@ export function ReminderSettings({ children }: { children?: React.ReactNode; } =
                 {phase === "loading" && <p className="vc-stx-muted" role="status">Загружаем настройки…</p>}
                 {!children && !!settings?.projects.length && <ul className="vc-stx-reminder-thresholds" aria-label="Пороги личных напоминаний">{settings.projects.map(p => <li key={p.project}>
                     <span aria-hidden="true"><ProjectIcon project={p.project === "majestic" ? "mj" : "ro"} size={16} /></span>
-                    <span>{p.project === "majestic" ? "Majestic" : "Россия Онлайн"}</span><strong>{p.personalReminderMinutes} мин</strong>
+                    <span>{p.project === "majestic" ? "Majestic" : "Россия Онлайн"}</span><strong>{p.effectiveReminderMinutes} мин</strong>
                 </li>)}</ul>}
-                <p className="vc-stx-muted">Порог меняется в Telegram. Звук и громкость — отдельно для каждого сервера.</p>
+                <p className="vc-stx-muted">По умолчанию используется время Telegram. Для каждого сервера можно задать отдельное время Discord.</p>
                 {children}
                 {busy && <p className="vc-stx-muted" role="status">Сохраняем…</p>}
             </>}
