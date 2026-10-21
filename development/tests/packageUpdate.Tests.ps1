@@ -479,13 +479,15 @@ exit 0
         Assert ($text.Count -eq 2 -and $text[0] -ceq 'Обновление не требуется.' -and $text[1] -ceq 'Готов к установке пакет версии 1.0.2.') 'Current package must not claim a new download'
     }
     foreach ($nativeCase in @(
+        @{error='Missing directory: [location omitted]';expected='Missing directory'},
+        @{error='Missing directory: C:\Users\PrivateUser\AppData\Local\SupportTemplates\channels\stable\versions\1.0.1\runtime';expected='Missing directory'},
         @{error='Target Discord is running (PID 123); close it before retrying';expected='системном трее'},
         @{error='Foreign modloader bootstrap refused';expected='неподдерживаемый загрузчик'},
         @{error='Foreign backup/config without ownership state refused';expected='без записи о её владельце'},
         @{error='Foreign resources/app directory refused';expected='несовместимая папка resources/app'},
-        @{error='Same version has different package content; use a new version';expected='эта версия SupportTemplates с другими файлами'},
-        @{error='Version already exists with different manifest; use a new version';expected='эта версия SupportTemplates с другими файлами'},
-        @{error='Existing version content differs';expected='эта версия SupportTemplates с другими файлами'},
+        @{error='Same version has different package content; use a new version';expected='эта версия SupportTemplates с другими файлами.*новым номером версии'},
+        @{error='Version already exists with different manifest; use a new version';expected='эта версия SupportTemplates с другими файлами.*новым номером версии'},
+        @{error='Existing version content differs';expected='эта версия SupportTemplates с другими файлами.*новым номером версии'},
         @{error='Cannot establish target process path; close the target Discord before retrying';expected='определить путь запущенного Discord'},
         @{error='Another SupportTemplates installer is operating on this channel';expected='другой установщик'},
         @{error='Required payload missing';expected='повреждены или отсутствуют'},
@@ -506,7 +508,7 @@ exit 0
                 catch { $failure = $_.Exception }
                 Assert ($null -ne $failure -and $captured.Count -eq 0) 'Native failure emitted success or raw output'
                 $message = Get-PackageConsoleError $failure
-                Assert ($message -match $nativeCase.expected -and $message -notmatch 'PID|bootstrap|cannot downgrade|C:\\') 'Native refusal not translated'
+                Assert ($message -match $nativeCase.expected -and $message -notmatch 'PID|bootstrap|cannot downgrade|C:\\') "Native refusal lost or unsafe: $message"
             } finally { Put $installer $original }
         }
     }
@@ -554,7 +556,87 @@ exit 0
         Assert ($message.Contains($displayPath) -and $message -notmatch 'закры|close|Discord') 'Unexpected failure wrongly prescribes closing Discord'
         Assert ($message -match 'Unexpected ownership condition' -and $message.Contains("`n`nЛог:`n")) 'Cause or separate log path is missing'
     }
+    Test 'Missing-directory diagnostics distinguish ordinary and Codex virtualized product paths without the profile' {
+        $savedLocal = $env:LOCALAPPDATA
+        try {
+            $env:LOCALAPPDATA = 'C:\Users\Private User\AppData\Local'
+            foreach ($relative in @('SupportTemplates', 'SupportTemplates\channels\stable\versions\1.0.1\runtime',
+                'SupportTemplates\channels\canary\versions\1.0.11\runtime',
+                'Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Local\SupportTemplates\channels\canary\versions\1.0.11\runtime',
+                'Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Local\DiscordCanary\app-1.0.9200\resources',
+                'Packages\Other.App_2p2nqsd0c76g0\LocalCache\Local\SupportTemplates\runtime',
+                'SupportTemplates\installer-updates\resolve-0123456789abcdef\SupportTemplates\payload',
+                'Discord\app-1.0.9200\resources', 'DiscordCanary\app-1.0.9200\resources', 'DiscordPTB\app-1.0.9200\resources')) {
+                foreach ($slash in @('\', '/')) {
+                    $raw = 'SupportTemplates: Missing directory: ' + ($env:LOCALAPPDATA.ToUpperInvariant() + '\' + $relative).Replace('\', $slash)
+                    $expected = 'Missing directory: %LOCALAPPDATA%\' + $relative
+                    $failure = New-Object InvalidOperationException('Native installer failed')
+                    $failure.Data['PackageNativeDiagnostic'] = $raw
+                    $failure.Data['PackageNativeExitCode'] = 1
+                    $failure.Data['PackageConsoleMessage'] = Get-PackageNativeMessage $raw 1 Install
+                    $log = Write-PackageDiagnostic $caseCache Install Stable $failure
+                    Assert ($log) 'Missing-directory log was not written'
+                    $record = [IO.File]::ReadAllLines($log, $utf8)[-1] | ConvertFrom-Json
+                    Assert ($record.native -ceq ('SupportTemplates: ' + $expected)) 'Known diagnostic path hidden or changed'
+                    $failure.Data['PackageDiagnosticPath'] = $log
+                    $message = Get-PackageConsoleError (New-Object InvalidOperationException('wrapper', $failure))
+                    Assert ($message.Contains($expected) -and $message.Contains("`n`nЛог:`n")) 'Missing-directory cause/path lost through wrapper'
+                    Assert (($failure.Data['PackageConsoleMessage'] + $record.native) -notmatch 'Private User|C:\\Users') 'Profile path leaked in cause'
+                    Assert ($message -notmatch 'Private User|wrapper') 'Profile or wrapper leaked'
+                }
+            }
+        } finally { $env:LOCALAPPDATA = $savedLocal }
+    }
+    Test 'Missing-directory causes survive redaction of unrelated unsafe and sensitive paths' {
+        $savedLocal = $env:LOCALAPPDATA
+        try {
+            $env:LOCALAPPDATA = 'C:\Users\Private User\AppData\Local'
+            foreach ($location in @(
+                'C:\Users\Other User\AppData\Local\SupportTemplates\runtime',
+                'C:\Users\Private User\AppData\LocalBackup\SupportTemplates\runtime',
+                "$env:LOCALAPPDATA\Unrelated\runtime", "$env:LOCALAPPDATA\SupportTemplatesExtra\runtime",
+                "$env:LOCALAPPDATA\DiscordFake\runtime", "$env:LOCALAPPDATA\SupportTemplates\..\Unrelated",
+                "$env:LOCALAPPDATA\SupportTemplates\.. \Unrelated", "$env:LOCALAPPDATA\SupportTemplates\runtime:stream",
+                "$env:LOCALAPPDATA\SupportTemplates\runtime?query=abc-query", "$env:LOCALAPPDATA\SupportTemplates\token=abc-token",
+                "$env:LOCALAPPDATA\Discord\secret.txt", "$env:LOCALAPPDATA\Discord\Bearer abc-credential",
+                "$env:LOCALAPPDATA\Packages\Other.App_2p2nqsd0c76g0\LocalCache\Local\Unrelated\runtime",
+                "$env:LOCALAPPDATA\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Roaming\SupportTemplates\runtime",
+                "$env:LOCALAPPDATA\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Local\SupportTemplates\..\Unrelated",
+                '\\private-server\private-share\SupportTemplates\runtime',
+                'https://user:abc-password@example.invalid/SupportTemplates?token=abc-token',
+                'http://example.invalid/Discord?query=abc-query')) {
+                $raw = 'SupportTemplates: Missing directory: ' + $location
+                $safe = ConvertTo-PackageDiagnosticText $raw
+                Assert ($safe -ceq 'SupportTemplates: Missing directory: [location omitted]') 'Unsafe location disclosed or cause discarded'
+                $message = Get-PackageNativeMessage $raw 1 Install
+                Assert ($message -ceq 'Ошибка установки (код 1): Missing directory: [location omitted]') 'Redacted missing-directory cause lost'
+                $wrapped = New-Object System.Reflection.TargetInvocationException('Invocation wrapper', (New-Object IO.IOException($raw)))
+                Assert ((Get-PackageConsoleError $wrapped) -ceq 'Ошибка подготовки пакета: Missing directory: [location omitted]') 'Local missing-directory cause lost'
+            }
+        } finally { $env:LOCALAPPDATA = $savedLocal }
+    }
+    Test 'Redaction-only lines do not replace causes and long missing-directory details remain bounded' {
+        $raw = "SupportTemplates: Missing directory: [location omitted]`nSupportTemplates: [sensitive diagnostic omitted]`nAuthorization: Bearer abc-secret`nCookie: abc-cookie`nToken=abc-token`nPassword=abc-password`napi_key=abc-key`nresponse body=abc-body`nhttps://example.invalid/?value=abc-url"
+        $message = Get-PackageNativeMessage $raw 1 Install
+        Assert ($message -ceq 'Ошибка установки (код 1): Missing directory: [location omitted]') 'Redaction-only tail hid the cause'
+        $safe = ConvertTo-PackageDiagnosticText $raw
+        Assert ($safe -notmatch 'abc-|Bearer|Authorization:|https://') 'Credential or URL redaction weakened'
+        foreach ($markers in @('[location omitted]', 'SupportTemplates Lite: [sensitive diagnostic omitted]', '[location omitted] [sensitive diagnostic omitted]')) {
+            Assert ((Get-PackageNativeMessage $markers 1 Install) -ceq 'Не удалось установить SupportTemplates (код 1).') 'Redaction-only output became a cause'
+        }
+        $long = 'SupportTemplates: Missing directory: [location omitted] ' + ('x' * 400)
+        $detail = Get-PackageDiagnosticDetail $long
+        Assert ($detail.StartsWith('Missing directory:') -and $detail.Length -eq 240 -and $detail.EndsWith('...')) 'Long cause disappeared instead of shortening'
+        Assert ((Get-PackageNativeMessage $long 1 Install).Contains($detail)) 'Native message discarded long cause'
+        Assert ((ConvertTo-PackageDiagnosticText ('x' * 6000)).Length -eq 4096) 'Diagnostic text limit changed'
+        $ambiguous = "SupportTemplates: Missing directory: C:\PrivateUser\Invalid ASAR\runtime`nAdditional diagnostic unavailable"
+        Assert ((Get-PackageNativeMessage $ambiguous 1 Install) -ceq 'Ошибка установки (код 1): Missing directory: [location omitted]') 'Missing directory replaced by a path keyword or unrelated tail'
+        $unknown = Get-PackageNativeMessage "SupportTemplates: unknown failure at C:\PrivateUser\runtime`n[sensitive diagnostic omitted]" 1 Install
+        Assert ($unknown -ceq 'Ошибка установки (код 1): unknown failure at [location omitted]') 'Other useful redacted native causes still disappear'
+    }
     Test 'Known failures keep the cause and a short resolvable log path through wrapper exceptions' {
+        $redirected = Get-PackageNativeMessage "Runtime storage is redirected. Run install.bat from File Explorer.`nExpected: C:\Users\Private User\runtime`nActual: C:\Users\Private User\hidden-runtime" 1 Install
+        Assert ($redirected -match 'перенаправлены.*Проводника' -and $redirected -notmatch 'Private User|код 1') 'Filesystem redirection lost its actionable cause'
         $failure = New-Object InvalidOperationException('Native installer failed')
         $failure.Data['PackageConsoleMessage'] = Get-PackageNativeMessage 'Same version has different package content; use a new version' 1 Install
         $failure.Data['PackageDiagnosticPath'] = Join-Path $env:LOCALAPPDATA 'SupportTemplates\installer-updates\installer-diagnostics.log'

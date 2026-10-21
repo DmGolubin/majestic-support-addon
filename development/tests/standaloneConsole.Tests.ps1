@@ -11,7 +11,7 @@ $utf8 = New-Object Text.UTF8Encoding($false)
 $passed = 0
 function Assert($value, [string]$message) { if (-not $value) { throw $message } }
 function Put([string]$path, [string]$text) { [IO.File]::WriteAllText($path, $text, $utf8) }
-function Run([string]$bat, [string]$keys = '', [string]$arguments = '', [int]$nativeExit = 0, [int]$updateExit = 0, [string]$clients = 'Stable,Canary', [int]$installExit = 0, [int]$detectExit = 0, [string]$launcherRoot = $package, [switch]$directHelper, [string]$inspectionKind = 'none', [int]$inspectExit = 0, [switch]$waitForClosePrompt) {
+function Run([string]$bat, [string]$keys = '', [string]$arguments = '', [int]$nativeExit = 0, [int]$updateExit = 0, [string]$clients = 'Stable,Canary', [int]$installExit = 0, [int]$detectExit = 0, [string]$launcherRoot = $package, [switch]$directHelper, [string]$inspectionKind = 'none', [int]$inspectExit = 0, [switch]$waitForClosePrompt, [object[]]$menuSteps = @()) {
     $trace = Join-Path $root ('trace-' + [guid]::NewGuid().ToString('N') + '.jsonl')
     $info = New-Object Diagnostics.ProcessStartInfo
     $info.FileName = $env:ComSpec
@@ -44,6 +44,31 @@ function Run([string]$bat, [string]$keys = '', [string]$arguments = '', [int]$na
     $stderr = $process.StandardError.ReadToEndAsync()
     $prefix = ''
     $process.StandardInput.Write($keys)
+    try {
+        foreach ($step in $menuSteps) {
+            $found = $false
+            for ($lineNumber = 0; $lineNumber -lt 100; $lineNumber++) {
+                $read = $process.StandardOutput.ReadLineAsync()
+                if (-not $read.Wait(10000)) { throw ('Timed out waiting for menu: ' + $step.Prompt) }
+                $line = $read.Result
+                if ($null -eq $line) { break }
+                $prefix += $line + "`n"
+                if ($line.Contains($step.Prompt)) { $found = $true; break }
+            }
+            Assert $found ('Menu missing: ' + $prefix)
+            $process.StandardInput.Write($step.Select)
+            $process.StandardInput.Flush()
+            Assert (-not $process.WaitForExit(200)) 'Selection completed before Enter'
+            $actions = @((Get-Content -LiteralPath $trace) | ForEach-Object { ($_ | ConvertFrom-Json).action }) -join ','
+            Assert ($actions -ceq $step.Actions) ('Selection ran an operation before Enter: ' + $actions)
+            $process.StandardInput.Write($step.Resume)
+            $process.StandardInput.Flush()
+        }
+    } catch {
+        if (-not $process.HasExited) { $process.Kill() }
+        $process.Dispose()
+        throw
+    }
     if ($waitForClosePrompt) {
         try {
             $found = $false
@@ -53,7 +78,7 @@ function Run([string]$bat, [string]$keys = '', [string]$arguments = '', [int]$na
                 $line = $read.Result
                 if ($null -eq $line) { break }
                 $prefix += $line + "`n"
-                if ($line -eq '[0] Закрыть') { $found = $true; break }
+                if ($line -eq '[0 / Enter / Esc] Закрыть') { $found = $true; break }
             }
             Assert $found ('Close prompt missing: ' + $prefix)
             Assert (-not $process.WaitForExit(150)) 'Error screen closed before the user chose 0'
@@ -128,35 +153,35 @@ if ($MyInvocation.InvocationName -ne '.') {
 '@
 foreach ($mod in @('vencord','betterdiscord')) {
     Check ("conversion $mod cancellation never installs or closes") {
-        $r = Run 'install.bat' '1100' -inspectionKind $mod
+        $r = Run 'install.bat' "1`n1`n00" -inspectionKind $mod
         Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect') $r.output
         Assert (@($r.calls | Where-Object { $_.kind -eq 'updater' -and $_.closeDiscord }).Count -eq 0) 'Cancellation closed client'
         Assert ($r.output.Contains('[1] Заменить на SupportTemplates') -and $r.output.Contains('файлы и настройки сохранятся')) $r.output
     }
     Check ("conversion $mod explicit replacement ignores invalid keys") {
-        $r = Run 'install.bat' '11xyz291' -inspectionKind $mod
+        $r = Run 'install.bat' "1`n1`nxyz291`n" -inspectionKind $mod
         Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect,Install') $r.output
         Assert ($r.calls[3].replacement -ceq $mod -and $r.calls[3].closeDiscord -and -not $r.calls[2].closeDiscord) 'Wrong conversion consent or closure'
     }
 }
 Check 'conversion cancellation EOF never installs' {
-    $r = Run 'install.bat' '11' -inspectionKind vencord
+    $r = Run 'install.bat' "1`n1`n" -inspectionKind vencord
     Assert ($r.code -ne 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect') $r.output
 }
 Check 'unsupported inspection gives reason and returns without install' {
-    $r = Run 'install.bat' '1100' -inspectionKind unsupported
+    $r = Run 'install.bat' "1`n1`n00" -inspectionKind unsupported
     Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect' -and $r.output.Contains('Причина: Установленный мод не поддерживает') -and -not $r.output.Contains('Fixture unsupported installation')) $r.output
 }
 Check 'failed inspection returns before install or closing' {
-    $r = Run 'install.bat' '1100' -inspectExit 9
+    $r = Run 'install.bat' "1`n1`n00" -inspectExit 9
     Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect' -and -not $r.calls[2].closeDiscord -and $r.output.Contains('Fixture operation unavailable.')) $r.output
 }
 Check 'malformed inspection cannot install' {
-    $r = Run 'install.bat' '1100' -inspectionKind malformed
+    $r = Run 'install.bat' "1`n1`n00" -inspectionKind malformed
     Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect') $r.output
 }
 Check 'owned SupportTemplates needs no replacement confirmation or flag' {
-    $r = Run 'install.bat' '11' -inspectionKind supporttemplates
+    $r = Run 'install.bat' "1`n1`n" -inspectionKind supporttemplates
     Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect,Install' -and $r.calls[3].replacement -ceq '' -and -not $r.output.Contains('Заменить на SupportTemplates')) $r.output
 }
 Check 'explicit install: quoted args/WhatIf, exact exit, no updater/detection' {
@@ -171,7 +196,7 @@ Check 'explicit uninstall: args and exact exit, no updater/detection' {
 Check 'install home exit: startup Update Console, UTF8, no output execution' {
     $r = Run 'install.bat' '0'
     Assert ($r.code -eq 0 -and $r.calls.Count -eq 1 -and $r.calls[0].action -eq 'Update' -and $r.calls[0].console) $r.output
-    Assert ($r.output.Contains('[1] Установить') -and $r.output.Contains('[0] Выход')) $r.output
+    Assert ($r.output.Contains('[Enter] Выбрать Discord') -and $r.output.Contains('[0 / Esc] Выход')) $r.output
     Assert ($r.output.Contains('Версия установщика: 1.0.3') -and $r.output.Contains('SupportTemplates / 1.0.4')) 'Installer and selected package versions must be shown on the correct screens'
     Assert (-not (Test-Path -LiteralPath (Join-Path $root 'unexpected.txt'))) 'Updater output executed as cmd'
 }
@@ -180,83 +205,83 @@ Check 'startup update failure does not prevent explicit exit' {
     Assert ($r.code -eq 0 -and $r.calls.Count -eq 1) $r.output
 }
 Check 'only Canary: visible choice 1 invokes Install Console Canary and exits' {
-    $r = Run 'install.bat' '11' '' 0 0 'Canary'
+    $r = Run 'install.bat' "1`n1`n" '' 0 0 'Canary'
     Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect,Install' -and $r.calls[3].channel -eq 'Canary' -and $r.calls[3].console) $r.output
     Assert ($r.output.Contains('[1] Discord Canary') -and -not $r.output.Contains('[2] Discord')) $r.output
     Assert (@($r.calls.pid | Select-Object -Unique).Count -eq 1) 'Update, client selection/Detect and Install did not share one process'
     Assert (-not $r.calls[0].closeDiscord -and -not $r.calls[2].closeDiscord -and $r.calls[3].closeDiscord) 'Console installer omitted CloseDiscord'
 }
 Check 'network failure still allows install in the persistent process' {
-    $r = Run 'install.bat' '11' '' 0 7 'Canary'
+    $r = Run 'install.bat' "1`n1`n" '' 0 7 'Canary'
     Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect,Install' -and $r.output.Contains('Fixture operation unavailable.')) $r.output
     Assert (@($r.calls.pid | Select-Object -Unique).Count -eq 1 -and $r.calls[3].closeDiscord) 'Network failure lost persistent installer context'
 }
 Check 'cancel and reselect retains one process and calls Update only once' {
-    $r = Run 'install.bat' '1011' '' 0 0 'Canary'
+    $r = Run 'install.bat' "1`n01`n1`n" '' 0 0 'Canary'
     Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Detect,Inspect,Install') $r.output
     Assert (@($r.calls.pid | Select-Object -Unique).Count -eq 1) 'Picker restart spawned a fresh installer process'
 }
 foreach ($selection in @(@('1', 'Stable'), @('2', 'Canary'), @('3', 'PTB'))) {
     Check ('all clients: choice ' + $selection[0] + ' maps to ' + $selection[1]) {
-        $r = Run 'install.bat' ('1' + $selection[0]) '' 0 0 'Stable,Canary,PTB'
+        $r = Run 'install.bat' ("1`n" + $selection[0] + "`n") '' 0 0 'Stable,Canary,PTB'
         Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect,Install' -and $r.calls[3].channel -eq $selection[1]) $r.output
         Assert ($r.output.Contains('[1] Discord') -and $r.output.Contains('[2] Discord Canary') -and $r.output.Contains('[3] Discord PTB')) $r.output
     }
 }
 Check 'single PTB: consecutive choice maps to fixed PTB channel code' {
-    $r = Run 'install.bat' '11' '' 0 0 'PTB'
+    $r = Run 'install.bat' "1`n1`n" '' 0 0 'PTB'
     Assert ($r.code -eq 0 -and $r.calls.Count -eq 4 -and $r.calls[3].channel -eq 'PTB' -and $r.output.Contains('[1] Discord PTB')) $r.output
 }
-Check 'redirected excess characters Enter and ANSI arrows are silent and ignored' {
-    $r = Run 'install.bat' ("xyz`r`n" + [char]27 + '[A' + [char]27 + '[1;2A' + "1xyz`r`n" + [char]27 + '[3~1') '' 0 0 'Canary'
+Check 'redirected invalid keys stay silent while ANSI arrows select and CRLF confirms once' {
+    $r = Run 'install.bat' ("xyz" + [char]27 + '[1;2A' + "1`r`n" + [char]27 + '[B' + [char]27 + '[3~' + "1xyz`r`n") '' 0 0 'Canary'
     Assert ($r.code -eq 0 -and $r.calls.Count -eq 4 -and $r.calls[3].channel -eq 'Canary') $r.output
     Assert (-not $r.output.Contains('xyz') -and -not $r.output.Contains('[1;2A') -and -not $r.output.Contains([string][char]7)) 'Input echoed or emitted BEL'
 }
 Check 'uninstalled channel number ignored instead of selecting Canary implicitly' {
-    $r = Run 'install.bat' '1231' '' 0 0 'Canary'
+    $r = Run 'install.bat' "1`n231`n" '' 0 0 'Canary'
     Assert ($r.code -eq 0 -and $r.calls.Count -eq 4 -and $r.calls[3].channel -eq 'Canary') $r.output
 }
 Check 'no clients: back and exit do not install' {
-    $r = Run 'install.bat' '100' '' 0 0 ''
+    $r = Run 'install.bat' "1`n00" '' 0 0 ''
     Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect' -and $r.output.Contains('Discord не найден')) $r.output
 }
 Check 'cancel detected client picker returns to home without installing' {
-    $r = Run 'install.bat' '100'
+    $r = Run 'install.bat' "1`n00"
     Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect') $r.output
 }
 Check 'install exception: returns failure code 1 and never prints success' {
-    $r = Run 'install.bat' '11' '' 0 0 'Canary' 19
+    $r = Run 'install.bat' "1`n1`n" '' 0 0 'Canary' 19
     Assert ($r.code -eq 1 -and $r.calls.Count -eq 4 -and $r.output.Contains('Fixture operation unavailable.') -and -not $r.output.Contains('Готово.')) $r.output
 }
 Check 'failed Detect fails closed without installation' {
-    $r = Run 'install.bat' '11' '' 0 0 'Canary' 0 4
+    $r = Run 'install.bat' "1`n1`n" '' 0 0 'Canary' 0 4
     Assert ($r.code -ne 0 -and ($r.calls.action -join ',') -eq 'Update,Detect') $r.output
 }
 Check 'malformed Detect JSON fails closed' {
-    $r = Run 'install.bat' '11' '' 0 0 'MALFORMED'
+    $r = Run 'install.bat' "1`n1`n" '' 0 0 'MALFORMED'
     Assert ($r.code -ne 0 -and ($r.calls.action -join ',') -eq 'Update,Detect') $r.output
 }
 Check 'Detect failure remains readable until explicit close, without installing' {
-    $r = Run 'install.bat' '1' -detectExit 4 -waitForClosePrompt
-    Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect' -and $r.output.Contains('Установка не начата.') -and $r.output.Contains('[0] Закрыть')) $r.output
+    $r = Run 'install.bat' "1`n" -detectExit 4 -waitForClosePrompt
+    Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect' -and $r.output.Contains('Установка не начата.') -and $r.output.Contains('[0 / Enter / Esc] Закрыть')) $r.output
     Assert (-not $r.output.Contains('xyz') -and -not $r.output.Contains([string][char]7)) 'Close input echoed or rang'
 }
 Check 'malformed Detect remains readable until explicit close' {
-    $r = Run 'install.bat' '1' -clients MALFORMED -waitForClosePrompt
-    Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect' -and $r.output.Contains('[0] Закрыть')) $r.output
+    $r = Run 'install.bat' "1`n" -clients MALFORMED -waitForClosePrompt
+    Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect' -and $r.output.Contains('[0 / Enter / Esc] Закрыть')) $r.output
 }
 Check 'Install failure remains readable until explicit close' {
-    $r = Run 'install.bat' '11' -installExit 9 -waitForClosePrompt
+    $r = Run 'install.bat' "1`n1`n" -installExit 9 -waitForClosePrompt
     Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect,Install' -and $r.output.Contains('Fixture operation unavailable.') -and -not $r.output.Contains('Установка завершена')) $r.output
 }
 Check 'completed operation returns every ordinary output line without control sequences or fake progress' {
-    $r = Run 'install.bat' '11'
+    $r = Run 'install.bat' "1`n1`n"
     Assert ($r.code -eq 0 -and $r.output.Contains('SupportTemplates установлен.') -and $r.output.Contains('Перезапустите Discord.')) $r.output
     Assert (-not $r.output.Contains([string][char]27) -and $r.output -notmatch '\d+%|\[F2\]|\[F3\]|Сценарии|Выбор логотипа') 'Nonproduction output'
 }
 Check 'unknown and duplicate detected clients fail closed' {
     foreach ($clients in @('Unknown','Canary,Canary')) {
-        $r = Run 'install.bat' '1' -clients $clients
+        $r = Run 'install.bat' "1`n" -clients $clients
         Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect') $r.output
     }
 }
@@ -269,19 +294,69 @@ Check 'direct helper EOF returns 255 before BAT normalizes it to 1' {
     Assert ($r.code -eq 255 -and $r.calls.Count -eq 1 -and $r.output.Contains('Не удалось прочитать выбор')) $r.output
 }
 Check 'closed picker input: bounded nonzero failure' {
-    $r = Run 'install.bat' '1'
+    $r = Run 'install.bat' "1`n"
     Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect') $r.output
 }
+Check 'open input: digits and arrows only select; each Enter unlocks exactly the next menu operation' {
+    $r = Run 'install.bat' -clients 'Stable,Canary,PTB' -inspectionKind vencord -menuSteps @(
+        @{Prompt='[Enter] Выбрать Discord';Select=('111' + [char]27 + '[B');Actions='Update';Resume="`n"}
+        @{Prompt='[Enter] Установить';Select=('2' + [char]27 + '[B');Actions='Update,Detect';Resume="`n"}
+        @{Prompt='[Enter] Подтвердить';Select=('111' + [char]27 + '[A');Actions='Update,Detect,Inspect';Resume="`n"}
+    )
+    Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect,Install' -and $r.calls[3].channel -ceq 'PTB' -and $r.calls[3].replacement -ceq 'vencord') $r.output
+}
+Check 'bare Enter confirms the preselected first available client' {
+    $r = Run 'install.bat' "`n`n" -clients PTB
+    Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect,Install' -and $r.calls[3].channel -ceq 'PTB') $r.output
+}
+Check 'selection then EOF never advances the home, picker or replacement menu' {
+    foreach ($case in @(
+        @{Keys='123';Actions='Update'},
+        @{Keys="1`n2";Actions='Update,Detect'},
+        @{Keys="1`n1`n1";Actions='Update,Detect,Inspect'},
+        @{Keys=("1`n1`n" + [char]27 + '[B');Actions='Update,Detect,Inspect'}
+    )) {
+        $r = Run 'install.bat' $case.Keys -inspectionKind vencord
+        Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -ceq $case.Actions) $r.output
+        Assert (@($r.calls | Where-Object { $_.kind -eq 'updater' -and $_.closeDiscord }).Count -eq 0) 'EOF closed client'
+    }
+}
+Check 'Esc cancels pending selection with input still open and returns to home' {
+    $r = Run 'install.bat' -menuSteps @(
+        @{Prompt='[Enter] Выбрать Discord';Select='1';Actions='Update';Resume="`n"}
+        @{Prompt='[Enter] Установить';Select='2';Actions='Update,Detect';Resume=([string][char]27)}
+        @{Prompt='[Enter] Выбрать Discord';Select='1';Actions='Update,Detect';Resume='0'}
+    )
+    Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect') $r.output
+}
+Check 'Esc cancels replacement selection and exits home without closing a client' {
+    $r = Run 'install.bat' "1`n1`n" -inspectionKind betterdiscord -menuSteps @(
+        @{Prompt='[Enter] Подтвердить';Select='1';Actions='Update,Detect,Inspect';Resume=([string][char]27)}
+        @{Prompt='[Enter] Выбрать Discord';Select='';Actions='Update,Detect,Inspect';Resume=([string][char]27)}
+    )
+    Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect') $r.output
+}
+Check 'CRLF cannot confirm two menus or trigger replacement' {
+    $r = Run 'install.bat' "1`r`n1`r`n1" -inspectionKind vencord
+    Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect') $r.output
+    $r = Run 'uninstall.bat' "1`r`n1"
+    Assert ($r.code -eq 1 -and ($r.calls.action -join ',') -eq 'Detect') $r.output
+}
+Check 'arrows wrap only among detected choices and modified ANSI controls are ignored' {
+    $r = Run 'install.bat' ("`n" + [char]27 + '[A' + [char]27 + '[1;2B' + [char]27 + '[1;3D' + [char]27 + '[1;5C' + "`n") -clients 'Stable,Canary,PTB'
+    Assert ($r.code -eq 0 -and $r.calls[3].channel -ceq 'PTB') $r.output
+    Assert (-not $r.output.Contains('[1;2B') -and -not $r.output.Contains([string][char]7)) 'Unwanted control echoed'
+}
 Check 'uninstall: only Canary choice 1 then confirmation, native and exit' {
-    $r = Run 'uninstall.bat' '11' '' 0 0 'Canary'
+    $r = Run 'uninstall.bat' "1`n1`n" '' 0 0 'Canary'
     Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Detect,Uninstall' -and $r.calls[1].channel -eq 'Canary' -and $r.calls[1].kind -eq 'native') $r.output
 }
 Check 'uninstall: cancellation and picker exit never call updater or uninstall' {
-    $r = Run 'uninstall.bat' '100' '' 0 0 'Canary'
+    $r = Run 'uninstall.bat' "1`n00" '' 0 0 'Canary'
     Assert ($r.code -eq 0 -and @($r.calls | Where-Object { $_.action -ne 'Detect' }).Count -eq 0) $r.output
 }
 Check 'uninstall: PTB native error preserved and no false success' {
-    $r = Run 'uninstall.bat' '31' '' 29 0 'Stable,Canary,PTB'
+    $r = Run 'uninstall.bat' "3`n1`n" '' 29 0 'Stable,Canary,PTB'
     Assert ($r.code -eq 29 -and ($r.calls.action -join ',') -eq 'Detect,Uninstall' -and $r.calls[1].channel -eq 'PTB' -and -not $r.output.Contains('Готово.')) $r.output
 }
 Check 'uninstall: no clients only back exits' {
@@ -331,7 +406,7 @@ if ($Benchmark) {
         foreach ($variant in $order) {
             $location = $package
             if ($variant -eq 'old') { $location = $old }
-            $r = Run 'install.bat' '11' '' 0 0 'Canary' 0 0 $location
+            $r = Run 'install.bat' "1`n1`n" '' 0 0 'Canary' 0 0 $location
             $expectedActions = 'Update,Detect,Inspect,Install'
             if ($variant -eq 'old') { $expectedActions = 'Update,Detect,Install' }
             Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq $expectedActions) $r.output

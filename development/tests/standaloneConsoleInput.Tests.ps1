@@ -1,4 +1,4 @@
-# Actual Windows console events, in a hidden private console; no SendKeys or user-window input.
+﻿# Actual Windows console events, in a hidden private console; no SendKeys or user-window input.
 $ErrorActionPreference = 'Stop'
 $root = Join-Path ([IO.Path]::GetTempPath()) ('SupportTemplates-console-input-' + [guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($root) | Out-Null
@@ -86,16 +86,12 @@ public static class ConsoleProbe {
             return code;
         } finally { CloseHandle(info.thread); CloseHandle(info.process); }
     }
-    public static void Queue() {
+    public static void Queue(ushort[] keys, char[] chars, uint[] states) {
         uint[] ids = new uint[4];
         uint count = GetConsoleProcessList(ids, 4);
         if (count != 1 || ids[0] != (uint)System.Diagnostics.Process.GetCurrentProcess().Id ||
             Console.IsInputRedirected || IsWindowVisible(GetConsoleWindow()))
             throw new Exception("Refusing input injection: console must be hidden and private");
-        // Shift itself has NUL KeyChar; Shift+1 is punctuation. Only final two events are choices.
-        ushort[] keys = { 0x10, 0x31, 0x31, 0x31, 0x26, 0x0d, 0x58, 0x31, 0x60 };
-        char[] chars = { '\0', '!', '1', '1', '\0', '\r', 'x', '1', '0' };
-        uint[] states = { 0x10, 0x10, 0x2, 0x8, 0, 0, 0, 0, 0x10 };
         var events = new Input[keys.Length*2];
         for (int i=0; i<keys.Length; i++) {
             var item = new Input { Type=1, Down=1, Repeat=1, VirtualKey=keys[i], Character=chars[i], State=states[i] };
@@ -105,6 +101,28 @@ public static class ConsoleProbe {
         if (!WriteInput(GetStdHandle(-10), events, (uint)events.Length, out written) || written != events.Length)
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
     }
+    public static void Queue() {
+        // Selection must end on keypad 3. Modified Enter/Esc/0 must never act.
+        Queue(
+            new ushort[] { 0x10,0x31,0x31,0x31,0x32,0x26,0x25,0x27,0x28,0x63,0x0d,0x0d,0x0d,0x1b,0x1b,0x1b,0x30,0x30,0x30,0x22,0x21,0x24,0x09,0x08,0x58 },
+            new char[] { '\0','!','1','1','2','\0','\0','\0','\0','3','\r','\r','\r','\x1b','\x1b','\x1b','0','0','0','\0','\0','\0','\t','\b','x' },
+            new uint[] { 0x10,0x10,0x2,0x8,0,0,0,0,0,0,0x10,0x2,0x8,0x10,0x2,0x8,0x10,0x2,0x8,0,0,0,0,0,0 });
+    }
+    static System.Threading.Thread confirmer;
+    public static string SelectedScreen;
+    public static string ConfirmationError;
+    public static void ConfirmLater() {
+        confirmer = new System.Threading.Thread(() => {
+            try {
+                System.Threading.Thread.Sleep(500);
+                SelectedScreen = Screen();
+                Queue(new ushort[] { 0x0d }, new char[] { '\r' }, new uint[] { 0 });
+            } catch (Exception error) { ConfirmationError = error.ToString(); }
+        });
+        confirmer.IsBackground = true;
+        confirmer.Start();
+    }
+    public static void FinishConfirmation() { confirmer.Join(); }
 }
 "@
 Add-Type -Path $dll
@@ -125,12 +143,28 @@ try {
     [ConsoleProbe]::Queue()
     `$wait = Invoke-ConsoleOperation 'Update' '' (Split-Path `$Helper -Parent) 'Checking package' 'Fixture operation'
     if (-not `$wait.Success) { throw 'Fake operation failed' }
-    Show-ConsoleScreen 'Install' @(New-ConsoleLine 'Fixture package checked') '[1] Install    [0] Exit'
+    Show-ConsoleScreen 'Install' @(
+        New-ConsoleLine '[1] Discord' 'Text' 'Left' '1'
+        New-ConsoleLine '[2] Discord Canary' 'Text' 'Left' '2'
+        New-ConsoleLine '[3] Discord PTB' 'Text' 'Left' '3'
+    ) '[Enter] Install    [0 / Esc] Exit'
     `$screen = [ConsoleProbe]::Screen()
-    if (-not `$screen.Contains('.--------.') -or -not `$screen.Contains('[1] Install')) { throw ('Incomplete console frame: ' + `$screen) }
-    `$first = Read-MenuKey '10'
-    `$second = Read-MenuKey '10'
-    if (`$first -ne 1 -or `$second -ne 2) { throw "Wrong selections: `$first,`$second" }
+    if (-not `$screen.Contains('.--------.') -or -not `$screen.Contains('[1] Discord  < выбран >')) { throw ('Incomplete console frame: ' + `$screen) }
+    `$timer = [Diagnostics.Stopwatch]::StartNew()
+    [ConsoleProbe]::ConfirmLater()
+    `$first = Read-MenuKey '1230'
+    `$elapsed = `$timer.ElapsedMilliseconds
+    [ConsoleProbe]::FinishConfirmation()
+    if ([ConsoleProbe]::ConfirmationError) { throw [ConsoleProbe]::ConfirmationError }
+    `$selectedScreen = [ConsoleProbe]::SelectedScreen
+    if (`$first -ne 3 -or `$elapsed -lt 400 -or -not `$selectedScreen.Contains('[3] Discord PTB  < выбран >')) { throw "Selection acted before Enter or highlighted the wrong choice: `$first / `$elapsed / `$selectedScreen" }
+    [ConsoleProbe]::Queue([uint16[]]@(0x60), [char[]]@('0'), [uint32[]]@(0))
+    `$second = Read-MenuKey '1230'
+    [ConsoleProbe]::Queue([uint16[]]@(0x1b), [char[]]@([char]27), [uint32[]]@(0))
+    `$escape = Read-MenuKey '1230'
+    if (`$second -ne 4 -or `$escape -ne 4) { throw "Cancel required Enter: `$second,`$escape" }
+    [ConsoleProbe]::Queue([uint16[]]@(0x61,0x0d), [char[]]@('1', [char]13), [uint32[]]@(0,0))
+    if ((Read-MenuKey '1230') -ne 1) { throw 'Keypad selection plus Enter failed' }
     Restore-ConsoleView
     `$mode = [uint32]0
     if (-not [SupportTemplatesConsoleMode]::GetConsoleMode([SupportTemplatesConsoleMode]::GetStdHandle(-11),[ref]`$mode) -or `$mode -ne `$originalMode) { throw 'Console mode not restored' }
@@ -142,7 +176,7 @@ try {
         if (`$failed.Success) { throw 'Expected fake failure' }
     } finally { Restore-ConsoleView }
     if ([Console]::Title -cne `$before.title -or [Console]::CursorVisible -ne `$before.cursor -or [Console]::OutputEncoding.CodePage -ne `$before.encoding) { throw 'Console state not restored after failure' }
-    @{ok=`$true;hidden=`$true;isolated=`$true;first=`$first;second=`$second;screen=`$screen;busyScreen=`$busyScreen;restored=`$true;typeAheadPreserved=`$true} | ConvertTo-Json | Set-Content -LiteralPath `$Result -Encoding UTF8
+    @{ok=`$true;hidden=`$true;isolated=`$true;first=`$first;second=`$second;escape=`$escape;waitedForEnterMs=`$elapsed;screen=`$screen;selectedScreen=`$selectedScreen;busyScreen=`$busyScreen;restored=`$true;typeAheadPreserved=`$true} | ConvertTo-Json | Set-Content -LiteralPath `$Result -Encoding UTF8
     exit 0
 } catch {
     @{ok=`$false;error=[string]`$_} | ConvertTo-Json | Set-Content -LiteralPath `$Result -Encoding UTF8
@@ -157,5 +191,5 @@ if (-not (Test-Path -LiteralPath $result)) { throw "Probe returned $code without
 $evidence = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
 if ($code -ne 0 -or -not $evidence.ok) { throw (Get-Content -LiteralPath $result -Raw) }
 # Selection/filtering is asserted; acoustic output and terminal visual rendering are not measured.
-Write-Output 'PASS hidden private console: animated operation preserves queued digits; Shift/NUL, Shift+1, Alt/Ctrl digits, arrow, Enter, invalid letter ignored; ST frame and console restoration verified'
+Write-Output 'PASS hidden private console: numbers/keypad/arrows highlight until delayed Enter; modified Enter/Esc/digits and unsupported controls ignored; 0/Esc cancel; runspace type-ahead, ST frame and console restoration verified'
 Write-Output "Evidence: $result"

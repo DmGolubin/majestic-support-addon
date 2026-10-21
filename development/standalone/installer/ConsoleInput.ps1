@@ -7,40 +7,100 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
 $script:ConsoleView = $null
+$script:MenuStream = $null
+$script:MenuPending = $null
+$script:MenuByte = New-Object byte[] 1
+
+function Read-MenuByte([int]$Timeout = -1) {
+    if ($null -eq $script:MenuStream) { $script:MenuStream = [Console]::OpenStandardInput() }
+    if ($null -eq $script:MenuPending) {
+        if ($Timeout -lt 0) { return $script:MenuStream.ReadByte() }
+        $script:MenuPending = $script:MenuStream.ReadAsync($script:MenuByte, 0, 1)
+    }
+    if ($Timeout -ge 0 -and -not $script:MenuPending.Wait($Timeout)) { return -2 }
+    $count = $script:MenuPending.GetAwaiter().GetResult()
+    $script:MenuPending = $null
+    if ($count -eq 0) { return -1 }
+    return [int]$script:MenuByte[0]
+}
+
+function Read-MenuInput {
+    if ([Console]::IsInputRedirected) {
+        $value = Read-MenuByte
+        if ($value -lt 0) { throw 'Input closed' }
+        # LF confirms a redirected line; CR is ignored so CRLF cannot confirm two
+        # menus, including the uninstall launcher's separate helper processes.
+        if ($value -eq 10) { return 'Enter' }
+        if ($value -eq 27) {
+            # Distinguish a bare Esc from ANSI navigation without waiting for EOF.
+            # Keep any pending byte read for the next menu after cancellation.
+            $next = Read-MenuByte 65
+            if ($next -lt 0) { return 'Escape' }
+            if ($next -notin @(91, 79)) { return 'Ignore' } # Alt + character
+            $sequence = ''
+            do {
+                $next = Read-MenuByte
+                if ($next -lt 0) { throw 'Input closed' }
+                $sequence += [char]$next
+            } while ($next -lt 64 -or $next -gt 126)
+            switch ($sequence) {
+                'A' { return 'UpArrow' }; 'B' { return 'DownArrow' }
+                'C' { return 'RightArrow' }; 'D' { return 'LeftArrow' }
+                '5~' { return 'PageUp' }; '6~' { return 'PageDown' }
+            }
+            return 'Ignore'
+        }
+        if ($value -ge 48 -and $value -le 57) { return [string][char]$value }
+        return 'Ignore'
+    }
+    # Intercept every key, including modifiers and unsupported controls, silently.
+    $key = [Console]::ReadKey($true)
+    if ($key.Modifiers -ne 0) { return 'Ignore' }
+    if ($key.Key -in @([ConsoleKey]::Enter, [ConsoleKey]::Escape, [ConsoleKey]::UpArrow,
+        [ConsoleKey]::DownArrow, [ConsoleKey]::LeftArrow, [ConsoleKey]::RightArrow,
+        [ConsoleKey]::PageUp, [ConsoleKey]::PageDown)) { return $key.Key.ToString() }
+    if ($key.KeyChar -ge '0' -and $key.KeyChar -le '9') { return [string]$key.KeyChar }
+    return 'Ignore'
+}
+
+function Set-MenuSelection([string]$Key) {
+    if ($null -ne $script:ConsoleView -and $null -ne $script:ConsoleView.Screen) {
+        $script:ConsoleView.Screen.SelectedKey = $Key
+        $script:ConsoleView.FollowSelection = $true
+        Update-ConsoleScreen
+    } else {
+        # Legacy -Action Key/Clients callers keep their existing action text.
+        Write-Host ('  [{0}] < выбран >    [Enter] Подтвердить    [0 / Esc] Назад' -f $Key)
+    }
+}
 
 function Read-MenuKey([string]$Allowed) {
-    # ReadKey(intercept:true) consumes unwanted keys silently, unlike choice.exe.
-    # Unbuffered byte reads preserve remaining redirected input for the next menu.
-    if ([Console]::IsInputRedirected) {
-        $inputStream = [Console]::OpenStandardInput()
-        while ($true) {
-            $value = $inputStream.ReadByte()
-            if ($value -lt 0) { throw 'Input closed' }
-            if ($value -eq 27) {
-                $next = $inputStream.ReadByte()
-                if ($next -in @(91, 79)) {
-                    do { $next = $inputStream.ReadByte() } while ($next -ge 0 -and ($next -lt 64 -or $next -gt 126))
-                }
-                continue
-            }
-            $index = $Allowed.IndexOf([char]$value)
-            if ($index -ge 0) { return $index + 1 }
-        }
-    }
+    $choices = $Allowed.Replace('0', '')
+    $selected = 0
+    $cancel = $Allowed.IndexOf('0')
+    if ($choices.Length -gt 0) { Set-MenuSelection ([string]$choices[$selected]) }
     while ($true) {
         if ($null -ne $script:ConsoleView -and $script:ConsoleView.Interactive) {
             Update-ConsoleScreen
             if (-not [Console]::KeyAvailable) { Start-Sleep -Milliseconds 65; continue }
         }
-        $key = [Console]::ReadKey($true)
-        if (($key.Modifiers -band ([ConsoleModifiers]::Alt -bor [ConsoleModifiers]::Control)) -ne 0) { continue }
+        $key = Read-MenuInput
+        if ($key -in @('0', 'Escape') -and $cancel -ge 0) { return $cancel + 1 }
         if ($null -ne $script:ConsoleView -and $script:ConsoleView.Interactive) {
-            if ($key.Key -eq [ConsoleKey]::PageUp) { $script:ConsoleView.Page = [Math]::Max(0, $script:ConsoleView.Page - 1); continue }
-            if ($key.Key -eq [ConsoleKey]::PageDown) { $script:ConsoleView.Page = [Math]::Min($script:ConsoleView.Pages - 1, $script:ConsoleView.Page + 1); continue }
+            if ($key -eq 'PageUp') { $script:ConsoleView.Page = [Math]::Max(0, $script:ConsoleView.Page - 1); continue }
+            if ($key -eq 'PageDown') { $script:ConsoleView.Page = [Math]::Min($script:ConsoleView.Pages - 1, $script:ConsoleView.Page + 1); continue }
             if ($script:ConsoleView.TooSmall) { continue }
         }
-        $index = $Allowed.IndexOf($key.KeyChar)
-        if ($index -ge 0) { return $index + 1 }
+        if ($key -eq 'Enter') {
+            if ($choices.Length -eq 0) { return $cancel + 1 }
+            return $Allowed.IndexOf($choices[$selected]) + 1
+        }
+        if ($choices.Length -eq 0) { continue }
+        if ($key -in @('UpArrow','LeftArrow')) { $selected = ($selected + $choices.Length - 1) % $choices.Length }
+        elseif ($key -in @('DownArrow','RightArrow')) { $selected = ($selected + 1) % $choices.Length }
+        elseif ($key.Length -eq 1 -and $choices.IndexOf($key) -ge 0) { $selected = $choices.IndexOf($key) }
+        else { continue }
+        Set-MenuSelection ([string]$choices[$selected])
     }
 }
 
@@ -56,7 +116,7 @@ function Show-DiscordClients {
     if ($clients.Count -eq 0) {
         Write-Host '  Discord не найден. Сначала установите Discord, Canary или PTB.'
         Write-Host ''
-        Write-Host '  [0] Назад'
+        Write-Host '  [0 / Esc] Назад'
         [void](Read-MenuKey '0')
         return 0
     }
@@ -70,7 +130,7 @@ function Show-DiscordClients {
         $allowed += [string]$number
         Write-Host ('  [{0}] {1}' -f $number, $labels[$client.Channel])
     }
-    Write-Host '  [0] Назад'
+    Write-Host '  [0 / Esc] Назад'
     Write-Host ''
     $selected = Read-MenuKey ($allowed + '0')
     if ($selected -gt $clients.Count) { return 0 }
@@ -90,7 +150,7 @@ function Get-InspectionReason([string]$Reason) {
 
 function Show-ConsoleResult([string]$Title, [object[]]$Lines) {
     $footer = ''
-    if ($env:SUPPORT_TEMPLATES_NO_PAUSE -ne '1') { $footer = '[0] Закрыть' }
+    if ($env:SUPPORT_TEMPLATES_NO_PAUSE -ne '1') { $footer = '[0 / Enter / Esc] Закрыть' }
     Show-ConsoleScreen $Title $Lines $footer
     if ($footer) { [void](Read-MenuKey '0') }
 }
@@ -205,7 +265,7 @@ function Start-ConsoleInstall {
         if (-not $startup.Success) { $startupAlign = 'Left' }
         $startupLines = @($startup.Lines | ForEach-Object { New-ConsoleLine $_ 'Muted' $startupAlign })
         while ($true) {
-            Show-ConsoleScreen $title $startupLines '[1] Установить    [0] Выход'
+            Show-ConsoleScreen $title $startupLines '[Enter] Выбрать Discord    [0 / Esc] Выход'
             if ((Read-MenuKey '10') -eq 2) { return 0 }
             $detected = Invoke-ConsoleOperation 'Detect' '' $cache 'Ищем Discord' ''
             if (-not $detected.Success) {
@@ -219,9 +279,11 @@ function Start-ConsoleInstall {
             else { $lines += New-ConsoleLine 'Выбранный Discord будет закрыт перед установкой.' 'Muted'; $lines += New-ConsoleLine }
             for ($i = 0; $i -lt $clients.Count; $i++) {
                 $number = [string]($i + 1); $allowed += $number
-                $lines += New-ConsoleLine ("[{0}] {1}" -f $number, $labels[$clients[$i].Channel])
+                $lines += New-ConsoleLine ("[{0}] {1}" -f $number, $labels[$clients[$i].Channel]) 'Text' 'Left' $number
             }
-            Show-ConsoleScreen 'Куда установить SupportTemplates?' $lines '[0] Назад'
+            $footer = '[0 / Esc] Назад'
+            if ($allowed) { $footer = '[↑ / ↓ / 1-' + $clients.Count + '] Выбрать    [Enter] Установить    [0 / Esc] Назад' }
+            Show-ConsoleScreen 'Куда установить SupportTemplates?' $lines $footer
             $selected = Read-MenuKey ($allowed + '0')
             if ($selected -gt $clients.Count) { continue }
             $channel = $clients[$selected - 1].Channel
@@ -230,7 +292,7 @@ function Start-ConsoleInstall {
             $checked = Invoke-ConsoleOperation 'Inspect' $channel $cache ('Проверяем ' + $label) ''
             if (-not $checked.Success) {
                 $lines = @($checked.Lines | ForEach-Object { New-ConsoleLine $_ 'Muted' 'Left' })
-                Show-ConsoleScreen 'Не удалось продолжить' $lines '[0] Назад'
+                Show-ConsoleScreen 'Не удалось продолжить' $lines '[0 / Esc] Назад'
                 [void](Read-MenuKey '0'); continue
             }
             $inspection = $checked.Value
@@ -240,8 +302,10 @@ function Start-ConsoleInstall {
                     New-ConsoleLine ("В {0} обнаружен {1}." -f $label, $modName)
                     New-ConsoleLine 'Прежние плагины и темы не будут активны.' 'Muted'
                     New-ConsoleLine 'Их файлы и настройки сохранятся.' 'Muted'
+                    New-ConsoleLine
+                    New-ConsoleLine '[1] Заменить на SupportTemplates' 'Text' 'Left' '1'
                 )
-                Show-ConsoleScreen 'Замена установленного мода' $lines '[1] Заменить на SupportTemplates    [0] Назад'
+                Show-ConsoleScreen 'Замена установленного мода' $lines '[↑ / ↓ / 1] Выбрать    [Enter] Подтвердить    [0 / Esc] Назад'
                 if ((Read-MenuKey '10') -eq 2) { continue }
                 $replacement = $inspection.kind
             } elseif ($inspection.kind -notin @('none','supporttemplates') -or $inspection.canReplace) {
@@ -250,7 +314,7 @@ function Start-ConsoleInstall {
                 Show-ConsoleScreen 'Не удалось продолжить' @(
                     New-ConsoleLine 'Эту установку Discord нельзя безопасно заменить.'
                     New-ConsoleLine ('Причина: ' + (Get-InspectionReason $reason)) 'Muted'
-                ) '[0] Назад'
+                ) '[0 / Esc] Назад'
                 [void](Read-MenuKey '0'); continue
             }
             $installed = Invoke-ConsoleOperation 'Install' $channel $cache ('Установка / ' + $label) '' $replacement

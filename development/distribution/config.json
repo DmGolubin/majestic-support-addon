@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.0.11",
+  "version": "1.0.12",
   "channel": "stable",
   "releaseRepository": "DmGolubin/majestic-support-addon",
   "manifestAsset": "support-templates-update.json",

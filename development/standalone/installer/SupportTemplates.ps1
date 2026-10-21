@@ -66,6 +66,35 @@ function Safe-Directory([string]$Path) {
     Safe-Path $Path
     Require ([IO.Directory]::Exists($Path)) "Missing directory: $Path"
 }
+function Get-PhysicalFilePath([string]$Path) {
+    if (-not ('SupportTemplatesRuntimePath' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+public static class SupportTemplatesRuntimePath {
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern uint GetFinalPathNameByHandle(SafeFileHandle handle, StringBuilder path, uint size, uint flags);
+}
+'@
+    }
+    $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+    try {
+        $buffer = New-Object Text.StringBuilder(32768)
+        $length = [SupportTemplatesRuntimePath]::GetFinalPathNameByHandle($stream.SafeFileHandle, $buffer, $buffer.Capacity, 0)
+        Require ($length -gt 0 -and $length -lt $buffer.Capacity) 'Cannot resolve physical runtime file'
+        $actual = $buffer.ToString()
+        if ($actual.StartsWith('\\?\UNC\')) { return '\\' + $actual.Substring(8) }
+        if ($actual.StartsWith('\\?\')) { return $actual.Substring(4) }
+        return $actual
+    } finally { $stream.Dispose() }
+}
+function Assert-SharedRuntimeFile([string]$Path) {
+    # Packaged parent apps can virtualize new files without a reparse point.
+    $actual = Get-PhysicalFilePath $Path
+    Require ((Full $actual) -ieq (Full $Path)) "Runtime storage is redirected. Run install.bat from File Explorer.`nExpected: $Path`nActual: $actual"
+}
 function Hash-Bytes([byte[]]$Bytes) {
     $sha = [Security.Cryptography.SHA256]::Create()
     try { ([BitConverter]::ToString($sha.ComputeHash($Bytes))).Replace('-', '').ToLowerInvariant() }
@@ -142,6 +171,10 @@ function Tree-Files([string]$Root) {
 }
 function Read-Package([string]$Base, [switch]$Stored) {
     Safe-Directory $Base
+    if ($Stored) {
+        Safe-File (Join-Path $Base 'manifest.json')
+        Assert-SharedRuntimeFile (Join-Path $Base 'manifest.json')
+    }
     $manifest = Read-Json (Join-Path $Base 'manifest.json')
     Require (($manifest.schema -is [int] -or $manifest.schema -is [long]) -and $manifest.schema -eq 1 -and $manifest.product -ceq 'SupportTemplates') 'Unknown manifest schema/product'
     Require ($manifest.upstreamCommit -is [string] -and $manifest.upstreamCommit.Length -gt 0) 'Missing upstreamCommit'
@@ -161,6 +194,7 @@ function Read-Package([string]$Base, [switch]$Stored) {
         $path = Full (Join-Path $Base $relative)
         Require (Under $path $Base) 'Payload path escapes package'
         Safe-File $path
+        if ($Stored) { Assert-SharedRuntimeFile $path }
         if ($null -ne $overlay -and $relative -ceq 'runtime/renderer.js') {
             Require ((Hash-File $path) -cin @($overlay.hash, $overlay.previousHash)) 'Renderer differs from update journal'
         } else {
@@ -596,13 +630,11 @@ function Read-ClosePreflight($State) {
     }
     if ($null -ne $State -and $null -ne (Read-RendererOverlay $State.version)) { Stored-Package $State.version | Out-Null }
     if (Exists (Version-Path $version)) {
-        if ($Action -eq 'Repair' -and $null -eq (Read-RendererOverlay $version)) { Missing-CacheFiles $package | Out-Null }
+        if (($Action -eq 'Repair' -or ($Action -eq 'Install' -and $null -ne $State -and $version -ceq $State.version)) -and $null -eq (Read-RendererOverlay $version)) { Missing-CacheFiles $package | Out-Null }
         else {
             Stored-Package $version | Out-Null
             Require ((Hash-File (Join-Path (Version-Path $version) 'manifest.json')) -ceq (Hash-File (Join-Path $package.Base 'manifest.json'))) 'Existing version content differs'
         }
-    } elseif ($null -ne $State -and $version -ceq $State.version -and $Action -eq 'Install') {
-        Stored-Package $version | Out-Null
     }
     return $package
 }
@@ -900,17 +932,17 @@ try {
         if ($null -ne (Read-RendererCleanup)) { Write-Output 'Pending full-install renderer cleanup; repeat Install with the target closed.' }
         if ($null -eq $state) { Write-Output "Not installed: $script:ChannelName at $script:Resources" }
         else {
-            Write-Output "Installed: SupportTemplates $($state.version), $script:ChannelName at $script:Resources"
             try {
                 $stored = Stored-Package $state.version
                 Require ($stored.LoaderHash -ceq $state.loaderHash -and (Hash-File (Join-Path $stored.Base 'manifest.json')) -ceq $state.manifestHash) 'Runtime cache differs from ownership state'
+                Write-Output "Installed: SupportTemplates $($state.version), $script:ChannelName at $script:Resources"
                 $overlay = Read-RendererOverlay $state.version
                 if ($null -ne $overlay) {
                     if ((Hash-File $stored.Files['payload/runtime/renderer.js']) -cne $overlay.hash) { Write-Output 'Pending renderer update: retry UpdateRenderer to finish.' }
                     else { Write-Output "Renderer: $($overlay.version); apply with Ctrl+R." }
                 }
             }
-            catch { throw "Installed, but runtime cache is unhealthy: $_. Repair from the matching package or uninstall to restore Discord." }
+            catch { throw "Runtime cache is unhealthy: $_" }
         }
         return
     }
@@ -921,7 +953,9 @@ try {
     $preparedPackage = $null
     if ($CloseDiscord -and @(Get-TargetProcesses).Count -gt 0) {
         $preparedPackage = Read-ClosePreflight $state
-        if ($Action -eq 'Install' -and $null -ne $state -and $state.version -ceq $preparedPackage.Manifest.version) {
+        if ($Action -eq 'Install' -and $null -ne $state -and $state.version -ceq $preparedPackage.Manifest.version -and
+            ($null -ne (Read-RendererOverlay $state.version) -or @(Missing-CacheFiles $preparedPackage).Count -eq 0)) {
+            Stored-Package $state.version | Out-Null
             Write-Output "Already installed and verified: $($state.version)"
             return
         }
@@ -954,7 +988,7 @@ try {
             if (-not $PSCmdlet.ShouldProcess((Version-Path $state.version), 'Restore verified base renderer')) { return }
             Restore-RendererOverlay $state.version
         }
-        if ($Action -eq 'Repair') {
+        if ($Action -eq 'Repair' -or ($Action -eq 'Install' -and $null -eq $oldOverlayVersion)) {
             $missing = @(Missing-CacheFiles $package)
             if ($missing.Count -gt 0) {
                 if (-not $PSCmdlet.ShouldProcess((Version-Path $version), "Restore $($missing.Count) missing cached files from matching verified package")) { return }

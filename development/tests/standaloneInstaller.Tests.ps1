@@ -997,6 +997,49 @@ try {
         Assert ((Hash "$($f.Resources)/_app.asar") -eq $original) 'journal identity mismatch destroyed original backup'
         Assert ((Hash "$($f.Resources)/app.asar") -eq $changed) 'journal identity mismatch wrote a target'
     }
+    Test 'regression install restores missing owned runtime before reporting success' {
+        foreach ($missing in @('runtime/patcher.js','manifest.json','whole-cache')) {
+            $f = Fixture
+            Run $f Install | Out-Null
+            $cache = "$($f.Local)/SupportTemplates/channels/canary/versions/0.1.0-canary.1"
+            $source = $cache; if ($missing -ne 'whole-cache') { $source = "$cache/$missing" }
+            Assert ([IO.Path]::GetFullPath($source).StartsWith([IO.Path]::GetFullPath($f.Root) + '\', [StringComparison]::OrdinalIgnoreCase)) 'Unsafe cache fixture move'
+            Move-Item -LiteralPath $source -Destination "$($f.Root)/cache.saved"
+            $before = Tree-State $f.Root
+            $status = Run $f Status @() $false
+            Assert ($status -notmatch '(?m)^Installed: SupportTemplates') 'Incomplete runtime was reported as installed'
+            $output = Run $f Install @('-CloseDiscord','-TestRunningTarget','-WhatIf')
+            Assert ($output -notmatch 'close simulated|Already installed and verified' -and (Tree-State $f.Root) -ceq $before) 'Missing-cache preview mutated or claimed success'
+            $output = Run $f Install @('-CloseDiscord','-TestRunningTarget')
+            Assert ($output -match 'close simulated' -and $output -match 'Repaired missing runtime cache files') 'Install did not restore missing runtime'
+            Assert ((Hash "$cache/runtime/patcher.js") -eq (Hash "$($f.Package)/payload/runtime/patcher.js")) 'Restored runtime differs from the verified package'
+            Run $f Status | Out-Null
+        }
+        foreach ($damage in @('changed','foreign')) {
+            $f = Fixture; Run $f Install | Out-Null
+            $cache = "$($f.Local)/SupportTemplates/channels/canary/versions/0.1.0-canary.1"
+            if ($damage -eq 'changed') { Put "$cache/runtime/patcher.js" 'changed bytes' }
+            else { Put "$cache/runtime/unknown.js" 'foreign bytes' }
+            $before = Tree-State $f.Root
+            $output = Run $f Install @('-CloseDiscord','-TestRunningTarget') $false
+            Assert ($output -notmatch 'close simulated' -and (Tree-State $f.Root) -ceq $before) 'Unsafe cache repair closed Discord or changed files'
+        }
+    }
+    Test 'regression physical runtime paths reject hidden filesystem redirection' {
+        $f = Fixture
+        $ast = [Management.Automation.Language.Parser]::ParseFile((Join-Path $installer 'SupportTemplates.ps1'), [ref]$null, [ref]$null)
+        foreach ($name in @('Require','Full','Get-PhysicalFilePath','Assert-SharedRuntimeFile')) {
+            $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
+            . ([scriptblock]::Create($fn.Extent.Text))
+        }
+        $file = "$($f.Package)/manifest.json"
+        Assert-SharedRuntimeFile $file
+        Assert ((Full (Get-PhysicalFilePath $file)) -ieq (Full $file)) 'Physical TEMP file path differs'
+        function Get-PhysicalFilePath([string]$Path) { return "$($f.Root)/redirected/manifest.json" }
+        $caught = $null
+        try { Assert-SharedRuntimeFile $file } catch { $caught = $_.Exception.Message }
+        Assert ($caught -match 'Runtime storage is redirected' -and $caught -match 'Expected:' -and $caught -match 'Actual:') 'Hidden runtime redirect was accepted or unexplained'
+    }
     Test 'regression missing runtime can be repaired or uninstalled independently' {
         foreach ($missing in @('runtime/patcher.js','manifest.json','whole-cache')) {
             $f = Fixture; $original = Hash "$($f.Resources)/app.asar"

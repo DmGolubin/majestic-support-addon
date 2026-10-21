@@ -244,8 +244,8 @@ function Invoke-PackageInstaller([string]$Package, [string]$TargetChannel,
         Assert-Update ($LASTEXITCODE -eq 0) 'Native installer failed'
         return
     }
-    # Keep only a bounded tail for known native diagnostics. In Console mode
-    # neither stderr nor English/path-bearing native output reaches the menu.
+    # Keep only a bounded tail for native diagnostics. Console messages are
+    # translated where known and sanitized before they reach the menu.
     $lines = New-Object 'System.Collections.Generic.List[string]'
     $truncated = $false
     $previousPreference = $ErrorActionPreference
@@ -435,13 +435,44 @@ function Assert-PackageNetworkReady([string]$Cache, [string]$Version) {
 function ConvertTo-PackageDiagnosticText([string]$Text) {
     # Persist controlled native messages, never headers, URL queries, credentials
     # or profile paths. No exception stack/body/response object is serialized.
-    $text = $Text
-    $text = [regex]::Replace($text, '(?im)^.*(?:authorization|cookie|token|password|secret|api[-_]?key|(?:request|response|http)[ -]?(?:headers?|body|payload)|\b(?:headers?|body|payload)\s*[:=]).*$','[sensitive diagnostic omitted]')
-    $text = [regex]::Replace($text, '(?i)(?:https?://|[a-z]:[\\/]|\\\\)[^\r\n]*', '[location omitted]')
+    $sensitive = '(?im)^.*(?:authorization|cookie|token|password|secret|api[-_]?key|\bbearer\s+|(?:request|response|http)[ -]?(?:headers?|body|payload)|\b(?:headers?|body|payload)\s*[:=]).*$'
+    $text = [regex]::Replace($Text, '(?i)(?:https?://|[a-z]:[\\/]|\\\\)[^\r\n]*', {
+        param($locationMatch)
+        $location = $locationMatch.Value.Replace('/', '\')
+        $local = $env:LOCALAPPDATA
+        if ($local -and $local -match '^[a-z]:[\\/]') {
+            $prefix = $local.Replace('/', '\').TrimEnd('\') + '\'
+            if ($location.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+                $relative = $location.Substring($prefix.Length)
+                # Keep MSIX LocalCache segments visible: collapsing
+                # them to the ordinary product root hides virtualization bugs.
+                # Only known product trees; no traversal, URLs or credentials.
+                if ($relative -match '^(?:Packages\\[a-z0-9_.-]+_[a-z0-9]{13}\\LocalCache\\Local\\)?(?:SupportTemplates|Discord(?:Canary|PTB)?)(?:\\[a-z0-9_. -]+)*\\?$' -and
+                    $relative -notmatch '(?:^|\\)\.{1,2}(?:\\|$)|[. ](?:\\|$)' -and $relative -notmatch $sensitive) {
+                    return '%LOCALAPPDATA%\' + $relative
+                }
+            }
+        }
+        return '[location omitted]'
+    })
+    # Redact locations first so a sensitive filename cannot erase the useful
+    # "Missing directory:" prefix along with the path.
+    $text = [regex]::Replace($text, $sensitive, '[sensitive diagnostic omitted]')
     $text = [regex]::Replace($text, '(?m)^\s*\+.*$|^\s*At .*$', '')
     $text = [regex]::Replace($text, '[\x00-\x08\x0b\x0c\x0e-\x1f]', '')
     if ($text.Length -gt 4096) { $text = $text.Substring($text.Length - 4096) }
     return $text.Trim()
+}
+function Get-PackageDiagnosticDetail([string]$Text) {
+    $detail = ConvertTo-PackageDiagnosticText $Text
+    $detail = $detail -split "`r?`n" | ForEach-Object {
+        $line = ($_ -replace '^SupportTemplates(?: Lite)?:\s*', '').Trim()
+        # A redacted location can follow an actionable cause. Drop only lines
+        # consisting entirely of redaction markers, not the cause itself.
+        if ($line -and $line -notmatch '^(?:\[[^\]]*omitted\]\s*)+$') { $line }
+    } | Select-Object -Last 1
+    if ($detail -and $detail.Length -gt 240) { $detail = $detail.Substring(0, 237) + '...' }
+    return $detail
 }
 function Write-PackageDiagnostic([string]$Cache, [string]$Operation, [string]$TargetChannel, [Exception]$Failure) {
     try {
@@ -473,9 +504,16 @@ function Get-PackageNativeMessage([string]$Output, [int]$ExitCode, [string]$Nati
         if ($NativeAction -eq 'Repair') { return 'SupportTemplates восстановлен. Перезапустите Discord.' }
         return 'SupportTemplates установлен. Перезапустите Discord.'
     }
+    # A missing path may itself contain words used by the generic classifiers.
+    # Keep this explicit native cause even when other diagnostics follow it.
+    if ($Output -match '(?im)^(?:SupportTemplates(?: Lite)?:\s*)?Missing directory:[^\r\n]*') {
+        $detail = Get-PackageDiagnosticDetail $Matches[0]
+        if ($detail) { return "Ошибка установки (код ${ExitCode}): $detail" }
+    }
     switch -Regex ($Output) {
+        'Runtime storage is redirected' { return 'Файлы перенаправлены в папку другого приложения. Запустите install.bat из Проводника.' }
         'Same version has different package content|Version already exists with different manifest|Existing version content differs' {
-            return 'Уже установлена эта версия SupportTemplates с другими файлами.'
+            return 'Уже установлена эта версия SupportTemplates с другими файлами. Нужен пакет с новым номером версии.'
         }
         'Cannot establish target process path|Cannot identify running host' { return 'Не удалось определить путь запущенного Discord.' }
         'Target Discord is running|close the target Discord|close it before retrying' { return 'Discord ещё запущен, в том числе в системном трее.' }
@@ -495,9 +533,8 @@ function Get-PackageNativeMessage([string]$Output, [int]$ExitCode, [string]$Nati
         'SHA256|hash mismatch|corrupted|Required payload missing|Missing payload|Invalid ASAR|Invalid manifest' { return 'Файлы установки повреждены или отсутствуют.' }
         'Runtime cache differs|Installed runtime differs|Previous runtime no longer matches|State.*mismatch|ownership.*mismatch' { return 'Файлы установленного SupportTemplates изменены.' }
     }
-    $detail = ConvertTo-PackageDiagnosticText $Output
-    $detail = ($detail -split "`r?`n" | Where-Object { $_ -and $_ -notmatch '\[.*omitted\]' } | Select-Object -Last 1) -replace '^SupportTemplates(?: Lite)?:\s*', ''
-    if ($detail -and $detail.Length -le 240) { return "Ошибка установки (код ${ExitCode}): $detail" }
+    $detail = Get-PackageDiagnosticDetail $Output
+    if ($detail) { return "Ошибка установки (код ${ExitCode}): $detail" }
     return "Не удалось установить SupportTemplates (код ${ExitCode})."
 }
 function Get-PackageErrorReason([Exception]$Failure) {
@@ -534,8 +571,8 @@ function Get-PackageErrorReason([Exception]$Failure) {
     if ($Failure.ToString() -match 'SHA256|archive|manifest|metadata|selection|package version|bundled package|update configuration|release (tag|asset|repository)|public variants|stable release|update URL|update redirect|Encoded update|download too large|size mismatch|Truncated update|ConvertFrom-Json|Invalid JSON') {
         return 'Пакет не прошёл проверку целостности или безопасности.'
     }
-    $detail = ConvertTo-PackageDiagnosticText $reason
-    if ($detail -and $detail.Length -le 240 -and $detail -notmatch '\[.*omitted\]') { return 'Ошибка подготовки пакета: ' + $detail }
+    $detail = Get-PackageDiagnosticDetail $reason
+    if ($detail) { return 'Ошибка подготовки пакета: ' + $detail }
     return 'Не удалось подготовить пакет.'
 }
 function Get-PackageConsoleError([Exception]$Failure) {

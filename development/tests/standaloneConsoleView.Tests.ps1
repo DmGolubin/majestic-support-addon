@@ -42,6 +42,28 @@ Check 'text wrapping retains long paths and strips terminal control characters' 
     $parts = @(Split-ConsoleLine ("safe" + [char]27 + '[2J' + [char]7 + ' text') 40)
     Assert (($parts -join '') -ceq 'safe text') 'Terminal sequence survived sanitization'
 }
+Check 'selected menu row has the preview marker and accent without altering source lines' {
+    $lines = @(
+        New-ConsoleLine '[1] Discord' 'Text' 'Left' '1'
+        New-ConsoleLine '[2] Discord Canary' 'Text' 'Left' '2'
+        New-ConsoleLine '[3] Discord PTB' 'Text' 'Left' '3'
+    )
+    foreach ($selected in @('1','2','3')) {
+        $frame = Get-ConsoleFrame 'Куда установить?' $lines '[Enter] Установить [0 / Esc] Назад' 82 29 $false 0 0 $selected $true
+        $highlight = @($frame.Rows | Where-Object { $_.Text -like '*< выбран >*' })
+        Assert ($highlight.Count -eq 1 -and $highlight[0].Tone -eq 'Accent' -and $highlight[0].Text.StartsWith('[' + $selected + ']')) 'Wrong menu highlight'
+    }
+    Assert (($lines.Text -join '') -notlike '*< выбран >*' -and @($lines | Where-Object Tone -ne Text).Count -eq 0) 'Rendering mutated menu source'
+}
+Check 'selection follows wrapped menu pages and resize while manual diagnostic paging remains available' {
+    $lines = @(1..9 | ForEach-Object { New-ConsoleLine ("[$_] A long client choice that wraps across rows") 'Text' 'Left' ([string]$_) })
+    foreach ($width in @(40,30)) {
+        $frame = Get-ConsoleFrame 'Выбор' $lines '[Enter] OK [0 / Esc] Назад' $width 10 $false 0 0 '9' $true
+        Assert (-not $frame.TooSmall -and $frame.Page -gt 0 -and ($frame.Rows.Text -join '').Contains('[9]')) 'Selected option hidden after navigation or resize'
+        $manual = Get-ConsoleFrame 'Выбор' $lines '[Enter] OK [0 / Esc] Назад' $width 10 $false 0 0 '9' $false
+        Assert ($manual.Page -eq 0 -and ($manual.Rows.Text -join '').Contains('[1]')) 'Selection prevented manual paging'
+    }
+}
 Check 'error blocks align left and preserve path boundaries and filenames' {
     $path = '%LOCALAPPDATA%\SupportTemplates\installer-updates\installer-diagnostics.log'
     $parts = @(Split-ConsoleLine $path 40)

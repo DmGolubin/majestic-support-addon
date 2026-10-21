@@ -12,8 +12,16 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #>
 $script:ConsoleSpinnerFrames = @('⠉⠉','⠈⠙','⠀⠹','⠀⢸','⠀⣰','⢀⣠','⣀⣀','⣄⡀','⣆⠀','⡇⠀','⠏⠀','⠋⠁')
 
-function New-ConsoleLine([string]$Text = '', [string]$Tone = 'Text', [string]$Align = 'Center') {
-    [pscustomobject]@{ Text = $Text; Tone = $Tone; Align = $Align }
+function New-ConsoleLine([string]$Text = '', [string]$Tone = 'Text', [string]$Align = 'Center', [string]$Key = '') {
+    [pscustomobject]@{ Text = $Text; Tone = $Tone; Align = $Align; Key = $Key }
+}
+
+function Get-ConsoleSelectionLines([object[]]$Lines, [string]$SelectedKey) {
+    foreach ($line in $Lines) {
+        if ($SelectedKey -and $line.Key -ceq $SelectedKey) {
+            New-ConsoleLine ($line.Text + '  < выбран >') 'Accent' $line.Align $line.Key
+        } else { $line }
+    }
 }
 
 function Split-ConsoleLine([string]$Text, [int]$Width) {
@@ -35,11 +43,14 @@ function Split-ConsoleLine([string]$Text, [int]$Width) {
 }
 
 function Get-ConsoleFrame([string]$Title, [object[]]$Lines, [string]$Footer,
-    [int]$Width = 82, [int]$Height = 29, [bool]$Busy = $false, [long]$Tick = 0, [int]$Page = 0) {
+    [int]$Width = 82, [int]$Height = 29, [bool]$Busy = $false, [long]$Tick = 0, [int]$Page = 0,
+    [string]$SelectedKey = '', [bool]$FollowSelection = $false) {
     $width = [Math]::Max(1, [Math]::Min(82, $Width))
     $height = [Math]::Max(1, $Height)
     $body = @()
-    foreach ($line in $Lines) {
+    $selectedRow = -1
+    foreach ($line in @(Get-ConsoleSelectionLines $Lines $SelectedKey)) {
+        if ($SelectedKey -and $line.Key -ceq $SelectedKey) { $selectedRow = $body.Count }
         foreach ($part in @(Split-ConsoleLine $line.Text $width)) { $body += New-ConsoleLine $part $line.Tone $line.Align }
     }
     if ($Busy) {
@@ -82,6 +93,7 @@ function Get-ConsoleFrame([string]$Title, [object[]]$Lines, [string]$Footer,
         $pages = [int][Math]::Ceiling($body.Count / [double]$capacity)
     }
     $page = [Math]::Max(0, [Math]::Min($pages - 1, $Page))
+    if ($FollowSelection -and $selectedRow -ge 0) { $page = [int][Math]::Floor($selectedRow / [double]$capacity) }
     $rows = @($header)
     if ($body.Count) { $rows += @($body | Select-Object -Skip ($page * $capacity) -First $capacity) }
     if ($pages -gt 1) { $rows += New-ConsoleLine ("PgUp/PgDn  {0}/{1}" -f ($page + 1), $pages) 'Muted' }
@@ -106,7 +118,7 @@ function Initialize-ConsoleView {
         Writer = $null; Encoding = [Console]::OutputEncoding; Foreground = [Console]::ForegroundColor
         Background = [Console]::BackgroundColor; Title = $null; Cursor = $true
         Handle = [IntPtr]::Zero; Mode = [uint32]0; Vt = $false; LastRows = @{}; Viewport = ''
-        Screen = $null; Page = 0; Pages = 1; TooSmall = $false; Clock = [Diagnostics.Stopwatch]::StartNew()
+        Screen = $null; Page = 0; Pages = 1; TooSmall = $false; FollowSelection = $false; Clock = [Diagnostics.Stopwatch]::StartNew()
     }
     $view = $script:ConsoleView
     [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
@@ -178,9 +190,11 @@ function Update-ConsoleScreen {
         $screen = $view.Screen
         $width = [Math]::Max(1, [Console]::WindowWidth - 1)
         $height = [Math]::Max(1, [Console]::WindowHeight - 1)
-        $frame = Get-ConsoleFrame $screen.Title $screen.Lines $screen.Footer $width $height $screen.Busy $view.Clock.ElapsedMilliseconds $view.Page
+        $follow = $view.FollowSelection -or $view.Viewport -ne "$([Console]::WindowLeft)/$([Console]::WindowTop)/$width/$height"
+        $frame = Get-ConsoleFrame $screen.Title $screen.Lines $screen.Footer $width $height $screen.Busy $view.Clock.ElapsedMilliseconds $view.Page $screen.SelectedKey $follow
         $view.Page = $frame.Page; $view.Pages = $frame.Pages; $view.TooSmall = $frame.TooSmall
         Write-ConsoleFrame $frame ([Console]::WindowLeft) ([Console]::WindowTop) $width
+        $view.FollowSelection = $false
     } catch {
         # Resize races invalidate coordinates for one frame; repaint on the next poll.
         $view.LastRows = @{}
@@ -190,13 +204,16 @@ function Update-ConsoleScreen {
 
 function Show-ConsoleScreen([string]$Title, [object[]]$Lines = @(), [string]$Footer = '', [switch]$Busy) {
     $view = $script:ConsoleView
-    $view.Screen = @{ Title = $Title; Lines = $Lines; Footer = $Footer; Busy = [bool]$Busy }
+    $selectedKey = ''
+    foreach ($line in $Lines) { if ($line.Key) { $selectedKey = $line.Key; break } }
+    $view.Screen = @{ Title = $Title; Lines = $Lines; Footer = $Footer; Busy = [bool]$Busy; SelectedKey = $selectedKey }
     $view.Page = 0
+    $view.FollowSelection = $true
     if ($view.Interactive) { Update-ConsoleScreen; return }
     # Redirected output is an ordinary transcript: no cursor codes, animation or repeated frames.
     if ($Title.StartsWith('SupportTemplates / ')) { $view.Writer.WriteLine($Title) }
     else { $view.Writer.WriteLine('SupportTemplates / ' + $Title) }
-    foreach ($line in $Lines) { foreach ($part in @(Split-ConsoleLine $line.Text 100)) { $view.Writer.WriteLine($part) } }
+    foreach ($line in @(Get-ConsoleSelectionLines $Lines $selectedKey)) { foreach ($part in @(Split-ConsoleLine $line.Text 100)) { $view.Writer.WriteLine($part) } }
     if ($Footer) { $view.Writer.WriteLine($Footer) }
 }
 
