@@ -47,14 +47,14 @@ describe("panel access gates from actual adapter functions", () => {
         expect(ensure).toHaveBeenCalledOnce();
         if (at === "before") expect(fillFields).not.toHaveBeenCalled();
     });
-    it("rejects stale objects in insert and compose before running guards", async () => {
+    it("rejects stale objects before running insertion guards", async () => {
         const old = { id: "faq:7", text: "Old answer" };
         const guard = vi.fn();
-        const api = functions("../src/vencord/ui/flow.ts", ["prepareText", "addToCompose"], {
+        const api = functions("../src/vencord/ui/flow.ts", ["prepareText"], {
             preparationSequence: 0, dialogSequence: 0,
             store: { byId: () => ({ ...old, text: "New answer" }) }, guard
         });
         expect(await api.prepareText(old, { editor: null, selection: "" })).toBeNull();
-        await api.addToCompose(old); expect(guard).not.toHaveBeenCalled();
+        expect(guard).not.toHaveBeenCalled();
     });
 });

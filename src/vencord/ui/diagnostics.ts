@@ -22,7 +22,7 @@ export function diagnosticSnapshot() {
     return {
         connection: diagnosticData({ phase: p.phase, sync: p.sync, persistent: p.persistent, ready: p.phase === "ready",
             stale: p.stale === true, staleUntil: p.staleUntil ?? 0 }),
-        ui: diagnosticData({ windowOpen: u.windowOpen, management: u.management, composeCount: u.compose.length,
+        ui: diagnosticData({ windowOpen: u.windowOpen, management: u.management,
             dialog: u.dialog?.kind ?? "idle", items: u.inline?.items.length ?? 0 }),
         settings: diagnosticData({ previewOpen: d.previewOpen, favoriteCount: d.favorites.length, recentCount: d.recent.length,
             bindCount: Object.keys(d.binds).length, templates: store.templates.length, mode: d.techProject }),

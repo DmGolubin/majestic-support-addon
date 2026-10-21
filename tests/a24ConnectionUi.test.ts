@@ -33,6 +33,7 @@ it("keeps the template window mounted with a notice during retained access, but 
         deps[`./${name}`] = { [name === "InlinePop" ? "Inline" : name]: name };
     const { Host } = load("Host", deps);
     let tree = Host();
+    expect(nodes(tree).some(n => n.type === "ComposeBar")).toBe(false);
     expect(nodes(tree).find(n => n.type === "Window")?.props.connectionNotice).toContain("загруженные шаблоны");
     expect(nodes(tree).some(n => n.type === "LoginWindow")).toBe(false);
     state.stale = false;

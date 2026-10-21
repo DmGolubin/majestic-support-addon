@@ -9,6 +9,7 @@ import { insertTextIntoChatInputBox } from "@utils/discord";
 import { AccessibilityStore, ChannelStore, FluxDispatcher, GuildStore, LocaleStore, SelectedChannelStore, SelectedGuildStore, showToast, ThemeStore } from "@webpack/common";
 
 import { StorageLike } from "./core/state";
+import { serverMode, ServerMode } from "./core/guard";
 
 export const storage: StorageLike = {
     get: key => DataStore.get(key),
@@ -66,6 +67,15 @@ export const currentGuildId = (): string | null => hostValue("guild", () => {
 }, null);
 
 export const guildName = (id: string): string => hostValue("guild-name", () => GuildStore.getGuild(id)?.name ?? "", "");
+
+/** Resolve private messages from a real selected channel, never from missing host data. */
+export const currentChannelMode = (): ServerMode => hostValue<ServerMode>("channel", () => {
+    if (unavailable.has("channel-events")) return "off";
+    const id = SelectedChannelStore.getChannelId();
+    const channel = typeof id === "string" ? ChannelStore.getChannel(id) : null;
+    if (!channel) return "off";
+    return channel.guild_id ? serverMode(currentGuildId()) : serverMode(null, channel.type);
+}, "off");
 
 export function currentChannel() {
     return hostValue("channel", () => {

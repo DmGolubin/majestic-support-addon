@@ -47,6 +47,7 @@ function harness() {
     const platform = load("../src/vencord/platform.ts", {
         "@api/DataStore": { get: vi.fn(), set: vi.fn() },
         "@utils/discord": { insertTextIntoChatInputBox: insert }, "@webpack/common": common,
+        "./core/guard": guard,
     }, { document, navigator: { clipboard }, DiscordNative: native, console: { error: vi.fn() }, ...timers });
     return { common, insert, clipboard, native, document, platform, timers, notice: () => notice };
 }
@@ -68,6 +69,23 @@ function pluginFor(platform: any, op: any, ui: any) {
 }
 
 describe("Role05 Discord compatibility regressions", () => {
+    it("enables known private channels but never guesses DM from a missing guild or broken store", () => {
+        const h = harness();
+        h.common.ChannelStore.getChannel = () => ({ id: "channel-A", type: 1 });
+        expect(h.platform.currentChannelMode()).toBe("all");
+        h.common.ChannelStore.getChannel = () => ({ id: "channel-A", type: 3 });
+        expect(h.platform.currentChannelMode()).toBe("all");
+        h.common.ChannelStore.getChannel = () => ({ id: "channel-A", type: 0 });
+        expect(h.platform.currentChannelMode()).toBe("off");
+        h.common.ChannelStore.getChannel = () => null;
+        expect(h.platform.currentChannelMode()).toBe("off");
+        h.common.ChannelStore.getChannel = () => { throw Error("store unavailable"); };
+        expect(h.platform.currentChannelMode()).toBe("off");
+        h.common.ChannelStore.getChannel = () => ({ id: "channel-A", type: 1 });
+        h.common.FluxDispatcher.subscribe = () => { throw Error("no channel events"); };
+        h.platform.onChannelChange(() => {});
+        expect(h.platform.currentChannelMode()).toBe("off");
+    });
     it.each([
         ["SelectedGuildStore", "currentGuildId"], ["SelectedChannelStore", "currentChannel"],
         ["ChannelStore", "currentChannel"], ["GuildStore", "guildName"], ["FluxDispatcher", "onChannelChange"],
@@ -184,7 +202,7 @@ describe("Role05 Discord compatibility regressions", () => {
         const mainEditor = { isConnected: true, textContent: "Main draft", focus: vi.fn() };
         h.document.querySelector.mockReturnValue(mainEditor);
         const { createObservable } = load("../src/vencord/ui/observable.ts", { "@webpack/common": {} });
-        const ui = createObservable({ windowOpen: false, compose: [], dialog: null, menu: null, management: false });
+        const ui = createObservable({ windowOpen: false, dialog: null, menu: null, management: false });
         const op = load("../src/vencord/ui/op.ts", { "../platform": h.platform, "./uiState": { ui } }, {
             window: { getSelection: () => "" },
         });

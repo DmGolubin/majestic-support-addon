@@ -97,7 +97,7 @@ class Run:
         page.wait_for_function('harness.panel.get().phase === "ready"')
         page.wait_for_function('hostMetrics().streams === 1')
     def stop(self, page):
-        page.evaluate('async()=>{harness.ui.set({windowOpen:false,management:false,compose:[]});await testFrame();instance.stop();await instance.retiring;await testFrame()}')
+        page.evaluate('async()=>{harness.ui.set({windowOpen:false,management:false});await testFrame();instance.stop();await instance.retiring;await testFrame()}')
     def measure(self, page, cdp, label, cycle=0):
         def perf():
             return {m['name']: m['value'] for m in cdp.send('Performance.getMetrics')['metrics']}
@@ -128,7 +128,7 @@ def cleanup_assertions(result, row):
     check(result, 'stop-plugin-fixture-timers', not timers, timers)
     check(result, 'stop-plugin-frames', 'plugin' not in ins['framesByOwner'], ins['framesByOwner'])
     refs = app['refs'] or {}
-    check(result, 'stop-target-refs', refs.get('windowTargetConnected') is None and refs.get('composeTargetConnected') is None, refs)
+    check(result, 'stop-target-refs', refs.get('windowTargetConnected') is None, refs)
     check(result, 'stop-visible-items', refs.get('visibleCount', 0) == 0, refs)
 
 CYCLE_JS = '''async(count)=>{

@@ -118,7 +118,7 @@ def fits(r, width, height=800):
 
 
 def clear_calls(page):
-    page.evaluate('()=>{a38.calls=[];a38.compose=[];a38.draftKeys=[]}')
+    page.evaluate('()=>{a38.calls=[];a38.draftKeys=[]}')
 
 
 def calls(page):
@@ -126,7 +126,7 @@ def calls(page):
 
 
 def open_picker(page):
-    page.evaluate('()=>{a38Ui.set({windowOpen:true,management:false,dialog:null,menu:null,compose:[]})}')
+    page.evaluate('()=>{a38Ui.set({windowOpen:true,management:false,dialog:null,menu:null})}')
     search(page).wait_for()
     settle(page)
 
@@ -207,7 +207,7 @@ def mapping(page, host, width):
     page.keyboard.press('Enter')
     page.keyboard.press('Control+Enter')
     page.keyboard.press('Shift+Enter')
-    check(page, 'empty Enter variants neither insert nor compose', calls(page) == [] and page.evaluate('a38.compose.length') == 0)
+    check(page, 'empty Enter variants never insert', calls(page) == [])
 
 
 def insertion(page, host, width):
@@ -223,8 +223,9 @@ def insertion(page, host, width):
     clear_calls(page)
     page.keyboard.press('Shift+Enter')
     settle(page)
-    check(page, 'Shift+Enter adds selected template to compose only', calls(page) == [] and page.evaluate('a38.compose') == ['f06'])
-    page.evaluate('a38Ui.set({compose:[]})')
+    check(page, 'Shift+Enter has no template action and leaves the picker open', calls(page) == [] and page.locator('.vc-stx-win').count() == 1)
+    check(page, 'Shift+Enter never reaches the chat draft', page.evaluate('a38.draftKeys') == [])
+    check(page, 'reply composition controls are absent', page.get_by_role('button', name='+ в ответ', exact=True).count() == 0 and page.locator('.vc-stx-compose').count() == 0)
     for no_greeting in [False, True]:
         open_picker(page)
         clear_calls(page)
@@ -445,7 +446,7 @@ result = {'createdAt':datetime.now(timezone.utc).isoformat(),'final':args.final,
               'Source-based offline React fixture, not actual live Discord, installed Vencord/BetterDiscord or release bundles.',
               'Native uses real product CSS without BetterDiscord adapter overrides; BetterDiscord includes adapter.css. No complete Discord host stylesheet or custom theme is reproduced.',
               'Exact global handleKey source slice runs with real Window.visibleItems and keylatch. Channel/access/foreign-input gates, inline handling and dialog trap are fixture boundaries.',
-              'Flow insertion and compose are recorded at mocked boundaries. Mock insertion closes Window and transfers focus to mock draft; actual draft text transformation, host submit and account permissions are not tested.',
+              'Flow insertion is recorded at a mocked boundary. Mock insertion closes Window and transfers focus to mock draft; actual draft text transformation, host submit and account permissions are not tested.',
               'No network, chat sends or audio; requests intercepted and audio constructors blocked. ContextMenu, dialogs, bindings editor and inline are owned by other suites.',
               '320px horizontal resize may clamp at product minimum; vertical geometry and keyboard focus are exercised. Alt+N means ordered rendered rows, including rows scrolled outside the list viewport.',
               'Desktop headless Chromium at device scale 1, height 800; no OS-level hotkey interception, IME platform integration, screen reader or manual visual acceptance claimed.',

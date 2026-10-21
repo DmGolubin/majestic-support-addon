@@ -26,7 +26,7 @@
 .vc-stx-root { position: fixed; inset: 0; pointer-events: none; z-index: 1000; }
 .vc-stx-root > * { pointer-events: auto; }
 
-.vc-stx-win, .vc-stx-pop, .vc-stx-dialog, .vc-stx-menu, .vc-stx-compose {
+.vc-stx-win, .vc-stx-pop, .vc-stx-dialog, .vc-stx-menu {
     position: fixed;
     background: var(--stx-card);
     border: 1px solid var(--stx-bd);
@@ -163,15 +163,8 @@
 .vc-stx-menu button { display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--stx-mu); font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
 .vc-stx-menu button.on { background: var(--stx-acc); color: var(--stx-tx); }
 
-/* ---- Compose bar ---- */
-.vc-stx-compose { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px; background: #1a160e; border-color: #3a2e14; overflow: hidden; }
-.vc-stx-compose .vc-stx-btn { height: 28px; padding: 0 10px; font-size: 12px; }
-.vc-stx-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 3px 6px 3px 8px; border-radius: 4px; background: var(--stx-card); border: 1px solid var(--stx-bd); cursor: grab; user-select: none; white-space: nowrap; }
-.vc-stx-chip.drag { opacity: .5; }
-.vc-stx-chip button { background: none; border: 0; color: var(--stx-mu); cursor: pointer; font: inherit; padding: 0 2px; }
-
 /* ---- Hover tooltip (preview closed) ---- */
-/* z-index: above the compose bar (later in the DOM); menu and dialogs stay above the tooltip. */
+/* Menu and dialogs stay above the tooltip. */
 .vc-stx-tip { position: fixed; z-index: 1; width: 380px; max-height: 320px; display: flex; overflow: hidden; background: var(--stx-card); border: 1px solid var(--stx-bd); border-radius: 8px; box-shadow: 0 1px 2px hsl(216 30% 2% / .6), 0 12px 32px rgb(0 0 0 / 50%); pointer-events: none; contain: layout paint; }
 .vc-stx-tip .vc-stx-pre { padding: 14px 16px 10px; }
 /* Not scrollable (pointer-events: none): no scrollbar, the beginning of the text, a fade where it is cut. */

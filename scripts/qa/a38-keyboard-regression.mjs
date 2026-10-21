@@ -31,7 +31,7 @@ const obs = `import {createObservable} from '${root}/src/vencord/ui/observable.t
 const stubs = {
     common:"import React from 'react';export * from 'react';export {React};",
     state:obs + `import {Store} from '${root}/src/core/state.ts';
-export const ui=createObservable({management:false,windowOpen:true,compose:[],dialog:null,menu:null,inline:null,channelRevision:0});
+export const ui=createObservable({management:false,windowOpen:true,dialog:null,menu:null,inline:null,channelRevision:0});
 const tick=createObservable({v:0});
 export const store=new Store({get:async k=>JSON.parse(localStorage.getItem(k)||'null'),set:async(k,v)=>localStorage.setItem(k,JSON.stringify(v))},true);
 export const samples=${JSON.stringify(samples)};
@@ -51,8 +51,7 @@ export const costStart=()=>0;`,
     platform:`export const storage={get:async k=>JSON.parse(localStorage.getItem(k)||'null'),set:async(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
 export const chatAreaRect=()=>({left:16,right:innerWidth-16,top:innerHeight-54,width:innerWidth-32,height:40});`,
     flow:`import {ui} from './uiState';
-export const insertTemplate=(t,options={})=>{window.a38.calls.push({id:t.id,options});if(!window.a38.keepOpen)ui.set({windowOpen:false});document.querySelector('#chat-draft').focus()};
-export const addToCompose=t=>{window.a38.compose.push(t.id);ui.set({compose:[...ui.get().compose,t]})};`,
+export const insertTemplate=(t,options={})=>{window.a38.calls.push({id:t.id,options});if(!window.a38.keepOpen)ui.set({windowOpen:false});document.querySelector('#chat-draft').focus()};`,
     op:"export const windowEditor=()=>document.querySelector('#chat-draft');",
     context:"export const openMenu=(...args)=>{window.a38.menus.push(args)};",
 };
@@ -112,10 +111,10 @@ createRoot(document.querySelector('#root')).render(<App/>);`,resolveDir:dir,load
     fs.writeFileSync(dir+'/index.html',`<!doctype html><html lang="ru"><meta charset="utf-8"><title>A38 ${host} OFFLINE fixture</title>
 <link rel="stylesheet" href="app.css"><style>body{margin:0;background:#25272e;color:#e6e6e8;font-family:Segoe UI,sans-serif}#fixture-label{position:fixed;top:8px;left:8px;font-size:11px;opacity:.55}#chat-draft{position:fixed;bottom:8px;left:16px;width:calc(100% - 40px)}</style>
 <div id="fixture-label">A38 · ${host} · offline source fixture</div><input id="chat-draft" aria-label="Mock chat draft" value="НЕ ОТПРАВЛЯТЬ"><div id="root"></div>
-<script>window.a38={calls:[],compose:[],menus:[],draftKeys:[],keepOpen:false};document.querySelector('#chat-draft').addEventListener('keydown',e=>{a38.draftKeys.push({key:e.key,repeat:e.repeat});if(e.key==='Enter')e.preventDefault()});</script><script src="app.js"></script></html>`);
+<script>window.a38={calls:[],menus:[],draftKeys:[],keepOpen:false};document.querySelector('#chat-draft').addEventListener('keydown',e=>{a38.draftKeys.push({key:e.key,repeat:e.repeat});if(e.key==='Enter')e.preventDefault()});</script><script src="app.js"></script></html>`);
 }
 inputHashes['src/vencord/index.tsx']=createHash('sha256').update(index).digest('hex');
 fs.writeFileSync(out+'/provenance.json',JSON.stringify({createdAt:new Date().toISOString(),inputHashes,samples,preferences,
     handler:{source:'src/vencord/index.tsx',startLine:index.slice(0,begin).split('\n').length,sha256:createHash('sha256').update(handler).digest('hex')},
-    scope:'Offline source component, not live Discord. Native omits adapter.css; BetterDiscord includes it. Real Window/Preview/placement/Select/Store/ranking/latch. Global handleKey is an exact source slice. Flow insertion/composition, context menu, channel/access/inline/dialog gates and platform storage/editor are fixture boundaries. No fonts loaded from network.'},null,2));
+    scope:'Offline source component, not live Discord. Native omits adapter.css; BetterDiscord includes it. Real Window/Preview/placement/Select/Store/ranking/latch. Global handleKey is an exact source slice. Flow insertion, context menu, channel/access/inline/dialog gates and platform storage/editor are fixture boundaries. No fonts loaded from network.'},null,2));
 console.log('Built '+out);

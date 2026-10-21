@@ -14,7 +14,7 @@ import { createRoot } from "@webpack/common";
 import { serverMode, templateFitsProject } from "./core/guard";
 import { comboOf } from "./core/keys";
 import { favoritesOf } from "./core/rank";
-import { currentChannel, currentGuildId, disposePlatformNotices, onChannelChange, toast } from "./platform";
+import { currentChannel, currentChannelMode, currentGuildId, disposePlatformNotices, onChannelChange, toast } from "./platform";
 import { resetMenuGuards } from "./ui/ContextMenu";
 import { costEnd, costStart, debugEnabled, dlog, keyDesc, noteKey, setDebugEnabled, setDebugVerbose, setLoadTime } from "./ui/debug";
 import { startDiagnostics, stopDiagnostics } from "./ui/diagnostics";
@@ -50,7 +50,7 @@ export function toggleWindow(open = !ui.get().windowOpen, editor?: HTMLElement |
     ui.set({ windowOpen: open, menu: null });
 }
 
-/** Chat-bar button: only on Majestic / Россия Онлайн / Tech; the icon follows the server's project, on Tech the switch's project (re-rendered by Discord on channel switch). Its render is a `render` cost span. */
+/** Supported servers and private messages; Tech/DM icons follow the project selector. */
 const Button: ChatBarButtonFactory = props => {
     const t0 = costStart();
     try { return ButtonView(props); } finally { costEnd("render", t0); }
@@ -59,8 +59,8 @@ const Button: ChatBarButtonFactory = props => {
 const ButtonView: ChatBarButtonFactory = ({ isAnyChat, channel }) => {
     const tech = useTechProject(); // before any return: a hook
     if (!isAnyChat) return null;
-    const mode = serverMode(channel?.guild_id ?? null);
-    if (mode === "off") return null; // other servers and DMs: the plugin is invisible
+    const mode = serverMode(channel?.guild_id ?? null, channel?.type);
+    if (mode === "off") return null;
     const project = mode === "all" ? tech : mode;
     return (
         <ChatBarButton tooltip="Шаблоны (Ctrl+Alt+T)" onClick={e => toggleWindow(undefined, editorNear(e.currentTarget as Element))} buttonProps={{ "data-stx": "button" } as any}>
@@ -237,7 +237,7 @@ function stopRuntime() {
         ["React root", () => previousRoot?.unmount()],
         ["host element", () => previousHost?.remove()],
         ["fonts", unloadFonts],
-        ["UI state", () => ui.set({ management: false, windowOpen: false, dialog: null, inline: null, menu: null, compose: [] })],
+        ["UI state", () => ui.set({ management: false, windowOpen: false, dialog: null, inline: null, menu: null })],
         ["debug", () => setDebugEnabled(false)],
         ["notices", disposePlatformNotices],
         ["diagnostics", stopDiagnostics],
@@ -255,8 +255,8 @@ export function channelChanged(guildId: string | null) {
     supersede();
     nextGeneration();
     clearTargets();
-    const mode = serverMode(guildId);
-    const patch: Partial<UiState> = { compose: [], inline: null, menu: null, dialog: null,
+    const mode = guildId === null ? currentChannelMode() : serverMode(guildId);
+    const patch: Partial<UiState> = { inline: null, menu: null, dialog: null,
         channelRevision: (ui.get().channelRevision ?? 0) + 1,
         windowOpen: mode !== "off" && ui.get().windowOpen };
     // Into an OFF channel nothing of ours may stay on screen — the bind dialog too (supersede only answers awaiting dialogs).

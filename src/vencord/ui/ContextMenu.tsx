@@ -10,7 +10,7 @@ import { comboLabel } from "../core/keys";
 import { splitGreeting } from "../core/text";
 import { Template } from "../core/types";
 import { dlog } from "./debug";
-import { addToCompose, insertTemplate, supersede } from "./flow";
+import { insertTemplate, supersede } from "./flow";
 import { latchKey } from "./keylatch";
 import { IconStar } from "./svg";
 import { store, ui } from "./uiState";
@@ -58,7 +58,6 @@ function itemsFor(t: Template): Item[] {
     const fav = store.isFavorite(t.id);
     const items: Item[] = [{ key: "insert", label: "Вставить", run: () => void insertTemplate(t, { via: "menu" }) }];
     if (splitGreeting(t.text).greeting) items.push({ key: "nogreet", label: "Вставить без приветствия", run: () => void insertTemplate(t, { noGreeting: true, via: "menu" }) });
-    items.push({ key: "compose", label: "+ в ответ", run: () => void addToCompose(t) });
     items.push({ key: "fav", label: <><IconStar size={14} filled={!fav} />{fav ? "Убрать из избранного" : "В избранное"}</>, run: () => store.toggleFavorite(t.id) });
     items.push({
         key: "bind", label: bind ? `Изменить сочетание клавиш (${comboLabel(bind)})` : "Назначить сочетание клавиш…",
@@ -114,7 +113,7 @@ export function ContextMenu() {
             else if (e.button === 0) swallowEndOfGesture("click", true); // a left click that closes the menu never inserts
             ui.set({ menu: null });
         };
-        // While the menu is open it owns the keyboard: the window's Enter / Ctrl+D / Shift+Enter (which act on the
+        // While the menu is open it owns the keyboard: the window's Enter / Ctrl+D / Ctrl+Enter (which act on the
         // keyboard selection, not on this row) and typing into the search never run behind it.
         const key = (e: KeyboardEvent) => {
             if (e.isComposing || e.keyCode === 229) return;

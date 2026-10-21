@@ -252,7 +252,7 @@ describe("A38 visible row shortcuts and greeting actions", () => {
         expect(h.exports.visibleItems.map((t: types.Template) => t.id)).toEqual(["faq:3", "faq:1"]);
     });
 
-    it("Ctrl+Enter inserts the selected row without greeting; Enter and Shift+Enter keep their actions", () => {
+    it("Ctrl+Enter and Enter insert the selected row; Shift+Enter has no template action", () => {
         const h = harness();
         h.store.setShowPersonalInAll(true);
         let tree = h.render();
@@ -263,7 +263,7 @@ describe("A38 visible row shortcuts and greeting actions", () => {
         root(tree).props.onKeyDown(key("Enter"));
         expect(h.insertTemplate).toHaveBeenLastCalledWith(selected, { via: "window-enter", noGreeting: false });
         root(tree).props.onKeyDown(key("Enter", { shiftKey: true }));
-        expect(h.addToCompose).toHaveBeenCalledExactlyOnceWith(selected);
+        expect(h.addToCompose).not.toHaveBeenCalled();
         expect(h.insertTemplate).toHaveBeenCalledTimes(2);
     });
 

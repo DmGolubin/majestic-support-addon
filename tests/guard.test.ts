@@ -7,7 +7,7 @@ const all = importBackup(readFileSync(new URL("./fixtures/config-0.5.1.json", im
 const roConn = all.find(t => t.project === "ro" && /Проблемы с соединением/.test(t.title))!;
 
 describe("guard", () => {
-    it("server mode: fixed table — mj, ro, Tech = all; everything else and DMs off", () => {
+    it("server mode keeps unsupported servers and unknown channels off", () => {
         expect(serverMode("530693013622489088")).toBe("mj");
         expect(serverMode("1089530150540034181")).toBe("ro");
         expect(serverMode("1395915167040016545")).toBe("all");
@@ -15,6 +15,13 @@ describe("guard", () => {
         expect(serverMode("42")).toBe("off");
         expect(serverMode("")).toBe("off");
         expect(serverMode(null)).toBe("off");
+    });
+    it("allows a project selector in verified DMs and group DMs only", () => {
+        expect(serverMode(null, 1)).toBe("all");
+        expect(serverMode(null, 3)).toBe("all");
+        for (const type of [undefined, null, 0, 2, 4, 11, 12, 99]) expect(serverMode(null, type)).toBe("off");
+        expect(serverMode("42", 1)).toBe("off");
+        expect(serverMode("1089530150540034181", 1)).toBe("ro");
     });
     it("finds the mirror template of the other project", () => {
         const m = findMirror(roConn, all, "mj")!;

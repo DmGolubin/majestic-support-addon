@@ -1,6 +1,5 @@
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
-import { joinPieces } from "../src/core/compose";
 import { importBackup, parseRaw } from "../src/core/importer";
 import { splitGreeting, stripMarker } from "../src/core/text";
 
@@ -15,11 +14,6 @@ describe("Q18 core greeting parsing", () => {
     it("strips markers without repeatedly scanning earlier whitespace runs", () => {
         const text = "Instruction" + gap + "end\n[[greeting:end]]\n    Body";
         expect(bounded(() => stripMarker(text))).toBe("Instruction" + gap + "end\n    Body");
-    });
-    it("prepares a composed response containing whitespace-heavy instructions", () => {
-        const instruction = "Step" + gap + "end";
-        expect(bounded(() => joinPieces([instruction, "Hello\n[[greeting:end]]\nBody"])))
-            .toBe(instruction + "\n\nBody");
     });
 });
 

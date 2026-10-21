@@ -20,7 +20,7 @@ import { ensurePanelPermission } from "../panelPermission";
 import { createPanelVault } from "../panelVault";
 import { storage } from "../platform";
 import { disableDemo, enableDemo } from "./demo";
-import { confirmedForeign, supersede } from "./flow";
+import { supersede } from "./flow";
 import { createObservable } from "./observable";
 import { invalidateTicketReminders, stopTicketReminders, syncTicketReminders } from "./ticketReminders";
 import { captureWindowTarget, nextGeneration, windowEditor } from "./op";
@@ -115,8 +115,8 @@ function cleanupPanelStep(name: string, cleanup: () => void) {
 }
 
 function invalidate() {
-    nextGeneration(); supersede(); confirmedForeign.clear();
-    ui.set({ inline: null, menu: null, dialog: null, compose: [] });
+    nextGeneration(); supersede();
+    ui.set({ inline: null, menu: null, dialog: null });
 }
 
 function wipe() {
@@ -141,8 +141,7 @@ function wipe() {
     cleanupPanelStep("access", () => panelAccess.set({ ready: false, accountId: null, projects: [], checkedAt: 0, staleUntil: 0 }));
     cleanupPanelStep("insert generation", nextGeneration);
     cleanupPanelStep("pending dialogs", supersede);
-    cleanupPanelStep("foreign confirmations", () => confirmedForeign.clear());
-    cleanupPanelStep("UI", () => ui.set({ inline: null, menu: null, dialog: null, compose: [], management: false }));
+    cleanupPanelStep("UI", () => ui.set({ inline: null, menu: null, dialog: null, management: false }));
     cleanupPanelStep("catalog", () => previousLibrary?.replacePanelCatalog({ templates: [], personal: [], folders: [] }));
     cleanupPanelStep("connection state", () => panel.set({ phase: "idle", code: "", url: "", error: "", name: "", checkedAt: 0,
         stale: false, staleUntil: 0, persistent: false, preferencesError: "", sync: "idle" }));

@@ -19,7 +19,6 @@ export function Inline() {
 
 function InlineView() {
     const inline = ui.useSelect(s => s.inline);
-    const hasCompose = ui.useSelect(s => s.compose.length > 0);
     const rect = useChatRect(!!inline);
     if (!inline) return null;
     if (!rect) return null;
@@ -28,8 +27,8 @@ function InlineView() {
     const width = Math.max(0, Math.min(560, rect.width - 16, window.innerWidth - 16));
     const left = Math.max(8, Math.min(rect.left + 8, window.innerWidth - width - 8));
     return (
-        <div className="vc-stx-pop" style={{ left, width, bottom: window.innerHeight - rect.top + 6 + (hasCompose ? 48 : 0) }}>
-            <div className="vc-stx-sec">Шаблоны{listed ? " · " + PROJECTS[listed].name : ""}{scope === "all" ? " (Tech)" : ""}</div>
+        <div className="vc-stx-pop" style={{ left, width, bottom: window.innerHeight - rect.top + 6 }}>
+            <div className="vc-stx-sec">Шаблоны{listed ? " · " + PROJECTS[listed].name : ""}</div>
             {inline.note && <div className="vc-stx-empty">{inline.note}</div>}
             {inline.items.map((t, i) => (
                 <div

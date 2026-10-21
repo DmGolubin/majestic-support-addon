@@ -18,7 +18,7 @@ beforeAll(() => {
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup(); vi.unstubAllGlobals(); });
 
-function fixture({ delayedRead = false, missingStore = false, restrictedHost = false, supportedBridge = false, signedIn = false } = {}) {
+function fixture({ delayedRead = false, missingStore = false, restrictedHost = false, supportedBridge = false, signedIn = false, privateType = 0 } = {}) {
     const dom = new JSDOM('<!doctype html><body><main><div class="channelTextArea_test"><div class="buttons_test"></div><div contenteditable="true" role="textbox" tabindex="0" data-slate-editor="true">draft stays</div></div></main></body>', { url: "https://discord.com/channels/test", pretendToBeVisual: true });
     const w = dom.window;
     w.HTMLElement.prototype.scrollIntoView = () => {}; // Layout/scrolling is not implemented by JSDOM.
@@ -50,7 +50,7 @@ function fixture({ delayedRead = false, missingStore = false, restrictedHost = f
         unsubscribe(type: string, fn: any) { flux.get(type)?.delete(fn); },
         dispatch(e: any) { for (const fn of flux.get(e.type) ?? []) fn(e); }
     };
-    let channel = { id: "123456789012345678", name: "support", guild_id: "530693013622489088" };
+    let channel = { id: "123456789012345678", name: "support", guild_id: privateType ? undefined : "530693013622489088", type: privateType };
     const stores: any = {
         ChannelStore: { getChannel: () => channel, addChangeListener: (fn: any) => changes.add(fn), removeChangeListener: (fn: any) => changes.delete(fn) },
         SelectedChannelStore: { getChannelId: () => channel.id }, SelectedGuildStore: { getGuildId: () => channel.guild_id },
@@ -159,9 +159,12 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         expect(f.document.getElementById('vc-stx-host')).toBeNull();
         expect(f.plugin.runtimeActive).toBe(false);
     });
-    it.each(["click", "ctrl-click", "enter", "ctrl-enter", "button", "no-greeting-button", "alt", "recent-alt"])(
-        "restores login and inserts through the built bundle's %s action without sending", async action => {
-        const f = fixture({ restrictedHost: true, supportedBridge: true, signedIn: true });
+    it.each([
+        ...["click", "ctrl-click", "enter", "ctrl-enter", "button", "no-greeting-button", "alt", "recent-alt"].map(action => [action, 0] as const),
+        ["ctrl-enter", 1] as const, ["recent-alt", 3] as const,
+    ])(
+        "restores login and inserts through the built bundle's %s action in channel type %s without sending", async (action, privateType) => {
+        const f = fixture({ restrictedHost: true, supportedBridge: true, signedIn: true, privateType });
         const accountId = "123456789012345678", connectionId = "11111111-1111-4111-8111-111111111111";
         const origin = "https://discord.com", panelOrigin = "https://panel.majestic-rp.tech";
         const plugins = fs.realpathSync(f.host.Plugins.folder);
@@ -194,6 +197,14 @@ describe("BetterDiscord final bundle in React/DOM", () => {
         expect(f.host.Net.fetch.mock.calls.some(([url]: [string]) => url.includes("oauth/"))).toBe(false);
         expect(f.deniedModules).toEqual([]);
         const editor = f.document.querySelector('[data-slate-editor="true"]');
+        if (privateType) {
+            const projects = f.document.querySelectorAll('[aria-label="Проект шаблонов"] [role="radio"]');
+            expect(projects.length).toBe(2);
+            await React.act(async () => { projects[1].click(); await f.frame(); });
+            expect(f.document.querySelectorAll('.vc-stx-it').length).toBe(0);
+            await React.act(async () => { projects[0].click(); await f.frame(); });
+            expect(f.document.body.textContent).toContain("Version fixture FAQ");
+        }
         // The global event dispatcher deliberately does nothing. The bundle must
         // target the captured editor's owner and observe its model change.
         expect(f.document.activeElement).not.toBe(editor);

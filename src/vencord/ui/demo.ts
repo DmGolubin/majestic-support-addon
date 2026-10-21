@@ -6,7 +6,7 @@
 
 import { Store } from "../core/state";
 import { toast } from "../platform";
-import { confirmedForeign, supersede } from "./flow";
+import { supersede } from "./flow";
 import { createObservable } from "./observable";
 import { clearTargets, nextGeneration } from "./op";
 import { demoAccess, realStore, selectStore, ui } from "./uiState";
@@ -20,8 +20,8 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 let request: AbortController | null = null;
 
 function invalidate(keepWindow = false) {
-    nextGeneration(); supersede(); if (!keepWindow) clearTargets(); confirmedForeign.clear();
-    ui.set({ windowOpen: keepWindow && ui.get().windowOpen, inline: null, menu: null, dialog: null, compose: [] });
+    nextGeneration(); supersede(); if (!keepWindow) clearTargets();
+    ui.set({ windowOpen: keepWindow && ui.get().windowOpen, inline: null, menu: null, dialog: null });
 }
 function stopRequest() { epoch++; clearTimeout(timer); request?.abort(); request = null; }
 

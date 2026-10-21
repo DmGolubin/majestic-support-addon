@@ -44,7 +44,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
     const realStore = new Store({ get: async () => undefined, set: writes });
     const routed = routeStore(realStore);
     const access = observable({ enabled: true, ready: false, projects: [] as string[], checkedAt: 0 });
-    const ui = observable({ windowOpen: true, management: false, compose: [] as string[], inline: null, menu: null, dialog: null });
+    const ui = observable({ windowOpen: true, management: false, inline: null, menu: null, dialog: null });
     const state = { discordId: "123456789012345678", revision: "1", name: "Support", profileId: "123456789012345678", error: null as unknown,
         templates: [template], pendingLogin: null as Promise<void> | null, pendingGet: null as Promise<unknown> | null,
         pendingLogout: null as Promise<void> | null, nowServer: "time-a", projects: ["mj"], permissions: "1", pendingSnapshot: null as Promise<unknown> | null,
@@ -150,7 +150,7 @@ describe("A24 same-session stale library", () => {
             const h = setup(); await h.api.connectPanel();
             const templates = [...h.store.templates], generation = h.generation(), version = h.store.setVersion;
             const until = Date.now() + 15 * 60 * 1000;
-            h.ui.set({ compose: [templates[0].id], menu: { id: templates[0].id } as any });
+            h.ui.set({ menu: { id: templates[0].id } as any });
             h.get.mockRejectedValue(new PanelError(code, code === "503" ? 503 : code === "429" ? 429 : 0));
             vi.setSystemTime(Date.now() + 31000);
             await h.api.reloadPanel();
@@ -159,7 +159,7 @@ describe("A24 same-session stale library", () => {
             expect(await h.freshness()).toBe(true);
             expect(h.generation()).toBe(generation); expect(h.store.setVersion).toBe(version);
             expect(h.store.templates).toEqual(templates);
-            expect(h.ui.get()).toMatchObject({ windowOpen: true, compose: [templates[0].id], menu: { id: templates[0].id } });
+            expect(h.ui.get()).toMatchObject({ windowOpen: true, menu: { id: templates[0].id } });
             expect(h.reminders.stopTicketReminders).toHaveBeenCalled();
             expect(h.reminders.syncTicketReminders.mock.calls.at(-1)![0].current()).toBe(false);
             expect(h.clients[0].cancel).not.toHaveBeenCalled();
@@ -188,7 +188,7 @@ describe("A24 same-session stale library", () => {
         h.get.mockRejectedValue(new PanelError("network_error")); await h.api.reloadPanel();
         const generation = h.generation(), pending = deferred<unknown>();
         const draft = { kind: "fields" } as any;
-        h.ui.set({ dialog: draft, compose: [h.store.templates[0].id] });
+        h.ui.set({ dialog: draft });
         h.restore(); h.get.mockReturnValueOnce(pending.promise);
         await vi.advanceTimersByTimeAsync(10000);
         expect(h.api.panel.get()).toMatchObject({ phase: "ready", stale: true });

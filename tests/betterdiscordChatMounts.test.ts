@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { bdRequire, loadAdapter } from "./betterdiscordHarness";
 
 const { JSDOM } = bdRequire("jsdom");
-function fixture() {
+function fixture(channel: any = { id: "1", guild_id: "530693013622489088" }) {
     const w = new JSDOM('<body><section id="messages"></section><div class="channelTextArea_test"><div data-slate-editor="true"></div><div class="buttons_test"></div></div></body>', { url: 'https://discord.com' }).window;
     const frames = new Map<number, () => void>(); let seq = 0;
     const roots: any[] = [], listeners = new Set();
     let observer: any;
     const bus = { dispatch() {}, subscribe: vi.fn((_t, f) => { listeners.add(f); }), unsubscribe: vi.fn((_t, f) => { listeners.delete(f); }) };
     const host = { React: { createElement: () => ({}) }, ReactDOM: { createRoot: vi.fn(() => { const root = { render: vi.fn(), unmount: vi.fn() }; roots.push(root); return root; }) },
-        Webpack: { getModule: () => bus, getStore: (name: string) => name === "ChannelStore" ? { getChannel: () => ({ id: "1", guild_id: "530693013622489088" }) } : { getChannelId: () => "1" } } };
+        Webpack: { getModule: () => bus, getStore: (name: string) => name === "ChannelStore" ? { getChannel: () => channel } : { getChannelId: () => "1" } } };
     const { mountChatButtons } = loadAdapter("chatMounts.ts", {}, { BdApi: host, document: w.document, Element: w.Element,
         requestAnimationFrame: (f: any) => { frames.set(++seq, f); return seq; }, cancelAnimationFrame: (n: number) => frames.delete(n),
         MutationObserver: class { observe = vi.fn(); disconnect = vi.fn(); constructor(public callback: any) { observer = this; } } });
@@ -19,6 +19,14 @@ function fixture() {
 }
 
 describe("BetterDiscord composer resource lifecycle", () => {
+    it.each([1, 3])("mounts the template button in private channel type %s", type => {
+        const f = fixture({ id: "1", type }), stop = f.mount();
+        expect(f.w.document.querySelector('.stx-bd-button-mount')).not.toBeNull(); stop();
+    });
+    it.each([null, { id: "1" }, { id: "1", type: 0 }, { id: "1", guild_id: "unsupported", type: 1 }])("does not mount for an unknown or unsupported channel %j", channel => {
+        const f = fixture(channel), stop = f.mount();
+        expect(f.w.document.querySelector('.stx-bd-button-mount')).toBeNull(); stop();
+    });
     it("rolls back subscription and observer if subscribe registers then throws", () => {
         const f = fixture();
         f.bus.subscribe.mockImplementationOnce((_t, fn) => { f.listeners.add(fn); throw Error("subscribe failure"); });

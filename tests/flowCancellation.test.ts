@@ -68,7 +68,6 @@ function harness(body = "{{clipboard}}") {
         "./debug": { debugEnabled: () => false, dlog },
         "./op": {
             generationNow: () => context.generation, targetNow: () => ({ editor, selection: "" }),
-            rememberComposeTarget: () => {},
         },
         "./uiState": {
             store, ui, activeScope: () => context.scope, currentMode: () => "mj",

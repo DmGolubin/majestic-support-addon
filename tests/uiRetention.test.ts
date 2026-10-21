@@ -26,7 +26,7 @@ function evaluate(code: string, dependencies: Record<string, any>, globals = {})
 
 function targetHarness() {
     const { createObservable } = evaluate(observableCode, { "@webpack/common": {} });
-    const ui = createObservable({ windowOpen: false, compose: [], dialog: null, menu: null });
+    const ui = createObservable({ windowOpen: false, dialog: null, menu: null });
     const subscriptions = new Set<() => void>();
     const subscribe = ui.subscribe;
     ui.subscribe = (fn: () => void) => {
@@ -87,44 +87,17 @@ describe("editor target retention", () => {
         expect(h.subscriptions.size).toBe(0);
     });
 
-    it("keeps compose's target after closing the picker, then releases it when the last piece is removed", () => {
-        const h = targetHarness();
-        h.op.captureWindowTarget(h.first);
-        h.ui.set({ windowOpen: true });
-        h.op.rememberComposeTarget();
-        h.ui.set({ compose: ["one", "two"] });
-        const pendingCompose = h.op.composeTargetNow();
-        h.ui.set({ windowOpen: false });
-        expect(h.op.windowEditor()).toBeNull();
-        expect(h.op.composeEditor()).toBe(h.first);
-        h.ui.set({ compose: ["two"] });
-        expect(h.op.composeEditor()).toBe(h.first);
-        h.first.isConnected = false;
-        h.ui.set({ compose: [] });
-        expect(h.op.composeEditor()).toBeNull();
-        expect(pendingCompose.editor).toBe(h.first);
-        expect(h.subscriptions.size).toBe(0);
-    });
-
-    it("clearing compose preserves an open picker; replacement/reopen never revives old targets", () => {
+    it("repeated clear and reopen releases subscriptions without reviving old targets", () => {
         const h = targetHarness();
         for (let cycle = 0; cycle < 20; cycle++) {
             h.op.captureWindowTarget(h.first);
             h.ui.set({ windowOpen: true });
-            h.op.rememberComposeTarget();
-            h.ui.set({ compose: ["one"] });
-            h.ui.set({ compose: [] });
-            expect(h.op.composeEditor()).toBeNull();
             expect(h.op.windowEditor()).toBe(h.first);
-            h.op.rememberComposeTarget();
-            h.ui.set({ compose: ["one"] });
-            h.op.resetComposeTarget();
-            expect(h.op.windowEditor()).toBe(h.first);
-            expect(h.op.composeEditor()).toBeNull();
             expect(h.subscriptions.size).toBe(1);
             h.op.clearTargets(); h.op.clearTargets();
+            expect(h.op.windowEditor()).toBeNull();
             expect(h.subscriptions.size).toBe(0);
-            h.ui.set({ windowOpen: false, compose: [] });
+            h.ui.set({ windowOpen: false });
             h.op.captureWindowTarget(h.second);
             h.ui.set({ windowOpen: true });
             expect(h.op.targetNow().editor).toBe(h.second);
@@ -133,6 +106,7 @@ describe("editor target retention", () => {
             expect(h.subscriptions.size).toBe(0);
         }
     });
+
 });
 
 // Execute the entire Window with controlled render/commit phases. Uncommitted
@@ -148,7 +122,7 @@ async function windowHarness() {
     const slots: any[] = [];
     const cleanups = new Map<number, () => void>();
     let cursor = 0, pending: (() => void)[] = [];
-    let state: any = { windowOpen: true, compose: [], dialog: null, menu: null, channelRevision: 0 };
+    let state: any = { windowOpen: true, dialog: null, menu: null, channelRevision: 0 };
     const common = {
         React: { createElement: (type: any, props: any, ...children: any[]) => ({ type, props: { ...props, children } }), memo: (fn: any) => fn },
         useState: (initial: any) => {
@@ -234,7 +208,8 @@ describe("window shortcut catalog retention", () => {
         win().props.onKeyDown(keyEvent("Enter"));
         expect(h.insert).toHaveBeenCalledExactlyOnceWith(h.store.byId(h.second), { via: "window-enter", noGreeting: false });
         win().props.onKeyDown(keyEvent("Enter", true));
-        expect(h.compose).toHaveBeenCalledExactlyOnceWith(h.store.byId(h.second));
+        expect(h.compose).not.toHaveBeenCalled();
+        expect(h.insert).toHaveBeenCalledTimes(1);
         h.unmount();
         expect(h.module.visibleItems).toEqual([]);
     });

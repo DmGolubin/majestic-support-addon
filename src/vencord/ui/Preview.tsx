@@ -8,7 +8,7 @@ import { useMemo } from "@webpack/common";
 
 import { splitGreeting } from "../core/text";
 import { PROJECTS, Template } from "../core/types";
-import { addToCompose, insertTemplate } from "./flow";
+import { insertTemplate } from "./flow";
 import { latchButtonKey } from "./keylatch";
 import { Markdown } from "./markdown";
 import { ProjectIcon } from "./ProjectIcon";
@@ -58,7 +58,6 @@ export function Preview({ t, compact = false, onBack }: { t: Template | undefine
             {!compact && <div className="vc-stx-acts">
                 <button className="vc-stx-btn" onKeyDown={latchButtonKey} onClick={() => insertTemplate(t, { via: "preview" })}>Вставить <span className="vc-stx-kb"><IconEnter size={12} /></span></button>
                 {greeting && <button className="vc-stx-btn vc-stx-ghost" onKeyDown={latchButtonKey} onClick={() => insertTemplate(t, { noGreeting: true, via: "preview" })}>Без приветствия</button>}
-                <button className="vc-stx-btn vc-stx-ghost" onClick={() => addToCompose(t)}>+ в ответ</button>
                 <button className="vc-stx-btn vc-stx-ghost vc-stx-icon vc-stx-right" title="Избранное (Ctrl+D)" onClick={() => store.toggleFavorite(t.id)}><IconStar size={16} filled={fav} /></button>
             </div>}
         </div>

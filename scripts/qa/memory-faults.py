@@ -59,11 +59,11 @@ try:
         page.locator('.vc-stx-sinput').fill('fixture')
         page.evaluate('testFrame()')
         snap(page, cdp, 'search-visible-before-close')
-        page.evaluate('async()=>{harness.rememberComposeTarget();harness.ui.set({windowOpen:false,compose:[]});await testFrame();document.querySelector(".channelTextArea_test").remove();await testFrame()}')
+        page.evaluate('async()=>{harness.ui.set({windowOpen:false});await testFrame();document.querySelector(".channelTextArea_test").remove();await testFrame()}')
         closed = snap(page, cdp, 'closed-detached-targets')
         refs = closed['app']['refs']
         check(result, 'close-releases-visible-items', refs['visibleCount']==0, refs)
-        check(result, 'close-releases-targets', refs['windowTargetConnected'] is None and refs['composeTargetConnected'] is None, refs)
+        check(result, 'close-releases-targets', refs['windowTargetConnected'] is None, refs)
         run.stop(page)
         cleanup_assertions(result, snap(page, cdp, 'targets-stopped'))
         page.context.close()

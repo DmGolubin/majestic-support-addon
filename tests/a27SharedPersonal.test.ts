@@ -118,14 +118,14 @@ function flowHarness() {
     const store = new Store({ get: async () => undefined, set: async () => {} }, true);
     store.replacePanelCatalog(fixture().catalog);
     const editor = { isConnected: true, textContent: "Existing draft", focus: vi.fn(), closest: () => null };
-    const state: any = { compose: [], dialog: null, menu: null, windowOpen: false, management: false };
+    const state: any = { dialog: null, menu: null, windowOpen: false, management: false };
     let scope: guard.Scope | null = "mj";
     const insert = vi.fn(() => true), toast = vi.fn();
     const deps: Record<string, unknown> = {
         "../core/guard": guard, "../core/text": text, "../core/tokens": tokens, "../core/types": types,
         "../platform": { activeEditor: () => editor, currentChannel: () => ({ id: "channel", guildId: types.PROJECTS.mj.guildId, name: "ticket" }), insertText: insert, toast, readClipboard: async () => "" },
         "./debug": { debugEnabled: () => false, dlog() {} },
-        "./op": { generationNow: () => 1, targetNow: () => ({ editor, selection: "" }), rememberComposeTarget() {} },
+        "./op": { generationNow: () => 1, targetNow: () => ({ editor, selection: "" }) },
         "./uiState": { store, ui: { get: () => state, set: (patch: any) => Object.assign(state, patch) }, activeScope: () => scope, currentMode: () => scope, libraryIsFresh: () => true, ensureLibraryFresh: async () => true },
     };
     const api: any = {};
@@ -136,14 +136,12 @@ function flowHarness() {
 }
 
 describe("A27 real insertion and key handlers", () => {
-    it("inserts and collects the same foreign-source personal record without source-project warning or FAQ mirroring", async () => {
+    it("inserts the same foreign-source personal record without source-project warning or FAQ mirroring", async () => {
         const h = flowHarness(), personal = h.store.byId("personal:panel:2")!;
         personal.title = "Common title";
         await h.api.insertTemplate(personal);
         expect(h.insert).toHaveBeenCalledExactlyOnceWith("Private answer beta");
         expect(h.state.dialog).toBeNull();
-        await h.api.addToCompose(personal);
-        expect(h.state.compose).toEqual([personal.id]);
         expect(h.store.byId(personal.id)).toBe(personal);
         expect(personal.project).toBe("ro");
     });
@@ -165,9 +163,7 @@ describe("A27 real insertion and key handlers", () => {
         else if (reason === "deleted") h.store.replacePanelCatalog(fixture(["majestic"]).catalog);
         else h.store.clearPanelCatalog();
         await h.api.insertTemplate(old);
-        await h.api.addToCompose(old);
         expect(h.insert).not.toHaveBeenCalled();
-        expect(h.state.compose).toEqual([]);
         expect(h.state.dialog).toBeNull();
     });
 

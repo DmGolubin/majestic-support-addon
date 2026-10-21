@@ -41,7 +41,7 @@ export function mountChatButtons(Button: any) {
         if (!live) return;
         let channel: any;
         try { channel = ChannelStore.getChannel(SelectedChannelStore.getChannelId()); } catch {}
-        const allowed = !!channel && serverMode(channel.guild_id) !== "off";
+        const allowed = !!channel && serverMode(channel.guild_id ?? null, channel.type) !== "off";
         for (const [area, mount] of mounts) {
             if (!allowed || !area.isConnected || !area.contains(mount.node) || !area.querySelector('[data-slate-editor="true"]')) {
                 remove(area, mount);

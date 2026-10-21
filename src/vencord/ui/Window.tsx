@@ -16,14 +16,14 @@ import { clampFloatingBox } from "../core/windowPlacement";
 import { chatAreaRect, storage } from "../platform";
 import { openMenu } from "./ContextMenu";
 import { costEnd, costStart, debugEnabled, debugState, debugVerbose, dlog, keyDesc, logGeometry, noteKey, noteRender, noteSearch, noteWheel, setDebugHover, setDebugWindow } from "./debug";
-import { addToCompose, insertTemplate } from "./flow";
+import { insertTemplate } from "./flow";
 import { nqHighlight } from "./highlight";
 import { latchButtonKey, latchKey } from "./keylatch";
 import { windowEditor } from "./op";
 import { plural, Preview } from "./Preview";
 import { ProjectIcon } from "./ProjectIcon";
 import { Select } from "./Select";
-import { IconClose, IconEnter, IconSearch, IconSettings, IconShift, IconStar } from "./svg";
+import { IconClose, IconEnter, IconSearch, IconSettings, IconStar } from "./svg";
 import { activeScope, listedProject, pickTechProject, poolFor, store, ui, useStore, watchChatArea } from "./uiState";
 
 import "./menu-refinement.css";
@@ -125,14 +125,12 @@ export function Window({ connectionNotice = "" }: { connectionNotice?: string; }
 function WindowView(connectionNotice: string) {
     const version = useStore();
     const channelRevision = ui.useSelect(s => s.channelRevision);
-    const composeLen = ui.useSelect(s => s.compose.length);
-    const hasCompose = composeLen > 0;
     const dialogOpen = ui.useSelect(s => s.dialog !== null);
     const menuId = ui.useSelect(s => s.menu?.id ?? null);
     const debugOn = debugState.useSelect(s => s.on);
     if (debugVerbose()) noteRender();
     const scope = activeScope();
-    /** The project the list shows: the server's, on Tech the switch's. */
+    /** The project the list shows: the server's, or the selector's on Tech and in DMs. */
     const listed = listedProject(scope);
     const [query, setQuery] = useState("");
     const [view, setView] = useState<WindowTab>("all");
@@ -240,10 +238,10 @@ function WindowView(connectionNotice: string) {
         setGeometry({ rect: chatAreaRect(windowEditor()) });
     }, [channelRevision]);
     // The window keys (arrows, Enter, Tab) are the window's onKeyDown: they need focus inside it.
-    // A dialog that closes, or a "+ в ответ" from a button, leaves focus on <body> — take it back.
+    // A dialog that closes leaves focus on <body> — take it back.
     useEffect(() => {
         if (!dialogOpen && !winRef.current?.contains(document.activeElement)) inputRef.current?.focus();
-    }, [dialogOpen, composeLen]);
+    }, [dialogOpen]);
     useEffect(() => {
         setSel(0);
         // The list changed under a still cursor: the remembered row may no longer be under it.
@@ -394,7 +392,7 @@ function WindowView(connectionNotice: string) {
     peekRef.current = peek;
     const lay = windowLayout(vw, anchorRight, wide, size);
     const { width } = lay;
-    const anchorBottom = placement.position?.bottom ?? (rect ? window.innerHeight - rect.top + EDGE + (hasCompose ? 48 : 0) : 80);
+    const anchorBottom = placement.position?.bottom ?? (rect ? window.innerHeight - rect.top + EDGE : 80);
     const vertical = windowVertical(window.innerHeight, anchorBottom, size?.height);
     const { right, bottom, height } = clampFloatingBox({ right: lay.right, bottom: vertical.bottom, width, height: vertical.height }, vw, window.innerHeight);
     compactRef.current = compact;
@@ -453,12 +451,12 @@ function WindowView(connectionNotice: string) {
             log("выделение");
             if (items.length) setSel(i => (Math.min(i, items.length - 1) + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length);
         } else if (e.key === "Enter" && current) {
-            if (e.altKey || e.metaKey || e.ctrlKey && e.shiftKey) return;
+            if (e.altKey || e.metaKey || e.shiftKey) return;
             eat();
-            log(e.shiftKey ? "в ответ" : e.ctrlKey ? "без приветствия" : "вставить", { id: current.id, title: current.title });
+            log(e.ctrlKey ? "без приветствия" : "вставить", { id: current.id, title: current.title });
             if (e.repeat) return;
             latchKey(e.nativeEvent.code);
-            if (e.shiftKey) void addToCompose(current); else void insertTemplate(current, { via: "window-enter", noGreeting: !!e.ctrlKey });
+            void insertTemplate(current, { via: "window-enter", noGreeting: !!e.ctrlKey });
         } else if (e.key === "ArrowRight" && atEnd && !previewOpen) {
             eat();
             log("открыть превью");
@@ -485,7 +483,7 @@ function WindowView(connectionNotice: string) {
     const footKeys = compact || width < 360;
     const style: React.CSSProperties = { right, bottom, width, height };
 
-    // Hover tooltip: inside the window's vertical range, never over the compose bar / chat input below it.
+    // Hover tooltip: inside the window's vertical range, never over the chat input below it.
     const winBottom = window.innerHeight - bottom, winTop = winBottom - height;
     const tipMaxH = Math.min(TIP_MAX_H, height);
     useLayoutEffect(() => {
@@ -565,7 +563,7 @@ function WindowView(connectionNotice: string) {
                                     className="vc-stx-sinput"
                                     placeholder="Поиск: название, текст или «снр», «фпс»…"
                                     aria-label="Поиск шаблонов"
-                                    aria-keyshortcuts="Enter Control+Enter Shift+Enter Alt+ArrowDown ContextMenu Shift+F10"
+                                    aria-keyshortcuts="Enter Control+Enter Alt+ArrowDown ContextMenu Shift+F10"
                                     value={query}
                                     onChange={e => setQuery(e.currentTarget.value)}
                                 />
@@ -577,8 +575,8 @@ function WindowView(connectionNotice: string) {
                         {connectionNotice && <p className="vc-stx-connection-notice" role="status">{connectionNotice}</p>}
                         <div className="vc-stx-proj">
                             {scope === "all"
-                                // Tech: which project's templates to list (remembered). No project guard here.
-                                ? <><div className="vc-stx-seg" role="radiogroup" aria-label="Проект на Tech">
+                                // Tech and DMs: remember which project's templates to list. No project guard here.
+                                ? <><div className="vc-stx-seg" role="radiogroup" aria-label="Проект шаблонов">
                                     {(["mj", "ro"] as const).map(p => (
                                         <button
                                             key={p} type="button" data-stx-menu-control role="radio" aria-checked={listed === p}
@@ -590,7 +588,7 @@ function WindowView(connectionNotice: string) {
                                 </div>{count}</>
                                 : scope
                                     ? <><ProjectIcon project={scope} size={18} /><b>{PROJECTS[scope].name}</b>{count}</>
-                                    : <span className="vc-stx-hint">На этом сервере шаблоны выключены</span>}
+                                    : <span className="vc-stx-hint">В этом канале шаблоны выключены</span>}
                         </div>
                         <div className="vc-stx-tabs" role="group" aria-label="Разделы шаблонов">
                             {tabOrder.map(v => (
@@ -629,7 +627,7 @@ function WindowView(connectionNotice: string) {
                     <div className="vc-stx-list" ref={listRef}>
                         {renderedRows}
                     </div>
-                    <div className="vc-stx-foot vc-stx-actions" title={"Alt+1…9 — строки списка · Enter — вставить · Ctrl+Enter / Ctrl+клик — без приветствия · Shift+Enter — в ответ · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — элементы управления · Ctrl+Tab — вкладки · Alt+↓ — категории · Ctrl+D — избранное · ПКМ / Shift+F10 — меню"}>
+                    <div className="vc-stx-foot vc-stx-actions" title={"Alt+1…9 — строки списка · Enter — вставить · Ctrl+Enter / Ctrl+клик — без приветствия · Shift (держать) — текст · стрелки вправо / влево — открыть / скрыть текст слева · Tab — элементы управления · Ctrl+Tab — вкладки · Alt+↓ — категории · Ctrl+D — избранное · ПКМ / Shift+F10 — меню"}>
                         <button type="button" className="vc-stx-action" aria-label="Вставить шаблон" title="Вставить шаблон · Enter"
                             disabled={!current} onKeyDown={latchButtonKey}
                             onClick={() => { if (current) void insertTemplate(current, { via: "window-button", noGreeting: false }); }}>
@@ -641,7 +639,6 @@ function WindowView(connectionNotice: string) {
                             onClick={() => { if (current && hasGreeting) void insertTemplate(current, { via: "window-button", noGreeting: true }); }}>
                             Без приветствия{!footKeys && <span className="vc-stx-kb">Ctrl+<IconEnter size={11} /></span>}
                         </button>
-                        <span><span className="vc-stx-kb"><IconShift size={11} /><IconEnter size={11} /></span>{!footKeys && "в ответ"}</span>
                     </div>
                 </div>
             </div>

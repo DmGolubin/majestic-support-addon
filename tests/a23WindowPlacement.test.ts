@@ -85,8 +85,8 @@ it("waits for a pending placement write before a newly opened picker restores it
 });
 
 describe("ticket switching with an open picker", () => {
-    function harness() {
-        const ui = { state: { windowOpen: true, compose: ["old"], inline: {}, menu: {}, dialog: {}, channelRevision: 5 },
+    function harness(privateType?: number) {
+        const ui = { state: { windowOpen: true, inline: {}, menu: {}, dialog: {}, channelRevision: 5 },
             get() { return this.state; }, set(patch: any) { Object.assign(this.state, patch); } };
         const supersede = vi.fn(), clearTargets = vi.fn(), nextGeneration = vi.fn();
         const exports: any = {};
@@ -97,6 +97,7 @@ describe("ticket switching with an open picker", () => {
             "@utils/types": { default: (v: unknown) => v, OptionType: {} },
             "@api/Settings": { definePluginSettings: (v: unknown) => v },
             "./core/guard": { serverMode },
+            "./platform": { currentChannelMode: () => serverMode(null, privateType) },
             "./ui/uiState": { ui }, "./ui/flow": { supersede },
             "./ui/op": { clearTargets, nextGeneration },
             "./ui/debug": { debugEnabled: () => false },
@@ -109,14 +110,22 @@ describe("ticket switching with an open picker", () => {
         const h = harness();
         h.change("530693013622489088");
         expect(h.ui.state.windowOpen).toBe(true);
-        expect(h.ui.state.compose).toEqual([]);
+        expect(h.ui.state.inline).toBeNull();
         expect(h.ui.state.dialog).toBeNull();
         expect(h.ui.state.channelRevision).toBe(6);
         expect(h.supersede).toHaveBeenCalledOnce();
         expect(h.clearTargets).toHaveBeenCalledOnce();
         expect(h.nextGeneration).toHaveBeenCalledOnce();
     });
-    it("closes on an unsupported server or DM and never reopens itself", () => {
+    it.each([1, 3])("keeps an open picker when entering private channel type %s and clears the old editor", type => {
+        const h = harness(type);
+        h.change(null);
+        expect(h.ui.state.windowOpen).toBe(true);
+        expect(h.ui.state.dialog).toBeNull();
+        expect(h.clearTargets).toHaveBeenCalledOnce();
+        expect(h.nextGeneration).toHaveBeenCalledOnce();
+    });
+    it("closes on an unknown channel and never reopens itself", () => {
         const h = harness();
         h.change(null);
         expect(h.ui.state.windowOpen).toBe(false);

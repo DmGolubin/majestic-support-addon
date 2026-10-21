@@ -129,7 +129,7 @@ with sync_playwright() as p:
         search.focus()
         search.press('Enter')
         search.press('Shift+Enter')
-        check('Enter and Shift Enter dispatch distinct actions once', page.evaluate('[window.insertions,window.compositions]') == [1, 1])
+        check('Enter inserts once and Shift Enter has no template action', page.evaluate('window.insertions') == 1)
         page.keyboard.down('Shift')
         check('held Shift previews', page.locator('.vc-stx-win > .vc-stx-pre').count() == 1)
         page.keyboard.up('Shift')

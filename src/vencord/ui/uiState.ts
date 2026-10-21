@@ -6,12 +6,12 @@
 
 import { useEffect, useMemo, UserStore, useState } from "@webpack/common";
 
-import { listProject, poolOf, Scope, ServerMode, serverMode } from "../core/guard";
+import { listProject, poolOf, Scope, ServerMode } from "../core/guard";
 import { Store } from "../core/state";
 import { routeStore } from "../core/storeRouter";
 import { FieldSpec } from "../core/tokens";
 import { ProjectId, Template } from "../core/types";
-import { chatAreaEl, chatAreaRect, currentGuildId, storage } from "../platform";
+import { chatAreaEl, chatAreaRect, currentChannelMode, storage } from "../platform";
 import { dlog } from "./debug";
 import { createObservable } from "./observable";
 
@@ -53,25 +53,24 @@ export interface UiState {
     management: boolean;
     windowOpen: boolean;
     dialog: Dialog | null;
-    compose: string[];
     inline: InlineState | null;
     menu: { x: number; y: number; id: string; } | null;
     /** Selected message text captured when the window/trigger opened. */
 }
 
 export const ui = createObservable<UiState>({
-    channelRevision: 0, management: false, windowOpen: false, dialog: null, compose: [], inline: null, menu: null,
+    channelRevision: 0, management: false, windowOpen: false, dialog: null, inline: null, menu: null,
 });
 
 export type { Scope };
 
-/** Mode of the current server (fixed table in core/guard). */
-export const currentMode = (): ServerMode => serverMode(currentGuildId());
+/** Verified channel mode; Tech and DMs use the project selector. */
+export const currentMode = (): ServerMode => currentChannelMode();
 
-/** false on any server but Majestic / Россия Онлайн / Tech and in DMs: the plugin stays out of the way. */
+/** Enabled on Majestic / Россия Онлайн / Tech and verified DMs; unavailable channels stay disabled. */
 export const pluginOn = () => currentMode() !== "off";
 
-/** Templates scope of the current server; null = plugin off here. */
+/** Templates scope of the current channel; null = plugin off here. */
 export function activeScope(): Scope | null {
     if (demoAccess.get().enabled && !demoAccess.get().ready) return null;
     const m = currentMode();
@@ -82,24 +81,21 @@ export function activeScope(): Scope | null {
     return m === "off" ? null : m;
 }
 
-/** Project FAQ/common and authorized personal records; Tech uses its switch; none when off. */
+/** Project FAQ/common and authorized personal records; Tech and DMs use the project selector; none when off. */
 export const poolFor = (scope: Scope | null): Template[] => poolOf(store.templates, scope, store.data.techProject);
 
-/** The project a scope lists (Tech: the switch), null when off. */
+/** The project a scope lists (Tech and DMs: the selector), null when off. */
 export const listedProject = (scope: Scope | null): ProjectId | null => scope === null ? null : listProject(scope, store.data.techProject);
 
-/**
- * Tech switch. The collected reply is always dropped (simplest rule: its pieces were picked from the
- * other list) and the inline suggestions close (the next keystroke re-checks against the new list).
- */
+/** Project selector for Tech and DMs: close suggestions so the next keystroke checks the new list. */
 export function pickTechProject(p: ProjectId) {
     if (store.data.techProject === p) return;
-    dlog("tech-project", { project: p, droppedCompose: ui.get().compose.length || undefined });
+    dlog("tech-project", { project: p });
     store.setTechProject(p);
-    ui.set({ compose: [], inline: null });
+    ui.set({ inline: null });
 }
 
-/** The Tech choice, re-rendering only when it changes (the chat-bar button uses it). */
+/** The Tech/DM project choice, re-rendering only when it changes (the chat-bar button uses it). */
 export function useTechProject(): ProjectId {
     const [p, setP] = useState(store.data.techProject);
     useEffect(() => {

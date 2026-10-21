@@ -199,7 +199,7 @@ export function describeEl(el: Element | null): string {
     // Discord classes are hashed ("textArea__74017"): keep the readable part of the first two.
     const keyCls = ours.length ? ours : cls.slice(0, 2).map(c => c.replace(/[_-]+[\w]{4,}$/, ""));
     if (keyCls.length) s += "." + keyCls.join(".");
-    const where = el.closest(".vc-stx-win, .vc-stx-dialog, .vc-stx-pop, .vc-stx-menu, .vc-stx-compose, .vc-stx-debug, .vc-stx-tip");
+    const where = el.closest(".vc-stx-win, .vc-stx-dialog, .vc-stx-pop, .vc-stx-menu, .vc-stx-debug, .vc-stx-tip");
     if (where && where !== el) s += ` (в .${Array.from(where.classList).find(c => c.startsWith("vc-stx-"))})`;
     return s;
 }
@@ -242,7 +242,6 @@ export function debugSnapshot(): string[] {
         ] : []),
         `inline: ${inl ? `запрос ${q40(inl.query)} · пунктов ${inl.items.length} · sel ${inl.sel}${inl.note ? ` · note «${inl.note}»` : ""}` : "закрыт"} · accepting: ${isAccepting()}`,
         `диалог: ${dialogDesc(s.dialog)}`,
-        `ответ (compose): ${s.compose.length ? s.compose.map(tpl).join(", ") : "пусто"}`,
         `меню: ${s.menu ? tpl(s.menu.id) : "нет"}`,
         `latch: ${latchedCode() ?? "нет"}`,
         `фокус: ${describeEl(document.activeElement)}`,
@@ -304,7 +303,6 @@ function geometryLines(): string[] {
         `превью: ${rectOf(part(".vc-stx-win > .vc-stx-pre"))}${scrollOf(part(".vc-stx-win > .vc-stx-pre .vc-stx-body"))}`,
         `список: ${rectOf(list)}${scrollOf(list)}`,
         `подсказка: ${rectOf(part(".vc-stx-tip"))}`,
-        `ответ (compose): ${rectOf(part(".vc-stx-compose"))}`,
         `inline: ${rectOf(part(".vc-stx-pop"))}`,
         `панель отладки: ${rectOf(part(".vc-stx-debug"))}`,
     ];

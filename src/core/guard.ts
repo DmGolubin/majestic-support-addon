@@ -13,11 +13,12 @@ export type ServerBinding = ProjectId | "none";
 /** «Tech™» — the support staff server: either project, picked in the window's switch; no project guard. */
 export const TECH_GUILD = "1395915167040016545";
 
-/** How the plugin works on a server: one project, Tech (project from the switch, no guard), or not at all. */
+/** One server project, a project selector in Tech/private messages, or disabled. */
 export type ServerMode = ProjectId | "all" | "off";
 
-/** Fixed table: Majestic → mj, Россия Онлайн → ro, Tech → all; any other server, DMs and group DMs → off. */
-export function serverMode(guildId: string | null): ServerMode {
+/** Missing guild data is not proof of a DM. Only Discord DM (1) and group DM (3) types enable it. */
+export function serverMode(guildId: string | null, channelType?: number | null): ServerMode {
+    if (guildId === null && (channelType === 1 || channelType === 3)) return "all";
     if (!guildId) return "off";
     if (guildId === PROJECTS.mj.guildId) return "mj";
     if (guildId === PROJECTS.ro.guildId) return "ro";

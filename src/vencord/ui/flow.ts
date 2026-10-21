@@ -10,7 +10,7 @@ import { fieldsOf, fill } from "../core/tokens";
 import { ProjectId, PROJECTS, Template } from "../core/types";
 import { activeEditor, currentChannel, insertText, readClipboard, toast } from "../platform";
 import { debugEnabled, dlog } from "./debug";
-import { generationNow, rememberComposeTarget, Target, targetNow } from "./op";
+import { generationNow, Target, targetNow } from "./op";
 import { activeScope, currentMode, Dialog, ensureLibraryFresh, libraryIsFresh, Scope, store, ui } from "./uiState";
 
 type ConfirmArgs = Omit<Extract<Dialog, { kind: "confirm"; }>, "kind" | "resolve">;
@@ -58,9 +58,6 @@ export function stillCurrent(s: Snap): boolean {
 export function focusTarget(s: Snap) {
     (s.editor ?? activeEditor())?.focus();
 }
-
-/** "project:id" of foreign templates the user explicitly confirmed (used by the compose bar). */
-export const confirmedForeign = new Set<string>();
 
 /** A new dialog must never orphan a pending one: cancel the open one (if it awaits an answer) first. */
 export function supersede() {
@@ -132,13 +129,13 @@ export async function fillFields(title: string, text: string, snap: Snap, onCanc
 /** Scope of this channel's server; null (logged) where the plugin is off — nothing may be inserted. */
 function scopeHere(): Scope | null {
     const scope = activeScope();
-    if (!scope) dlog("cancel", { reason: "плагин выключен на этом сервере", mode: currentMode() });
+    if (!scope) dlog("cancel", { reason: "плагин выключен в этом канале", mode: currentMode() });
     return scope;
 }
 
 /**
  * Guard + warnings. Returns the template to use (maybe a mirror) or null when cancelled.
- * On Tech ("all") any template is fine (the switch only filters the list): no mirror, no foreign/marker warnings — only the status check.
+ * On Tech and in DMs ("all") any template is fine (the selector only filters the list): no mirror, no foreign/marker warnings — only the status check.
  */
 async function guard(t: Template, scope: Scope, onCancel?: () => void, current: () => boolean = () => true): Promise<Template | null> {
     if (scope !== "all") {
@@ -171,7 +168,6 @@ async function projectGuard(t: Template, project: ProjectId, onCancel?: () => vo
             ok: `Да, вставить шаблон ${PROJECTS[t.project!].short}`,
         }, onCancel);
         if (!r.ok) { dlog("cancel", { reason: "отмена в диалоге: шаблон другого проекта", id: t.id }); return null; }
-        confirmedForeign.add(`${project}:${t.id}`);
         return t; // confirmed as the other project's: naming that project is expected, no second warning
     }
 
@@ -248,18 +244,4 @@ export async function insertTemplate(t: Template, opts: { noGreeting?: boolean; 
     dlog("insert", { id: r.t.id, title: r.t.title, via: opts.via ?? "?", ok });
     if (!ok) dlog("error", { where: "insertText", id: r.t.id });
     if (ok) store.markUsed(r.t.id);
-}
-
-export async function addToCompose(t: Template) {
-    if (store.byId(t.id) !== t) return;
-    const snap = snapNow(targetNow());
-    if ((!libraryIsFresh() && !await ensureLibraryFresh()) || !stillCurrent(snap)) return;
-    const scope = scopeHere();
-    if (!scope) return;
-    const g = await guard(t, scope);
-    if (!g || store.byId(g.id) !== g || !stillCurrent(snap)) return;
-    rememberComposeTarget();
-    dlog("compose-add", { id: g.id, title: g.title, already: ui.get().compose.includes(g.id) || undefined });
-    if (!ui.get().compose.includes(g.id)) ui.set({ compose: [...ui.get().compose, g.id] });
-    toast("Добавлено в ответ: " + g.title, "message");
 }

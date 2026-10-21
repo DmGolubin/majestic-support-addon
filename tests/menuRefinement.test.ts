@@ -314,14 +314,14 @@ describe("template menu refinement", () => {
         expect(h.insertTemplate).not.toHaveBeenCalled();
     });
 
-    it("retains search Enter/Shift+Enter and Escape while ignoring composition", () => {
+    it("retains search Enter and Escape while ignoring Shift+Enter and IME", () => {
         const h = windowHarness(), parent = byClass(h.render(), "vc-stx-win");
         parent.props.onKeyDown(key("Enter", h.input, { nativeEvent: { isComposing: true } }));
         expect(h.insertTemplate).not.toHaveBeenCalled();
         parent.props.onKeyDown(key("Enter", h.input));
         parent.props.onKeyDown(key("Enter", h.input, { shiftKey: true }));
         expect(h.insertTemplate).toHaveBeenCalledOnce();
-        expect(h.addToCompose).toHaveBeenCalledOnce();
+        expect(h.addToCompose).not.toHaveBeenCalled();
         parent.props.onKeyDown(key("Escape", h.input));
         expect(h.state.windowOpen).toBe(false);
     });

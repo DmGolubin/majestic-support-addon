@@ -114,6 +114,14 @@ function harness(kind: "menu" | "dialog", personal = false, configure?: (store: 
 }
 
 describe("A24 per-template shortcut UI", () => {
+    it("offers individual insertion actions without a reply composition action", () => {
+        const h = harness("menu");
+        expect(h.button("Вставить")).toBeDefined();
+        expect(h.button("+ в ответ")).toBeUndefined();
+        h.button("Вставить").props.onClick();
+        expect(h.insertTemplate).toHaveBeenCalledExactlyOnceWith(h.target, { via: "menu" });
+        h.cleanup();
+    });
     it.each([false, true])("exposes a keyboard-addressable bind action for a nonfavorite template (personal=%s)", personal => {
         const h = harness("menu", personal);
         expect(h.store.data.favorites).toEqual([]);

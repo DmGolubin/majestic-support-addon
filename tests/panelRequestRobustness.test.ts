@@ -44,7 +44,7 @@ function harness(wire?: { get(path: string): Promise<unknown>; mutate?(request: 
     const realStore = new Store({ get: async () => undefined, set: writes });
     const routed = routeStore(realStore);
     const access = observable({ enabled: true, ready: false, projects: [] as string[], checkedAt: 0 });
-    const ui = observable({ windowOpen: true, management: false, compose: [] as string[], inline: null, menu: null, dialog: null });
+    const ui = observable({ windowOpen: true, management: false, inline: null, menu: null, dialog: null });
     const state = { discordId: "123456789012345678", revision: "1", name: "Support", profileId: "123456789012345678", error: null as unknown,
         templates: [template], pendingLogin: null as Promise<void> | null, pendingGet: null as Promise<unknown> | null,
         pendingLogout: null as Promise<void> | null, nowServer: "time-a", projects: ["mj"], permissions: "1", pendingSnapshot: null as Promise<unknown> | null,

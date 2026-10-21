@@ -8,7 +8,6 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import { useState } from "@webpack/common";
 
 import { toast } from "../platform";
-import { ComposeBar } from "./ComposeBar";
 import { ContextMenu } from "./ContextMenu";
 import { debugState, dlog, setDebugEnabled } from "./debug";
 import { DebugPanel } from "./DebugPanel";
@@ -30,7 +29,6 @@ import { Window } from "./Window";
 const RESET: Record<string, () => Partial<UiState>> = {
     management: () => ({ management: false }),
     window: () => ({ windowOpen: false }),
-    compose: () => ({ compose: [] }),
     inline: () => ({ inline: null }),
     menu: () => ({ menu: null }),
     dialog: () => { supersede(); return { dialog: null }; },
@@ -68,7 +66,6 @@ export function Host() {
             {windowOpen && safe("window", login ? <LoginWindow /> : <Window connectionNotice={p.stale
                 ? "Панель недоступна. Используем загруженные шаблоны, связь восстановится автоматически."
                 : ""} />)}
-            {safe("compose", <ComposeBar />)}
             {safe("inline", <Inline />)}
             {safe("menu", <ContextMenu />)}
             {safe("dialog", <Dialogs />, dialog ? idOf(dialog) : 0)}

@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { joinPieces } from "../src/core/compose";
 import { poolOf, Scope, templateFitsProject } from "../src/core/guard";
 import { comboOf } from "../src/core/keys";
 import { orderHits } from "../src/core/rank";
@@ -15,7 +14,6 @@ const compile = (file: string) => ts.transpileModule(readFileSync(new URL(file, 
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
 }).outputText;
 const inlineCode = compile("../src/vencord/ui/inline.ts");
-const composeCode = compile("../src/vencord/ui/ComposeBar.tsx");
 const latchCode = compile("../src/vencord/ui/keylatch.ts");
 const keySource = readFileSync(new URL("../src/vencord/index.tsx", import.meta.url), "utf8");
 const keyCode = ts.transpileModule(keySource.slice(keySource.indexOf("const inForeignInput"), keySource.indexOf("let host:")), {
@@ -43,20 +41,12 @@ const observable = (initial: any) => {
         useSelect: (fn: (v: any) => any) => fn(value),
     };
 };
-const button = (node: any): any => {
-    if (!node || typeof node !== "object") return;
-    if (node.type === "button" && node.props.children.includes("Вставить всё")) return node;
-    for (const child of (node.props?.children ?? []).flat(Infinity)) {
-        const found = button(child);
-        if (found) return found;
-    }
-};
 
 async function harness() {
     const store = new Store({ get: async () => undefined, set: async () => {} });
     const id = await store.savePersonal({ title: "Old", text: "Answer", project: "mj", command: "old", color: null, folderId: null });
     const t = store.byId(id)!;
-    const ui = observable({ inline: null, compose: [], management: false });
+    const ui = observable({ inline: null, management: false });
     const document: any = { body: {}, activeElement: null };
     let selection: any;
     const range = () => ({
@@ -98,38 +88,20 @@ async function harness() {
     const insertText = vi.fn(() => true);
     const toast = vi.fn();
     const latchKey = vi.fn();
-    const resetComposeTarget = vi.fn();
     let scope: Scope | null = "mj";
     const snapNow = () => ({ scope, setVersion: store.setVersion, editor: ed });
     const flow = {
         prepareText: vi.fn(async (template: any, _target: any, _options: any) => ({ t: template, text: template.text, snap: snapNow() })),
         stillCurrent: vi.fn((snap: any) => snap.setVersion === store.setVersion && ed.isConnected),
-        snapNow, focusTarget: vi.fn(), fillFields: vi.fn(async (_title: string, text: string): Promise<string | null> => text),
-        confirmedForeign: new Set<string>(),
-    };
-    // Persistent hook slots and explicit render/cleanup: exercise handlers across re-renders, not just one closure.
-    const slots: any[] = [], effects: (() => void)[] = [], cleanups: (() => void)[] = [];
-    let cursor = 0;
-    const hooks = {
-        useRef(value: any) { const i = cursor++; return slots[i] ??= { current: value }; },
-        useState(value: any) {
-            const i = cursor++;
-            if (!(i in slots)) slots[i] = value;
-            return [slots[i], (next: any) => { slots[i] = typeof next === "function" ? next(slots[i]) : next; }];
-        },
-        useEffect(effect: () => (() => void)) {
-            const i = cursor++;
-            if (!(i in slots)) { slots[i] = true; effects.push(() => cleanups.push(effect())); }
-        },
+        snapNow,
     };
     const dependencies: Record<string, any> = {
-        "@webpack/common": hooks,
         "../core/guard": { templateFitsProject },
-        "../core/rank": { orderHits }, "../core/search": { search }, "../core/trigger": { findTrigger }, "../core/compose": { joinPieces },
+        "../core/rank": { orderHits }, "../core/search": { search }, "../core/trigger": { findTrigger },
         "../platform": { insertText, toast },
         "./debug": { costStart: () => 0, costEnd: () => {}, debugEnabled: () => false, dlog: () => {}, noteKey: () => {} },
         "./flow": flow, "./keylatch": { latchKey },
-        "./op": { generationNow: () => 1, composeEditor: () => ed, composeTargetNow: () => ({ editor: ed, selection: "" }), resetComposeTarget },
+        "./op": { generationNow: () => 1 },
         "./uiState": { store, ui, libraryIsFresh: () => true, ensureLibraryFresh: async () => true, activeScope: () => scope, poolFor: () => poolOf(store.templates, scope, store.data.techProject), useStore: () => {}, useChatRect: () => ({ left: 0, width: 500, top: 600 }) },
         "./ProjectIcon": {}, "./svg": {},
     };
@@ -154,17 +126,8 @@ async function harness() {
         comboOf, templateFitsProject, toast, favoritesOf: () => [], visibleItems: [],
         toggleWindow: vi.fn(), insertTemplate: vi.fn(),
     });
-    const compose = evaluate(composeCode);
-    const render = () => {
-        cursor = 0;
-        const tree = compose.ComposeBar();
-        effects.splice(0).forEach(fn => fn());
-        return button(tree);
-    };
-    render(); // Host keeps the component mounted even with an empty reply.
     const openInline = () => ui.set({ inline: { query: "old", length: 4, sel: 0, items: [t], note: "" } });
-    const collect = () => { ui.set({ compose: [id] }); return render(); };
-    return { store, id, t, ui, document, ed, makeEditor, setCaret, flow, inline, onKey, latch, insertText, toast, latchKey, resetComposeTarget, openInline, collect, render, setScope: (next: Scope | null) => { scope = next; }, unmount: () => cleanups.splice(0).forEach(fn => fn()), selection: () => selection };
+    return { store, id, t, ui, document, ed, makeEditor, setCaret, flow, inline, onKey, latch, insertText, toast, latchKey, openInline, setScope: (next: Scope | null) => { scope = next; }, selection: () => selection };
 }
 
 beforeEach(() => vi.useFakeTimers());
@@ -311,7 +274,6 @@ describe("inline cancellation", () => {
         expect(h.ui.get().inline.items).toEqual([h.t]);
         h.setScope(null); h.inline.runCheck();
         expect(h.ui.get().inline).toBeNull();
-        h.unmount();
     });
     it.each(["ArrowDown", "ArrowUp", "Enter", "Tab"])("does not consume %s after focus leaves its editor", async key => {
         const h = await harness(); h.openInline();
@@ -407,89 +369,5 @@ describe("inline cancellation", () => {
         expect(h.flow.prepareText).toHaveBeenCalledExactlyOnceWith(h.t, { editor: h.ed, selection: "" }, { noGreeting });
         expect(h.latchKey).toHaveBeenCalledExactlyOnceWith(key);
         expect(h.insertText).toHaveBeenCalledExactlyOnceWith("Answer");
-    });
-});
-
-describe("compose cancellation", () => {
-    it.each(["personal", "faq"] as const)("A27 accepts fetched cross-project personal composition but blocks foreign FAQ (%s)", async source => {
-        const h = await harness();
-        Object.assign(h.t, { project: "ro", source, personalVisibleIn: ["mj", "ro"] });
-        await h.collect().props.onClick();
-        if (source === "personal") expect(h.insertText).toHaveBeenCalledExactlyOnceWith("Answer");
-        else expect(h.insertText).not.toHaveBeenCalled();
-        h.unmount();
-    });
-    it("releases a disconnected target before preparation while retaining the collected reply", async () => {
-        const h = await harness(); const b = h.collect();
-        h.ed.isConnected = false;
-        await b.props.onClick();
-        expect(h.resetComposeTarget).toHaveBeenCalledTimes(1);
-        expect(h.flow.fillFields).not.toHaveBeenCalled();
-        expect(h.insertText).not.toHaveBeenCalled();
-        expect(h.ui.get().compose).toEqual([h.id]);
-        expect(h.render().props.disabled).toBe(false);
-    });
-    it("locks synchronously across double clicks and rerenders, then inserts once", async () => {
-        const h = await harness(); const first = h.collect();
-        const ready = deferred<string>(); h.flow.fillFields.mockImplementationOnce(() => ready.promise);
-        const pending = first.props.onClick();
-        await first.props.onClick();
-        const next = h.render(); expect(next.props.disabled).toBe(true);
-        await next.props.onClick();
-        expect(h.flow.fillFields).toHaveBeenCalledTimes(1);
-        ready.resolve("Reply"); await pending;
-        expect(h.insertText).toHaveBeenCalledExactlyOnceWith("Reply");
-        expect(h.ui.get().compose).toEqual([]);
-    });
-    it.each(["clear", "replace", "reorder in place", "template edit", "unmount"])("cancels %s while filling fields", async change => {
-        const h = await harness(); const b = h.collect();
-        const ready = deferred<string>(); h.flow.fillFields.mockImplementationOnce(() => ready.promise);
-        const pending = b.props.onClick();
-        if (change === "clear") h.ui.set({ compose: [] });
-        if (change === "replace") h.ui.set({ compose: [h.id] });
-        if (change === "reorder in place") h.ui.get().compose.push("another-id");
-        if (change === "template edit") await h.store.savePersonal({ ...h.t, text: "Visit russia.online", folderId: null }, h.id);
-        if (change === "unmount") h.unmount();
-        ready.resolve("Old reply"); await pending;
-        expect(h.insertText).not.toHaveBeenCalled();
-    });
-    it.each(["version", "identity", "content", "deletion"])("rejects template %s changes made before Insert all", async change => {
-        const h = await harness(); const staleButton = h.collect();
-        if (change === "version") h.store.setVersion++;
-        if (change === "identity") h.store.templates = [{ ...h.t }];
-        if (change === "content") h.t.text = "Visit russia.online";
-        if (change === "deletion") h.store.templates = [];
-        // Unrelated UI notification also exercises invalidation before a fresh render.
-        h.ui.set({ inline: null });
-        await staleButton.props.onClick();
-        expect(h.ui.get().compose).toEqual([]);
-        expect(h.flow.fillFields).not.toHaveBeenCalled();
-        expect(h.insertText).not.toHaveBeenCalled();
-    });
-    it("clears an edited collected template and permits explicitly collecting it again", async () => {
-        const h = await harness(); h.collect();
-        await h.store.savePersonal({ ...h.t, text: "Updated", folderId: null }, h.id);
-        expect(h.ui.get().compose).toEqual([]);
-        expect(h.render()).toBeUndefined();
-        await h.collect().props.onClick();
-        expect(h.insertText).toHaveBeenCalledExactlyOnceWith("Updated");
-    });
-    it.each(["cancel", "reject", "insert failure"])("releases the busy lock after %s so a retry works", async outcome => {
-        const h = await harness(); const b = h.collect();
-        if (outcome === "cancel") h.flow.fillFields.mockResolvedValueOnce(null);
-        if (outcome === "reject") h.flow.fillFields.mockRejectedValueOnce(new Error("Read failed"));
-        if (outcome === "insert failure") h.insertText.mockReturnValueOnce(false);
-        if (outcome === "reject") await expect(b.props.onClick()).rejects.toThrow("Read failed");
-        else await b.props.onClick();
-        const retry = h.render(); expect(retry.props.disabled).toBe(false);
-        h.insertText.mockClear();
-        await retry.props.onClick();
-        expect(h.insertText).toHaveBeenCalledExactlyOnceWith("Answer");
-    });
-    it("keeps a reply through unrelated preference writes", async () => {
-        const h = await harness(); const b = h.collect();
-        h.store.setPreviewOpen(false);
-        await b.props.onClick();
-        expect(h.insertText).toHaveBeenCalledTimes(1);
     });
 });

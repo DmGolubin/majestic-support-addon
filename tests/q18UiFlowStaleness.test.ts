@@ -35,7 +35,7 @@ function harness() {
         "../platform": { activeEditor: () => editor, currentChannel: () => ({ id: "channel", guildId: "guild", name: "chat" }),
             insertText: insert, toast: vi.fn(), readClipboard: () => { reading.resolve(); return clipboard.promise; } },
         "./debug": { debugEnabled: () => false, dlog() {} },
-        "./op": { generationNow: () => 1, targetNow: () => ({ editor, selection: "" }), rememberComposeTarget() {} },
+        "./op": { generationNow: () => 1, targetNow: () => ({ editor, selection: "" }) },
         "./uiState": { ui, store, activeScope: () => "mj", currentMode: () => "mj", libraryIsFresh: () => fresh, ensureLibraryFresh: ensureFresh },
     };
     const exports: any = {};

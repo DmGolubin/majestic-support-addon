@@ -33,7 +33,7 @@ async function harness() {
     const localBefore = structuredClone(real.data);
     const writesBefore = write.mock.calls.length;
     const router = routeStore(real);
-    const ui = observable<Record<string, unknown>>({ management: false, windowOpen: false, dialog: null, compose: [], inline: null, menu: null });
+    const ui = observable<Record<string, unknown>>({ management: false, windowOpen: false, dialog: null, inline: null, menu: null });
     const access = observable({ enabled: false, ready: false });
     let generation = 0;
     const op = {
@@ -120,14 +120,14 @@ async function harness() {
         router.store.setPrefix("?");
         router.store.setTechProject("ro");
         await router.store.flush();
-        ui.set({ management: true, windowOpen: true, compose: [id], dialog: { kind: "fields" }, inline: {}, menu: {} });
+        ui.set({ management: true, windowOpen: true, dialog: { kind: "fields" }, inline: {}, menu: {} });
     };
     const expectCleared = (previewOpen = false) => {
         expect(router.store.templates).toEqual([]);
         expect(router.store.data).toMatchObject({ raw: "", personal: [], folders: [], favorites: [], recent: [], usage: {}, binds: {}, intentional: [], prefix: "?", techProject: "ro", previewOpen });
         expect(access.get().ready).toBe(false);
         expect(demo.demo.get()).toMatchObject({ revision: 0, code: "", url: "" });
-        expect(ui.get()).toMatchObject({ management: false, dialog: null, compose: [], inline: null, menu: null });
+        expect(ui.get()).toMatchObject({ management: false, dialog: null, inline: null, menu: null });
     };
     const expectLocalUntouched = () => {
         expect(real.data).toEqual(localBefore);
