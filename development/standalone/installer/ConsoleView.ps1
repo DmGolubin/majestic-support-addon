@@ -2,7 +2,7 @@
 Set-StrictMode -Version 2
 $script:ConsoleView = $null
 
-# dots14 frames and timing from cli-spinners (Sindre Sorhus), as in the supplied preview.
+# dots14 frames and timing from cli-spinners (Sindre Sorhus).
 <#
 MIT License
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
@@ -12,21 +12,23 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #>
 $script:ConsoleSpinnerFrames = @('⠉⠉','⠈⠙','⠀⠹','⠀⢸','⠀⣰','⢀⣠','⣀⣀','⣄⡀','⣆⠀','⡇⠀','⠏⠀','⠋⠁')
 
-function New-ConsoleLine([string]$Text = '', [string]$Tone = 'Text') {
-    [pscustomobject]@{ Text = $Text; Tone = $Tone }
+function New-ConsoleLine([string]$Text = '', [string]$Tone = 'Text', [string]$Align = 'Center') {
+    [pscustomobject]@{ Text = $Text; Tone = $Tone; Align = $Align }
 }
 
 function Split-ConsoleLine([string]$Text, [int]$Width) {
-    # Backend messages are text, never terminal commands. Preserve full diagnostics by wrapping.
     $clean = [regex]::Replace($Text, '\x1b\[[0-?]*[ -/]*[@-~]', '')
     $clean = [regex]::Replace($clean, '[\x00-\x08\x0b-\x1f\x7f]', '')
     foreach ($part in ($clean -split "`r?`n")) {
         $rest = $part.Trim()
+        $isPath = $rest -match '^(?:[A-Za-z]:[\\/]|\\\\|%[^%]+%[\\/])'
         while ($rest.Length -gt $Width) {
             $cut = $rest.LastIndexOf(' ', $Width)
+            if ($isPath) { $cut = [Math]::Max($rest.LastIndexOf('\', $Width - 1), $rest.LastIndexOf('/', $Width - 1)) + 1 }
             if ($cut -lt 1) { $cut = $Width }
             $rest.Substring(0, $cut)
-            $rest = $rest.Substring($cut).TrimStart()
+            $rest = $rest.Substring($cut)
+            if (-not $isPath) { $rest = $rest.TrimStart() }
         }
         $rest
     }
@@ -38,7 +40,7 @@ function Get-ConsoleFrame([string]$Title, [object[]]$Lines, [string]$Footer,
     $height = [Math]::Max(1, $Height)
     $body = @()
     foreach ($line in $Lines) {
-        foreach ($part in @(Split-ConsoleLine $line.Text $width)) { $body += New-ConsoleLine $part $line.Tone }
+        foreach ($part in @(Split-ConsoleLine $line.Text $width)) { $body += New-ConsoleLine $part $line.Tone $line.Align }
     }
     if ($Busy) {
         # Animate only while a real invocation is pending; never delay completion.
@@ -91,7 +93,9 @@ function Get-ConsoleFrame([string]$Title, [object[]]$Lines, [string]$Footer,
     $centered = @($rows | ForEach-Object {
         $text = $_.Text
         if ($text.Length -gt $width) { $text = $text.Substring(0, $width) }
-        New-ConsoleLine ((' ' * [Math]::Max(0, [int][Math]::Floor(($width - $text.Length) / 2))) + $text) $_.Tone
+        $padding = 0
+        if ($_.Align -ne 'Left') { $padding = [Math]::Max(0, [int][Math]::Floor(($width - $text.Length) / 2)) }
+        New-ConsoleLine ((' ' * $padding) + $text) $_.Tone $_.Align
     })
     [pscustomobject]@{ Rows = $centered; Width = $width; Height = $height; Page = $page; Pages = $pages; TooSmall = $tooSmall }
 }

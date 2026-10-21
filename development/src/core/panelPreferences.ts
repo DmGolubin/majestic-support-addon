@@ -89,7 +89,7 @@ function normalize(value: unknown): Preferences {
     if (validPrefix(prefix) && prefix.length === 1) result.prefix = prefix;
     if (typeof preview === "boolean") result.previewOpen = preview;
     if (project === "mj" || project === "ro") result.techProject = project;
-    // Store only deviations from the new defaults, preserving the compact legacy projection.
+    // Store only deviations from defaults, preserving the compact legacy projection.
     if (own(value, "showPersonalInAll") === true) result.showPersonalInAll = true;
     if (own(value, "generalFirstInSearch") === false) result.generalFirstInSearch = false;
     const tabs = own(value, "windowTabOrder");

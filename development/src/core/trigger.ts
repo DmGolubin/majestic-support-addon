@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-export const PREFIXES = [";", ".", ",", "!"] as const;
-
 /** One explicit punctuation character; no slash commands, mentions or whitespace. */
 export const validPrefix = (value: unknown): value is string => typeof value === "string" && /^[!#$%&*+.,:;=?^~_-]$/.test(value);
 

@@ -27,8 +27,8 @@ import { IconClose, IconEnter, IconSearch, IconSettings, IconStar } from "./svg"
 import { activeScope, listedProject, pickTechProject, poolFor, store, ui, useStore, watchChatArea } from "./uiState";
 
 import "./menu-refinement.css";
-// Load the placement component (which imports its CSS) after the menu's base overrides.
 import { useWindowPlacement, WindowPlacementControls } from "./WindowPlacement";
+// Placement styles must follow the menu's base overrides.
 import "./window-placement.css";
 import "./window-tabs.css";
 
@@ -261,8 +261,7 @@ function WindowView(connectionNotice: string) {
     useEffect(() => () => setDebugWindow(null), []);
     useEffect(() => {
         // Shift held = temporary full-text preview; released anywhere (or the app losing focus) = hide.
-        // Document level, not the window's onKeyDown: a click on a non-focusable part of the window (tab
-        // strip, header, scrollbar) drops focus to <body>, and then the window never saw Shift (Task 20).
+        // Listen on document: clicks on non-focusable window parts can move focus to <body>.
         // Peek is visual only: Shift is never prevented, so Discord still gets it.
         const onShift = (e: KeyboardEvent) => {
             if ((e.target as HTMLElement)?.closest?.(".vc-stx-select, [data-stx-menu-control]")) return;

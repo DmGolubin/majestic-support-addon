@@ -56,7 +56,6 @@ for (const output of outputs) {
         }
     }
 }
-fs.mkdirSync('build-evidence', { recursive: true });
 fs.writeFileSync('build-evidence/inputs.json', JSON.stringify({ rendererPlugins: config.rendererPlugins, nativePlugins: config.nativePlugins, inputs }, null, 2));
 const require = createRequire(import.meta.url);
 const dependencies = Object.fromEntries(['esbuild', 'typescript', '@intrnl/xxhash64', 'diff'].map(name => {

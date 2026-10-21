@@ -55,7 +55,6 @@ export interface UiState {
     dialog: Dialog | null;
     inline: InlineState | null;
     menu: { x: number; y: number; id: string; } | null;
-    /** Selected message text captured when the window/trigger opened. */
 }
 
 export const ui = createObservable<UiState>({

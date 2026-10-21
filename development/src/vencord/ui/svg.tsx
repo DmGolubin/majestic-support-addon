@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-// Every glyph of the UI is an inline SVG (user rule: no emoji / unicode pictographs or arrows in the UI).
+// Use inline SVG glyphs instead of emoji or Unicode pictographs.
 // Stroke style, currentColor, aligned with the text by .vc-stx-svg.
 
 interface P { size?: number; }
@@ -39,9 +39,6 @@ export const IconChevron = ({ size, open = false }: P & { open?: boolean; }) => 
 /** Enter / Return key. */
 export const IconEnter = ({ size }: P) => <Svg size={size}><path d="M19 5v6a3 3 0 0 1-3 3H6" /><path d="M10 10l-4 4 4 4" /></Svg>;
 
-/** Shift key (outlined up arrow). */
-export const IconShift = ({ size }: P) => <Svg size={size}><path d="M12 4l7.5 8H15.5v7h-7v-7H4.5z" /></Svg>;
-
 export const IconBack = ({ size }: P) => <Svg size={size}><path d="M19 12H5M11 6l-6 6 6 6" /></Svg>;
 
 /** Neutral "templates" glyph (a page with lines): common templates, no project. */
@@ -50,8 +47,5 @@ export const IconTemplates = ({ size }: P) => (
 );
 
 export const IconSettings = ({ size }: P) => <Svg size={size}><path d="M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z" /><circle cx="12" cy="12" r="3" /></Svg>;
-export const IconFolder = ({ size }: P) => <Svg size={size}><path d="M3 7V5h6l2 2h10v13H3z" /></Svg>;
-export const IconLink = ({ size }: P) => <Svg size={size}><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2" /></Svg>;
-export const IconPlus = ({ size }: P) => <Svg size={size}><path d="M12 5v14M5 12h14" /></Svg>;
 export const IconRefresh = ({ size }: P) => <Svg size={size}><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-2l2 3M4 16l2 3a7 7 0 0 0 12-2" /></Svg>;
 export const IconLogout = ({ size }: P) => <Svg size={size}><path d="M9 4H4v16h5M13 8l4 4-4 4M8 12h12" /></Svg>;

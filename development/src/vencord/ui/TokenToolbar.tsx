@@ -28,7 +28,7 @@ export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void
             <button type="button" aria-expanded={greeting} onClick={() => { capture(); setGreeting(!greeting); setExpanded(false); }}>Приветствие <span aria-hidden="true">{greeting ? "−" : "+"}</span></button>
         </div>
         {expanded && <div className="vc-stx-token-panel">
-            <p>Например, <code>{"{{ник}}"}</code> предложит ввести ник игрока перед вставкой шаблона.</p>
+            <p><code>{"{{ник}}"}</code> — запрос ника перед вставкой.</p>
         <div className="vc-stx-token-builder" role="group" aria-label="Настройка поля" onKeyDown={e => { if (e.key === "Enter" && e.target instanceof HTMLInputElement && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); submit(); } }}>
                 <label>Имя поля<input autoFocus value={name} placeholder="Например: ник" onChange={e => setName(e.currentTarget.value)} /></label>
                 <label>Значение по умолчанию (необязательно)<input value={value} onChange={e => setValue(e.currentTarget.value)} /></label>
@@ -38,7 +38,7 @@ export function TokenToolbar({ capture, insert, hasBoundary }: { capture(): void
         </div>}
         {greeting && <div className="vc-stx-token-panel">
             <strong>Вставка без повторного приветствия</strong>
-            <p>{hasBoundary ? "Конец приветствия уже отмечен. При вставке без приветствия останется только основной ответ." : "Поставьте курсор после приветствия в тексте и нажмите кнопку ниже. При вставке без приветствия текст до этой отметки будет пропущен."}</p>
+            <p>{hasBoundary ? "Граница отмечена. Без приветствия вставится только основной ответ." : "Поставьте курсор после приветствия и отметьте границу. При вставке без приветствия текст до неё будет пропущен."}</p>
             <p className="vc-stx-muted">Служебная отметка видна только в редакторе и не попадёт в сообщение.</p>
             <button type="button" className="vc-stx-btn vc-stx-ghost" disabled={hasBoundary} onClick={() => add("\n[[greeting:end]]\n")}>Отметить конец приветствия</button>
         </div>}

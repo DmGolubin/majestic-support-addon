@@ -1,8 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { importBackup } from "../src/core/importer";
-import { search, subseqSpan, swapLayout } from "../src/core/search";
-import { hard } from "../src/core/text";
+import { search, swapLayout } from "../src/core/search";
 
 const all = importBackup(readFileSync(new URL("./fixtures/config-0.5.1.json", import.meta.url), "utf8")).templates;
 const mj = all.filter(t => t.project === "mj");
@@ -38,7 +37,6 @@ describe("search", () => {
     it.each(["рздел", "разел", "раздл"])("finds a later compact fuzzy match for %s", q => {
         const title = "Направление в технический раздел форума";
         const r = search(mj, q);
-        expect(subseqSpan(q, hard(title))).toBe(6);
         expect(r.fuzzy).toBe(true);
         expect(r.hits.find(h => h.t.title === title)?.level).toBe(1);
     });
@@ -80,21 +78,6 @@ describe("search", () => {
     it("exact command → level 5", () => {
         const t = { ...mj[0], command: "nv" };
         expect(search([t], "nv").hits[0].level).toBe(5);
-    });
-});
-
-describe("shortest subsequence span", () => {
-    it.each([
-        ["abcd", "a----b----c----d abxcd", 5],
-        ["aab", "a---aab", 3],
-        ["aab", "ab", -1],
-        ["aab", "axb", -1],
-        ["abcd", "abc", -1],
-        ["abcd", "dcba", -1],
-        ["a", "ba", 1],
-        ["", "abc", -1],
-    ])("%s in %s has span %s", (needle, hay, span) => {
-        expect(subseqSpan(needle, hay)).toBe(span);
     });
 });
 

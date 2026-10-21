@@ -36,7 +36,7 @@
     font-size: 13px;
 }
 
-/* ---- Templates window (port of the approved replica window-real.html) ---- */
+/* ---- Templates window ---- */
 /* contain: the window's repaints (scrolling, hover) stay inside it and don't invalidate Discord underneath. */
 .vc-stx-win { display: flex; overflow: hidden; border-radius: 10px; box-shadow: 0 1px 2px hsl(216 30% 2% / .6), 0 16px 40px rgb(0 0 0 / 55%); contain: layout paint; }
 /* Fixed width = closed window (360) minus its border: the list sits at the same spot with the preview open, closed or peeked. */
@@ -200,27 +200,12 @@
 .vc-stx-settings label.vc-stx-check { flex-direction: row; align-items: center; }
 .vc-stx-settings :is(input:not([type=checkbox]), textarea, select) { display: block; width: 100%; min-width: 0; border: 1px solid var(--stx-bd); border-radius: 6px; background: var(--stx-input); color: var(--stx-tx); padding: 10px 12px; font: inherit; }
 .vc-stx-settings select { color-scheme: dark; }
-.vc-stx-personal-form fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 14px; min-width: 0; }
-.vc-stx-personal-form textarea { min-height: 180px; height: 230px; resize: vertical; font-family: var(--stx-mono); font-size: 12px; line-height: 1.6; }
-.vc-stx-personal-form h4 { font-size: 17px; margin: 16px 0; }
-.vc-stx-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0; }
-.vc-stx-colors { display: flex; flex-wrap: wrap; gap: 8px; }
-.vc-stx-colors button { width: 36px; height: 36px; display: grid; place-items: center; background: var(--stx-acc); border: 1px solid transparent; border-radius: 6px; color: var(--stx-tx); cursor: pointer; font: inherit; }
-.vc-stx-colors button[aria-pressed=true] { border-color: var(--stx-ring); outline: 1px solid var(--stx-ring); outline-offset: 2px; }
-.vc-stx-colors button span { width: 19px; height: 19px; background: var(--swatch); border-radius: 50%; }
 .vc-stx-lib-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.vc-stx-folder-bar { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
-.vc-stx-folder-bar label { flex: 1; min-width: 150px; }
-.vc-stx-personal-card { background: var(--stx-bg); border: 1px solid var(--stx-bd); border-left-width: 3px; border-radius: 6px; padding: 16px; margin-top: 12px; }
-.vc-stx-personal-card h4 { font-size: 14px; margin: 0 0 5px; overflow-wrap: anywhere; }
-.vc-stx-personal-card pre { padding: 12px; margin: 12px 0; max-height: 150px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #080a0d; font: 12px/1.6 var(--stx-mono); color: var(--stx-mu); }
-.vc-stx-library-empty { border: 1px dashed var(--stx-bd2); border-radius: 6px; padding: 28px; text-align: center; color: var(--stx-mu); }
 .vc-stx-form-error { color: #ff8ba8; padding: 10px; border: 1px solid #96314a; border-radius: 6px; }
 @media (max-width: 600px) {
     .vc-stx-root > .vc-stx-management-backdrop { padding: 8px; }
     .vc-stx-management { height: min(720px, calc(100dvh - 16px - var(--stx-window-chrome, 36px))); max-height: calc(100dvh - 16px - var(--stx-window-chrome, 36px)); }
     .vc-stx-management > .vc-stx-settings { padding: 0 14px 14px; }
-    .vc-stx-form-grid { grid-template-columns: 1fr; }
     .vc-stx-lib-title { flex-wrap: wrap; }
 }
 .vc-stx-settings p { margin: 4px 0 8px; }
@@ -301,7 +286,6 @@
 .vc-stx-token-buttons button:focus-visible { outline: 2px solid #c51751; outline-offset: 2px; }
 .vc-stx-token-buttons button:disabled { opacity: .45; cursor: default; }
 .vc-stx-token-builder { margin-top: 10px; padding: 12px; border: 1px solid var(--stx-bd); border-radius: 6px; display: grid; gap: 10px; }
-.vc-stx-personal-form .vc-stx-token-builder textarea { height: 96px; min-height: 80px; }
 .vc-stx-demo-banner { position: fixed; top: 36px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 24px); display: flex; align-items: center; padding: 3px 8px; border: 1px solid var(--stx-bd); border-radius: 4px; background: var(--stx-card); color: var(--stx-mu); z-index: 3; pointer-events: auto; font: inherit; font-size: 11px; cursor: pointer; }
 .vc-stx-login { position: fixed; width: min(400px, calc(100vw - 16px)); max-height: calc(100vh - 100px); overflow: auto; padding: 22px; border: 1px solid var(--stx-bd); border-radius: 8px; background: var(--stx-card); color: var(--stx-tx); pointer-events: auto; box-shadow: 0 16px 48px #0006; }
 .vc-stx-login h2 { font-size: 22px; line-height: 1.3; margin: 24px 0 10px; }
@@ -346,20 +330,7 @@
 .vc-stx-server-row { display: flex; justify-content: space-between; gap: 20px; padding: 9px 0; }
 .vc-stx-server-row span:last-child { color: var(--stx-mu2); text-align: right; }
 .vc-stx-library .vc-stx-lib-title { margin-bottom: 20px; }
-.vc-stx-personal-card { background: var(--stx-card); }
-.vc-stx-personal-card pre { border-radius: 4px; background: var(--stx-input); }
-.vc-stx-editor-actions { position: sticky; bottom: -24px; padding: 14px 0; background: #0b0d10; border-top: 1px solid var(--stx-bd); z-index: 1; }
-.vc-stx-library-empty { border-style: solid; background: var(--stx-card); }
 .vc-stx-settings-nav .vc-stx-btn, .vc-stx-lib-title > button { display: inline-flex; align-items: center; gap: 7px; }
-.vc-stx-library-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; }
-.vc-stx-library-content { min-width: 0; }
-.vc-stx-folder-nav { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid var(--stx-bd); border-radius: 6px; align-self: start; }
-.vc-stx-folder-heading { display: flex; align-items: center; gap: 8px; margin: 4px 8px 12px; color: var(--stx-mu); font-size: 12px; }
-.vc-stx-folder-nav button { display: flex; justify-content: space-between; gap: 8px; padding: 10px; border: 0; border-radius: 4px; background: transparent; color: var(--stx-mu); font: inherit; text-align: left; cursor: pointer; }
-.vc-stx-folder-nav button span { overflow-wrap: anywhere; }
-.vc-stx-folder-nav button:hover { background: var(--stx-acc); }
-.vc-stx-folder-nav button[aria-pressed=true] { background: var(--stx-acc); color: var(--stx-tx); box-shadow: inset 2px 0 var(--stx-pr); }
-.vc-stx-folder-nav small { color: var(--stx-mu2); }
 .vc-stx-select { position: relative; min-width: 0; }
 .vc-stx-select > button { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--stx-bd); border-radius: 6px; background: var(--stx-input); color: var(--stx-tx); font: inherit; text-align: left; cursor: pointer; }
 .vc-stx-select > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -384,5 +355,4 @@
 .vc-stx-connection-state > span { width: 7px; height: 7px; border-radius: 50%; background: var(--stx-mu2); }
 .vc-stx-connection-state.ready > span { background: #36c995; }
 .vc-stx-manage-link { display: flex; align-items: center; gap: 7px; padding: 6px 8px; border: 1px solid var(--stx-bd); border-radius: 5px; font-size: 12px; }
-@media (max-width: 650px) { .vc-stx-library-layout { grid-template-columns: 1fr; gap: 16px; } .vc-stx-folder-nav { flex-direction: row; flex-wrap: wrap; } .vc-stx-folder-heading { width: 100%; } }
-@media (max-width: 600px) { .vc-stx-editor-actions { bottom: -14px; } .vc-stx-settings-nav .vc-stx-btn { padding-inline: 8px; } }
+@media (max-width: 600px) { .vc-stx-settings-nav .vc-stx-btn { padding-inline: 8px; } }

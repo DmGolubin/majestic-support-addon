@@ -128,7 +128,7 @@ function handleKey(e: KeyboardEvent) {
     }
     if (s.menu) return; // the context menu owns the keyboard while open (its own capture listener)
 
-    // Other servers and DMs: nothing is handled or prevented — every key reaches Discord as if the plugin were absent.
+    // Unsupported channels: leave every key to Discord.
     if (!pluginOn()) {
         if (debugEnabled() && e.ctrlKey && e.altKey && e.code === "KeyT") dlog("key", { h: "hotkey", key: keyDesc(e), skip: "плагин выключен на этом сервере" });
         return;

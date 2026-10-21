@@ -42,6 +42,14 @@ Check 'text wrapping retains long paths and strips terminal control characters' 
     $parts = @(Split-ConsoleLine ("safe" + [char]27 + '[2J' + [char]7 + ' text') 40)
     Assert (($parts -join '') -ceq 'safe text') 'Terminal sequence survived sanitization'
 }
+Check 'error blocks align left and preserve path boundaries and filenames' {
+    $path = '%LOCALAPPDATA%\SupportTemplates\installer-updates\installer-diagnostics.log'
+    $parts = @(Split-ConsoleLine $path 40)
+    Assert (($parts -join '') -ceq $path -and $parts[-1] -ceq 'installer-diagnostics.log') 'Filename split or path altered'
+    $frame = Get-ConsoleFrame 'Ошибка установки' @(New-ConsoleLine ("Уже установлена эта версия с другими файлами.`n`nЛог:`n" + $path) 'Text' 'Left') '[0] Закрыть' 82 29
+    Assert ($frame.Rows.Text -contains $path -and $frame.Rows.Text -contains 'Лог:') 'Log path is centered or split despite sufficient width'
+    Assert (($frame.Rows.Text -join "`n") -match 'Уже установлена эта версия с другими файлами') 'Failure cause lost'
+}
 Check 'incremental redraw updates only changed rows and clears old content on reflow' {
     $script:ConsoleView = @{ LastRows = @{}; Viewport = '' }
     $script:paint = New-Object 'System.Collections.Generic.List[object]'

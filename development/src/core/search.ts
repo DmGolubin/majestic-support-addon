@@ -62,28 +62,6 @@ function strict(t: Template, toks: string[]): Hit | null {
     return null;
 }
 
-/** Shortest stretch of hay holding needle as a subsequence; -1 if none. */
-export function subseqSpan(needle: string, hay: string) {
-    if (!needle.length || needle.length > hay.length) return -1;
-    // Latest start for each matched prefix. Walk backwards so one character
-    // cannot satisfy multiple positions when the needle has repeated letters.
-    const starts = new Array<number>(needle.length).fill(-1);
-    let best = Infinity;
-    for (let p = 0; p < hay.length; p++) {
-        for (let i = needle.length - 1; i >= 0; i--) {
-            if (hay[p] !== needle[i]) continue;
-            const start = i === 0 ? p : starts[i - 1];
-            if (start < 0) continue;
-            starts[i] = start;
-            if (i === needle.length - 1) {
-                best = Math.min(best, p - start + 1);
-                if (best === needle.length) return best;
-            }
-        }
-    }
-    return best === Infinity ? -1 : best;
-}
-
 /** At most two edits: four alternatives per mismatch, recursion depth <= 2.
  * Unlike a full edit-distance matrix, allocation and work stay bounded per word.
  * Adjacent transposition counts as one edit (e.g. "серевр" -> "сервер"). */
@@ -197,7 +175,7 @@ function run(pool: Template[], q: string, approximate = false) {
     const hits = approximate && (tokens.length > MAX_FUZZY_TOKENS || !tokens.some(t => t.length >= MIN_FUZZY && t.length <= MAX_FUZZY_WORD))
         ? [] : pool.map(t => approximate ? fuzzy(t, tokens, cache) : strict(t, tokens)).filter((h): h is Hit => !!h);
     // Stable ties keep catalog order; orderHits still applies favorites/usage
-    // within these relevance tiers. No consumer API or new UI mode is required.
+    // within these relevance tiers.
     hits.sort((a, b) => b.level - a.level);
     return { hits, tokens, fuzzy: approximate && hits.length > 0 };
 }

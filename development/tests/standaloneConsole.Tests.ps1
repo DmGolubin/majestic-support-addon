@@ -145,11 +145,11 @@ Check 'conversion cancellation EOF never installs' {
 }
 Check 'unsupported inspection gives reason and returns without install' {
     $r = Run 'install.bat' '1100' -inspectionKind unsupported
-    Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect' -and $r.output.Contains('Причина: Не удалось подтвердить совместимость') -and -not $r.output.Contains('Fixture unsupported installation')) $r.output
+    Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect' -and $r.output.Contains('Причина: Установленный мод не поддерживает') -and -not $r.output.Contains('Fixture unsupported installation')) $r.output
 }
 Check 'failed inspection returns before install or closing' {
     $r = Run 'install.bat' '1100' -inspectExit 9
-    Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect' -and -not $r.calls[2].closeDiscord -and $r.output.Contains('Установка не начата')) $r.output
+    Assert ($r.code -eq 0 -and ($r.calls.action -join ',') -eq 'Update,Detect,Inspect' -and -not $r.calls[2].closeDiscord -and $r.output.Contains('Fixture operation unavailable.')) $r.output
 }
 Check 'malformed inspection cannot install' {
     $r = Run 'install.bat' '1100' -inspectionKind malformed

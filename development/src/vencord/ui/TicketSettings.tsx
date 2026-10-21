@@ -45,6 +45,7 @@ function ReminderInterval({ project, name, personalReminderMinutes, discordRemin
 export function TicketSettings() {
     const state = ticketSoundState.use();
     const reminders = ticketRemindersState.use();
+    const reminderSettings = reminders.settings;
     const { options, loaded, error, testing, playing, playbackStatus } = state;
     const [previewLabel, setPreviewLabel] = useState<string | null>(null);
     const playbackLabel = testing ? "Подготовка звука…" : playing
@@ -65,7 +66,7 @@ export function TicketSettings() {
         const config = project ? reminderTicketSound(options, project) : parentId ? channelTicketSound(options, parentId) : options;
         const customName = sound?.customName ?? "";
         const loadingSound = sound?.loadingSound ?? false;
-        const mutedPreview = !!(parentId || project) && (!config.enabled || config.volume === 0 || !!project && !reminders.settings?.discordEnabled);
+        const mutedPreview = !!(parentId || project) && (!config.enabled || config.volume === 0 || !!project && !reminderSettings?.discordEnabled);
         return <div className="vc-stx-ticket-custom-sound">
             <div className="vc-stx-ticket-sound-name"><span className="vc-stx-muted">Звук</span><span>{loadingSound ? "Загружаем…" : customName || "Стандартный"}</span></div>
             <div className="vc-stx-ticket-audio-actions">
@@ -123,7 +124,7 @@ export function TicketSettings() {
             })}</div>
         </section>
         <ReminderSettings>
-            <div className="vc-stx-ticket-card-grid">{reminders.settings?.projects.map(({ project, personalReminderMinutes, discordReminderMinutes, effectiveReminderMinutes }) => {
+            <div className="vc-stx-ticket-card-grid">{reminderSettings?.projects.map(({ project, personalReminderMinutes, discordReminderMinutes, effectiveReminderMinutes }) => {
                 const config = reminderTicketSound(options, project);
                 const projectId = project === "majestic" ? "mj" : "ro";
                 const name = PROJECTS[projectId].short;
@@ -133,8 +134,8 @@ export function TicketSettings() {
                         <div><strong>{name}</strong><span>Игрок ждёт ответа · {effectiveReminderMinutes} мин</span></div>
                     </div>
                     <label className="vc-stx-check"><input type="checkbox" checked={config.enabled} onChange={e => setReminderTicketSound(project, { enabled: e.currentTarget.checked })} />Напоминания этого сервера</label>
-                    {!reminders.settings?.discordEnabled && <p className="vc-stx-ticket-project-note">Общий переключатель напоминаний выключен.</p>}
-                    <ReminderInterval key={`${project}:${reminders.settings.version}`} project={project} name={name}
+                    {!reminderSettings.discordEnabled && <p className="vc-stx-ticket-project-note">Общий переключатель напоминаний выключен.</p>}
+                    <ReminderInterval key={`${project}:${reminderSettings.version}`} project={project} name={name}
                         personalReminderMinutes={personalReminderMinutes} discordReminderMinutes={discordReminderMinutes}
                         effectiveReminderMinutes={effectiveReminderMinutes} disabled={reminders.busy} />
                     <label className="vc-stx-ticket-volume"><span>Громкость <span className="vc-stx-ticket-value">{percent(config.volume)}</span></span>

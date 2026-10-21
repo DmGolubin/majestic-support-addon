@@ -464,10 +464,10 @@ exit 0
             Invoke-PackageUpdate Update '' $caseCache | Out-Null
             throw 'Expected archive rejection'
         } catch { $integrity = Get-PackageConsoleError $_.Exception }
-        Assert ($unavailable -ceq 'Публичный выпуск пока недоступен. Обновление не загружено.') 'HTTP404 classification lost'
-        Assert ($network -match 'Проверьте интернет' -and $timeout -ceq $network) 'Network classification lost'
+        Assert ($unavailable -match 'не найден.*HTTP 404') 'HTTP404 classification lost'
+        Assert ($network -match 'DNS' -and $timeout -match 'не ответил вовремя') 'Network classification lost'
         Assert ($integrity -match 'проверку целостности или безопасности') 'Integrity classification lost'
-        Assert (($unavailable + $network + $integrity) -notmatch '404|SHA256|fixture|https:|Обновление не требуется') 'Technical details or false success exposed'
+        Assert (($unavailable + $network + $integrity) -notmatch 'SHA256|fixture|https:|Обновление не требуется') 'Raw details or false success exposed'
     }
     Test 'Console startup distinguishes a downloaded update from a current package' {
         $status = Invoke-PackageUpdate Update '' $caseCache | ConvertFrom-Json
@@ -480,10 +480,17 @@ exit 0
     }
     foreach ($nativeCase in @(
         @{error='Target Discord is running (PID 123); close it before retrying';expected='системном трее'},
-        @{error='Foreign modloader bootstrap refused';expected='совместимый плагин'},
-        @{error='Foreign backup/config without ownership state refused';expected='другой мод или несовместимая установка'},
+        @{error='Foreign modloader bootstrap refused';expected='неподдерживаемый загрузчик'},
+        @{error='Foreign backup/config without ownership state refused';expected='без записи о её владельце'},
+        @{error='Foreign resources/app directory refused';expected='несовместимая папка resources/app'},
+        @{error='Same version has different package content; use a new version';expected='эта версия SupportTemplates с другими файлами'},
+        @{error='Version already exists with different manifest; use a new version';expected='эта версия SupportTemplates с другими файлами'},
+        @{error='Existing version content differs';expected='эта версия SupportTemplates с другими файлами'},
+        @{error='Cannot establish target process path; close the target Discord before retrying';expected='определить путь запущенного Discord'},
+        @{error='Another SupportTemplates installer is operating on this channel';expected='другой установщик'},
+        @{error='Required payload missing';expected='повреждены или отсутствуют'},
         @{error='Replacement cannot downgrade the installed package version';expected='Понижение версии отменено'},
-        @{error='ReplaceExisting does not match the current installation';expected='Выберите клиент заново'},
+        @{error='ReplaceExisting does not match the current installation';expected='изменилась после проверки'},
         @{error='Install cannot downgrade the installed version; refresh the package first';expected='Понижение версии отменено'}
     )) {
         Test "Console captures native refusal: $($nativeCase.error)" {
@@ -543,7 +550,29 @@ exit 0
         Assert (@([IO.File]::ReadAllLines($path)).Count -le 16) 'Diagnostic record limit exceeded'
         $failure.Data['PackageDiagnosticPath'] = $path
         $message = Get-PackageConsoleError $failure
-        Assert ($message.Contains($path) -and $message -notmatch 'закры|close|Discord') 'Unexpected failure wrongly prescribes closing Discord'
+        $displayPath = $path.Replace($env:LOCALAPPDATA, '%LOCALAPPDATA%')
+        Assert ($message.Contains($displayPath) -and $message -notmatch 'закры|close|Discord') 'Unexpected failure wrongly prescribes closing Discord'
+        Assert ($message -match 'Unexpected ownership condition' -and $message.Contains("`n`nЛог:`n")) 'Cause or separate log path is missing'
+    }
+    Test 'Known failures keep the cause and a short resolvable log path through wrapper exceptions' {
+        $failure = New-Object InvalidOperationException('Native installer failed')
+        $failure.Data['PackageConsoleMessage'] = Get-PackageNativeMessage 'Same version has different package content; use a new version' 1 Install
+        $failure.Data['PackageDiagnosticPath'] = Join-Path $env:LOCALAPPDATA 'SupportTemplates\installer-updates\installer-diagnostics.log'
+        $wrapped = New-Object InvalidOperationException('wrapper', $failure)
+        $message = Get-PackageConsoleError $wrapped
+        Assert ($message -match 'эта версия.*другими файлами' -and $message.EndsWith('%LOCALAPPDATA%\SupportTemplates\installer-updates\installer-diagnostics.log')) 'Wrapped cause/path lost'
+        Assert ($message -notmatch 'нужен журнал|выяснения|wrapper') 'Unhelpful prose exposed'
+        $secret = Get-PackageNativeMessage "SupportTemplates: unknown failure`nAuthorization: Bearer fixture-secret" 7 Install
+        Assert ($secret -match 'unknown failure' -and $secret -notmatch 'fixture-secret|Bearer|Authorization') 'Unknown cause leaked credentials or disappeared'
+    }
+    Test 'Wrapped local failures show the root cause instead of PowerShell invocation prose' {
+        $failure = New-Object IO.IOException('Local write failed')
+        $wrapped = New-Object System.Reflection.TargetInvocationException('Invocation wrapper', $failure)
+        $message = Get-PackageConsoleError $wrapped
+        Assert ($message -match 'Local write failed' -and $message -notmatch 'Invocation wrapper') 'Local root cause lost'
+        $denied = New-Object UnauthorizedAccessException('denied fixture')
+        $wrapped = New-Object System.Reflection.TargetInvocationException('Invocation wrapper', $denied)
+        Assert ((Get-PackageConsoleError $wrapped) -eq 'Нет доступа к файлам установщика.') 'Wrapped access failure lost'
     }
     function Run-ConsoleEntry([bool]$ConsoleMode) {
         # Run the actual top-level catch/exit path in an isolated PS5.1 process.
@@ -584,7 +613,7 @@ function Receive-PackageDownload {
     Test 'Actual Console entry returns failure for HTTP404 without raw errors or false up-to-date output' {
         $result = Run-ConsoleEntry $true
         Assert ($result.code -eq 1 -and $result.stdout.Trim() -ceq 'Версия установщика: 1.0.1.') 'HTTP404 lost known version or produced false success'
-        Assert ($result.stderr.Trim() -ceq 'Публичный выпуск пока недоступен. Обновление не загружено.') "Unexpected console output: $($result.stderr)"
+        Assert ($result.stderr -match 'не найден.*HTTP 404' -and $result.stderr -match 'Лог:') "Unexpected console output: $($result.stderr)"
     }
     Test 'Technical CLI keeps original failure details and nonzero exit' {
         $result = Run-ConsoleEntry $false

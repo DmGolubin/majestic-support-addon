@@ -165,18 +165,36 @@ describe("prefix dirty confirmation", () => {
         personal.onDirty(false); h.render(); expect(h.onDirty).toHaveBeenLastCalledWith(false);
     });
 
-    it("preserves personal busy guards for already open discard confirmations", () => {
+    it.each(["resolve", "reject"])("blocks stale tab/close handlers until the editor reports save %s", outcome => {
         const h = harness(), p = h.personal(); p.onDirty(true); h.render();
-        h.click("Настройки"); h.click("Закрыть"); p.onBusy(true); h.render();
-        h.click("Перейти без сохранения"); h.click("Закрыть без сохранения"); h.press(); h.backdrop();
+        h.click("Настройки"); h.click("Закрыть");
+        const switchTab = h.button("Перейти без сохранения"), close = h.button("Закрыть без сохранения");
+        const tab = h.button("Тикеты"), closeButton = h.button("Закрыть");
+        p.onBusy(true);
+        switchTab.props.onClick(); close.props.onClick(); tab.props.onClick(); closeButton.props.onClick();
+        h.press(); h.backdrop();
         expect(h.discard).not.toHaveBeenCalled(); expect(h.ui.set).not.toHaveBeenCalled();
-        expect(h.button("Закрыть").props.disabled).toBe(true);
-        p.onBusy(false); h.render(); h.click("Перейти без сохранения");
-        expect(h.discard).toHaveBeenCalledOnce(); h.press(); expect(h.ui.set).toHaveBeenCalledWith({ management: false });
+        for (const label of ["Перейти без сохранения", "Закрыть без сохранения", "Закрыть", "Тикеты"])
+            expect(h.button(label).props.disabled).toBe(true);
+        p.onBusy(false);
+        if (outcome === "resolve") p.onDirty(false);
+        h.render(); expect(h.button("Закрыть").props.disabled).toBe(false);
+        if (outcome === "reject") { h.click("Перейти без сохранения"); expect(h.discard).toHaveBeenCalledOnce(); }
+        else expect(h.text()).not.toContain("Есть несохранённые изменения");
+        h.press(); expect(h.ui.set).toHaveBeenCalledWith({ management: false }); h.unmount();
     });
 });
 
 describe("Management focus and backdrop", () => {
+    it("exposes three settings tabs without local import or demo entry points", () => {
+        const h = harness("Settings"); h.click("Настройки");
+        for (const removed of ["Выбрать файл", "Импорт", "Локальная библиотека", "Редактировать на панели", "Демо-данные", "Доступные серверы"])
+            expect(h.text()).not.toContain(removed);
+        for (const tab of ["Мои шаблоны", "Настройки", "Тикеты"]) expect(h.button(tab)).toBeDefined();
+        expect(all(h.tree(), n => n.type === "a" || n.type === "input" && n.props.type === "file")).toHaveLength(0);
+        h.unmount();
+    });
+
     it("explains the personal-All toggle and retains its existing preference", () => {
         const h = harness("Settings"); h.click("Настройки");
         const label = "Показывать мои шаблоны во вкладке «Все»";

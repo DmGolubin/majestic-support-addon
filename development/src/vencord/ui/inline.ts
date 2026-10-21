@@ -68,7 +68,7 @@ function runCheck() {
     const text = ed.textContent ?? "";
     // No prefix character anywhere in the editor: no trigger is possible — no Selection/Range work at all.
     if (!text.includes(prefix)) { idle = null; return close(); }
-    // Other servers and DMs: no suggestions (Enter/Tab stay Discord's) and no Selection/Range work either.
+    // Unsupported channels: no suggestions or Selection/Range work; Enter/Tab stay Discord's.
     const scope = activeScope();
     if (!scope) { idle = null; return close(); }
     const sel = window.getSelection();

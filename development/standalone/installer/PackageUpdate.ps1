@@ -428,7 +428,7 @@ function Assert-PackageNetworkReady([string]$Cache, [string]$Version) {
         $failure = New-Object InvalidOperationException('Update unavailable: network retry cooldown (up to 60 seconds)')
         $failure.Data['PackageNetworkKind'] = $record.kind
         $failure.Data['PackageCooldownActive'] = $true
-        $failure.Data['PackageConsoleMessage'] = 'Проверка обновлений временно отложена после сбоя соединения. Повторите попытку через минуту.'
+        $failure.Data['PackageConsoleMessage'] = 'Проверка обновлений отложена на минуту после ошибки сети.'
         throw $failure
     }
 }
@@ -468,68 +468,90 @@ function Write-PackageDiagnostic([string]$Cache, [string]$Operation, [string]$Ta
     } catch { return $null } # Logging must never hide the operation failure.
 }
 function Get-PackageNativeMessage([string]$Output, [int]$ExitCode, [string]$NativeAction) {
-    if ($NativeAction -eq 'Inspect') { return 'Не удалось проверить выбранный Discord. Установка не начата.' }
     if ($ExitCode -eq 0) {
         if ($Output -match 'Already installed and verified') { return 'SupportTemplates уже установлен и проверен.' }
         if ($NativeAction -eq 'Repair') { return 'SupportTemplates восстановлен. Перезапустите Discord.' }
         return 'SupportTemplates установлен. Перезапустите Discord.'
     }
-    if ($Output -match 'Target Discord is running|close the target Discord|close it before retrying') {
-        return 'Полностью закройте выбранный Discord, включая значок в системном трее, и повторите установку.'
+    switch -Regex ($Output) {
+        'Same version has different package content|Version already exists with different manifest|Existing version content differs' {
+            return 'Уже установлена эта версия SupportTemplates с другими файлами.'
+        }
+        'Cannot establish target process path|Cannot identify running host' { return 'Не удалось определить путь запущенного Discord.' }
+        'Target Discord is running|close the target Discord|close it before retrying' { return 'Discord ещё запущен, в том числе в системном трее.' }
+        'Foreign backup/config without ownership state refused' { return 'Найдены файлы прежней установки без записи о её владельце.' }
+        'Foreign resources/app directory' { return 'В папке Discord найдена несовместимая папка resources/app.' }
+        'Foreign modloader' { return 'В Discord установлен неподдерживаемый загрузчик модов.' }
+        'Replacement type changed|ReplaceExisting does not match|Injection changed|Foreign modification during replacement|Replacement approval belongs' {
+            return 'Установка Discord изменилась после проверки. Замена отменена.'
+        }
+        'Interrupted replacement|Pending replacement|Recover pending installation|Pending transaction|Pending renderer cleanup' { return 'Предыдущая установка не завершена.' }
+        'cannot downgrade the installed (package )?version' { return 'Установлена более новая версия SupportTemplates. Понижение версии отменено.' }
+        'No supported Discord installation found|No supported app-SEMVER directory' { return 'Выбранный Discord не найден.' }
+        'Another SupportTemplates installer|mutex.*timeout|already.*locked' { return 'Уже работает другой установщик SupportTemplates.' }
+        'No previous owned runtime' { return 'Нет предыдущей версии для восстановления.' }
+        'Access.*denied|UnauthorizedAccess|Отказано в доступе' { return 'Нет доступа к файлам Discord.' }
+        'disk.*full|not enough space|недостаточно места' { return 'Недостаточно места на диске.' }
+        'SHA256|hash mismatch|corrupted|Required payload missing|Missing payload|Invalid ASAR|Invalid manifest' { return 'Файлы установки повреждены или отсутствуют.' }
+        'Runtime cache differs|Installed runtime differs|Previous runtime no longer matches|State.*mismatch|ownership.*mismatch' { return 'Файлы установленного SupportTemplates изменены.' }
     }
-    if ($Output -match 'Foreign modloader|Foreign resources/app directory|Foreign backup/config without ownership state refused') {
-        return 'В клиенте обнаружен другой мод или несовместимая установка. Для Vencord или BetterDiscord используйте совместимый плагин SupportTemplates.'
-    }
-    if ($Output -match 'Replacement type changed|ReplaceExisting does not match|Injection changed|Foreign modification during replacement|Replacement approval belongs') {
-        return 'Установка Discord изменилась после проверки. Замена отменена. Выберите клиент заново.'
-    }
-    if ($Output -match 'Interrupted replacement|Pending replacement|Recover pending installation') {
-        return 'Предыдущая замена не завершена. Закройте Discord и повторно подтвердите замену выбранного мода.'
-    }
-    if ($Output -match 'cannot downgrade the installed (package )?version') {
-        return 'Установлена более новая версия SupportTemplates. Понижение версии отменено.'
-    }
-    if ($Output -match 'No supported Discord installation found|No supported app-SEMVER directory') {
-        return 'Выбранный клиент Discord не найден. Сначала установите его и повторите попытку.'
-    }
-    return 'Не удалось завершить установку SupportTemplates. Для выяснения причины нужен журнал установщика.'
+    $detail = ConvertTo-PackageDiagnosticText $Output
+    $detail = ($detail -split "`r?`n" | Where-Object { $_ -and $_ -notmatch '\[.*omitted\]' } | Select-Object -Last 1) -replace '^SupportTemplates(?: Lite)?:\s*', ''
+    if ($detail -and $detail.Length -le 240) { return "Ошибка установки (код ${ExitCode}): $detail" }
+    return "Не удалось установить SupportTemplates (код ${ExitCode})."
 }
-function Get-PackageConsoleError([Exception]$Failure) {
-    if ($Failure.Message -match 'Invalid native inspection') { return 'Не удалось проверить выбранный Discord. Установка не начата.' }
+function Get-PackageErrorReason([Exception]$Failure) {
+    if ($Failure.Message -match 'Invalid native inspection') { return 'Discord вернул некорректные сведения об установке.' }
     # EndGetResponse is wrapped in MethodInvocationException by PowerShell.
     # Inspect typed inner exceptions instead of relying on localized HTTP text.
     $cursor = $Failure
+    $reason = $Failure.Message
     while ($null -ne $cursor) {
+        $reason = $cursor.Message
         if ($cursor.Data.Contains('PackageConsoleMessage')) {
-            $message = [string]$cursor.Data['PackageConsoleMessage']
-            if ($message -match 'нужен журнал' -and $cursor.Data.Contains('PackageDiagnosticPath')) {
-                $message += ' Журнал: ' + [string]$cursor.Data['PackageDiagnosticPath']
-            }
-            return $message
+            return [string]$cursor.Data['PackageConsoleMessage']
         }
         if ($cursor -is [Net.WebException]) {
             $response = $cursor.Response
             if ($null -ne $response -and $null -ne $response.PSObject.Properties['StatusCode']) {
                 $status = [int]$response.StatusCode
-                if ($status -in @(401, 403, 404)) {
-                    return 'Публичный выпуск пока недоступен. Обновление не загружено.'
-                }
-                return 'Сервер обновлений временно недоступен. Повторите попытку позже.'
+                if ($status -eq 404) { return 'Выпуск или файл обновления не найден на GitHub (HTTP 404).' }
+                if ($status -in @(401, 403)) { return "GitHub ограничил доступ к обновлению (HTTP $status)." }
+                return "Сервер обновлений вернул ошибку HTTP $status."
             }
-            return 'Не удалось подключиться к серверу обновлений. Проверьте интернет и повторите попытку позже.'
+            if ($cursor.Status -eq [Net.WebExceptionStatus]::NameResolutionFailure) { return 'Не удалось определить адрес сервера обновлений (DNS).' }
+            if ($cursor.Status -eq [Net.WebExceptionStatus]::Timeout) { return 'Сервер обновлений не ответил вовремя.' }
+            if ($cursor.Status -in @([Net.WebExceptionStatus]::TrustFailure, [Net.WebExceptionStatus]::SecureChannelFailure)) { return 'Не удалось установить защищённое соединение с сервером обновлений.' }
+            return 'Нет соединения с сервером обновлений.'
         }
         if ($cursor -is [TimeoutException] -or $cursor.Message -match 'Update request timed out') {
-            return 'Не удалось подключиться к серверу обновлений. Проверьте интернет и повторите попытку позже.'
+            return 'Сервер обновлений не ответил вовремя.'
+        }
+        if ($cursor -is [UnauthorizedAccessException]) { return 'Нет доступа к файлам установщика.' }
+        $cursor = $cursor.InnerException
+    }
+    # Validator diagnostics must not expose remote response prose.
+    if ($Failure.ToString() -match 'SHA256|archive|manifest|metadata|selection|package version|bundled package|update configuration|release (tag|asset|repository)|public variants|stable release|update URL|update redirect|Encoded update|download too large|size mismatch|Truncated update|ConvertFrom-Json|Invalid JSON') {
+        return 'Пакет не прошёл проверку целостности или безопасности.'
+    }
+    $detail = ConvertTo-PackageDiagnosticText $reason
+    if ($detail -and $detail.Length -le 240 -and $detail -notmatch '\[.*omitted\]') { return 'Ошибка подготовки пакета: ' + $detail }
+    return 'Не удалось подготовить пакет.'
+}
+function Get-PackageConsoleError([Exception]$Failure) {
+    $message = Get-PackageErrorReason $Failure
+    $cursor = $Failure
+    while ($null -ne $cursor) {
+        if ($cursor.Data.Contains('PackageDiagnosticPath')) {
+            $path = [string]$cursor.Data['PackageDiagnosticPath']
+            $local = $env:LOCALAPPDATA
+            if ($local -and $path.StartsWith($local.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
+                $path = '%LOCALAPPDATA%' + $path.Substring($local.TrimEnd('\').Length)
+            }
+            return $message + "`n`nЛог:`n" + $path
         }
         $cursor = $cursor.InnerException
     }
-    # These diagnostics originate in the local validator/extractor, never remote
-    # response prose. Do not expose paths, URLs, stack traces or raw error text.
-    if ($Failure.ToString() -match 'SHA256|archive|manifest|metadata|selection|package version|bundled package|update configuration|release (tag|asset|repository)|public variants|stable release|update URL|update redirect|Encoded update|download too large|size mismatch|Truncated update|ConvertFrom-Json|Invalid JSON') {
-        return 'Пакет не прошёл проверку целостности или безопасности. Установка не начата. Повторите загрузку.'
-    }
-    $message = 'Не удалось подготовить пакет. Для выяснения причины нужен журнал установщика.'
-    if ($Failure.Data.Contains('PackageDiagnosticPath')) { $message += ' Журнал: ' + [string]$Failure.Data['PackageDiagnosticPath'] }
     return $message
 }
 function Write-PackageConsoleResult($Status) {

@@ -24,7 +24,7 @@ export function personalTemplate(id: string, draft: PersonalDraft, folders: Pers
     return { id, title, text: draft.text, project: draft.project, color: draft.color, command, source: "personal", folderId: folder?.id ?? null, category: folder?.name ?? "Мои шаблоны", status: "actual", statusNote: null, teamUses: 0, updatedAt: new Date().toISOString() };
 }
 
-/** Local prototype records stay separate from the imported FAQ. Future API IDs can be mapped here. */
+/** Local personal records stay separate from the imported FAQ. */
 export function readPersonal(value: unknown, folders: PersonalFolder[]): PersonalTemplate[] {
     if (!Array.isArray(value)) return [];
     const seen = new Set<string>();

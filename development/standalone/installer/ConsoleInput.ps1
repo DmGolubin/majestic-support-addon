@@ -17,7 +17,6 @@ function Read-MenuKey([string]$Allowed) {
             $value = $inputStream.ReadByte()
             if ($value -lt 0) { throw 'Input closed' }
             if ($value -eq 27) {
-                # Ignore an ANSI escape sequence rather than accepting its digits.
                 $next = $inputStream.ReadByte()
                 if ($next -in @(91, 79)) {
                     do { $next = $inputStream.ReadByte() } while ($next -ge 0 -and ($next -lt 64 -or $next -gt 126))
@@ -79,14 +78,13 @@ function Show-DiscordClients {
 }
 
 function Get-InspectionReason([string]$Reason) {
-    # The native contract may return a technical reason on older packages.
-    # Keep the menu Russian without guessing which mod owns unknown files.
+    # Older native packages return these reasons in English.
     if ($Reason -match '[А-Яа-яЁё]' -and $Reason.Length -le 400 -and $Reason -notmatch '[\x00-\x1f\x7f]') { return $Reason }
     switch -Regex ($Reason) {
-        'running|close the target' { return 'Сначала полностью закройте выбранный Discord, включая значок в трее.' }
+        'running|close the target' { return 'Discord ещё запущен.' }
         'not found|no supported' { return 'Выбранный клиент Discord не найден.' }
-        'backup|ownership|state|journal|transaction' { return 'Состояние установки или резервной копии не позволяет безопасно заменить мод.' }
-        default { return 'Не удалось подтвердить совместимость установленного мода для автоматической замены.' }
+        'backup|ownership|state|journal|transaction' { return 'Не удалось проверить состояние прежней установки.' }
+        default { return 'Установленный мод не поддерживает автоматическую замену.' }
     }
 }
 
@@ -107,8 +105,7 @@ function Invoke-ConsoleOperation([ValidateSet('Update','Detect','Inspect','Insta
     $writer = [IO.TextWriter]::Synchronized($capture)
     try {
         # Console.WriteLine is process-global (the updater emits its real version).
-        # Capture it while the renderer uses its saved writer. Backend functions
-        # and the isolated native invocation remain unmodified.
+        # Capture it while the renderer uses its saved writer.
         [Console]::SetOut($writer); [Console]::SetError($writer)
         [void]$worker.AddScript({
             param($Root, $Operation, $TargetChannel, $Cache, $Replacement)
@@ -204,11 +201,13 @@ function Start-ConsoleInstall {
         if ($startup.Success) { $version = [string]$startup.Value.selectedVersion }
         $title = 'SupportTemplates'
         if ($version) { $title += ' / ' + $version }
-        $startupLines = @($startup.Lines | ForEach-Object { New-ConsoleLine $_ 'Muted' })
+        $startupAlign = 'Center'
+        if (-not $startup.Success) { $startupAlign = 'Left' }
+        $startupLines = @($startup.Lines | ForEach-Object { New-ConsoleLine $_ 'Muted' $startupAlign })
         while ($true) {
             Show-ConsoleScreen $title $startupLines '[1] Установить    [0] Выход'
             if ((Read-MenuKey '10') -eq 2) { return 0 }
-            $detected = Invoke-ConsoleOperation 'Detect' '' $cache 'Ищем Discord' 'Проверяем установленные клиенты.'
+            $detected = Invoke-ConsoleOperation 'Detect' '' $cache 'Ищем Discord' ''
             if (-not $detected.Success) {
                 Show-ConsoleResult 'Не удалось продолжить' @($detected.Lines | ForEach-Object { New-ConsoleLine $_ })
                 return 1
@@ -228,10 +227,9 @@ function Start-ConsoleInstall {
             $channel = $clients[$selected - 1].Channel
             $label = $labels[$channel]
             $replacement = ''
-            $checked = Invoke-ConsoleOperation 'Inspect' $channel $cache ('Проверяем ' + $label) 'Пакет, совместимость и текущая установка.'
+            $checked = Invoke-ConsoleOperation 'Inspect' $channel $cache ('Проверяем ' + $label) ''
             if (-not $checked.Success) {
-                $lines = @(New-ConsoleLine 'Не удалось проверить выбранный Discord. Установка не начата.')
-                $lines += @($checked.Lines | ForEach-Object { New-ConsoleLine $_ 'Muted' })
+                $lines = @($checked.Lines | ForEach-Object { New-ConsoleLine $_ 'Muted' 'Left' })
                 Show-ConsoleScreen 'Не удалось продолжить' $lines '[0] Назад'
                 [void](Read-MenuKey '0'); continue
             }
@@ -255,10 +253,11 @@ function Start-ConsoleInstall {
                 ) '[0] Назад'
                 [void](Read-MenuKey '0'); continue
             }
-            $installed = Invoke-ConsoleOperation 'Install' $channel $cache ('Установка / ' + $label) 'Устанавливаем и проверяем SupportTemplates.' $replacement
+            $installed = Invoke-ConsoleOperation 'Install' $channel $cache ('Установка / ' + $label) '' $replacement
             $title = 'Установка завершена'; $exitCode = 0
-            if (-not $installed.Success) { $title = 'Не удалось завершить установку'; $exitCode = 1 }
-            $lines = @(New-ConsoleLine $label 'Muted') + @($installed.Lines | ForEach-Object { New-ConsoleLine $_ })
+            $align = 'Center'
+            if (-not $installed.Success) { $title = 'Ошибка установки'; $exitCode = 1; $align = 'Left' }
+            $lines = @(New-ConsoleLine $label 'Muted') + @($installed.Lines | ForEach-Object { New-ConsoleLine $_ 'Text' $align })
             Show-ConsoleResult $title $lines
             return $exitCode
         }

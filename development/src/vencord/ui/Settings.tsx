@@ -80,7 +80,7 @@ export function Settings({ onDirty, onBusy }: { onDirty?(dirty: boolean): void; 
                     <label className="vc-stx-switch"><input type="checkbox" aria-label="Показывать мои шаблоны во вкладке «Все»" checked={store.data.showPersonalInAll} disabled={p.phase !== "ready"} onChange={e => store.setShowPersonalInAll(e.currentTarget.checked)} /><span aria-hidden="true" /></label>
                 </div>
                 <div className="vc-stx-setting-line">
-                    <div><strong>Общие шаблоны первыми в поиске</strong><span>Сначала общие, затем личные. Внутри каждой группы сохраняется порядок по точности совпадения.</span></div>
+                    <div><strong>Общие шаблоны первыми в поиске</strong><span>Внутри каждой группы — по точности совпадения.</span></div>
                     <label className="vc-stx-switch"><input type="checkbox" aria-label="Общие шаблоны первыми в поиске" checked={store.data.generalFirstInSearch} disabled={p.phase !== "ready"} onChange={e => store.setGeneralFirstInSearch(e.currentTarget.checked)} /><span aria-hidden="true" /></label>
                 </div>
                 <h4>Порядок вкладок</h4>

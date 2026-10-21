@@ -55,7 +55,7 @@ export interface TransportResponse {
     headers?: Record<string, string | string[] | number | undefined>;
     body: AsyncIterable<Uint8Array> & { destroy?(): void };
 }
-/** Test seam; production should use the built-in anonymous node:https transport. */
+/** Injectable host transport; defaults to anonymous node:https. */
 export type Transport = (url: string, options: { signal: AbortSignal }) => Promise<TransportResponse>;
 export interface Options {
     config: Config;

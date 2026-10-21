@@ -41,7 +41,7 @@ export interface Persisted {
 }
 
 export const STORE_KEY = "SupportTemplates_v2";
-/** Key used by the Vencord spike (raw/usage/pinned/tabs). */
+/** Legacy DataStore key for raw/usage/pinned/tabs migration. */
 export const LEGACY_KEY = "SupportTemplates_data";
 
 const strings = (v: unknown): string[] => Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string"))] : [];

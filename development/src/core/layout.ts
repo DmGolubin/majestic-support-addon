@@ -18,8 +18,6 @@ export const EDGE = 8;
 export const LIST_W = 360;
 /** Narrowest readable preview column next to the list. */
 export const PREVIEW_MIN = 360;
-/** Below this much room the preview cannot be a side column: compact mode. */
-export const SIDE_MIN = LIST_W + PREVIEW_MIN;
 /** Widest window in side mode (list + preview). */
 export const SIDE_MAX = 820;
 /** Window width in compact mode (the preview covers the list). */
