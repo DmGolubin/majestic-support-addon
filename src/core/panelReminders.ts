@@ -11,8 +11,15 @@ export type ReminderProject = "majestic" | "russia-online";
 export interface PanelNotificationSettings {
     version: string;
     discordEnabled: boolean;
-    thresholdSource: "telegram";
-    projects: { project: ReminderProject; personalReminderMinutes: number; telegramEnabled: boolean }[];
+    thresholdSource: "telegram" | "discord" | "mixed";
+    projects: {
+        project: ReminderProject;
+        personalReminderMinutes: number;
+        discordReminderMinutes: number | null;
+        effectiveReminderMinutes: number;
+        thresholdSource: "telegram" | "discord";
+        telegramEnabled: boolean;
+    }[];
 }
 
 export interface ReminderContext {
@@ -137,21 +144,37 @@ function timestamp(value: unknown): number {
     return ms;
 }
 
-/** Settings are read-only here. Telegram thresholds never determine a local reminderAt. */
+/** The server remains authoritative for reminderAt; these settings only configure its threshold. */
 export function parseNotificationSettings(raw: unknown): PanelNotificationSettings {
     const r = object(raw);
     const version = text(r.version);
     // Suitable for the parent's quoted If-Match header, without transforming the version.
-    if (!/^[\x21\x23-\x5b\x5d-\x7e]+$/.test(version) || r.thresholdSource !== "telegram") return invalid();
+    if (!/^[\x21\x23-\x5b\x5d-\x7e]+$/.test(version)
+        || !["telegram", "discord", "mixed"].includes(r.thresholdSource as string)) return invalid();
     const rows = list(r.projects, 2).map(value => {
         const row = object(value);
         if (typeof row.personalReminderMinutes !== "number" || !Number.isSafeInteger(row.personalReminderMinutes)
-            || row.personalReminderMinutes <= 0) return invalid();
+            || row.personalReminderMinutes <= 0 || typeof row.effectiveReminderMinutes !== "number"
+            || !Number.isSafeInteger(row.effectiveReminderMinutes) || row.effectiveReminderMinutes <= 0) return invalid();
+        const discordReminderMinutes = row.discordReminderMinutes;
+        if (discordReminderMinutes !== null && (typeof discordReminderMinutes !== "number"
+            || !Number.isSafeInteger(discordReminderMinutes) || discordReminderMinutes < 1 || discordReminderMinutes > 120)) return invalid();
+        const thresholdSource: "telegram" | "discord" = row.thresholdSource === "telegram" ? "telegram"
+            : row.thresholdSource === "discord" ? "discord" : invalid();
+        if (thresholdSource === "telegram") {
+            if (discordReminderMinutes !== null || row.effectiveReminderMinutes !== row.personalReminderMinutes) return invalid();
+        } else {
+            if (discordReminderMinutes === null || row.effectiveReminderMinutes !== discordReminderMinutes) return invalid();
+        }
         return { project: project(row.project), personalReminderMinutes: row.personalReminderMinutes,
+            discordReminderMinutes, effectiveReminderMinutes: row.effectiveReminderMinutes, thresholdSource,
             telegramEnabled: boolean(row.telegramEnabled) };
     });
     if (new Set(rows.map(row => row.project)).size !== rows.length) return invalid();
-    return { version, discordEnabled: boolean(r.discordEnabled), thresholdSource: "telegram", projects: rows };
+    const sources = new Set(rows.map(row => row.thresholdSource));
+    const thresholdSource: PanelNotificationSettings["thresholdSource"] = sources.size > 1 ? "mixed" : rows[0]?.thresholdSource ?? "telegram";
+    if (r.thresholdSource !== thresholdSource) return invalid();
+    return { version, discordEnabled: boolean(r.discordEnabled), thresholdSource, projects: rows };
 }
 
 /** All-or-nothing validation, including foreign assignments; never silently filter a bad snapshot. */

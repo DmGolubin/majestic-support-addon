@@ -19,7 +19,7 @@ const assigned = (overrides: Record<string, unknown> = {}) => ({
 });
 const settings = (overrides: Record<string, unknown> = {}) => ({
     version: "opaque-version", discordEnabled: true, thresholdSource: "telegram",
-    projects: [{ project: "majestic", personalReminderMinutes: 37, telegramEnabled: false }], ...overrides,
+    projects: [{ project: "majestic", personalReminderMinutes: 37, discordReminderMinutes: null, effectiveReminderMinutes: 37, thresholdSource: "telegram", telegramEnabled: false }], ...overrides,
 });
 const parse = (raw: unknown) => parseAssignedSnapshot(raw, ACCOUNT, ["majestic", "russia-online"]);
 function deferred<T>() {
@@ -68,6 +68,16 @@ describe("panel reminder wire parsers", () => {
         expect(parseNotificationSettings(settings({ discordEnabled: false })).projects[0].personalReminderMinutes).toBe(37);
     });
 
+    it("accepts a Discord override and derives a mixed root source from project rows", () => {
+        const telegram = settings().projects[0];
+        const discord = { project: "russia-online", personalReminderMinutes: 15, discordReminderMinutes: 7,
+            effectiveReminderMinutes: 7, thresholdSource: "discord", telegramEnabled: true };
+        expect(parseNotificationSettings(settings({ thresholdSource: "mixed", projects: [telegram, discord] })))
+            .toMatchObject({ thresholdSource: "mixed", projects: [telegram, discord] });
+        expect(parseNotificationSettings(settings({ thresholdSource: "discord", projects: [discord] })))
+            .toMatchObject({ thresholdSource: "discord", projects: [discord] });
+    });
+
     it.each([
         { thresholdSource: "discord" }, { version: 'bad"header' }, { version: "bad\r\nheader" },
         { discordEnabled: 1 }, { projects: [{ project: "eu", personalReminderMinutes: 15, telegramEnabled: true }] },
@@ -75,6 +85,10 @@ describe("panel reminder wire parsers", () => {
             projects: [{ project: "majestic", personalReminderMinutes, telegramEnabled: true }],
         })),
         { projects: [settings().projects[0], settings().projects[0]] },
+        { projects: [{ ...settings().projects[0], discordReminderMinutes: 7 }] },
+        { projects: [{ ...settings().projects[0], effectiveReminderMinutes: 7 }] },
+        { projects: [{ ...settings().projects[0], thresholdSource: "discord" }] },
+        { thresholdSource: "mixed" },
     ])("rejects malformed settings %j", override => {
         expect(() => parseNotificationSettings(settings(override))).toThrow();
     });

@@ -50,3 +50,9 @@
 
 .vc-stx-tickets .vc-stx-reminder-master { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 12px 0; }
 .vc-stx-tickets .vc-stx-ticket-project-note { margin: 0; color: var(--stx-mu); font-size: 12px; line-height: 1.5; }
+.vc-stx-reminder-interval { display: grid; gap: 8px; min-width: 0; padding: 10px 0; border-block: 1px solid var(--stx-bd); }
+.vc-stx-reminder-interval > label { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--stx-mu); font-size: 12px; }
+.vc-stx-settings .vc-stx-reminder-interval input[type=number] { box-sizing: border-box; width: 76px; min-height: 34px; padding: 6px 8px; border: 1px solid var(--stx-bd); border-radius: 4px; background: var(--stx-input); color: var(--stx-tx); font: inherit; font-variant-numeric: tabular-nums; }
+.vc-stx-reminder-interval-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.vc-stx-tickets .vc-stx-reminder-interval-actions > .vc-stx-btn { min-height: 34px; margin: 0; padding: 6px 8px; font-size: 12px; }
+.vc-stx-reminder-interval > small { line-height: 1.45; }

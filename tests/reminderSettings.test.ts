@@ -14,7 +14,8 @@ const text = (node: any): string => Array.isArray(node) ? node.map(text).join(""
 
 interface State {
     phase: "idle" | "permission" | "loading" | "ready" | "offline";
-    settings: { discordEnabled: boolean; projects: { project: "majestic" | "russia-online"; personalReminderMinutes: number; }[]; } | null;
+    settings: { discordEnabled: boolean; projects: { project: "majestic" | "russia-online"; personalReminderMinutes: number;
+        effectiveReminderMinutes: number; }[]; } | null;
     busy: boolean;
     error: string;
     deliveryError: string;
@@ -49,8 +50,8 @@ function harness(patch: Partial<State> = {}) {
 const settings = (discordEnabled = true): NonNullable<State["settings"]> => ({
     discordEnabled,
     projects: [
-        { project: "majestic", personalReminderMinutes: 5 },
-        { project: "russia-online", personalReminderMinutes: 15 },
+        { project: "majestic", personalReminderMinutes: 5, effectiveReminderMinutes: 5 },
+        { project: "russia-online", personalReminderMinutes: 15, effectiveReminderMinutes: 7 },
     ],
 });
 const checkbox = (tree: Node) => nodes(tree).find(n => n.type === "input" && n.props.type === "checkbox");
@@ -125,12 +126,12 @@ describe("reminder settings", () => {
         expect(h.refreshTicketReminders).not.toHaveBeenCalled();
     });
 
-    it("displays project thresholds as read-only Telegram settings", () => {
+    it("displays effective project thresholds with an explanation of the default", () => {
         const tree = harness({ phase: "ready", settings: settings() }).render();
-        expect(nodes(tree).filter(n => n.type === "li").map(text)).toEqual(["Majestic5 мин", "Россия Онлайн15 мин"]);
+        expect(nodes(tree).filter(n => n.type === "li").map(text)).toEqual(["Majestic5 мин", "Россия Онлайн7 мин"]);
         expect(nodes(tree).filter(n => n.type === "ProjectIcon").map(n => n.props.project)).toEqual(["mj", "ro"]);
-        expect(text(tree)).toContain("Порог меняется в Telegram.");
-        expect(text(tree)).toContain("Звук и громкость — отдельно для каждого сервера.");
+        expect(text(tree)).toContain("По умолчанию используется время Telegram.");
+        expect(text(tree)).toContain("Для каждого сервера можно задать отдельное время Discord.");
         expect(text(tree)).toContain("Только назначенные вам тикеты, где игрок ждёт ответа.");
         const controls = nodes(tree).filter(n => ["input", "select", "Select", "textarea", "button"].includes(n.type as string) || n.props.contentEditable);
         expect(controls).toHaveLength(1);
@@ -145,8 +146,8 @@ describe("reminder settings", () => {
         expect(nodes(tree).filter(n => n.type === "li" || n.props["aria-label"] === "Пороги личных напоминаний")).toHaveLength(0);
         expect(nodes(tree).indexOf(checkbox(tree)!)).toBeLessThan(nodes(tree).indexOf(children));
         expect(text(tree)).not.toContain("Общий переключатель для всех серверов");
-        expect(text(tree)).toContain("Порог меняется в Telegram.");
-        expect(text(tree)).toContain("Звук и громкость — отдельно для каждого сервера.");
+        expect(text(tree)).toContain("По умолчанию используется время Telegram.");
+        expect(text(tree)).toContain("Для каждого сервера можно задать отдельное время Discord.");
         expect(h.setDiscordReminders).not.toHaveBeenCalled();
         expect(h.refreshTicketReminders).not.toHaveBeenCalled();
         expect(h.authorizePanelReminders).not.toHaveBeenCalled();
@@ -163,7 +164,7 @@ describe("reminder settings", () => {
     it.each(["majestic", "russia-online"] as const)("keeps standalone thresholds limited to authorized %s", project => {
         const saved = settings(); saved.projects = saved.projects.filter(p => p.project === project);
         const tree = harness({ phase: "ready", settings: saved }).render();
-        expect(nodes(tree).filter(n => n.type === "li").map(text)).toEqual([project === "majestic" ? "Majestic5 мин" : "Россия Онлайн15 мин"]);
+        expect(nodes(tree).filter(n => n.type === "li").map(text)).toEqual([project === "majestic" ? "Majestic5 мин" : "Россия Онлайн7 мин"]);
         expect(nodes(tree).filter(n => n.type === "ProjectIcon").map(n => n.props.project)).toEqual([project === "majestic" ? "mj" : "ro"]);
     });
 

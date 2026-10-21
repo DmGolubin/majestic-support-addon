@@ -18,8 +18,8 @@ const otherAccountId = "222222222222222222";
 const settings = (discordEnabled = true, version = "settings-v1"): PanelNotificationSettings => ({
     version, discordEnabled, thresholdSource: "telegram",
     projects: [
-        { project: "majestic", personalReminderMinutes: 5, telegramEnabled: true },
-        { project: "russia-online", personalReminderMinutes: 15, telegramEnabled: false },
+        { project: "majestic", personalReminderMinutes: 5, discordReminderMinutes: null, effectiveReminderMinutes: 5, thresholdSource: "telegram", telegramEnabled: true },
+        { project: "russia-online", personalReminderMinutes: 15, discordReminderMinutes: null, effectiveReminderMinutes: 15, thresholdSource: "telegram", telegramEnabled: false },
     ],
 });
 const idle = { phase: "idle", settings: null, busy: false, error: "", deliveryError: "" };
@@ -65,8 +65,22 @@ interface Runtime {
     syncTicketReminders(binding: Binding): void;
     refreshTicketReminders(): Promise<void>;
     setDiscordReminders(enabled: boolean): Promise<void>;
+    setDiscordReminderMinutes(project: "majestic" | "russia-online", minutes: number | null): Promise<void>;
     stopTicketReminders(): void;
     invalidateTicketReminders(event?: string): void;
+}
+
+function settingsWithOverride(project: "majestic" | "russia-online", minutes: number | null, version = "settings-v2") {
+    const value = settings(true, version);
+    value.projects = value.projects.map(row => row.project === project ? {
+        ...row,
+        discordReminderMinutes: minutes,
+        effectiveReminderMinutes: minutes ?? row.personalReminderMinutes,
+        thresholdSource: minutes === null ? "telegram" : "discord",
+    } : row);
+    const sources = new Set(value.projects.map(row => row.thresholdSource));
+    value.thresholdSource = sources.size > 1 ? "mixed" : value.projects[0]?.thresholdSource ?? "telegram";
+    return value;
 }
 type EngineOptions = ReminderOptions;
 const cleanups: (() => void)[] = [];
@@ -452,6 +466,24 @@ describe("ticket reminder adapter", () => {
         if (enabled) expect(h.running()).toHaveLength(1);
         expect(h.playTicketReminder).not.toHaveBeenCalled();
         expect(h.storage.set).not.toHaveBeenCalled();
+    });
+
+    it.each([7, null])("PATCHes a project Discord interval of %s and keeps reminder delivery verified", async minutes => {
+        const h = harness();
+        const initial = minutes === null ? settingsWithOverride("majestic", 7, "opaque-v7") : settings(true, "opaque-v7");
+        await h.ready(initial);
+        h.prepareTicketSound.mockClear(); h.stopTicketReminderSound.mockClear();
+        h.client.mutate.mockResolvedValueOnce(settingsWithOverride("majestic", minutes, "opaque-v8"));
+        await h.setDiscordReminderMinutes("majestic", minutes);
+        expect(h.client.mutate).toHaveBeenCalledExactlyOnceWith({
+            path: "/notification-settings", method: "PATCH", version: "opaque-v7",
+            body: { projects: [{ project: "majestic", discordReminderMinutes: minutes }] },
+        }, expect.any(Function));
+        expect(h.state()).toMatchObject({ phase: "ready", busy: false,
+            settings: settingsWithOverride("majestic", minutes, "opaque-v8") });
+        expect(h.running()).toHaveLength(1);
+        expect(h.prepareTicketSound).not.toHaveBeenCalled();
+        expect(h.stopTicketReminderSound).not.toHaveBeenCalled();
     });
 
     it.each([

@@ -23,22 +23,27 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
     const state = { options: soundCore.readTicketSound({ ...defaultTicketSound(), ...patch }), loaded: true, testing: false, playing: false, playbackStatus: "", canReset: false, error: "", customName: "", loadingSound: false, channelAudio: {} as Record<string, Audio>, reminderAudio: {} as Partial<Record<soundCore.ReminderSoundProject, Audio>> };
     const reminders: {
         phase: "idle" | "permission" | "loading" | "ready" | "offline";
-        settings: { discordEnabled: boolean; projects: { project: soundCore.ReminderSoundProject; personalReminderMinutes: number; }[]; } | null;
+        settings: { version: string; discordEnabled: boolean; projects: { project: soundCore.ReminderSoundProject;
+            personalReminderMinutes: number; discordReminderMinutes: number | null; effectiveReminderMinutes: number; thresholdSource: "telegram" | "discord"; }[]; } | null;
         busy: boolean; error: string; deliveryError: string;
-    } = { phase: "ready", settings: { discordEnabled: true, projects: [
-        { project: "majestic", personalReminderMinutes: 5 },
-        { project: "russia-online", personalReminderMinutes: 15 },
+    } = { phase: "ready", settings: { version: "settings-v1", discordEnabled: true, projects: [
+        { project: "majestic", personalReminderMinutes: 5, discordReminderMinutes: null, effectiveReminderMinutes: 5, thresholdSource: "telegram" },
+        { project: "russia-online", personalReminderMinutes: 15, discordReminderMinutes: 7, effectiveReminderMinutes: 7, thresholdSource: "discord" },
     ] }, busy: false, error: "", deliveryError: "" };
     const channels = new Map<string, { name?: string; guild_id?: string; }>();
     const ChannelStore = { getChannel: (id: string) => channels.get(id) };
-    let previewLabel: unknown = null;
-    const useState = (initial: unknown) => [previewLabel ?? initial, (value: unknown) => { previewLabel = value; }];
+    const hookState: unknown[] = []; let hookIndex = 0;
+    const useState = (initial: unknown) => {
+        const index = hookIndex++;
+        if (!(index in hookState)) hookState[index] = initial;
+        return [hookState[index], (value: unknown) => { hookState[index] = typeof value === "function" ? (value as Function)(hookState[index]) : value; }];
+    };
     const useStateFromStores = vi.fn((_stores, read: () => unknown) => read());
     const setTicketSound = vi.fn(), testTicketSound = vi.fn(), setChannelTicketSound = vi.fn();
     const chooseTicketSound = vi.fn(), resetTicketSound = vi.fn();
     const setReminderTicketSound = vi.fn(), chooseReminderSound = vi.fn(), resetReminderSound = vi.fn(), testReminderSound = vi.fn();
     const previewTicketReminderNotification = vi.fn();
-    const setDiscordReminders = vi.fn(), refreshTicketReminders = vi.fn(), authorizePanelReminders = vi.fn();
+    const setDiscordReminders = vi.fn(), setDiscordReminderMinutes = vi.fn(), refreshTicketReminders = vi.fn(), authorizePanelReminders = vi.fn();
     const retryTicketSoundSettings = vi.fn();
     const stopTicketSoundPlayback = vi.fn();
     const dependencies: Record<string, unknown> = {
@@ -50,7 +55,7 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
         "./ProjectIcon": { ProjectIcon: "ProjectIcon" },
         "./svg": { IconBell: "IconBell" },
         "./panel": { authorizePanelReminders },
-        "./ticketReminders": { ticketRemindersState: { use: () => reminders }, setDiscordReminders, refreshTicketReminders, previewTicketReminderNotification },
+        "./ticketReminders": { ticketRemindersState: { use: () => reminders }, setDiscordReminders, setDiscordReminderMinutes, refreshTicketReminders, previewTicketReminderNotification },
         "./ticketSound": { ticketSoundState: { use: () => state }, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound },
     };
     const context = {
@@ -66,7 +71,7 @@ function harness(patch: Partial<TicketSoundOptions> = {}) {
     dependencies["./ReminderSettings"] = reminderExports;
     const exports: any = {};
     runInNewContext(code, { ...context, exports });
-    return { state, reminders, previewTicketReminderNotification, channels, ChannelStore, useStateFromStores, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound, setDiscordReminders, refreshTicketReminders, authorizePanelReminders, render: () => exports.TicketSettings() };
+    return { state, reminders, previewTicketReminderNotification, channels, ChannelStore, useStateFromStores, setTicketSound, setChannelTicketSound, testTicketSound, chooseTicketSound, resetTicketSound, retryTicketSoundSettings, stopTicketSoundPlayback, setReminderTicketSound, chooseReminderSound, resetReminderSound, testReminderSound, setDiscordReminders, setDiscordReminderMinutes, refreshTicketReminders, authorizePanelReminders, render: () => { hookIndex = 0; return exports.TicketSettings(); } };
 }
 
 describe("A24 ticket and personal reminder audio settings", () => {
@@ -80,7 +85,7 @@ describe("A24 ticket and personal reminder audio settings", () => {
         const h = harness(); const tree = h.render();
         expect(text(tree)).toContain("не только назначенные вам");
         expect(text(tree)).toContain("Только назначенные вам тикеты");
-        expect(text(tree)).toContain("Звук и громкость — отдельно для каждого сервера.");
+        expect(text(tree)).toContain("Для каждого сервера можно задать отдельное время Discord.");
         expect(fields(h)).toHaveLength(4);
         expect(nodes(tree).filter(n => n.type === "section" && n.props["aria-label"] === "Личные напоминания")).toHaveLength(1);
         expect(nodes(tree).filter(n => n.type === "input" && n.props.type === "file")).toHaveLength(4);
@@ -205,7 +210,7 @@ describe("A24 ticket and personal reminder audio settings", () => {
         expect(h.stopTicketSoundPlayback).toHaveBeenCalledOnce();
     });
 
-    it.each(["majestic", "russia-online"] as const)("routes every local personal control independently for %s, without writing API thresholds", project => {
+    it.each(["majestic", "russia-online"] as const)("routes every personal control and Discord interval independently for %s", project => {
         const h = harness({ reminders: {
             majestic: { enabled: false, volume: 23 },
             "russia-online": { enabled: true, volume: 67 },
@@ -218,8 +223,9 @@ describe("A24 ticket and personal reminder audio settings", () => {
         const personal = fields(h)[project === "majestic" ? 2 : 3];
         expect(checks(personal)[0].props.checked).toBe(project === "russia-online");
         expect(range(personal).props.value).toBe(project === "majestic" ? 23 : 67);
-        expect(text(personal)).toContain(project === "majestic" ? "5 мин" : "15 мин");
-        expect(nodes(personal).filter(n => ["select", "Select", "textarea"].includes(n.type as string) || n.props.type === "number" || n.props.contentEditable)).toHaveLength(0);
+        expect(text(personal)).toContain(project === "majestic" ? "5 мин" : "7 мин");
+        const minutes = nodes(personal).find(n => n.type === "input" && n.props.type === "number")!;
+        expect(minutes.props.value).toBe(project === "majestic" ? "5" : "7");
         checks(personal)[0].props.onChange({ currentTarget: { checked: project === "majestic" } });
         range(personal).props.onChange({ currentTarget: { value: "42" } });
         const file = { name: `${project}-new.wav` };
@@ -227,6 +233,15 @@ describe("A24 ticket and personal reminder audio settings", () => {
         picker(personal).props.onChange({ currentTarget });
         button(personal, "Вернуть стандартный").props.onClick();
         button(personal, "Проверить звук").props.onClick();
+        if (project === "majestic") {
+            minutes.props.onChange({ currentTarget: { value: "9" } });
+            const updated = fields(h)[2];
+            button(updated, "Сохранить").props.onClick();
+            expect(h.setDiscordReminderMinutes).toHaveBeenCalledExactlyOnceWith("majestic", 9);
+        } else {
+            button(personal, "Как в Telegram").props.onClick();
+            expect(h.setDiscordReminderMinutes).toHaveBeenCalledExactlyOnceWith("russia-online", null);
+        }
         expect(currentTarget.value).toBe("");
         expect(h.setReminderTicketSound.mock.calls).toEqual([[project, { enabled: project === "majestic" }], [project, { volume: 42 }]]);
         expect(h.chooseReminderSound).toHaveBeenCalledExactlyOnceWith(file, project);

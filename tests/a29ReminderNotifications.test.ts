@@ -146,7 +146,7 @@ describe("A29 custom reminder cards", () => {
         const navigate = vi.fn(() => true);
         const client = { connectionId: "session-A", get: vi.fn(async (path: string) => {
             if (path === "/notification-settings") return { version: "settings-1", thresholdSource: "telegram", discordEnabled: true,
-                projects: [{ project: "majestic", personalReminderMinutes: 5, telegramEnabled: true }] };
+                projects: [{ project: "majestic", personalReminderMinutes: 5, discordReminderMinutes: null, effectiveReminderMinutes: 5, thresholdSource: "telegram", telegramEnabled: true }] };
             return { accountId, revision: "snapshot", serverTime: new Date(Date.now()).toISOString(), checkedAt: new Date(Date.now()).toISOString(),
                 maxAgeSeconds: 75, discordEnabled: true, tickets: ["first", "second"].map((ticketId, index) => ({
                     ...target, ticketId, channelId: String(BigInt(target.channelId) + BigInt(index)), assigneeAccountId: accountId,

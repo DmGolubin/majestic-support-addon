@@ -18,8 +18,8 @@ const otherAccountId = "222222222222222222";
 const settings = (discordEnabled = true, version = "settings-v1"): PanelNotificationSettings => ({
     version, discordEnabled, thresholdSource: "telegram",
     projects: [
-        { project: "majestic", personalReminderMinutes: 5, telegramEnabled: true },
-        { project: "russia-online", personalReminderMinutes: 15, telegramEnabled: false },
+        { project: "majestic", personalReminderMinutes: 5, discordReminderMinutes: null, effectiveReminderMinutes: 5, thresholdSource: "telegram", telegramEnabled: true },
+        { project: "russia-online", personalReminderMinutes: 15, discordReminderMinutes: null, effectiveReminderMinutes: 15, thresholdSource: "telegram", telegramEnabled: false },
     ],
 });
 const idle = { phase: "idle", settings: null, busy: false, error: "", deliveryError: "" };

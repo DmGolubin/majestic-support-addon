@@ -19,7 +19,7 @@ export interface PanelMutation {
     version?: string;
 }
 
-/** Writes are limited to the personal library and the Discord delivery switch. */
+/** Writes are limited to the personal library and Discord reminder settings. */
 export function panelMutationScope(request: PanelMutation): "personal:write" | "folders:write" | "notifications:settings:write" {
     const notifications = request.path === "/notification-settings";
     const create = /^\/(personal-templates|folders)$/.exec(request.path);
@@ -35,8 +35,23 @@ export function panelMutationScope(request: PanelMutation): "personal:write" | "
     else {
         const body = request.body as Record<string, unknown>;
         if (notifications) {
-            if (Object.keys(body).length !== 1 || !Object.prototype.hasOwnProperty.call(body, "discordEnabled")
-                || typeof body.discordEnabled !== "boolean") return invalid();
+            const keys = Object.keys(body);
+            if (!keys.length || keys.some(key => !["discordEnabled", "projects"].includes(key))
+                || ("discordEnabled" in body && typeof body.discordEnabled !== "boolean")) return invalid();
+            if ("projects" in body) {
+                if (!Array.isArray(body.projects) || body.projects.length < 1 || body.projects.length > 2) return invalid();
+                const seen = new Set<string>();
+                for (const value of body.projects) {
+                    if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
+                    const row = value as Record<string, unknown>;
+                    if (Object.keys(row).length !== 2 || !Object.prototype.hasOwnProperty.call(row, "project")
+                        || !Object.prototype.hasOwnProperty.call(row, "discordReminderMinutes")
+                        || !["majestic", "russia-online"].includes(row.project as string) || seen.has(row.project as string)) return invalid();
+                    const minutes = row.discordReminderMinutes;
+                    if (minutes !== null && (!Number.isSafeInteger(minutes) || (minutes as number) < 1 || (minutes as number) > 120)) return invalid();
+                    seen.add(row.project as string);
+                }
+            }
             return "notifications:settings:write";
         }
         const folder = (create?.[1] ?? entry?.[1]) === "folders";

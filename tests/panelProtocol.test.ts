@@ -13,8 +13,14 @@ const tokens = { access_token: "test-access", refresh_token: "test-refresh", tok
 
 describe("notification settings mutation boundary", () => {
     const request: PanelMutation = { path: "/notification-settings", method: "PATCH", version: "opaque-v1", body: { discordEnabled: true } };
-    it.each([true, false])("permits only the versioned Discord delivery switch: %s", discordEnabled => {
+    it.each([true, false])("permits the versioned Discord delivery switch: %s", discordEnabled => {
         expect(panelMutationScope({ ...request, body: { discordEnabled } })).toBe("notifications:settings:write");
+    });
+    it.each([7, null])("permits a project Discord interval of %s", discordReminderMinutes => {
+        expect(panelMutationScope({ ...request, body: { projects: [{ project: "majestic", discordReminderMinutes }] } }))
+            .toBe("notifications:settings:write");
+        expect(panelMutationScope({ ...request, body: { discordEnabled: true,
+            projects: [{ project: "russia-online", discordReminderMinutes }] } })).toBe("notifications:settings:write");
     });
     it.each([
         { method: "POST" }, { method: "DELETE" }, { path: "/tickets/assigned" }, { path: "/notification-settings/1" },
@@ -25,6 +31,12 @@ describe("notification settings mutation boundary", () => {
         { body: { discordEnabled: true, slow_reply_interval: 5 } },
         { body: { discordEnabled: true, thresholdSource: "telegram" } },
         { body: { discordEnabled: true, projects: [] } },
+        { body: { projects: [{ project: "majestic", discordReminderMinutes: 0 }] } },
+        { body: { projects: [{ project: "majestic", discordReminderMinutes: 121 }] } },
+        { body: { projects: [{ project: "majestic", discordReminderMinutes: 7.5 }] } },
+        { body: { projects: [{ project: "eu", discordReminderMinutes: 7 }] } },
+        { body: { projects: [{ project: "majestic", discordReminderMinutes: 7, extra: true }] } },
+        { body: { projects: [{ project: "majestic", discordReminderMinutes: 7 }, { project: "majestic", discordReminderMinutes: null }] } },
     ])("rejects unsupported writes %j", patch => {
         expect(() => panelMutationScope({ ...request, ...patch } as PanelMutation)).toThrow();
     });
