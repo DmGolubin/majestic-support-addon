@@ -1,0 +1,77 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+import ErrorBoundary from "@components/ErrorBoundary";
+import { useState } from "@webpack/common";
+
+import { toast } from "../platform";
+import { ContextMenu } from "./ContextMenu";
+import { debugState, dlog, setDebugEnabled } from "./debug";
+import { DebugPanel } from "./DebugPanel";
+import { demo } from "./demo";
+import { DemoBanner } from "./DemoBanner";
+import { Dialogs, idOf } from "./Dialogs";
+import { supersede } from "./flow";
+import { Inline } from "./InlinePop";
+import { LoginWindow } from "./LoginWindow";
+import { Management } from "./Management";
+import { panel } from "./panel";
+import { ReminderNotifications } from "./ReminderNotifications";
+import { clearReminderNotifications } from "./reminderNoticeStore";
+import { ui, UiState } from "./uiState";
+import { Window } from "./Window";
+
+// Each part has its own ErrorBoundary: a UI error never breaks Discord's chat input. On error the
+// part's state is reset and the boundary remounts (new key), so the next open works again.
+const RESET: Record<string, () => Partial<UiState>> = {
+    management: () => ({ management: false }),
+    window: () => ({ windowOpen: false }),
+    inline: () => ({ inline: null }),
+    menu: () => ({ menu: null }),
+    dialog: () => { supersede(); return { dialog: null }; },
+    // The debug panel is not essential: after an error it is switched off (until re-enabled in the settings),
+    // a snapshot that keeps throwing would otherwise remount and fail again in a loop.
+    debug: () => { setDebugEnabled(false); return {}; },
+    reminders: () => { clearReminderNotifications(); return {}; },
+};
+
+export function Host() {
+    const demoLogin = demo.useSelect(d => d.enabled ? d.phase !== "ready" : !d.localMode);
+    const p = panel.use();
+    const login = p.enabled ? p.phase !== "ready" : demoLogin;
+    const management = ui.useSelect(s => s.management);
+    const windowOpen = ui.useSelect(s => s.windowOpen);
+    const dialog = ui.useSelect(s => s.dialog);
+    const debugOn = debugState.useSelect(s => s.on);
+    const [gen, setGen] = useState<Record<string, number>>({});
+    const safe = (part: string, node: React.ReactNode, key: string | number = "") => (
+        <ErrorBoundary
+            key={`${part}-${gen[part] ?? 0}-${key}`}
+            noop
+            onError={({ error }) => {
+                console.error("[SupportTemplates] UI error in " + part, error);
+                dlog("error", { where: "ErrorBoundary:" + part, msg: String((error as any)?.message ?? error) });
+                ui.set(RESET[part]());
+                toast("Ошибка интерфейса шаблонов — подробности в консоли", "failure");
+                setGen(g => ({ ...g, [part]: (g[part] ?? 0) + 1 }));
+            }}
+        >{node}</ErrorBoundary>
+    );
+    return (
+        <div className="vc-stx-root">
+            <DemoBanner />
+            {windowOpen && safe("window", login ? <LoginWindow /> : <Window connectionNotice={p.stale
+                ? "Панель недоступна. Используем загруженные шаблоны, связь восстановится автоматически."
+                : ""} />)}
+            {safe("inline", <Inline />)}
+            {safe("menu", <ContextMenu />)}
+            {safe("dialog", <Dialogs />, dialog ? idOf(dialog) : 0)}
+            {debugOn && safe("debug", <DebugPanel />)}
+            {management && safe("management", <Management />)}
+            {safe("reminders", <ReminderNotifications />)}
+        </div>
+    );
+}
